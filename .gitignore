@@ -1,0 +1,68 @@
+# .gitignore — ArbiCore X canonical repo
+
+# --- environment secrets (real, not templates) ---
+.env
+.env.*
+!.env.example
+!.env.production.example
+!.env.development.example
+!deployment/compose/.env.shared.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# --- Node / frontend build state ---
+node_modules/
+build/
+dist/
+.vite/
+.next/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Operational runtime artefacts ---
+# These get created on a live host by scripts/deployment tooling.
+# They must never be committed.
+backups/
+evidence/
+logs/
+
+# --- Credentials & keys ---
+*token.json*
+*credentials.json*
+*.pem
+*.key
+credentials.json
+
+# --- IDE / editor state ---
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- OS / archive noise ---
+*.log
+*.pack
+*.deb
+*.dylib
+
+# --- Historical release artefacts (canonical does not ship them) ---
+release_bundle/
+*.tar.gz
+*.tgz
+*.zip
+*.SHASUMS

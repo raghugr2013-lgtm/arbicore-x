@@ -1,0 +1,28 @@
+{
+  "name": "arbicore-opportunity-center",
+  "private": true,
+  "version": "0.1.0-phase1",
+  "type": "module",
+  "description": "ArbiCore X — Opportunity Center (operator UI). Read-only. Separate artefact from the frozen UIC frontend.",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3100",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 3100",
+    "lint": "eslint src --ext .js,.jsx"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.51.23",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.2",
+    "recharts": "^2.12.7",
+    "lucide-react": "^0.439.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.45",
+    "tailwindcss": "^3.4.10",
+    "vite": "^5.4.6"
+  }
+}

@@ -1,0 +1,34 @@
+# .gitattributes — enforce line endings so Windows checkouts don't break shell scripts / Docker builds
+
+# Default: treat as text, normalize to LF on commit, LF on checkout everywhere
+* text=auto eol=lf
+
+# Explicit LF for anything that MUST have Unix line endings
+*.sh              text eol=lf
+*.py              text eol=lf
+*.yml             text eol=lf
+*.yaml            text eol=lf
+*.conf            text eol=lf
+*.md              text eol=lf
+*.js              text eol=lf
+*.jsx             text eol=lf
+*.ts              text eol=lf
+*.tsx             text eol=lf
+*.json            text eol=lf
+*.css             text eol=lf
+*.html            text eol=lf
+*.template        text eol=lf
+Dockerfile        text eol=lf
+Makefile          text eol=lf
+*.example         text eol=lf
+
+# Binary — never touch
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.ico    binary
+*.woff   binary
+*.woff2  binary
+*.eot    binary
+*.ttf    binary

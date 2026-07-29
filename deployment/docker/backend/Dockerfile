@@ -1,0 +1,54 @@
+# ArbiCore X — Production Backend Dockerfile
+# Pinned baseline (matches audit doc 13 §1): Python 3.11-slim, FastAPI 0.110.1, Motor 3.3.1.
+# Non-root runtime user (uid 1001). No secrets in image — .env mounted at runtime via env_file.
+# Provenance labels (arbicore.gitsha, arbicore.schema) applied at build time.
+#
+# Build context: the ArbiCore X `backend/` source tree from `app/backend/`.
+# The greenfield compose passes GITSHA + IMAGE_TAG as build args.
+
+FROM python:3.11-slim AS runtime
+
+ARG GITSHA=unknown
+ARG SCHEMA=v1
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Minimal OS deps: curl for the compose healthcheck; build-essential purged after pip install.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends curl ca-certificates build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install Python deps first for a cacheable layer. We COPY the production requirements
+# (which the greenfield build stages into ./requirements.txt) — this file NEVER contains
+# emergentintegrations or litellm or any dev-only tooling.
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt \
+ && apt-get purge -y build-essential \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/*
+
+# Copy the audited backend source. .dockerignore excludes .env, caches, .git.
+COPY . /app
+
+# Non-root runtime user.
+RUN useradd --create-home --shell /bin/bash --uid 1001 arbicore \
+ && chown -R arbicore:arbicore /app
+USER arbicore
+
+EXPOSE 8001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+  CMD curl -fs http://localhost:8001/api/ || exit 1
+
+# Provenance labels — read by the deployment manifest.
+LABEL arbicore.gitsha=${GITSHA} \
+      arbicore.schema=${SCHEMA} \
+      arbicore.role=backend
+
+# server.py uses load_dotenv(ROOT_DIR/.env) — .env is mounted at run time via env_file.
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]

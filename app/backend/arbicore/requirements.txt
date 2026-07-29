@@ -1,0 +1,6 @@
+# ArbiCore X foundation — runtime dependency for the arbicore package.
+# The library itself depends only on Pydantic v2 + the Python standard library.
+pydantic>=2.0,<3.0
+
+# --- test-only (not required at runtime) ---
+# pytest>=8.0

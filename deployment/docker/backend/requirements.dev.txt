@@ -1,0 +1,32 @@
+# -----------------------------------------------------------------------------
+# ArbiCore X — Development Python requirements
+# -----------------------------------------------------------------------------
+# Superset of requirements.prod.txt: adds test, lint, type-check, format tools.
+# Install with: pip install -r requirements.dev.txt
+# -----------------------------------------------------------------------------
+
+-r requirements.prod.txt
+
+# --- Test runner ---
+iniconfig==2.3.0
+pluggy==1.6.0
+pytest==9.0.3
+
+# --- Lint + format ---
+black==26.5.1
+click==8.4.1
+flake8==7.3.0
+isort==8.0.1
+mccabe==0.7.0
+pathspec==1.1.1
+platformdirs==4.10.0
+pycodestyle==2.14.0
+pyflakes==3.4.0
+
+# --- Type check ---
+mypy==2.1.0
+mypy_extensions==1.1.0
+
+# --- Emergent / LLM (development only — do NOT bundle in prod image) ---
+emergentintegrations==0.2.0
+litellm @ https://customer-assets.emergentagent.com/internal-asset/library/litellm-1.80.0-py3-none-any.whl#sha256=adf398c513273de9341f61822296c6b2145f7f2dc4a69daf3ac04829f5bde3f8

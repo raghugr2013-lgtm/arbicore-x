@@ -1,0 +1,141 @@
+{
+  "_schema": {
+    "description": "ArbiCore X \u2014 Launch Intelligence curated wallet list. REUSE WITH REFINEMENT of GemHunter Pro `curated_wallets.json` (Operator Decision 4: lift verbatim, mark rug_wallet entries as advisory). Edits take effect on next backend restart or on the future POST /api/arbicore/scanners/launch_arb/labels/reload (lands D-4.6).",
+    "valid_labels": [
+      "smart_money",
+      "influencer",
+      "sniper",
+      "whale",
+      "retail_fomo",
+      "rug_wallet"
+    ],
+    "wallet_record": {
+      "address": "<base58 Solana address>",
+      "chain": "solana",
+      "label": "one of valid_labels",
+      "notes": "optional human-readable provenance"
+    },
+    "advisory_only_labels": {
+      "rug_wallet": "Rug wallets cycle addresses frequently; entries are heuristic-only. Runtime survival analytics owns actual rug detection at the verifier layer (D-4.4)."
+    }
+  },
+  "_real_seed_metadata": {
+    "installed_iso": "2026-06-23T08:35:00Z",
+    "installed_by": "operator_wave1_curated_via_main_agent_pipeline",
+    "wave": "wave_1_validation",
+    "purpose": "First validation shadow window seed \u2014 operator-curated via Birdeye (smart_money + relaxed-whale) and Arkham (influencer entities)",
+    "operator_authorisation": "approved 2026-06-23 \u2014 execute documented \u00a76 pipeline; do not start shadow window",
+    "counts": {
+      "smart_money": 10,
+      "whale": 3,
+      "influencer": 3,
+      "total": 16
+    },
+    "is_smart_money_counting": 13,
+    "sources": {
+      "smart_money": "birdeye 7d PnL leaderboard",
+      "whale": "birdeye relaxed-whale (high-PnL proxy for wave-1 validation; semantic looseness documented per discussion)",
+      "influencer": "Arkham Intelligence entity tags (Wintermute / Multicoin Capital / Delphi Digital)"
+    },
+    "replaces": "16-row Subset B synthetic pilot (label_source='curated', metadata=_subset_b_pilot_metadata)",
+    "anti_pattern_filter": "passed (no burns, no program IDs, no duplicates, all format-regex-valid)"
+  },
+  "wallets": [
+    {
+      "address": "94SNzaYenw8QximymQEZZYyFqfu49x9DeUQQPdfCNWtx",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$262.56K_winrate=1.0000_slot=SM-01"
+    },
+    {
+      "address": "D3zbRTT8M1fB6z78kjMi8YmjeftcLreysFCsEb9biS9x",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$789.49K_winrate=0.8598_slot=SM-02"
+    },
+    {
+      "address": "5d8tDay1ZDV4XVUBtTvFvQiLxDe8dz2ZCdsrkmTDcbm5",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$4.83M_winrate=0.9746_slot=SM-03"
+    },
+    {
+      "address": "SupRAxJybdbv68r1PDXDq9LWKgdzLsmPwiyj41RM5SF",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$350.66K_winrate=0.7777_slot=SM-04"
+    },
+    {
+      "address": "F6Fh9BjBXb1GyacHto4cwqcKF4K4xK8SwEyDv9Ayp8j9",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$93.62K_winrate=0.6572_slot=SM-05"
+    },
+    {
+      "address": "2o8UXRk7iwaaW36FGNvMTxbUctftnRcYvrKwA13Mdj2K",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$284.15K_winrate=0.6666_slot=SM-06"
+    },
+    {
+      "address": "5V676H2Th83MycbJQ1JuL3f8GCCf6WDDVY2qY8Tj9zFb",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$1.3M_winrate=0.5707_slot=SM-07"
+    },
+    {
+      "address": "48jP7ynu3AjEiV7Tvg2k8QUReJoRDEq3moz6yBN6zpcm",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$57.16K_winrate=0.6128_slot=SM-08"
+    },
+    {
+      "address": "H8KTT1e3F4u9Mw4cn4byAS4Uv1LZJv7QRDr46UPKAMe7",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$512.33K_winrate=0.6472_slot=SM-09"
+    },
+    {
+      "address": "5HP4BSpT3CnR7jt9j3na8aVDLXewBZNpEz5guAt1PKd3",
+      "chain": "solana",
+      "label": "smart_money",
+      "notes": "birdeye:wave1:pnl=+$110.54K_winrate=0.6047_slot=SM-10"
+    },
+    {
+      "address": "HXRDCrbz8a6LKYMTchMZgT73rq9nm286AJ7kiQaimbot",
+      "chain": "solana",
+      "label": "whale",
+      "notes": "birdeye:wave1_relaxed_whale:pnl=+$64.39K_winrate=0.5454_slot=WH-01"
+    },
+    {
+      "address": "Ggb7o1osAQjv4PrAaFzF9UKRW9qYkfCtSZs56BgcAffa",
+      "chain": "solana",
+      "label": "whale",
+      "notes": "birdeye:wave1_relaxed_whale:pnl=+$89.2K_winrate=0.5903_slot=WH-02"
+    },
+    {
+      "address": "nYj2BwL4s5bPhxUo4zGttKHBh2rdmoECsiWRTjQtLwz",
+      "chain": "solana",
+      "label": "whale",
+      "notes": "birdeye:wave1_relaxed_whale:pnl=+$28.84K_winrate=0.6111_slot=WH-03"
+    },
+    {
+      "address": "0x51C72848c68a965f66FA7a88855F9f7784502a7F",
+      "chain": "ethereum",
+      "label": "influencer",
+      "notes": "arkm/Wintermute:wave1:verified_2026-06-22_slot=IN-01"
+    },
+    {
+      "address": "0x9db8CB8dDeC721Aa2Ec51E5417AF862132e7Ba08",
+      "chain": "ethereum",
+      "label": "influencer",
+      "notes": "arkm/Multicoin Capital:wave1:verified_2026-06-22_slot=IN-02"
+    },
+    {
+      "address": "0xb39AF4319453d8Fb9c40084E7C06c098e9B61ecd",
+      "chain": "ethereum",
+      "label": "influencer",
+      "notes": "arkm/Delphi Digital:wave1:verified_2026-06-22_slot=IN-03"
+    }
+  ]
+}

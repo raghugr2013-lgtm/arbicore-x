@@ -1,0 +1,256 @@
+# ArbiCore X — Production docker-compose (greenfield install, default profile)
+# 6 services: mongo, backend, frontend, opportunity_center, nginx (reverse proxy), certbot.
+# Interpolation values come from the repo-root `.env` (see .env.example).
+# NO hard-coded domain, key, or path — everything domain-scoped uses ${DOMAIN}.
+#
+# Non-negotiable invariants:
+#   * Mongo bind-mounts a NAMED VOLUME (arbicore-x-mongo-data), never a fresh host dir.
+#   * Backend + frontends do not publish ports to host; TLS terminates at nginx.
+#   * Every service ships a healthcheck and resource limits.
+#   * json-file log driver capped (100 MB x 5 files per service).
+#   * labels.json bind-mounted read-only from app/backend/.
+#
+# See docs/INSTALL.md for the operator flow.
+
+x-log-defaults: &log-defaults
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "5"
+
+x-restart-defaults: &restart unless-stopped
+
+services:
+  # ---------------------------------------------------------------------------
+  # MongoDB - persistent data store.
+  # Default image mongo:4.4 (no AVX requirement). Override via .env for AVX
+  # hosts: MONGO_IMAGE=mongo:7.0
+  # pymongo 4.6 / motor 3.3 support 4.0-7.0 without code changes.
+  # ---------------------------------------------------------------------------
+  mongo:
+    image: ${MONGO_IMAGE:-mongo:4.4}
+    container_name: arbicore-x-mongo
+    restart: *restart
+    command: ["mongod", "--bind_ip_all", "--quiet"]
+    volumes:
+      - arbicore-x-mongo-data:/data/db
+    networks:
+      - arbicore-x-net
+    healthcheck:
+      test: ["CMD", "sh", "-c", "mongosh --quiet --eval \"db.adminCommand('ping').ok\"\
+            \ 2>/dev/null || mongo --quiet --eval \"db.adminCommand('ping').ok\""]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    logging: *log-defaults
+    labels:
+      arbicore.role: mongo
+
+  # ---------------------------------------------------------------------------
+  # Backend - FastAPI on :8001. Depends on Mongo healthy.
+  # env_file provides secrets at runtime; NEVER baked into the image.
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ../../app/backend
+      dockerfile: ../../deployment/docker/backend/Dockerfile
+      args:
+        GITSHA: ${GITSHA:-unknown}
+        SCHEMA: v1
+    image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:1.0.0}
+    container_name: arbicore-x-backend
+    restart: *restart
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file: ../../.env
+    networks:
+      - arbicore-x-net
+    volumes:
+      # Curated wallet labels — bind-mount read-only so operators can hot-edit without rebuild.
+      - ../../app/backend/arbicore/intel/launch/labels.json:/app/arbicore/intel/launch/labels.json:ro
+      # Application logs.
+      - arbicore-x-logs:/var/log/arbicore-x
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8001/api/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    logging: *log-defaults
+    labels:
+      arbicore.role: backend
+      arbicore.gitsha: ${GITSHA:-unknown}
+      arbicore.schema: v1
+
+  # ---------------------------------------------------------------------------
+  # Operator terminal UI - CRA build behind nginx-alpine static server.
+  # REACT_APP_BACKEND_URL is BAKED at build time (compiled into the JS bundle).
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/frontend/Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:-https://localhost}
+        GITSHA: ${GITSHA:-unknown}
+    image: ${FRONTEND_IMAGE_TAG:-arbicore-x-frontend:1.0.0}
+    container_name: arbicore-x-frontend
+    restart: *restart
+    networks:
+      - arbicore-x-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging: *log-defaults
+    labels:
+      arbicore.role: frontend
+
+  # ---------------------------------------------------------------------------
+  # Opportunity Center - Vite build behind nginx-alpine.
+  # ---------------------------------------------------------------------------
+  opportunity_center:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/opportunity_center/Dockerfile
+      args:
+        VITE_BACKEND_URL: ${REACT_APP_BACKEND_URL:-https://localhost}
+        GITSHA: ${GITSHA:-unknown}
+    image: ${OPPORTUNITY_CENTER_IMAGE_TAG:-arbicore-x-opportunity-center:1.0.0}
+    container_name: arbicore-x-opportunity-center
+    restart: *restart
+    networks:
+      - arbicore-x-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+    logging: *log-defaults
+    labels:
+      arbicore.role: opportunity_center
+
+  # ---------------------------------------------------------------------------
+  # Reverse proxy - TLS termination, security headers, HTTP->HTTPS, gzip, WS upgrade.
+  # Publishes :80 (ACME challenge + redirect) and :443 (TLS).
+  # ---------------------------------------------------------------------------
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: arbicore-x-nginx
+    restart: *restart
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+      opportunity_center:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - arbicore-x-net
+    volumes:
+      - ../../deployment/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../../deployment/nginx/conf.d:/etc/nginx/conf.d.template:ro
+      - ../../deployment/nginx/snippets:/etc/nginx/snippets:ro
+      - arbicore-x-certbot-etc:/etc/letsencrypt:ro
+      - arbicore-x-certbot-www:/var/www/certbot:ro
+    # envsubst at boot renders the template with $DOMAIN, then execs nginx.
+    command: >
+      /bin/sh -c "
+      apk add --no-cache gettext >/dev/null &&
+      envsubst '$$DOMAIN' </etc/nginx/conf.d.template/arbicore-x.conf.template
+        >/etc/nginx/conf.d/arbicore-x.conf &&
+      nginx -t &&
+      exec nginx -g 'daemon off;'
+      "
+    environment:
+      DOMAIN: ${DOMAIN}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/nginx-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256M
+    logging: *log-defaults
+    labels:
+      arbicore.role: nginx
+
+  # ---------------------------------------------------------------------------
+  # Certbot - issue + renew Let's Encrypt certificates.
+  # First run: `scripts/install.sh` handles staging -> prod flip.
+  # Renewals: this loop runs `certbot renew --webroot` every 12h.
+  # ---------------------------------------------------------------------------
+  certbot:
+    image: certbot/certbot:latest
+    container_name: arbicore-x-certbot
+    restart: "no"
+    entrypoint: "/bin/sh"
+    command: >
+      -c "trap exit TERM;
+      while :; do
+        certbot renew --webroot -w /var/www/certbot --quiet;
+        sleep 12h & wait $${!};
+      done"
+    volumes:
+      - arbicore-x-certbot-etc:/etc/letsencrypt
+      - arbicore-x-certbot-www:/var/www/certbot
+    logging: *log-defaults
+    labels:
+      arbicore.role: certbot
+
+# ---------------------------------------------------------------------------
+# Persistent volumes.
+# arbicore-x-mongo-data is the durable data anchor - protected by all invariants.
+# ---------------------------------------------------------------------------
+volumes:
+  arbicore-x-mongo-data:
+    name: arbicore-x-mongo-data
+  arbicore-x-logs:
+    name: arbicore-x-logs
+  arbicore-x-certbot-etc:
+    name: arbicore-x-certbot-etc
+  arbicore-x-certbot-www:
+    name: arbicore-x-certbot-www
+
+networks:
+  arbicore-x-net:
+    name: arbicore-x-net
+    driver: bridge

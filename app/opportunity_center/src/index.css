@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(124,108,255,0.08), transparent 60%),
+      radial-gradient(800px 400px at 0% 100%, rgba(246,179,82,0.05), transparent 60%),
+      #0b0d14;
+  }
+  /* subtle grain to break up flat background */
+  body::before {
+    content: '';
+    pointer-events: none;
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 3px 3px;
+    z-index: 0;
+  }
+  ::selection { background: rgba(246,179,82,0.35); color: #fff; }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-lg bg-bg-panel border border-bg-line shadow-panel relative z-10;
+  }
+  .panel-pad   { @apply p-5; }
+  .pill        { @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  .pill-green  { @apply pill bg-accent-green/10 text-accent-green; }
+  .pill-amber  { @apply pill bg-accent-amber/10 text-accent-amber; }
+  .pill-red    { @apply pill bg-accent-red/10 text-accent-red; }
+  .pill-violet { @apply pill bg-accent-violet/10 text-accent-violet; }
+  .label-mono  { @apply font-mono text-xs uppercase tracking-wider text-ink-400; }
+  .num-xl      { @apply font-mono text-3xl text-ink-50; }
+  .num-2xl     { @apply font-mono text-4xl text-ink-50; }
+  .btn         { @apply inline-flex items-center gap-1.5 rounded-md border border-bg-line bg-bg-raised px-3 py-1.5 text-sm text-ink-200 transition-colors hover:border-accent-amber/50 hover:text-ink-50; }
+  .input       { @apply w-full rounded-md border border-bg-line bg-bg-raised px-3 py-1.5 text-sm text-ink-50 placeholder-ink-600 focus:border-accent-amber/60 focus:outline-none; }
+  .table-row-hover:hover { @apply bg-bg-raised/60; }
+}
