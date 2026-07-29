@@ -145,6 +145,7 @@ None of the above is required for `v1.0.0`. All are eligible for consideration i
 
 | Version | Date | Notes |
 |---|---|---|
+| `v1.0.1` | 2026-07-29 | Runtime-correctness patch. Backend build no longer depends on `install.sh` requirements swap (works uniformly for greenfield + shared profiles). Frontend + OC unprivileged-nginx made robust across `nginx:1.25-alpine` base variants. All healthchecks use `127.0.0.1` (alpine minimal `/etc/hosts` compatibility) and normalized on `/healthz`. `.env.shared.example` MongoDB auth guidance strengthened. See [`releases/v1.0.1.md`](releases/v1.0.1.md). |
 | `v1.0.0` | 2026-01 | First canonical release. Full application absorption from `ArbiCoreX-V01`; deployment infrastructure absorbed from `arbicore-x-vps-bundle`; frontend reproducibility (`yarn.lock`, `.npmrc`) canonical from day one; legacy release-bundle download endpoints retired to structured stubs; nested bundle layout flattened; RC lineage retired. See [`MIGRATION_SUMMARY.md`](MIGRATION_SUMMARY.md). |
 
 Future releases append here.

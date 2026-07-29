@@ -121,7 +121,7 @@ services:
       - arbicore-x-shared-logs:/var/log/arbicore-x
 
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:8001/api/"]
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8001/api/"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -167,7 +167,7 @@ services:
       - "${FRONTEND_HOST_BIND:-127.0.0.1}:${FRONTEND_HOST_PORT:-8102}:80"
 
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -205,7 +205,7 @@ services:
       - "${OPPORTUNITY_CENTER_HOST_BIND:-127.0.0.1}:${OPPORTUNITY_CENTER_HOST_PORT:-8103}:80"
 
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3

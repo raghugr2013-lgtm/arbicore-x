@@ -61,12 +61,12 @@ services:
   # ---------------------------------------------------------------------------
   backend:
     build:
-      context: ../../app/backend
-      dockerfile: ../../deployment/docker/backend/Dockerfile
+      context: ../..
+      dockerfile: deployment/docker/backend/Dockerfile
       args:
         GITSHA: ${GITSHA:-unknown}
         SCHEMA: v1
-    image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:1.0.0}
+    image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:1.0.1}
     container_name: arbicore-x-backend
     restart: *restart
     depends_on:
@@ -81,7 +81,7 @@ services:
       # Application logs.
       - arbicore-x-logs:/var/log/arbicore-x
     healthcheck:
-      test: ["CMD", "curl", "-fs", "http://localhost:8001/api/"]
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8001/api/"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -111,13 +111,13 @@ services:
       args:
         REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:-https://localhost}
         GITSHA: ${GITSHA:-unknown}
-    image: ${FRONTEND_IMAGE_TAG:-arbicore-x-frontend:1.0.0}
+    image: ${FRONTEND_IMAGE_TAG:-arbicore-x-frontend:1.0.1}
     container_name: arbicore-x-frontend
     restart: *restart
     networks:
       - arbicore-x-net
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -141,13 +141,13 @@ services:
       args:
         VITE_BACKEND_URL: ${REACT_APP_BACKEND_URL:-https://localhost}
         GITSHA: ${GITSHA:-unknown}
-    image: ${OPPORTUNITY_CENTER_IMAGE_TAG:-arbicore-x-opportunity-center:1.0.0}
+    image: ${OPPORTUNITY_CENTER_IMAGE_TAG:-arbicore-x-opportunity-center:1.0.1}
     container_name: arbicore-x-opportunity-center
     restart: *restart
     networks:
       - arbicore-x-net
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -199,7 +199,7 @@ services:
     environment:
       DOMAIN: ${DOMAIN}
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost/nginx-health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/nginx-health"]
       interval: 30s
       timeout: 5s
       retries: 3

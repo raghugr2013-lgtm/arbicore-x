@@ -91,15 +91,9 @@ ok "mongo healthy"
 
 # --- 4) backend ---
 log "4/9 building + starting backend ..."
-# Stage requirements.prod.txt as the build's requirements.txt (Dockerfile expects that name).
-cp "${REPO_ROOT}/deployment/docker/backend/requirements.prod.txt" \
-   "${REPO_ROOT}/app/backend/requirements.txt.prod.staged"
-# Move original aside, put prod in place, build, restore.
-mv "${REPO_ROOT}/app/backend/requirements.txt" "${REPO_ROOT}/app/backend/requirements.txt.orig" 2>/dev/null || true
-mv "${REPO_ROOT}/app/backend/requirements.txt.prod.staged" "${REPO_ROOT}/app/backend/requirements.txt"
-
-trap 'mv "${REPO_ROOT}/app/backend/requirements.txt.orig" "${REPO_ROOT}/app/backend/requirements.txt" 2>/dev/null || true' EXIT
-
+# v1.0.1+: the backend Dockerfile now COPYs requirements.prod.txt directly from
+# deployment/docker/backend/. No runtime swap of app/backend/requirements.txt
+# is needed. Build context is the repo root.
 $DC build backend
 $DC up -d backend
 for i in $(seq 1 30); do

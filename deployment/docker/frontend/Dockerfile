@@ -56,8 +56,17 @@ COPY deployment/docker/frontend/nginx-spa.conf /etc/nginx/conf.d/default.conf
 # CRA/craco output directory is `build/`
 COPY --from=build /app/build /usr/share/nginx/html
 
-# nginx image ships an unprivileged `nginx` user (uid 101) via the alpine base.
-# Confirm non-root at runtime (arbicore invariant #3 in DEPLOYMENT_MANIFEST §10).
+# Prepare the alpine base for unprivileged operation:
+#   * cache/log dirs writable by the nginx user (uid 101)
+#   * PID file redirected to /tmp so /var/run is not needed
+#   * error_log to stderr so /var/log/nginx write is not needed at boot
+# These make `USER 101` work reliably across nginx:1.25-alpine base image variants.
+RUN mkdir -p /var/cache/nginx/client_temp /var/cache/nginx/proxy_temp \
+             /var/cache/nginx/fastcgi_temp /var/cache/nginx/uwsgi_temp \
+             /var/cache/nginx/scgi_temp /var/log/nginx \
+ && chown -R 101:101 /var/cache/nginx /var/log/nginx /usr/share/nginx/html /etc/nginx/conf.d \
+ && sed -i 's|^\(pid\s\+\).*|\1/tmp/nginx.pid;|; s|^\(error_log\s\+\).*|\1/dev/stderr warn;|' /etc/nginx/nginx.conf
+
 USER 101
 
 EXPOSE 80
@@ -67,5 +76,8 @@ LABEL arbicore.role="frontend" \
       arbicore.schema="v1" \
       arbicore.profile="greenfield"
 
+# Healthcheck uses 127.0.0.1 (not localhost) — alpine minimal /etc/hosts
+# may not resolve "localhost". This is a defense-in-depth default; the
+# compose file also carries an equivalent healthcheck (compose wins at runtime).
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1
+  CMD wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1
