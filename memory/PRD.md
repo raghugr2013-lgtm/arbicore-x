@@ -60,7 +60,7 @@ Two deployment profiles:
 - `GET /api/arbicore/roi-probability?route_id=…`
 
 **Implementation plan (6 slices, ~10 dev weeks):**
-0. Backend delta + feature flag + `/v2` sub-app scaffold (1–2 days)
+0. **Backend delta + feature flag + `/v2` sub-app scaffold — SHIPPED 2026-02-06.**
 1. Foundations + Home + Opportunities + Opportunity Drawer (~2 wks) — enables J1/J2/J3
 2. Discovery + Intelligence: Recommendations + Confidence (~1.5 wks) — enables J4
 3. Operations: Scanners + Cycles + Venues + Interlock (~1.5 wks) — enables J6/J7
@@ -69,6 +69,29 @@ Two deployment profiles:
 6. Polish, Cutover, Developer Mode, Docs (~1 wk)
 
 ## Release history
+
+### Slice 0 — UI v2 backend delta + feature flag + `/v2` shell (2026-02-06)
+- **Backend delta** — 4 additive composed endpoints (`app/backend/arbicore/routes/dashboard.py`):
+  - `GET /api/arbicore/dashboard/pulse` — regime + opportunity vitals + route-learning + pointer hints to canonical endpoints
+  - `GET /api/arbicore/dashboard/deck` — fresh opportunities from `OpportunityRepo.find({})`, plus pointer counts for approvals/attention
+  - `GET /api/arbicore/opportunities/summary` — counts by family / chain / status
+  - `GET /api/arbicore/roi-probability?route_id=…` — direct surface for `MongoRouteSuccessTracker` per-route stats
+  - All endpoints are pure compositions; every downstream failure degrades to `None` / zero rather than 500 (defensive `_safe()` wrapper). No mutation, no new business logic, no changes to existing endpoint shapes.
+  - Routers registered in `server.py` (`arbicore_dashboard_router`, `arbicore_opportunities_router`, `arbicore_roi_router`).
+- **Feature flags** — two independent toggles:
+  - Backend: `UI_V2_ENABLED` env var, surfaced on `GET /api/system/status` under `features.ui_v2`.
+  - Frontend: `REACT_APP_ENABLE_UI_V2` build-time flag + `?ui_v2=1` / `localStorage.arbicore_ui_v2` runtime override. Legacy UI at `/` unchanged; when disabled, `/v2/*` redirects to `/`.
+  - Dockerfile + compose files pass the new frontend arg (soft; defaults to `false`). `.env.example`, `.env.production.example`, `.env.development.example`, and `deployment/compose/.env.shared.example` all document both flags.
+- **Frontend shell** — modular sub-app under `app/frontend/src/v2/`, isolated from legacy code:
+  - `theme/tokens.css` — CSS variables mirroring `docs/ui_v2/design_language.md` §2 (obsidian surfaces, amber accent, verdict/regime/health/freshness/confidence ramps, Archivo + IBM Plex Mono).
+  - `lib/{featureFlag,api,nav}.js` — flag resolver, thin axios wrapper on `REACT_APP_BACKEND_URL`, 7-section nav registry.
+  - `components/{AppShell,Header,LeftNavRail,SectionPlaceholder}.jsx` — 48 px header + 64 px icon rail per Binance Desktop conventions.
+  - `pages/{Home,Discovery,Opportunities,Portfolio,Intelligence,Operations,Settings}Page.jsx` — Home wires the live Slice 0 endpoints as a preview; the other six render `SectionPlaceholder` citing their scheduled slice.
+- **Contract tests** — `app/backend/tests/test_dashboard.py` (12 tests, all green). Composition getters stubbed with `InMemoryOpportunityRepository` + `InMemoryRegimeSnapshotRepository` + a route-tracker stub; no Mongo, no live services. Includes explicit degraded-source tests (`test_pulse_swallows_repo_failures`, `test_summary_swallows_repo_failure`, `test_roi_probability_swallows_tracker_failure`) that prove endpoints return 200 with graceful nulls when downstream repos raise.
+- **Build verification** — CRA build succeeds both flag-on and flag-off. Baked bundle contains expected v2 identifiers (`arbicore_ui_v2`, `ui-v2-root`, `v2-header`, `v2-rail`) and the v1.0.2 regression fingerprint (`undefined/api`) is not present.
+- **Architecture note** — all v2 code lives in `src/v2/`, `.ui-v2-root`-scoped CSS, and self-contained routing. This preserves the "future extraction into a shared design-system package" path called out in the user brief.
+
+## Older release history
 
 ### v1.0.0 (2026-01, initial canonical release)
 - Consolidated app + infra into single repo.
@@ -124,12 +147,16 @@ Two deployment profiles:
   in `docs/releases/v1.0.2.md`.
 
 ## Roadmap / Backlog
-- **P0** — UI v2: awaiting sign-off on Master Spec (Phase 4 complete). Phase 5 (Implementation Roadmap) is the next architectural deliverable, then a sliced implementation begins.
-- **UI v2 backend delta**: 4 additive composed endpoints (`dashboard/pulse`, `dashboard/deck`, `opportunities/summary`, `roi-probability`). Small PR, no logic changes.
-- **ENH-001 (post-v1.0.2, target v1.1.0)** — continuous verification metrics: `scripts/verify-metrics.sh` Prometheus text-format exporter, cron template, Grafana dashboard JSON, `docs/OBSERVABILITY.md`. Filed in `docs/ROADMAP.md` §9a. Deferred until v1.0.2 is stable in production (currently satisfied).
-- **P2**: end-to-end smoke test that runs against a live VPS deployment (largely superseded by v1.0.2's `make verify` harness).
+- **P0 — Slice 1 (Foundations + Home + Opportunities + Opportunity Drawer, ~2 wks)** — replaces the Slice 0 Home preview with the full Pulse → Priorities → Vitals band, universal opportunity feed + card, opportunity drawer (6 tabs), ⌘K palette, shared component library. Enables journeys J1/J2/J3.
+- **P1 — Slice 2** — Discovery + Intelligence: Recommendations + Confidence. Enables J4.
+- **P1 — Slice 3** — Operations: Scanners + Cycles + Venues + Interlock. Enables J6/J7 partial.
+- **P1 — Slice 4** — Portfolio + Intelligence: Analytics + Certification. Enables J5.
+- **P1 — Slice 5** — Intelligence: Market + Learning + Knowledge + Settings + remaining Ops. Enables J7 full + J8.
+- **P1 — Slice 6** — Polish, cutover to `/`, Developer Mode, retirement audit, Playwright journey suite, `v1.1.0` cut.
+- **ENH-001 (post-UI-v2, target v1.2.0)** — continuous verification metrics: `scripts/verify-metrics.sh` Prometheus text-format exporter, cron template, Grafana dashboard JSON, `docs/OBSERVABILITY.md`. Filed in `docs/ROADMAP.md` §9a. Deferred until UI v2 stable.
 - **P2**: CI pipeline (GitHub Actions) that runs the compose validation + Dockerfile guard tests on every PR.
 - **P2**: registry publishing workflow (push tagged images to registry.example.com).
+- **v1.3 candidate** — Light mode (tokens already CSS variables), i18n, mobile companion view.
 
 ## Non-goals (explicitly out of scope)
 - Automated GitHub push from the platform (user handles pushes manually).
