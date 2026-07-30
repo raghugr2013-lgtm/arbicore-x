@@ -26,7 +26,7 @@ function useSectionForPath(pathname) {
   return match || NAV_SECTIONS[0];
 }
 
-export function Header({ username, onLogout }) {
+export function Header({ username, onLogout, onOpenPalette }) {
   const { pathname } = useLocation();
   const section = useSectionForPath(pathname);
 
@@ -46,8 +46,8 @@ export function Header({ username, onLogout }) {
         <button
           type="button"
           data-testid="v2-header-palette-trigger"
-          disabled
-          title="Command palette (⌘K) — activates in Slice 1"
+          onClick={() => onOpenPalette && onOpenPalette()}
+          title="Command palette (⌘K)"
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -59,7 +59,7 @@ export function Header({ username, onLogout }) {
             fontFamily: "var(--v2-font-mono)",
             fontSize: 12,
             borderRadius: 2,
-            cursor: "not-allowed",
+            cursor: "pointer",
             width: 320,
             maxWidth: "60%",
             justifyContent: "flex-start",

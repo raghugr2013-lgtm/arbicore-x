@@ -1,14 +1,15 @@
 /**
- * ArbiCore X — UI v2 · Application shell (Slice 0)
- *
- * Composes Header + LeftNavRail + a scrollable content area, and mounts
- * the section routes. Legacy UI is unaffected — this component is only
- * rendered under the /v2/* route tree.
+ * ArbiCore X — UI v2 · Application shell (Slice 1)
+ * Header + LeftNavRail + Content + CommandPalette + global keyboard hook.
  */
+import { useCallback, useState } from "react";
 import { Route, Routes } from "react-router-dom";
+import { Toaster } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Header } from "@/v2/components/Header";
 import { LeftNavRail } from "@/v2/components/LeftNavRail";
+import { CommandPalette } from "@/v2/components/CommandPalette";
+import { useKeyboardShortcuts } from "@/v2/hooks/useKeyboardShortcuts";
 import HomePage from "@/v2/pages/HomePage";
 import DiscoveryPage from "@/v2/pages/DiscoveryPage";
 import OpportunitiesPage from "@/v2/pages/OpportunitiesPage";
@@ -21,11 +22,15 @@ import "@/v2/theme/tokens.css";
 
 export function AppShell() {
   const { user, logout } = useAuth() || {};
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const openPalette = useCallback(() => setPaletteOpen(true), []);
+  const closePalette = useCallback(() => setPaletteOpen(false), []);
+  useKeyboardShortcuts({ onPalette: openPalette, onEscape: closePalette });
   return (
     <div className="ui-v2-root" data-testid="v2-root">
       <div className="v2-app">
         <div className="v2-app__header">
-          <Header username={user?.username} onLogout={logout} />
+          <Header username={user?.username} onLogout={logout} onOpenPalette={openPalette} />
         </div>
         <div className="v2-app__rail">
           <LeftNavRail />
@@ -42,6 +47,21 @@ export function AppShell() {
           </Routes>
         </main>
       </div>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <Toaster
+        position="bottom-right"
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: "var(--v2-bg-surface)",
+            border: "1px solid var(--v2-border-subtle)",
+            color: "var(--v2-text-primary)",
+            borderRadius: 2,
+            fontFamily: "var(--v2-font-mono)",
+            fontSize: 12,
+          },
+        }}
+      />
     </div>
   );
 }

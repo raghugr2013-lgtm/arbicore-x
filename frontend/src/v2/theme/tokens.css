@@ -2,15 +2,15 @@
  * ArbiCore X — UI v2 · Theme Tokens (Slice 0)
  *
  * Single source of truth for the /v2 palette, typography and spacing scale.
- * These variables mirror docs/ui_v2/design_language.md §2, are scoped to
- * elements marked `data-ui-v2` (or descendants of `.ui-v2-root`), and never
- * leak into the legacy UI.
+ * These variables mirror docs/ui_v2/design_language.md §2.
  *
- * When the design system is later extracted into a shared package, this
- * file becomes the reference token bundle.
+ * Structural styles are scoped to `.ui-v2-root`. The token *values* are
+ * duplicated to `:root` so they resolve inside Radix Portal content
+ * (sheets, dialogs, command palettes) that mounts outside .ui-v2-root.
  * =========================================================================
  */
 
+:root,
 .ui-v2-root {
   /* ---- Structural surfaces (existing ArbiCore brand) ---- */
   --v2-bg-canvas: #0b0f14;
@@ -66,7 +66,9 @@
   /* ---- Chrome dimensions ---- */
   --v2-header-height: 48px;
   --v2-rail-width: 64px;
+}
 
+.ui-v2-root {
   color-scheme: dark;
 }
 

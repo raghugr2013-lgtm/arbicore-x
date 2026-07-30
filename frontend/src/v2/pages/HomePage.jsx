@@ -1,147 +1,190 @@
 /**
- * ArbiCore X — UI v2 · Home page (Slice 0 preview)
- *
- * Slice 0 delivers three vitals cards that prove the backend delta is
- * wired end-to-end:
- *
- *   1. Regime — from GET /api/arbicore/dashboard/pulse (regime card)
- *   2. Opportunity vitals — from the same pulse response
- *   3. Deployable capital / anomalies — pointer to canonical endpoints
- *
- * Slice 1 replaces this with the full Pulse → Priorities → Vitals band
- * layout, universal opportunity cards, and the ⌘K palette.
+ * ArbiCore X — UI v2 · Home page (Slice 1)
+ * Layout: Pulse band → Priorities band → Vitals band.
+ * Wired to /api/arbicore/dashboard/pulse + /deck + /opportunities/summary.
  */
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { v2Api } from "@/v2/lib/api";
+import { ConfidencePill, MetricStat, fmtUsd } from "@/v2/components/Primitives";
 
-function Card({ title, children, testid }) {
+function Card({ title, testid, children, actions }) {
   return (
     <div className="v2-panel" data-testid={testid}>
-      <div className="v2-panel__title">{title}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="v2-panel__title">{title}</div>
+        {actions}
+      </div>
       {children}
     </div>
   );
 }
 
-function useAsync(fn) {
+function useAsync(fn, deps = []) {
   const [state, setState] = useState({ loading: true, data: null, error: null });
   useEffect(() => {
-    let cancelled = false;
-    setState({ loading: true, data: null, error: null });
+    let alive = true;
+    setState((s) => ({ ...s, loading: true }));
     fn()
-      .then((data) => !cancelled && setState({ loading: false, data, error: null }))
-      .catch((e) => !cancelled && setState({ loading: false, data: null, error: e }));
-    return () => {
-      cancelled = true;
-    };
+      .then((d) => alive && setState({ loading: false, data: d, error: null }))
+      .catch((e) => alive && setState({ loading: false, data: null, error: e }));
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, deps);
   return state;
+}
+
+function PulseBand({ pulse }) {
+  const d = pulse.data;
+  const regime = d?.regime;
+  const vitals = d?.opportunity_vitals;
+  return (
+    <section data-testid="v2-home-pulse" style={{ marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+        <Card title="Market regime" testid="v2-home-pulse-regime">
+          <div className="v2-num" style={{ fontSize: 20, color: "var(--v2-text-strong)" }}>{regime?.regime || "—"}</div>
+          <div style={{ color: "var(--v2-text-muted)", fontSize: 11, fontFamily: "var(--v2-font-mono)" }}>
+            {regime ? `confidence ${Math.round((regime.confidence || 0) * 100)}%` : "no snapshot"}
+          </div>
+          {regime?.tags?.length ? (
+            <div style={{ color: "var(--v2-text-secondary)", fontSize: 11, fontFamily: "var(--v2-font-mono)", marginTop: 4 }}>
+              {regime.tags.join(" · ")}
+            </div>
+          ) : null}
+        </Card>
+        <Card title="Live pipeline" testid="v2-home-pulse-pipeline">
+          <div style={{ display: "flex", gap: 20 }}>
+            <MetricStat value={vitals?.total ?? 0} label="opps" testid="v2-home-pulse-total" accent />
+            <MetricStat value={Object.keys(vitals?.by_family || {}).length} label="families" testid="v2-home-pulse-families" />
+          </div>
+        </Card>
+        <Card title="Route learning" testid="v2-home-pulse-learning">
+          <MetricStat value={d?.route_learning?.tracked_routes ?? 0} label="routes tracked" testid="v2-home-pulse-routes" />
+        </Card>
+        <Card title="Interlock" testid="v2-home-pulse-interlock">
+          <div className="v2-num" style={{ fontSize: 20, color: "var(--v2-verdict-go)" }}>ARMED</div>
+          <div style={{ color: "var(--v2-text-muted)", fontSize: 11, fontFamily: "var(--v2-font-mono)" }}>Safety armed · Slice 3 wires live</div>
+        </Card>
+        <Card title="Venue readiness" testid="v2-home-pulse-venues">
+          <div className="v2-num" style={{ fontSize: 20, color: "var(--v2-text-strong)" }}>—</div>
+          <div style={{ color: "var(--v2-text-muted)", fontSize: 11, fontFamily: "var(--v2-font-mono)" }}>Live in Slice 3</div>
+        </Card>
+        <Card title="Deployable capital" testid="v2-home-pulse-capital">
+          <div className="v2-num" style={{ fontSize: 20, color: "var(--v2-text-strong)" }}>—</div>
+          <div style={{ color: "var(--v2-text-muted)", fontSize: 11, fontFamily: "var(--v2-font-mono)" }}>Live in Slice 4</div>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+function PrioritiesBand({ deck }) {
+  const navigate = useNavigate();
+  const d = deck.data;
+  const opps = d?.fresh_opportunities || [];
+  return (
+    <section data-testid="v2-home-priorities" style={{ marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+        <Card
+          title={`Fresh opportunities · ${d?.fresh_opportunities_total ?? 0}`}
+          testid="v2-home-priorities-fresh"
+          actions={
+            <button
+              onClick={() => navigate("/v2/opportunities")}
+              data-testid="v2-home-priorities-fresh-cta"
+              style={{ background: "transparent", border: "1px solid var(--v2-border-subtle)", color: "var(--v2-accent-base)", fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 1, padding: "2px 8px", borderRadius: 2, cursor: "pointer" }}
+            >
+              VIEW ALL →
+            </button>
+          }
+        >
+          {opps.length === 0 ? (
+            <div className="v2-empty">{"> No fresh opportunities.\n> Scanners may be paused or gates are pruning routes."}</div>
+          ) : (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {opps.slice(0, 5).map((o) => (
+                <li
+                  key={o.id}
+                  data-testid={`v2-home-priorities-item-${o.id}`}
+                  onClick={() => navigate(`/v2/opportunities?id=${o.id}`)}
+                  style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--v2-border-subtle)", cursor: "pointer" }}
+                >
+                  <span style={{ fontFamily: "var(--v2-font-mono)", fontSize: 12 }}>
+                    {o.subject_id || o.opportunity_type} · {o.chain || "—"}
+                  </span>
+                  <ConfidencePill value={o.confidence} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card title="Pending approvals · 0" testid="v2-home-priorities-approvals">
+          <div className="v2-empty">{"> No approvals pending.\n> Approval workflow wires live in Slice 3."}</div>
+        </Card>
+        <Card title="Requires attention · 0" testid="v2-home-priorities-attention">
+          <div className="v2-empty">{"> All venues nominal.\n> Alerts + interlock detail wires live in Slice 3."}</div>
+        </Card>
+      </div>
+    </section>
+  );
+}
+
+function VitalsBand({ summary }) {
+  const s = summary.data;
+  const by_family = s?.by_family || {};
+  const by_chain = s?.by_chain || {};
+  const by_status = s?.by_status || {};
+  return (
+    <section data-testid="v2-home-vitals">
+      <Card title="Vitals · 24h" testid="v2-home-vitals-card">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
+          <div>
+            <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>By family</div>
+            {Object.entries(by_family).map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                <span style={{ fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>{k}</span>
+                <span className="v2-num" style={{ fontSize: 12, color: "var(--v2-text-strong)" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>By chain</div>
+            {Object.entries(by_chain).map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                <span style={{ fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>{k}</span>
+                <span className="v2-num" style={{ fontSize: 12, color: "var(--v2-text-strong)" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+          <div>
+            <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>By status</div>
+            {Object.entries(by_status).map(([k, v]) => (
+              <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0" }}>
+                <span style={{ fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>{k}</span>
+                <span className="v2-num" style={{ fontSize: 12, color: "var(--v2-text-strong)" }}>{v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+    </section>
+  );
 }
 
 export default function HomePage() {
   const pulse = useAsync(() => v2Api.pulse());
   const deck = useAsync(() => v2Api.deck(5));
+  const summary = useAsync(() => v2Api.opportunitiesSummary(24));
 
   return (
     <section data-testid="v2-home">
       <h1 className="v2-page__title">Home</h1>
       <p className="v2-page__lede">
-        Slice 0 preview — wired to <code className="v2-kbd">/api/arbicore/dashboard/pulse</code>{" "}
-        and <code className="v2-kbd">/api/arbicore/dashboard/deck</code>. Full Pulse → Priorities → Vitals arrives in Slice 1.
+        Operator briefing. Pulse now · Priorities to work · Vitals over the last 24h.
       </p>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 16 }}>
-        <Card title="Regime" testid="v2-home-regime">
-          {pulse.loading && <div className="v2-empty">Loading…</div>}
-          {pulse.error && <div className="v2-empty">{"> Unable to reach backend. Endpoint may not be deployed yet."}</div>}
-          {!pulse.loading && !pulse.error && (
-            pulse.data?.regime ? (
-              <div>
-                <div className="v2-num" style={{ fontSize: 20, color: "var(--v2-text-strong)" }}>
-                  {pulse.data.regime.regime || "—"}
-                </div>
-                <div style={{ color: "var(--v2-text-muted)", fontSize: 11, fontFamily: "var(--v2-font-mono)", marginTop: 4 }}>
-                  confidence {(pulse.data.regime.confidence * 100).toFixed(0)}%
-                  {pulse.data.regime.tags?.length ? ` · ${pulse.data.regime.tags.join(", ")}` : ""}
-                </div>
-              </div>
-            ) : (
-              <div className="v2-empty">{"> No regime snapshot yet."}</div>
-            )
-          )}
-        </Card>
-
-        <Card title="Opportunity vitals" testid="v2-home-vitals">
-          {pulse.loading && <div className="v2-empty">Loading…</div>}
-          {pulse.error && <div className="v2-empty">{"> Unable to reach backend."}</div>}
-          {!pulse.loading && !pulse.error && (
-            <div style={{ display: "flex", gap: 24 }}>
-              <div>
-                <div className="v2-num" style={{ fontSize: 24, color: "var(--v2-text-strong)" }}>
-                  {pulse.data?.opportunity_vitals?.total ?? 0}
-                </div>
-                <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", letterSpacing: 1, textTransform: "uppercase" }}>
-                  total
-                </div>
-              </div>
-              <div>
-                <div className="v2-num" style={{ fontSize: 24, color: "var(--v2-text-strong)" }}>
-                  {Object.keys(pulse.data?.opportunity_vitals?.by_family || {}).length}
-                </div>
-                <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", letterSpacing: 1, textTransform: "uppercase" }}>
-                  families
-                </div>
-              </div>
-              <div>
-                <div className="v2-num" style={{ fontSize: 24, color: "var(--v2-text-strong)" }}>
-                  {pulse.data?.route_learning?.tracked_routes ?? 0}
-                </div>
-                <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", letterSpacing: 1, textTransform: "uppercase" }}>
-                  routes learned
-                </div>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Priorities · fresh opportunities" testid="v2-home-deck">
-          {deck.loading && <div className="v2-empty">Loading…</div>}
-          {deck.error && <div className="v2-empty">{"> Unable to reach backend."}</div>}
-          {!deck.loading && !deck.error && (
-            deck.data?.fresh_opportunities_total ? (
-              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                {deck.data.fresh_opportunities.slice(0, 5).map((o) => (
-                  <li
-                    key={o.id}
-                    data-testid={`v2-home-deck-item-${o.id}`}
-                    style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0", borderBottom: "1px solid var(--v2-border-subtle)" }}
-                  >
-                    <span style={{ fontFamily: "var(--v2-font-mono)", fontSize: 12, color: "var(--v2-text-primary)" }}>
-                      {o.opportunity_type || "—"} · {o.chain || "—"}
-                    </span>
-                    <span className="v2-num" style={{ fontSize: 12, color: "var(--v2-accent-base)" }}>
-                      {(o.confidence * 100).toFixed(0)}%
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="v2-empty">{"> No fresh opportunities.\n> Scanners may be paused or gates are pruning routes."}</div>
-            )
-          )}
-        </Card>
-      </div>
-
-      <div className="v2-panel" data-testid="v2-home-note">
-        <div className="v2-panel__title">Slice 0 · what shipped</div>
-        <ul style={{ margin: 0, paddingLeft: 20, color: "var(--v2-text-secondary)" }}>
-          <li>Backend delta: 4 additive composed endpoints (see network tab).</li>
-          <li>Feature flag: <code className="v2-kbd">REACT_APP_ENABLE_UI_V2</code> (build-time) + <code className="v2-kbd">?ui_v2=1</code> runtime override.</li>
-          <li>Application shell: 48 px header · 64 px left rail · 7 canonical sections.</li>
-          <li>Theme tokens: obsidian surfaces, amber accent, IBM Plex Mono + Archivo — scoped to <code className="v2-kbd">.ui-v2-root</code>.</li>
-        </ul>
-      </div>
+      <PulseBand pulse={pulse} />
+      <PrioritiesBand deck={deck} />
+      <VitalsBand summary={summary} />
     </section>
   );
 }

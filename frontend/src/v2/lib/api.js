@@ -32,6 +32,11 @@ export const v2Api = {
   deck: (limit = 5) => get("/arbicore/dashboard/deck", { limit }),
   opportunitiesSummary: (windowHours = 24) =>
     get("/arbicore/opportunities/summary", { window_hours: windowHours }),
+  opportunitiesList: (filters = {}) =>
+    get("/arbicore/opportunities", filters),
+  opportunityDetail: (id) => get(`/arbicore/opportunities/${id}`),
+  approveOpportunity: (id) => client.post(`${API}/arbicore/opportunities/${id}/approve`).then((r) => r.data),
+  rejectOpportunity: (id) => client.post(`${API}/arbicore/opportunities/${id}/reject`).then((r) => r.data),
   roiProbability: (routeId) =>
     get("/arbicore/roi-probability", { route_id: routeId }),
 };
