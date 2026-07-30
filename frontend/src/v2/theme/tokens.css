@@ -1,0 +1,307 @@
+/* =========================================================================
+ * ArbiCore X — UI v2 · Theme Tokens (Slice 0)
+ *
+ * Single source of truth for the /v2 palette, typography and spacing scale.
+ * These variables mirror docs/ui_v2/design_language.md §2, are scoped to
+ * elements marked `data-ui-v2` (or descendants of `.ui-v2-root`), and never
+ * leak into the legacy UI.
+ *
+ * When the design system is later extracted into a shared package, this
+ * file becomes the reference token bundle.
+ * =========================================================================
+ */
+
+.ui-v2-root {
+  /* ---- Structural surfaces (existing ArbiCore brand) ---- */
+  --v2-bg-canvas: #0b0f14;
+  --v2-bg-surface: #10161e;
+  --v2-bg-panel: #141b24;
+  --v2-bg-hover: rgba(255, 255, 255, 0.03);
+  --v2-bg-selected: rgba(255, 178, 36, 0.08);
+
+  --v2-border-subtle: #1f2a36;
+  --v2-border-focus: #2a3a4d;
+  --v2-border-strong: #2e3e52;
+
+  /* ---- Text roles ---- */
+  --v2-text-primary: #c9d4e0;
+  --v2-text-strong: #f2f6fb;
+  --v2-text-secondary: #8a97a8;
+  --v2-text-muted: #6b7888;
+
+  /* ---- Brand accent (amber — unchanged) ---- */
+  --v2-accent-base: #ffb224;
+  --v2-accent-strong: #ffcf5c;
+  --v2-accent-subtle: rgba(255, 178, 36, 0.15);
+  --v2-accent-onSolid: #0b0f14;
+
+  /* ---- Verdict ---- */
+  --v2-verdict-go: #34d399;
+  --v2-verdict-no-soft: #fbbf24;
+  --v2-verdict-no-hard: #f87171;
+
+  /* ---- Market regime ---- */
+  --v2-regime-calm: #6b7888;
+  --v2-regime-active: #38bdf8;
+  --v2-regime-thin: #fbbf24;
+  --v2-regime-hostile: #f87171;
+
+  /* ---- Health, freshness, confidence ---- */
+  --v2-health-green: #34d399;
+  --v2-health-amber: #fbbf24;
+  --v2-health-red: #f87171;
+
+  --v2-fresh-fresh: #34d399;
+  --v2-fresh-stale: #fbbf24;
+  --v2-fresh-stalled: #f87171;
+
+  --v2-conf-low: #f87171;
+  --v2-conf-mid: #fbbf24;
+  --v2-conf-high: #34d399;
+
+  /* ---- Typography (existing brand faces) ---- */
+  --v2-font-body: 'Archivo', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --v2-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* ---- Chrome dimensions ---- */
+  --v2-header-height: 48px;
+  --v2-rail-width: 64px;
+
+  color-scheme: dark;
+}
+
+/* --------------------------------------------------------------------------
+ * Root reset — everything inside .ui-v2-root operates on obsidian canvas,
+ * IBM Plex-anchored monospace defaults, and hardcoded left-alignment.
+ * -------------------------------------------------------------------------- */
+.ui-v2-root {
+  background: var(--v2-bg-canvas);
+  color: var(--v2-text-primary);
+  font-family: var(--v2-font-body);
+  font-size: 13px;
+  line-height: 20px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ui-v2-root ::selection {
+  background: var(--v2-accent-subtle);
+  color: var(--v2-text-strong);
+}
+
+/* Numbers are always Plex Mono (design_language.md §3). */
+.ui-v2-root .v2-num,
+.ui-v2-root [data-v2-numeric='true'] {
+  font-family: var(--v2-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+ * Header + rail structural classes
+ * -------------------------------------------------------------------------- */
+.ui-v2-root .v2-header {
+  height: var(--v2-header-height);
+  display: flex;
+  align-items: stretch;
+  background: var(--v2-bg-surface);
+  border-bottom: 1px solid var(--v2-border-subtle);
+  padding: 0 12px;
+  gap: 12px;
+}
+
+.ui-v2-root .v2-header__slot {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  min-width: 0;
+  gap: 6px;
+}
+
+.ui-v2-root .v2-header__slot--brand {
+  min-width: var(--v2-rail-width);
+  padding-left: 0;
+  padding-right: 12px;
+  border-right: 1px solid var(--v2-border-subtle);
+  color: var(--v2-accent-base);
+  font-family: var(--v2-font-mono);
+  font-weight: 700;
+  letter-spacing: 3px;
+  font-size: 13px;
+}
+
+.ui-v2-root .v2-header__slot--grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-v2-root .v2-header__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--v2-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 4px 8px;
+  border: 1px solid var(--v2-border-subtle);
+  background: var(--v2-bg-panel);
+  color: var(--v2-text-secondary);
+  border-radius: 2px;
+}
+
+.ui-v2-root .v2-header__chip--accent {
+  color: var(--v2-accent-base);
+  border-color: rgba(255, 178, 36, 0.35);
+}
+
+.ui-v2-root .v2-header__kbd {
+  font-family: var(--v2-font-mono);
+  font-size: 10px;
+  color: var(--v2-text-muted);
+  border: 1px solid var(--v2-border-subtle);
+  padding: 1px 6px;
+  border-radius: 2px;
+  background: var(--v2-bg-panel);
+  margin-left: 6px;
+}
+
+/* --------------------------------------------------------------------------
+ * Left icon rail
+ * -------------------------------------------------------------------------- */
+.ui-v2-root .v2-rail {
+  width: var(--v2-rail-width);
+  min-width: var(--v2-rail-width);
+  background: var(--v2-bg-surface);
+  border-right: 1px solid var(--v2-border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 8px 0;
+  gap: 2px;
+}
+
+.ui-v2-root .v2-rail__link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px;
+  color: var(--v2-text-muted);
+  font-family: var(--v2-font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  gap: 4px;
+  transition: color 120ms linear, background-color 120ms linear;
+}
+
+.ui-v2-root .v2-rail__link:hover {
+  color: var(--v2-text-primary);
+  background: var(--v2-bg-hover);
+}
+
+.ui-v2-root .v2-rail__link[aria-current='page'],
+.ui-v2-root .v2-rail__link.is-active {
+  color: var(--v2-accent-base);
+  background: var(--v2-bg-selected);
+  border-left-color: var(--v2-accent-base);
+}
+
+.ui-v2-root .v2-rail__link svg {
+  width: 18px;
+  height: 18px;
+}
+
+.ui-v2-root .v2-rail__spacer {
+  flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+ * Layout
+ * -------------------------------------------------------------------------- */
+.ui-v2-root .v2-app {
+  display: grid;
+  grid-template-columns: var(--v2-rail-width) 1fr;
+  grid-template-rows: var(--v2-header-height) 1fr;
+  grid-template-areas:
+    'header header'
+    'rail   content';
+  min-height: 100vh;
+}
+
+.ui-v2-root .v2-app__header { grid-area: header; }
+.ui-v2-root .v2-app__rail   { grid-area: rail; }
+.ui-v2-root .v2-app__content {
+  grid-area: content;
+  overflow: auto;
+  padding: 20px 24px;
+}
+
+/* --------------------------------------------------------------------------
+ * Content primitives (used by the shell + placeholder pages)
+ * -------------------------------------------------------------------------- */
+.ui-v2-root .v2-panel {
+  background: var(--v2-bg-surface);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: 2px;
+  padding: 16px;
+}
+
+.ui-v2-root .v2-panel__title {
+  font-family: var(--v2-font-body);
+  font-weight: 500;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--v2-text-secondary);
+  margin: 0 0 8px;
+}
+
+.ui-v2-root .v2-page__title {
+  font-family: var(--v2-font-body);
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+  color: var(--v2-text-strong);
+  margin: 0 0 4px;
+}
+
+.ui-v2-root .v2-page__lede {
+  font-size: 13px;
+  color: var(--v2-text-secondary);
+  margin: 0 0 20px;
+}
+
+.ui-v2-root .v2-empty {
+  border: 1px dashed var(--v2-border-subtle);
+  border-radius: 2px;
+  padding: 24px;
+  color: var(--v2-text-muted);
+  font-family: var(--v2-font-mono);
+  font-size: 12px;
+  line-height: 20px;
+  white-space: pre-wrap;
+}
+
+.ui-v2-root .v2-kbd {
+  font-family: var(--v2-font-mono);
+  font-size: 10px;
+  padding: 1px 5px;
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: 2px;
+  background: var(--v2-bg-panel);
+  color: var(--v2-text-secondary);
+}
+
+.ui-v2-root .v2-link {
+  color: var(--v2-accent-base);
+  text-decoration: none;
+}
+.ui-v2-root .v2-link:hover { color: var(--v2-accent-strong); }
+
+/* Preserve narrow container widths at large viewports so table rows do not
+ * become uncomfortably wide (Binance Desktop uses a soft outer cap). */
+.ui-v2-root .v2-app__content > * { max-width: 1440px; }
