@@ -1,0 +1,84 @@
+{
+  "typography": {
+    "headings": "JetBrains Mono",
+    "body": "IBM Plex Sans",
+    "mono": "JetBrains Mono",
+    "scale": {
+      "xs": "text-[11px] leading-tight tracking-[0.05em] uppercase",
+      "sm": "text-[12px] leading-tight",
+      "base": "text-[13px] leading-[18px]",
+      "lg": "text-[15px] leading-snug font-medium tracking-tight uppercase",
+      "xl": "text-[18px] leading-snug font-medium tracking-tight",
+      "2xl": "text-[24px] leading-tight font-bold tracking-tighter"
+    }
+  },
+  "colors": {
+    "background": "#050505",
+    "surface": "#0D0D0D",
+    "elevated": "#1A1A1A",
+    "border": "#262626",
+    "border_focus": "#404040",
+    "accent": "#007AFF",
+    "verdict": {
+      "go": "#00E676",
+      "no_soft": "#FFC400",
+      "no_hard": "#FF3B30"
+    },
+    "regime": {
+      "calm": "#8E8E93",
+      "active": "#007AFF",
+      "thin": "#FF9F0A",
+      "hostile": "#FF3B30"
+    },
+    "text": {
+      "primary": "#F2F2F2",
+      "secondary": "#A1A1AA",
+      "muted": "#52525B"
+    }
+  },
+  "visual_enhancers": [
+    "1px sharp grid borders utilizing border-collapse to prevent double lines",
+    "Neon accent lighting for status indicators, strictly localized—NO gradients",
+    "Terminal-like monospaced data alignment across all tables and grids",
+    "Micro-progress bars overlaying numeric metrics for immediate visual scanning (confidence/safety pills)"
+  ],
+  "grids": {
+    "base_unit": "4px",
+    "padding": {
+      "dense": "p-3",
+      "comfortable": "p-4"
+    },
+    "gap": {
+      "tight": "gap-2",
+      "default": "gap-4",
+      "gridlines": "gap-px"
+    }
+  },
+  "layouts": {
+    "base": "h-screen w-screen overflow-hidden flex bg-[#050505] text-[#F2F2F2] selection:bg-[#007AFF]/30",
+    "navigation": "w-16 h-full flex flex-col items-center border-r border-[#262626] shrink-0 bg-[#0D0D0D]",
+    "header": "h-12 w-full flex items-center justify-between border-b border-[#262626] px-4 shrink-0 bg-[#0D0D0D]",
+    "main_content": "flex-1 overflow-hidden flex flex-col bg-[#050505]",
+    "panels": "w-[40vw] max-w-2xl h-full border-l border-[#262626] bg-[#1A1A1A] shadow-2xl z-50 absolute right-0"
+  },
+  "motion": {
+    "transitions": "Instant (0ms) or max 150ms linear for data elements. 250ms ease-out (cubic-bezier(0.16, 1, 0.3, 1)) for large panels. No bounce.",
+    "hover": "Strictly functional background shifts (e.g., hover:bg-white/5). NO scale or translate animations on data rows."
+  },
+  "accessibility": {
+    "focus": "ring-1 ring-[#007AFF] ring-offset-1 ring-offset-[#050505]",
+    "contrast": "Adhere strictly to APCA standard minimums. High contrast neon over pure black preferred.",
+    "keyboard": "All actions must have visible keyboard access keys (e.g., A for Approve, ESC for close, Arrows for navigation)."
+  },
+  "component_path": "/app/frontend/src/components/ui/",
+  "instructions_to_main_agent": [
+    "Use Shadcn/UI for pure interaction primitives, but strip away default aesthetics (soft shadows, large rounded corners).",
+    "Enforce rounded-none or maximum rounded-sm (2px) on all elements.",
+    "Do not use transparent backgrounds over content—use solid #0D0D0D or #1A1A1A for dropdowns and overlays to ensure perfect legibility.",
+    "Completely avoid gradients, purple/violet hues, and consumer SaaS patterns.",
+    "Data density is critical: Base text size is 13px, table rows are 32px height (dense mode).",
+    "Never display standard 'No data found' empty states. Always render terminal-style 'Gate Drops' showing why the data was pruned.",
+    "Apply 'data-testid' to every interactive and data-bearing element."
+  ],
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": "Focus on extreme institutional utility. Eliminate 'AI slop' by avoiding drop shadows, rounded bubbles, and decorative illustrations. Rely on 1px crisp borders, pure flat surfaces, high-contrast neon text against deep obsidian, and monospace alignment. All interfaces must feel like a high-velocity terminal. Do NOT center align dashboards—left-align data. Ensure all interactive components have 0ms-latency hover states and are keyboard-operable. Add general UI UX design guidelines: provide clear system feedback on every action, keep navigation persistent, and support progressive disclosure (L1 to L3) within the right-side Entity Drawer."
+}
