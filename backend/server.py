@@ -306,6 +306,152 @@ async def v2_opportunity_reject(opp_id: str) -> Dict[str, Any]:
         match["status"] = "REJECTED"
     return {"ok": True, "id": opp_id, "status": "REJECTED", "generated_at": _iso_now()}
 
+
+# ---------------------------------------------------------------------------
+# UI v2 · Slice 2 preview endpoints — Discovery + Intelligence.
+# Pod-local stubs; canonical implementations added in
+# app/backend/arbicore/routes/dashboard.py alongside Slice 1.
+# ---------------------------------------------------------------------------
+
+_V2_DISCOVERY = [
+    {"id": "cand-001", "asset": "PENDLE", "kind": "asset", "chain": "ethereum",
+     "source": "twitter:@messaricrypto", "score": 0.82, "status": "NEW",
+     "why": "Repeated mention across 4 curated sources in last 48h.",
+     "signals": ["mention_burst", "unusual_volume", "narrative:LRT"], "seen_at": None},
+    {"id": "cand-002", "asset": "TIA", "kind": "asset", "chain": "celestia",
+     "source": "coingecko:trending", "score": 0.71, "status": "NEW",
+     "why": "Trending +38% pageviews, whale accumulation on Osmosis.",
+     "signals": ["trending", "whale_accumulation"], "seen_at": None},
+    {"id": "cand-003", "asset": "kucoin:MOODENG-USDT", "kind": "venue_pair", "chain": "kucoin",
+     "source": "listings:new", "score": 0.64, "status": "WATCHING",
+     "why": "New CEX listing pair, high early spread.",
+     "signals": ["new_listing", "spread_open"], "seen_at": None},
+    {"id": "cand-004", "asset": "berachain", "kind": "chain", "chain": "berachain",
+     "source": "github:activity", "score": 0.58, "status": "NEW",
+     "why": "Mainnet imminent; RPC endpoints reachable.",
+     "signals": ["mainnet_soon", "rpc_up"], "seen_at": None},
+    {"id": "cand-005", "asset": "ORDI", "kind": "asset", "chain": "bitcoin",
+     "source": "twitter:@onchainedge", "score": 0.44, "status": "DISMISSED",
+     "why": "Dismissed 6d ago — low liquidity across venues.",
+     "signals": ["low_liquidity"], "seen_at": None},
+    {"id": "cand-006", "asset": "sushiswap:WETH-USDT (base)", "kind": "venue_pair", "chain": "base",
+     "source": "onchain:pool_scan", "score": 0.69, "status": "NEW",
+     "why": "New Sushi pool with $3.2M TVL on Base.",
+     "signals": ["new_pool", "tvl_ok"], "seen_at": None},
+    {"id": "cand-007", "asset": "hyperliquid:BTC-PERP", "kind": "venue_pair", "chain": "hyperliquid",
+     "source": "funding:screener", "score": 0.77, "status": "PROMOTED",
+     "why": "Extreme funding rate divergence vs Binance funding.",
+     "signals": ["funding_divergence"], "seen_at": None},
+]
+
+
+def _hydrate_discovery():
+    now = _iso_now()
+    for c in _V2_DISCOVERY:
+        if c["seen_at"] is None:
+            c["seen_at"] = now
+    return _V2_DISCOVERY
+
+
+@api_router.get("/arbicore/discovery/candidates")
+async def v2_discovery_candidates(status: Optional[str] = None, kind: Optional[str] = None,
+                                   min_score: float = 0.0, limit: int = 100) -> Dict[str, Any]:
+    items = _hydrate_discovery()
+    out = []
+    for c in items:
+        if status and status != "ALL" and c["status"] != status:
+            continue
+        if kind and kind != "ALL" and c["kind"] != kind:
+            continue
+        if c["score"] < min_score:
+            continue
+        out.append(c)
+    stats = {
+        "total": len(items),
+        "new": sum(1 for c in items if c["status"] == "NEW"),
+        "watching": sum(1 for c in items if c["status"] == "WATCHING"),
+        "promoted": sum(1 for c in items if c["status"] == "PROMOTED"),
+        "dismissed": sum(1 for c in items if c["status"] == "DISMISSED"),
+    }
+    return {"items": out[:limit], "total": len(out), "stats": stats, "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/discovery/candidates/{cand_id}/action")
+async def v2_discovery_action(cand_id: str, action: str) -> Dict[str, Any]:
+    items = _hydrate_discovery()
+    match = next((c for c in items if c["id"] == cand_id), None)
+    if match:
+        mapping = {"watch": "WATCHING", "promote": "PROMOTED", "dismiss": "DISMISSED", "reset": "NEW"}
+        match["status"] = mapping.get(action.lower(), match["status"])
+    return {"ok": True, "id": cand_id, "status": match["status"] if match else None, "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/intelligence/recommendations")
+async def v2_recommendations() -> Dict[str, Any]:
+    return {
+        "top_routes": [
+            {"route": "binance:ETH-USDT → kucoin:ETH-USDT", "win_rate": 0.68, "trials": 128, "mean_roi": 0.0031},
+            {"route": "uniswap-v3:WETH/USDC → sushiswap:WETH/USDC", "win_rate": 0.61, "trials": 89, "mean_roi": 0.0022},
+            {"route": "binance:BTC-USDT → okx:BTC-USDT", "win_rate": 0.72, "trials": 214, "mean_roi": 0.0018},
+            {"route": "bybit:SOL-PERP short + spot long", "win_rate": 0.54, "trials": 46, "mean_roi": 0.0014},
+            {"route": "aave-flash → quickswap → sushiswap (MATIC)", "win_rate": 0.49, "trials": 22, "mean_roi": 0.0026},
+        ],
+        "top_chains": [
+            {"chain": "ethereum", "opps_24h": 41, "avg_confidence": 0.73, "avg_safety": 0.86},
+            {"chain": "arbitrum", "opps_24h": 32, "avg_confidence": 0.68, "avg_safety": 0.82},
+            {"chain": "solana", "opps_24h": 27, "avg_confidence": 0.61, "avg_safety": 0.71},
+            {"chain": "base", "opps_24h": 18, "avg_confidence": 0.65, "avg_safety": 0.79},
+        ],
+        "top_entities": [
+            {"entity": "binance", "kind": "venue", "score": 0.91},
+            {"entity": "uniswap-v3", "kind": "venue", "score": 0.87},
+            {"entity": "ETH-USDT", "kind": "market", "score": 0.83},
+            {"entity": "WETH/USDC", "kind": "market", "score": 0.78},
+        ],
+        "generated_at": _iso_now(),
+    }
+
+
+@api_router.get("/arbicore/intelligence/decisions")
+async def v2_decisions(verdict: Optional[str] = None, family: Optional[str] = None,
+                        min_confidence: float = 0.0, limit: int = 100) -> Dict[str, Any]:
+    log = [
+        {"id": "dec-001", "opp_id": "opp-001", "asset": "ETH-USDT", "family": "CEX_ARBITRAGE",
+         "verdict": "GO", "confidence": 0.87, "regime": "CALM",
+         "top_factors": ["+6 route history", "+4 regime CALM", "+3 depth"],
+         "at": _iso_now()},
+        {"id": "dec-002", "opp_id": "opp-002", "asset": "WETH/USDC", "family": "DEX_ARBITRAGE",
+         "verdict": "GO", "confidence": 0.79, "regime": "CALM",
+         "top_factors": ["+5 route history", "+3 regime CALM", "-1 gas volatility"],
+         "at": _iso_now()},
+        {"id": "dec-003", "opp_id": "opp-003", "asset": "SOL-PERP", "family": "FUNDING_ARBITRAGE",
+         "verdict": "SOFT_NO", "confidence": 0.71, "regime": "CALM",
+         "top_factors": ["-3 safety (venue drift)", "+2 spread", "-1 funding vol"],
+         "at": _iso_now()},
+        {"id": "dec-004", "opp_id": "opp-008", "asset": "WETH/USDT (base)", "family": "DEX_ARBITRAGE",
+         "verdict": "HARD_NO", "confidence": 0.42, "regime": "CALM",
+         "top_factors": ["-6 safety_min gate", "-3 depth_min gate"],
+         "at": _iso_now()},
+        {"id": "dec-005", "opp_id": "opp-004", "asset": "BTC-USDT", "family": "CEX_ARBITRAGE",
+         "verdict": "GO", "confidence": 0.65, "regime": "CALM",
+         "top_factors": ["+4 route history", "+2 depth", "-2 fresh window"],
+         "at": _iso_now()},
+        {"id": "dec-006", "opp_id": "opp-007", "asset": "MATIC/USDC", "family": "FLASH_LOAN_ARBITRAGE",
+         "verdict": "GO", "confidence": 0.61, "regime": "CALM",
+         "top_factors": ["+3 flash-fee coverage", "+2 route history"],
+         "at": _iso_now()},
+    ]
+    out = []
+    for d in log:
+        if verdict and verdict != "ALL" and d["verdict"] != verdict:
+            continue
+        if family and family != "ALL" and d["family"] != family:
+            continue
+        if d["confidence"] < min_confidence:
+            continue
+        out.append(d)
+    return {"items": out[:limit], "total": len(out), "generated_at": _iso_now()}
+
 # Include the router in the main app
 app.include_router(api_router)
 

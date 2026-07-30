@@ -39,4 +39,11 @@ export const v2Api = {
   rejectOpportunity: (id) => client.post(`${API}/arbicore/opportunities/${id}/reject`).then((r) => r.data),
   roiProbability: (routeId) =>
     get("/arbicore/roi-probability", { route_id: routeId }),
+  // Slice 2 — Discovery + Intelligence
+  discoveryCandidates: (filters = {}) =>
+    get("/arbicore/discovery/candidates", filters),
+  discoveryAction: (id, action) =>
+    client.post(`${API}/arbicore/discovery/candidates/${id}/action`, null, { params: { action } }).then((r) => r.data),
+  recommendations: () => get("/arbicore/intelligence/recommendations"),
+  decisions: (filters = {}) => get("/arbicore/intelligence/decisions", filters),
 };

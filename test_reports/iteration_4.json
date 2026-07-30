@@ -1,0 +1,23 @@
+{
+  "summary": "Slice 2 (Discovery + Intelligence) tested end-to-end against preview URL. Backend: 11/11 pytest tests pass (candidates list+stats, status/kind filters, watch/promote/dismiss actions with persistence, recommendations shape, decisions shape + verdict/family/min_confidence filters). Frontend: DiscoveryPage renders v2-discovery with stats bar, all filter chips (STATUS + KIND), two-pane list+detail, item click populates detail with WHY/SIGNALS/FIRST SEEN + 3 action buttons; promote action triggers POST, sonner toast fires, and status tag flips to PROMOTED after refetch. Status=NEW filter reduces list to 3 items; DISMISSED+chain filter combo shows the '> 0 candidates match…' empty state. IntelligencePage: /v2/intelligence auto-redirects to /recommendations, sub-nav shows all 7 tabs, Recommendations shows top-routes/top-chains/top-entities panels; Confidence tab shows filter chips + decision-table (7 rows total → 5 after GO → 3 after CEX_ARBITRAGE → 2 after min_conf 70%). Scheduled subs (analytics/certification/market/learning/knowledge) all render the '> {Label} · scheduled for Slice N' hint. Regression: /v2 home and /v2/opportunities still render.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "IntelligencePage · Confidence", "issues": ["React warning: 'Each child in a list should have a unique key prop' — inside Confidence() the chip() helper returns a <button> and is called from VER.map/FAM.map without providing a key. Cosmetic (console-only), no functional impact. Fix: wrap chip return in a keyed fragment or add key on the button using the label."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_v2_slice2.py", "/app/test_reports/pytest/slice2_results.xml"],
+  "action_items": ["(Optional) Add key prop to Confidence filter chip buttons to silence React warning."],
+  "critical_code_review_comments": [
+    "DiscoveryPage.jsx shadows the global `fetch` by naming its refetch function `fetch`; harmless here (no window.fetch used inside), but slightly confusing — consider renaming to `refetch`.",
+    "Backend /api/arbicore/discovery/candidates/{id}/action mutates the module-level _V2_DISCOVERY list — since tests can flip cand-001, keep the reset action documented (already supported)."
+  ],
+  "updated_files": ["/app/backend/tests/test_v2_slice2.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None — used pod-local stubs. Test resets cand-001 and cand-002 back to NEW at end.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Slice 2 fully green. New backend endpoints: /api/arbicore/discovery/candidates (GET + POST action), /api/arbicore/intelligence/recommendations, /api/arbicore/intelligence/decisions. Frontend routes /v2/discovery and /v2/intelligence/* verified. Only cosmetic React key warning in Confidence filter chips."
+}
