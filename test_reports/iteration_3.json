@@ -1,0 +1,28 @@
+{
+  "summary": "Targeted retest of iteration_2 minor issues on preview URL /v2. Both fixes verified. (1) CommandPalette Radix a11y — 'DialogContent requires a DialogTitle' warning is GONE after adding sr-only <DialogTitle>Command palette</DialogTitle>; verified on both header-trigger click and Ctrl+K open, console filtered for 'DialogTitle' returned empty on both open paths. (2) Opportunities keyboard shortcuts now work immediately after navigation without an explicit focus click on the section: on fresh /v2/opportunities load, ArrowDown moves highlight from row0 to row1 (var(--v2-bg-selected) rgba(255,178,36,0.08) shifts to row1), Enter opens the drawer for the focused row, and pressing A fires POST /api/arbicore/opportunities/opp-001/approve and shows a sonner toast. (3) Ctrl+K on Opportunities opens the palette WITHOUT moving the row-focus index — verified by capturing row background colors before and after opening the palette; the modifier-key guard (metaKey/ctrlKey/altKey short-circuit) works as intended. Regression: Home shows all 3 bands (pulse, priorities, vitals) in screenshot; palette still opens; drawer still opens; approve still triggers.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "CommandPalette (v2-header-palette-trigger)", "issues": ["New/different Radix a11y warning surfaces now: 'Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.' This is a separate hint (not the DialogTitle one that was fixed). Optional polish: add a <DialogDescription className='sr-only'> or aria-describedby on the CommandDialog to fully silence Radix a11y console output. Non-blocking."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_3.json"],
+  "action_items": [
+    "OPTIONAL a11y polish: add sr-only <DialogDescription> (or aria-describedby) to CommandPalette CommandDialog to silence remaining Radix 'Missing Description' console warning. Non-blocking."
+  ],
+  "critical_code_review_comments": [
+    "CommandPalette.jsx line 37: sr-only DialogTitle correctly added — no more DialogTitle warning. Consider adding a matching sr-only DialogDescription so the DialogContent is fully labelled.",
+    "OpportunitiesPage.jsx onKey handler now correctly (a) attached to window with items/focusedIdx/drawerId deps, (b) short-circuits on meta/ctrl/altKey so ⌘K falls through, (c) ignores INPUT/SELECT/contentEditable. Clean fix.",
+    "Prior code-review items from iteration_2 not addressed in this slice (chainOpts derived from filtered items; v2_opportunity_detail returns 200 with error body instead of 404; _V2_OPPS in-memory mutation) — carry forward to Slice 2/3."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "not tested (frontend-only retest)", "frontend": "100% (both target fixes verified + regression clean)"},
+  "test_credentials": "None required.",
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Slice 1 is fully green. Both iteration_2 LOW-priority items are resolved. Only remaining a11y hint is a separate Radix 'Missing Description/aria-describedby' warning on CommandDialog — trivial to fix but non-blocking. Carry-forward code-review items from iteration_2 (chainOpts filtered universe, /api/arbicore/opportunities/{id} should return 404 not 200-with-error, canonical DB-backed handler for approve/reject) are still open for later slices.",
+  "rca of the issue": "N/A — verification only. Fix 1 works because Radix Dialog requires a DialogTitle child (visually hidden via sr-only satisfies the a11y contract). Fix 2 works because moving the listener from section onKeyDown+tabIndex to window.addEventListener eliminates the need for the section to hold DOM focus; the meta/ctrl/alt short-circuit ensures palette shortcuts still bubble to the shell hook."
+}

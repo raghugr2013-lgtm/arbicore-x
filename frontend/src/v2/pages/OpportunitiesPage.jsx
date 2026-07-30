@@ -97,8 +97,10 @@ export default function OpportunitiesPage() {
   };
 
   const onKey = (e) => {
-    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.isContentEditable) return;
     if (drawerId) return; // drawer keys are separate
+    // Ignore modifier combos so ⌘K etc. still reach the shell handler
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setFocusedIdx((i) => Math.min(items.length - 1, i + 1));
@@ -118,11 +120,17 @@ export default function OpportunitiesPage() {
   };
 
   useEffect(() => {
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, focusedIdx, drawerId]);
+
+  useEffect(() => {
     rowRefs.current[focusedIdx]?.scrollIntoView({ block: "nearest" });
   }, [focusedIdx]);
 
   return (
-    <section data-testid="v2-opportunities" onKeyDown={onKey} tabIndex={0} style={{ outline: "none" }}>
+    <section data-testid="v2-opportunities">
       <h1 className="v2-page__title">Opportunities</h1>
       <p className="v2-page__lede">
         Universal feed · {total} match{total === 1 ? "" : "es"} · use <span className="v2-kbd">↑↓</span> to move,{" "}
