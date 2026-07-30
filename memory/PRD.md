@@ -32,31 +32,41 @@ Two deployment profiles:
   backend, frontend, opportunity_center. External mongo + network +
   reverse proxy owned by peer stack (Strategy Factory).
 
-## Current phase (Feb 2026): UI v2 Architecture
+## Current phase (Feb 2026): UI v2 Architecture — Complete, Ready to Implement
 
 **Goal:** transform ArbiCore X from a BDAG-oriented terminal UI into a Universal Arbitrage Intelligence Platform cockpit. Backend remains stable (v1.0.2 in production); only additive UI-facing endpoints permitted.
 
-**Deliverables** (`docs/ui_v2/`, versioned, committed @ `f0658ac`):
+**All 5 architecture phases complete** (`docs/ui_v2/`, versioned, committed @ `a40740b`):
+- `README.md` — reading order + Final Design Principle
 - `01_BACKEND_CAPABILITY_AUDIT.md` (389 lines) — 6-layer backend audit, 245 canonical endpoints
-- `02_UI_EXPOSURE_MATRIX.md` (299 lines) — 38% current coverage, 152 uncovered endpoints mapped to target workflow
-- `03_INFORMATION_ARCHITECTURE.md` (427 lines) — 7-section workflow-first IA (Home / Discovery / Opportunities / Portfolio / Intelligence / Operations / Settings), progressive-disclosure grammar
-- `04_UI_V2_MASTER_SPEC.md` (542 lines) — page hierarchy, 6 workflows, 30 widgets, endpoint bindings, states, keyboard, 11 acceptance criteria
-- `design_language.md` (199 lines, by design agent) — colours, typography (JetBrains Mono + IBM Plex Sans), 4px grid, motion, signature elements, anti-patterns
-- `appendix/endpoints.tsv` — machine-readable per-endpoint UI coverage
-- `appendix/panels.tsv` — 66-panel disposition: Keep 6 / Reposition 29 / Consolidate 16 / Rebuild 10 / Retire 5
+- `02_UI_EXPOSURE_MATRIX.md` (299 lines) — 38% current coverage, 152 uncovered endpoints mapped
+- `03_INFORMATION_ARCHITECTURE.md` (437 lines) — 7 sections (Home / Discovery / Opportunities / Portfolio / Intelligence / Operations / Settings)
+- `04_UI_V2_MASTER_SPEC.md` (576 lines) — page hierarchy, 6 workflows, 30 widgets, 14 acceptance criteria (incl. A/B/C from review)
+- `design_language.md` (241 lines) — premium institutional aesthetic; existing ArbiCore brand palette (amber `#ffb224`, obsidian, Plex Mono + Archivo)
+- `05_IMPLEMENTATION_ROADMAP.md` (299 lines) — 6-slice sequenced delivery plan
+- `appendix/USER_JOURNEYS.md` (332 lines) — 8 canonical operator journeys with time budgets (usability benchmark)
+- `appendix/wireframes.md` (450 lines) — ASCII wireframes for 7 primary screens
+- `appendix/endpoints.tsv` + `appendix/panels.tsv` — machine-readable coverage + panel disposition
 
-**Binding principles:**
-- Decision velocity, not information density
-- Cockpit, not engine room (backend logic invisible unless surfacing changes an operator decision)
-- Progressive disclosure L1 (what) → L2 (why) → L3 (receipts)
-- Zero BDAG identity — BDAG is one market, one dataset, one learning source
-- Universal opportunity card across all 8 scanner families
+**Binding Final Design Principle:**
+> ArbiCore X is an AI-powered Arbitrage Intelligence Platform.
+> Backend is the intelligence engine. Frontend is the operator cockpit.
+> Complexity belongs inside the engine. Clarity belongs in the cockpit.
 
-**Backend deltas (locked, additive only):**
-- `GET /api/arbicore/dashboard/pulse` (Home Pulse band composition)
-- `GET /api/arbicore/dashboard/deck` (Home Priorities band composition)
-- `GET /api/arbicore/opportunities/summary` (Opportunities header)
-- `GET /api/arbicore/roi-probability?route_id=…` (surface existing internal engine)
+**Backend deltas (locked, Slice 0):** 4 additive composed endpoints only.
+- `GET /api/arbicore/dashboard/pulse`
+- `GET /api/arbicore/dashboard/deck`
+- `GET /api/arbicore/opportunities/summary`
+- `GET /api/arbicore/roi-probability?route_id=…`
+
+**Implementation plan (6 slices, ~10 dev weeks):**
+0. Backend delta + feature flag + `/v2` sub-app scaffold (1–2 days)
+1. Foundations + Home + Opportunities + Opportunity Drawer (~2 wks) — enables J1/J2/J3
+2. Discovery + Intelligence: Recommendations + Confidence (~1.5 wks) — enables J4
+3. Operations: Scanners + Cycles + Venues + Interlock (~1.5 wks) — enables J6/J7
+4. Portfolio + Intelligence: Analytics + Certification (~1.5 wks) — enables J5
+5. Intelligence: Market/Learning/Knowledge + Settings + remaining Ops (~1.5 wks) — enables J7/J8
+6. Polish, Cutover, Developer Mode, Docs (~1 wk)
 
 ## Release history
 
