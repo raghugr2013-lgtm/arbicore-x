@@ -32,6 +32,32 @@ Two deployment profiles:
   backend, frontend, opportunity_center. External mongo + network +
   reverse proxy owned by peer stack (Strategy Factory).
 
+## Current phase (Feb 2026): UI v2 Architecture
+
+**Goal:** transform ArbiCore X from a BDAG-oriented terminal UI into a Universal Arbitrage Intelligence Platform cockpit. Backend remains stable (v1.0.2 in production); only additive UI-facing endpoints permitted.
+
+**Deliverables** (`docs/ui_v2/`, versioned, committed @ `f0658ac`):
+- `01_BACKEND_CAPABILITY_AUDIT.md` (389 lines) — 6-layer backend audit, 245 canonical endpoints
+- `02_UI_EXPOSURE_MATRIX.md` (299 lines) — 38% current coverage, 152 uncovered endpoints mapped to target workflow
+- `03_INFORMATION_ARCHITECTURE.md` (427 lines) — 7-section workflow-first IA (Home / Discovery / Opportunities / Portfolio / Intelligence / Operations / Settings), progressive-disclosure grammar
+- `04_UI_V2_MASTER_SPEC.md` (542 lines) — page hierarchy, 6 workflows, 30 widgets, endpoint bindings, states, keyboard, 11 acceptance criteria
+- `design_language.md` (199 lines, by design agent) — colours, typography (JetBrains Mono + IBM Plex Sans), 4px grid, motion, signature elements, anti-patterns
+- `appendix/endpoints.tsv` — machine-readable per-endpoint UI coverage
+- `appendix/panels.tsv` — 66-panel disposition: Keep 6 / Reposition 29 / Consolidate 16 / Rebuild 10 / Retire 5
+
+**Binding principles:**
+- Decision velocity, not information density
+- Cockpit, not engine room (backend logic invisible unless surfacing changes an operator decision)
+- Progressive disclosure L1 (what) → L2 (why) → L3 (receipts)
+- Zero BDAG identity — BDAG is one market, one dataset, one learning source
+- Universal opportunity card across all 8 scanner families
+
+**Backend deltas (locked, additive only):**
+- `GET /api/arbicore/dashboard/pulse` (Home Pulse band composition)
+- `GET /api/arbicore/dashboard/deck` (Home Priorities band composition)
+- `GET /api/arbicore/opportunities/summary` (Opportunities header)
+- `GET /api/arbicore/roi-probability?route_id=…` (surface existing internal engine)
+
 ## Release history
 
 ### v1.0.0 (2026-01, initial canonical release)
@@ -88,12 +114,12 @@ Two deployment profiles:
   in `docs/releases/v1.0.2.md`.
 
 ## Roadmap / Backlog
-- **P0**: none (v1.0.2 resolves the last known blocker).
-- **P1** — user gate: successful v1.0.2 production deployment + `make verify` all-green on Contabo VPS.
-- **ENH-001 (post-v1.0.2, target v1.1.0)** — continuous verification metrics: `scripts/verify-metrics.sh` Prometheus text-format exporter, cron template, Grafana dashboard JSON, `docs/OBSERVABILITY.md`. Filed in `docs/ROADMAP.md` §9a. Deferred to keep v1.0.2 focused as the production-stabilization release; starts after v1.0.2 is stable in production.
-- **P2**: end-to-end smoke test that runs against a live VPS deployment (currently we validate compose + build guard, not runtime auth flow) — largely superseded by v1.0.2's `make verify` harness.
-- **P2**: CI pipeline (GitHub Actions) that runs the compose validation + Dockerfile guard tests on every PR — codifies the v1.0.2 regression guards outside the Dockerfile itself.
-- **P2**: registry publishing workflow (push tagged images to registry.example.com so operators can `docker pull` instead of building on the VPS).
+- **P0** — UI v2: awaiting sign-off on Master Spec (Phase 4 complete). Phase 5 (Implementation Roadmap) is the next architectural deliverable, then a sliced implementation begins.
+- **UI v2 backend delta**: 4 additive composed endpoints (`dashboard/pulse`, `dashboard/deck`, `opportunities/summary`, `roi-probability`). Small PR, no logic changes.
+- **ENH-001 (post-v1.0.2, target v1.1.0)** — continuous verification metrics: `scripts/verify-metrics.sh` Prometheus text-format exporter, cron template, Grafana dashboard JSON, `docs/OBSERVABILITY.md`. Filed in `docs/ROADMAP.md` §9a. Deferred until v1.0.2 is stable in production (currently satisfied).
+- **P2**: end-to-end smoke test that runs against a live VPS deployment (largely superseded by v1.0.2's `make verify` harness).
+- **P2**: CI pipeline (GitHub Actions) that runs the compose validation + Dockerfile guard tests on every PR.
+- **P2**: registry publishing workflow (push tagged images to registry.example.com).
 
 ## Non-goals (explicitly out of scope)
 - Automated GitHub push from the platform (user handles pushes manually).
