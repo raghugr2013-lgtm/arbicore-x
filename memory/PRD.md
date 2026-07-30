@@ -45,7 +45,7 @@ Two deployment profiles:
 - `emergentintegrations` dependency swap.
 - Docker compose healthcheck overrides.
 
-### v1.0.2 (2026-02-05, current — frontend black-screen fix)
+### v1.0.2 (2026-02-05, current — frontend black-screen fix + verification harness)
 - **Root cause**: `frontend/Dockerfile` never declared
   `ARG REACT_APP_BACKEND_URL` → compose `build.args` silently ignored →
   `yarn build` ran with undefined env var → Webpack emitted
@@ -60,8 +60,15 @@ Two deployment profiles:
 - Greenfield changed `${REACT_APP_BACKEND_URL:-https://localhost}` soft
   default → `${REACT_APP_BACKEND_URL:?...}` hard requirement.
 - `.env.shared.example` documents new required variable.
-- Empirically validated: 8/8 verification checks passed (positive AND
-  negative cases reproduced).
+- **NEW: 8-category deployment verification harness**
+  (`scripts/verify-deployment.sh`, `scripts/verify-browser.mjs`, `make
+  verify`). Covers backend health, frontend + OC HTTP, bundle
+  fingerprint (v1.0.1 regression guard), browser runtime, API
+  connectivity, login flow, dashboard render. Playwright browser
+  checks auto-skip if not installed. Standard release checklist for
+  every future deployment.
+- Empirically validated: 8/8 pre-deploy verification cases passed
+  (positive AND negative reproduced).
 
 ## New required environment variable (v1.0.2)
 - **`REACT_APP_BACKEND_URL`** — public URL where the operator UI is
