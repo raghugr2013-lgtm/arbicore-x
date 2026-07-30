@@ -89,14 +89,11 @@ Two deployment profiles:
 
 ## Roadmap / Backlog
 - **P0**: none (v1.0.2 resolves the last known blocker).
-- **P1**: end-to-end smoke test that runs against a live VPS deployment
-  (currently we validate compose + build guard, not runtime auth flow).
-- **P2**: CI pipeline (GitHub Actions) that runs the compose validation
-  + Dockerfile guard tests on every PR — codifies the v1.0.2 regression
-  guards outside the Dockerfile itself.
-- **P2**: registry publishing workflow (push tagged images to
-  registry.example.com so operators can `docker pull` instead of
-  building on the VPS).
+- **P1** — user gate: successful v1.0.2 production deployment + `make verify` all-green on Contabo VPS.
+- **ENH-001 (post-v1.0.2, target v1.1.0)** — continuous verification metrics: `scripts/verify-metrics.sh` Prometheus text-format exporter, cron template, Grafana dashboard JSON, `docs/OBSERVABILITY.md`. Filed in `docs/ROADMAP.md` §9a. Deferred to keep v1.0.2 focused as the production-stabilization release; starts after v1.0.2 is stable in production.
+- **P2**: end-to-end smoke test that runs against a live VPS deployment (currently we validate compose + build guard, not runtime auth flow) — largely superseded by v1.0.2's `make verify` harness.
+- **P2**: CI pipeline (GitHub Actions) that runs the compose validation + Dockerfile guard tests on every PR — codifies the v1.0.2 regression guards outside the Dockerfile itself.
+- **P2**: registry publishing workflow (push tagged images to registry.example.com so operators can `docker pull` instead of building on the VPS).
 
 ## Non-goals (explicitly out of scope)
 - Automated GitHub push from the platform (user handles pushes manually).
