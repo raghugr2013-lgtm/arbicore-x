@@ -145,6 +145,7 @@ function Confidence() {
 
   const chip = (active, label, onClick, testid) => (
     <button
+      key={testid}
       type="button"
       onClick={onClick}
       data-testid={testid}
