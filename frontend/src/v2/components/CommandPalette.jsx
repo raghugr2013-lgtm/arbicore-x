@@ -14,7 +14,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { DialogTitle } from "@/components/ui/dialog";
+import { DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { NAV_SECTIONS } from "@/v2/lib/nav";
 import { v2Api } from "@/v2/lib/api";
 
@@ -35,6 +35,9 @@ export function CommandPalette({ open, onOpenChange }) {
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
       <DialogTitle className="sr-only">Command palette</DialogTitle>
+      <DialogDescription className="sr-only">
+        Search assets, venues, and opportunities. Use arrow keys to navigate and Enter to select.
+      </DialogDescription>
       <CommandInput placeholder="Search assets, venues, opportunities…" data-testid="v2-palette-input" />
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
