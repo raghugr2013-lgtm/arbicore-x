@@ -46,4 +46,17 @@ export const v2Api = {
     client.post(`${API}/arbicore/discovery/candidates/${id}/action`, null, { params: { action } }).then((r) => r.data),
   recommendations: () => get("/arbicore/intelligence/recommendations"),
   decisions: (filters = {}) => get("/arbicore/intelligence/decisions", filters),
+  // Slice 3 — Operations
+  scanners: () => get("/arbicore/operations/scanners"),
+  scannerAction: (family, action) =>
+    client.post(`${API}/arbicore/operations/scanners/${family}/action`, null, { params: { action } }).then((r) => r.data),
+  cycles: (filters = {}) => get("/arbicore/operations/cycles", filters),
+  venues: () => get("/arbicore/operations/venues"),
+  interlock: () => get("/arbicore/operations/interlock"),
+  interlockAction: (action) =>
+    client.post(`${API}/arbicore/operations/interlock/action`, null, { params: { action } }).then((r) => r.data),
+  integrations: () => get("/arbicore/operations/integrations"),
+  queues: () => get("/arbicore/operations/queues"),
+  alerts: (filters = {}) => get("/arbicore/operations/alerts", filters),
+  alertAck: (id) => client.post(`${API}/arbicore/operations/alerts/${id}/ack`).then((r) => r.data),
 };

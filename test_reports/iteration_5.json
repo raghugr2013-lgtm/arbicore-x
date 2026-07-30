@@ -1,0 +1,37 @@
+{
+  "summary": "Slice 3 (Operations · 7 sub-tabs) tested E2E against preview URL. Backend: 12/12 pytest tests pass — scanners list (8 families) + pause/start persistence, cycles list + SETTLED filter, venues (9), interlock GET (5 gates) + arm/disarm response, integrations (6, alchemy DEGRADED), queues (5, evidence_bundle failed_1h=2), alerts list + warn filter + ack response. Frontend: /v2/operations renders v2-operations with v2-ops-subnav (7 tabs) and auto-redirects to scanners. Scanners: 8 rows with state tags and START/PAUSE — PAUSE on CEX_ARBITRAGE flips row to PAUSED with sonner toast, START reverts. Cycles: 5 filter chips + table; SETTLED filter narrows to 4 rows. Venues: 9 rows (binance…gate-io). Interlock: summary with ARM/DISARM + 5 gates. Integrations: 6 cards, alchemy DEGRADED shown. Queues: 5 rows. Alerts: filter chips + list, warn filter narrows list to alr-9/alr-7/alr-5. Regression: /v2, /v2/opportunities, /v2/discovery, /v2/intelligence all render. Found 2 backend stub bugs where POST actions don't persist across GET (interlock, alerts) — see backend_issues.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/arbicore/operations/interlock/action", "issue": "Action response returns {state:'DISARMED'} but subsequent GET /interlock always returns armed=true/state=ARMED. State is not persisted in module-level store like scanners are. Frontend refetch after clicking DISARM shows summary still ARMED (though sonner toast fires). Frontend test contract in the review says 'Clicking DISARM flips summary state to DISARMED and enables ARM' — this cannot be verified because GET is hardcoded. Fix: mirror the _V2_SCANNERS pattern with a module-level dict for interlock state."},
+      {"endpoint": "POST /api/arbicore/operations/alerts/{id}/ack", "issue": "Ack response returns {ok:true, acked:true} but subsequent GET /alerts always returns alr-9 with acked=false. After clicking ACK, sonner toast fires and refetch reloads, but the ACK button reappears (alert not shown as ACKED after refresh). Contract 'the alert reloads showing ACKED' cannot be verified. Fix: persist acked ids in a module-level set and reflect in GET response."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Interlock DISARM", "issue": "Clicking DISARM triggers POST + toast, but on refetch the summary still shows ARMED because backend GET is not stateful. Root cause is backend stub (see backend_issues.minor).", "affected_selectors": ["v2-ops-interlock-summary", "v2-ops-interlock-disarm"]},
+      {"flow": "Alert ACK", "issue": "Clicking ACK on alr-9 triggers POST + toast, but on refetch alr-9 still shows the ACK button (not 'ACKED'). Root cause is backend stub (see backend_issues.minor).", "affected_selectors": ["v2-ops-alert-alr-9", "v2-ops-alert-ack-alr-9"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_v2_slice3.py", "/app/test_reports/pytest/slice3_results.xml"],
+  "action_items": [
+    "Make POST /api/arbicore/operations/interlock/action stateful — mirror _V2_SCANNERS pattern using a module-level dict so GET reflects the last-applied action.",
+    "Make POST /api/arbicore/operations/alerts/{id}/ack stateful — track acked ids in a module-level set and set acked=true in the GET response for those ids."
+  ],
+  "critical_code_review_comments": [
+    "backend/server.py is now 623 lines with all v2 pod stubs inline. Consider splitting the arbicore/* stubs into a separate module (e.g. backend/arbicore_v2_stubs.py) once Slice 4 lands — file will grow past the 700-line threshold.",
+    "Backend stubs are inconsistent about persistence: scanners persist via _V2_SCANNERS mutation, discovery persists via _V2_DISCOVERY mutation, but interlock and alerts do not persist state — leaking a UX inconsistency into the UI (toast fires but state does not change on refetch). Either persist all three or document the intent.",
+    "OperationsPage.jsx: Cycles filter buttons and Alerts severity filter buttons omit the explicit `key` prop on button return within map (keys are on the outer chip). No warnings observed; still, consistent keying will help maintenance.",
+    "OperationsPage.jsx Interlock: `data?.state` is rendered raw. Consider guarding when data is null (currently gated by the loading branch, so safe today).",
+    "v2Api.scannerAction / interlockAction / alertAck use params via axios — good; consistent with discoveryAction. Consider adding retry/error toasts with the server's error detail rather than a generic 'Action failed'."
+  ],
+  "updated_files": ["/app/backend/tests/test_v2_slice3.py"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "88% (7/8 tabs fully verified; interlock+alerts state-refresh assertion fails due to non-stateful stubs)"},
+  "seed_data_creation": "None — pod-local stubs. Scanners pause test resets CEX_ARBITRAGE back to RUNNING.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Slice 3 backend endpoints and 7 sub-tabs verified. Two backend stubs (interlock action, alerts ack) return the right POST response but do not persist state into the next GET — this breaks the frontend contract 'refetch shows new state'. Fix pattern: mirror _V2_SCANNERS. Regression suite (Slice 0/1/2) still green.",
+  "rca of the issue": "For interlock: v2_interlock_action returns computed state without mutating any module-level object; v2_interlock always returns hardcoded {armed: True, state: 'ARMED'}. For alerts: v2_alert_ack returns {acked:true} but v2_alerts always rebuilds the list literal with acked=False for alr-9. Reproduction: (1) POST /api/arbicore/operations/interlock/action?action=disarm → returns state=DISARMED. (2) GET /api/arbicore/operations/interlock → returns state=ARMED. Same pattern for alr-9. Mitigation: add module-level _V2_INTERLOCK dict and _V2_ACKED set; mutate them in the POST handlers and read them in the GET handlers."
+}

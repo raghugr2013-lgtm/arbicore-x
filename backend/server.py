@@ -452,6 +452,154 @@ async def v2_decisions(verdict: Optional[str] = None, family: Optional[str] = No
         out.append(d)
     return {"items": out[:limit], "total": len(out), "generated_at": _iso_now()}
 
+# ---------------------------------------------------------------------------
+# UI v2 · Slice 3 preview endpoints — Operations (scanners, cycles, venues,
+# interlock, integrations, queues, alerts). Pod-local stubs.
+# ---------------------------------------------------------------------------
+
+_V2_SCANNERS = [
+    {"family": "CEX_ARBITRAGE", "state": "RUNNING", "cadence_s": 5, "last_run": None, "opps_1h": 43, "gates_dropped_1h": 128, "errors_1h": 0},
+    {"family": "DEX_ARBITRAGE", "state": "RUNNING", "cadence_s": 8, "last_run": None, "opps_1h": 27, "gates_dropped_1h": 91, "errors_1h": 1},
+    {"family": "FUNDING_ARBITRAGE", "state": "RUNNING", "cadence_s": 30, "last_run": None, "opps_1h": 12, "gates_dropped_1h": 18, "errors_1h": 0},
+    {"family": "CROSS_CHAIN_ARBITRAGE", "state": "RUNNING", "cadence_s": 20, "last_run": None, "opps_1h": 9, "gates_dropped_1h": 41, "errors_1h": 0},
+    {"family": "FLASH_LOAN_ARBITRAGE", "state": "PAUSED", "cadence_s": 10, "last_run": None, "opps_1h": 0, "gates_dropped_1h": 0, "errors_1h": 0},
+    {"family": "LAUNCH_ARBITRAGE", "state": "RUNNING", "cadence_s": 60, "last_run": None, "opps_1h": 3, "gates_dropped_1h": 12, "errors_1h": 0},
+    {"family": "SPATIAL_ARBITRAGE", "state": "IDLE", "cadence_s": 15, "last_run": None, "opps_1h": 0, "gates_dropped_1h": 0, "errors_1h": 0},
+    {"family": "STATISTICAL_ARBITRAGE", "state": "RUNNING", "cadence_s": 45, "last_run": None, "opps_1h": 6, "gates_dropped_1h": 22, "errors_1h": 0},
+]
+
+
+@api_router.get("/arbicore/operations/scanners")
+async def v2_scanners() -> Dict[str, Any]:
+    now = _iso_now()
+    for s in _V2_SCANNERS:
+        if s["last_run"] is None:
+            s["last_run"] = now
+    return {"items": _V2_SCANNERS, "generated_at": now}
+
+
+@api_router.post("/arbicore/operations/scanners/{family}/action")
+async def v2_scanner_action(family: str, action: str) -> Dict[str, Any]:
+    match = next((s for s in _V2_SCANNERS if s["family"] == family), None)
+    if match:
+        mapping = {"start": "RUNNING", "pause": "PAUSED", "stop": "IDLE"}
+        match["state"] = mapping.get(action.lower(), match["state"])
+    return {"ok": True, "family": family, "state": match["state"] if match else None, "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/operations/cycles")
+async def v2_cycles(status: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
+    cycles = [
+        {"id": "cyc-101", "family": "CEX_ARBITRAGE", "route": "binance:ETH-USDT → kucoin:ETH-USDT",
+         "status": "SETTLED", "realized_bps": 21.4, "started_at": _iso_now(), "ended_at": _iso_now(),
+         "size_usd": 24_800},
+        {"id": "cyc-100", "family": "DEX_ARBITRAGE", "route": "uni-v3:WETH/USDC → sushi:WETH/USDC",
+         "status": "SETTLED", "realized_bps": 14.2, "started_at": _iso_now(), "ended_at": _iso_now(),
+         "size_usd": 18_400},
+        {"id": "cyc-099", "family": "FLASH_LOAN_ARBITRAGE", "route": "aave-flash → quickswap → sushiswap",
+         "status": "REVERTED", "realized_bps": 0.0, "started_at": _iso_now(), "ended_at": _iso_now(),
+         "size_usd": 12_000},
+        {"id": "cyc-098", "family": "CEX_ARBITRAGE", "route": "binance:BTC-USDT → okx:BTC-USDT",
+         "status": "RUNNING", "realized_bps": None, "started_at": _iso_now(), "ended_at": None,
+         "size_usd": 50_000},
+        {"id": "cyc-097", "family": "FUNDING_ARBITRAGE", "route": "bybit:SOL-PERP short + spot long",
+         "status": "SETTLED", "realized_bps": 11.7, "started_at": _iso_now(), "ended_at": _iso_now(),
+         "size_usd": 8_500},
+        {"id": "cyc-096", "family": "CROSS_CHAIN_ARBITRAGE", "route": "eth:USDC → arb:USDC (stargate)",
+         "status": "SETTLED", "realized_bps": 4.1, "started_at": _iso_now(), "ended_at": _iso_now(),
+         "size_usd": 30_000},
+    ]
+    out = [c for c in cycles if (not status or status == "ALL" or c["status"] == status)][:limit]
+    return {"items": out, "total": len(out), "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/operations/venues")
+async def v2_venues() -> Dict[str, Any]:
+    venues = [
+        {"venue": "binance", "kind": "CEX", "state": "READY", "role": "primary", "latency_ms": 42, "last_seen": _iso_now()},
+        {"venue": "kucoin", "kind": "CEX", "state": "READY", "role": "primary", "latency_ms": 58, "last_seen": _iso_now()},
+        {"venue": "okx", "kind": "CEX", "state": "READY", "role": "primary", "latency_ms": 61, "last_seen": _iso_now()},
+        {"venue": "bybit", "kind": "CEX", "state": "READY", "role": "primary", "latency_ms": 66, "last_seen": _iso_now()},
+        {"venue": "uniswap-v3", "kind": "DEX", "state": "READY", "role": "primary", "latency_ms": 190, "last_seen": _iso_now()},
+        {"venue": "sushiswap", "kind": "DEX", "state": "READY", "role": "secondary", "latency_ms": 210, "last_seen": _iso_now()},
+        {"venue": "raydium", "kind": "DEX", "state": "DEGRADED", "role": "secondary", "latency_ms": 480, "last_seen": _iso_now()},
+        {"venue": "hyperliquid", "kind": "PERP", "state": "READY", "role": "primary", "latency_ms": 88, "last_seen": _iso_now()},
+        {"venue": "gate-io", "kind": "CEX", "state": "OFFLINE", "role": "excluded", "latency_ms": None, "last_seen": _iso_now()},
+    ]
+    return {"items": venues, "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/operations/interlock")
+async def v2_interlock() -> Dict[str, Any]:
+    return {
+        "armed": True,
+        "state": "ARMED",
+        "reason": None,
+        "gates": [
+            {"gate": "safety_min", "state": "PASS", "value": 0.70, "threshold": 0.60},
+            {"gate": "freshness_max", "state": "PASS", "value": 12, "threshold": 15},
+            {"gate": "depth_min", "state": "PASS", "value": 240_000, "threshold": 100_000},
+            {"gate": "regime_ok", "state": "PASS", "value": "CALM", "threshold": "not HOSTILE"},
+            {"gate": "capital_deployable", "state": "PASS", "value": 380_000, "threshold": 50_000},
+        ],
+        "last_transition_at": _iso_now(),
+        "generated_at": _iso_now(),
+    }
+
+
+@api_router.post("/arbicore/operations/interlock/action")
+async def v2_interlock_action(action: str) -> Dict[str, Any]:
+    return {"ok": True, "state": "ARMED" if action == "arm" else "DISARMED", "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/operations/integrations")
+async def v2_integrations() -> Dict[str, Any]:
+    return {
+        "items": [
+            {"key": "userscript_v2", "label": "Userscript v2 quote portal", "state": "CONNECTED", "detail": "3 tabs live"},
+            {"key": "portal_ws", "label": "Portal WS", "state": "CONNECTED", "detail": "42ms latency"},
+            {"key": "coingecko", "label": "CoinGecko", "state": "CONNECTED", "detail": "OK"},
+            {"key": "telegram", "label": "Telegram alerts", "state": "CONNECTED", "detail": "chat #ops"},
+            {"key": "alchemy", "label": "Alchemy RPC", "state": "DEGRADED", "detail": "ETH mainnet slow"},
+            {"key": "chainlink", "label": "Chainlink price feeds", "state": "CONNECTED", "detail": "5 pairs"},
+        ],
+        "generated_at": _iso_now(),
+    }
+
+
+@api_router.get("/arbicore/operations/queues")
+async def v2_queues() -> Dict[str, Any]:
+    return {
+        "items": [
+            {"queue": "scanner_ingest", "pending": 12, "in_flight": 3, "failed_1h": 0, "rate_per_min": 41},
+            {"queue": "confidence_scoring", "pending": 4, "in_flight": 2, "failed_1h": 0, "rate_per_min": 39},
+            {"queue": "approval_notify", "pending": 0, "in_flight": 0, "failed_1h": 0, "rate_per_min": 0.5},
+            {"queue": "execution_dispatch", "pending": 1, "in_flight": 1, "failed_1h": 0, "rate_per_min": 0.8},
+            {"queue": "evidence_bundle", "pending": 6, "in_flight": 1, "failed_1h": 2, "rate_per_min": 3.2},
+        ],
+        "generated_at": _iso_now(),
+    }
+
+
+@api_router.get("/arbicore/operations/alerts")
+async def v2_alerts(severity: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
+    alerts = [
+        {"id": "alr-9", "severity": "warn", "source": "venue:raydium", "message": "Raydium RPC latency > 400ms for 6m.", "at": _iso_now(), "acked": False},
+        {"id": "alr-8", "severity": "info", "source": "scanner:LAUNCH_ARBITRAGE", "message": "New listing detected on kucoin: MOODENG-USDT.", "at": _iso_now(), "acked": False},
+        {"id": "alr-7", "severity": "warn", "source": "integration:alchemy", "message": "Alchemy ETH mainnet degraded — freshness stretched.", "at": _iso_now(), "acked": False},
+        {"id": "alr-6", "severity": "info", "source": "cycle:cyc-099", "message": "Flash-loan cycle reverted safely; capital returned.", "at": _iso_now(), "acked": True},
+        {"id": "alr-5", "severity": "warn", "source": "venue:gate-io", "message": "gate-io session lost; venue set OFFLINE.", "at": _iso_now(), "acked": True},
+    ]
+    out = [a for a in alerts if (not severity or severity == "ALL" or a["severity"] == severity)][:limit]
+    return {"items": out, "total": len(out), "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/operations/alerts/{alert_id}/ack")
+async def v2_alert_ack(alert_id: str) -> Dict[str, Any]:
+    return {"ok": True, "id": alert_id, "acked": True, "generated_at": _iso_now()}
+
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
