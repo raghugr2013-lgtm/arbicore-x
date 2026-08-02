@@ -1,0 +1,44 @@
+# Auto-aligned production compose for the ArbiCore X realignment.
+# Case B: PRESERVE the existing Dockerized Mongo 4.4.30 + its volume.
+# This compose defines the BACKEND ONLY -> zero risk of creating a stray Mongo.
+# All interpolated values come from compose/.env (written by steps/00_detect_env.sh).
+#
+# Required compose vars (auto-generated):
+#   IMAGE_TAG     e.g. arbicore-x-backend:0.1.0-realign-<gitsha>
+#   BACKEND_NEW   e.g. arbicore-x-backend-new   (differs from OLD to avoid name collision)
+#   NETWORK_NAME  the Docker network the existing Mongo is on
+#   GITSHA        for image labels (provenance)
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      labels:
+        - "arbicore.gitsha=${GITSHA}"
+        - "arbicore.schema=v1"
+    image: ${IMAGE_TAG}
+    container_name: ${BACKEND_NEW}
+    restart: unless-stopped
+    env_file:
+      - ../backend/.env
+    ports:
+      - "127.0.0.1:8001:8001"      # localhost only; front with the existing reverse proxy
+    volumes:
+      - ../backend/arbicore/intel/launch/labels.json:/app/arbicore/intel/launch/labels.json:ro
+      - ../logs:/var/log/arbicore-x
+    networks:
+      - existing_mongo_net
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8001/api/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "arbicore.role=backend"
+      - "arbicore.gitsha=${GITSHA}"
+
+networks:
+  existing_mongo_net:
+    external: true
+    name: ${NETWORK_NAME}

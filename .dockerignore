@@ -1,0 +1,67 @@
+# =============================================================================
+# ArbiCore X — repo-root .dockerignore
+#
+# The greenfield frontend + opportunity_center images build with the REPO
+# ROOT as their Docker context (see deployment/compose/docker-compose.yml
+# and the Dockerfiles under deployment/docker/*/). This ignore list keeps
+# the effective context down to just the source + config the builds COPY.
+#
+# Rules of thumb:
+#   - Deny everything the images do not COPY.
+#   - Keep app/frontend/, app/opportunity_center/, and the nginx-spa.conf
+#     files under deployment/docker/*/ reachable.
+#   - Real secrets (.env, .env.*) are always ignored; *.example templates
+#     are not needed by docker build.
+# =============================================================================
+
+# --- version control & CI metadata
+.git
+.gitattributes
+.gitignore
+.github
+.gitlab-ci.yml
+
+# --- docs, screenshots, audit trees (never referenced by any Dockerfile)
+docs
+**/docs
+screenshots
+**/screenshots
+
+# --- test outputs, coverage, ide state
+**/coverage
+**/.coverage
+**/htmlcov
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.tox
+**/.nox
+**/.idea
+**/.vscode
+**/.DS_Store
+Thumbs.db
+
+# --- python bytecode
+**/__pycache__
+**/*.pyc
+**/*.pyo
+
+# --- node build state
+**/node_modules
+**/dist
+**/build
+
+# --- environment files (real, not templates)
+.env
+.env.*
+*.env
+
+# --- upgrade toolkit is not part of greenfield builds
+deployment/upgrade
+
+# --- shared-infrastructure profile is not part of greenfield builds
+deployment/compose/docker-compose.shared.yml
+deployment/compose/.env.shared.example
+
+# --- backend image builds separately with app/backend/ as its context;
+#     it does not need frontend trees pulled in through the repo-root context

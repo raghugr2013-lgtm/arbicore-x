@@ -1,0 +1,250 @@
+# =============================================================================
+#  ArbiCore X — Shared-Infrastructure Deployment Profile
+#  File: deployment/compose/docker-compose.shared.yml
+# =============================================================================
+#
+#  PROFILE SUMMARY
+#  ---------------
+#  This compose file deploys ArbiCore X as a *co-tenant* on a VPS that already
+#  runs another stack ("Strategy Factory", or any peer stack) which OWNS:
+#
+#    - the Docker network (external, attached to by name)
+#    - the MongoDB instance (external; ArbiCore X connects to it as a client)
+#    - the reverse proxy / TLS (Caddy or nginx already on the host)
+#
+#  This file therefore does NOT define:
+#    * a mongo service      (never create; connect to external)
+#    * a caddy service      (never deploy)
+#    * a certbot service    (never deploy)
+#    * a reverse-proxy nginx (the co-tenant Caddy handles that)
+#
+#  It DOES define:
+#    * backend               (arbicore-x-backend, connects to shared Mongo)
+#    * frontend              (operator UI SPA, served by local nginx-alpine)
+#    * opportunity_center    (analytics SPA,  served by local nginx-alpine)
+#
+#  Everything is env-configurable so multiple ArbiCore X instances (staging,
+#  prod, tenant-A, tenant-B) can coexist on the same VPS without collision.
+#
+#  USAGE
+#  -----
+#    cd $REPO_ROOT/deployment/compose/
+#    cp .env.shared.example .env.shared
+#    $EDITOR .env.shared              # set NETWORK_NAME, MONGO_HOST, ports, etc.
+#    chmod 600 .env.shared
+#    docker compose --env-file .env.shared -f docker-compose.shared.yml up -d
+#
+#  Health-check the stack:
+#    docker compose --env-file .env.shared -f docker-compose.shared.yml ps
+#    curl -fs "http://127.0.0.1:${BACKEND_HOST_PORT}/api/"
+#
+#  See docs/SHARED_INFRASTRUCTURE.md for architecture + Caddy integration.
+# =============================================================================
+
+
+# ---------------------------------------------------------------- YAML anchors
+x-restart: &restart unless-stopped
+
+x-log-defaults: &log-defaults
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "5"
+
+# ---------------------------------------------------------------- Networks
+#   The network is EXTERNAL — created and owned by the peer stack (Strategy
+#   Factory). ArbiCore X attaches to it by name; it never creates it.
+#   To create it manually before first run, use:
+#     docker network create --driver bridge ${NETWORK_NAME}
+#   In shared-infrastructure mode, that command is normally run by the peer
+#   stack, not by ArbiCore X.
+networks:
+  shared:
+    name: ${NETWORK_NAME:-arbicore-x-net}
+    external: true
+
+# ---------------------------------------------------------------- Volumes
+#   Only *ArbiCore-owned* volumes are declared. Mongo data is NOT here — that
+#   volume is owned by the peer stack and is opaque to ArbiCore X.
+volumes:
+  arbicore-x-shared-logs:
+    name: ${LOGS_VOLUME_NAME:-arbicore-x-shared-logs}
+
+# =============================================================================
+#                                  SERVICES
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # BACKEND
+  #   Talks to external Mongo via MONGO_URL. Publishes to a host port so the
+  #   peer Caddy (running on the host or in another container) can proxy to it.
+  # ---------------------------------------------------------------------------
+  backend:
+    image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:1.0.2}
+    container_name: ${BACKEND_CONTAINER_NAME:-arbicore-x-backend}
+    hostname: ${BACKEND_CONTAINER_NAME:-arbicore-x-backend}
+    restart: *restart
+
+    # Load application env (.env at bundle root: JWT_SECRET, VAULT_KEY, admin
+    # creds, scanner toggles, third-party API keys). Kept SEPARATE from
+    # .env.shared, which only defines shared-profile wiring (network, ports,
+    # Mongo host, container names, image tags).
+    env_file:
+      - ../../.env
+
+    environment:
+      # MONGO_URL takes precedence if set explicitly. Otherwise we build it
+      # from MONGO_HOST/MONGO_PORT so the operator only has to change one var.
+      MONGO_URL: ${MONGO_URL:-mongodb://${MONGO_HOST:-factory-mongo}:${MONGO_PORT:-27017}}
+      DB_NAME: ${DB_NAME:-arbicore_x}
+      # Provenance labels for /api/arbicore/health
+      ARBICORE_DEPLOY_PROFILE: shared
+
+    networks:
+      shared:
+        # Optional network aliases — lets Caddy target `arbicore-backend` on
+        # the shared network regardless of the actual container name.
+        aliases:
+          - ${BACKEND_NETWORK_ALIAS:-arbicore-backend}
+
+    # Bind ONLY to loopback by default so the peer host-native Caddy can
+    # reverse-proxy to us without exposing the backend to the public IP.
+    # Set BACKEND_HOST_BIND=0.0.0.0 only if you know why you want that.
+    ports:
+      - "${BACKEND_HOST_BIND:-127.0.0.1}:${BACKEND_HOST_PORT:-8101}:8001"
+
+    volumes:
+      # Curated wallet labels — read-only bind mount so operators can hot-edit.
+      - ../../app/backend/arbicore/intel/launch/labels.json:/app/arbicore/intel/launch/labels.json:ro
+      - arbicore-x-shared-logs:/var/log/arbicore-x
+
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8001/api/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+    deploy:
+      resources:
+        limits:
+          cpus: "${BACKEND_CPU_LIMIT:-2.0}"
+          memory: "${BACKEND_MEM_LIMIT:-2G}"
+        reservations:
+          cpus: "${BACKEND_CPU_RESERVE:-0.5}"
+          memory: "${BACKEND_MEM_RESERVE:-512M}"
+
+    logging: *log-defaults
+
+    labels:
+      arbicore.role: backend
+      arbicore.gitsha: ${GITSHA:-unknown}
+      arbicore.schema: v1
+      arbicore.profile: shared
+      # Optional Caddy-Docker-labels for teams using the caddy-docker plugin.
+      # Set CADDY_LABELS_ENABLED=false to omit. These are safe no-ops when the
+      # peer isn't using label-based Caddy configuration.
+      caddy: ${CADDY_BACKEND_HOST:-}
+      caddy.reverse_proxy: "{{upstreams 8001}}"
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND (Operator UI)
+  #
+  # CRA bakes REACT_APP_BACKEND_URL into the JS bundle at build time. It MUST
+  # be passed as a build arg here — the Dockerfile hard-fails if it is empty
+  # (see docs/releases/v1.0.2.md for the root-cause writeup).
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/frontend/Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:?REACT_APP_BACKEND_URL is required for the frontend build (e.g. https://arbicore.example.com). Set it in .env.shared.}
+        GITSHA: ${GITSHA:-unknown}
+    image: ${FRONTEND_IMAGE_TAG:-arbicore-x-frontend:1.0.2}
+    container_name: ${FRONTEND_CONTAINER_NAME:-arbicore-x-frontend}
+    hostname: ${FRONTEND_CONTAINER_NAME:-arbicore-x-frontend}
+    restart: *restart
+
+    networks:
+      shared:
+        aliases:
+          - ${FRONTEND_NETWORK_ALIAS:-arbicore-frontend}
+
+    ports:
+      - "${FRONTEND_HOST_BIND:-127.0.0.1}:${FRONTEND_HOST_PORT:-8102}:80"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          cpus: "${FRONTEND_CPU_LIMIT:-0.5}"
+          memory: "${FRONTEND_MEM_LIMIT:-256M}"
+
+    logging: *log-defaults
+
+    labels:
+      arbicore.role: frontend
+      arbicore.gitsha: ${GITSHA:-unknown}
+      arbicore.profile: shared
+      caddy: ${CADDY_FRONTEND_HOST:-}
+      caddy.reverse_proxy: "{{upstreams 80}}"
+
+  # ---------------------------------------------------------------------------
+  # OPPORTUNITY CENTER (Analytics SPA)
+  #
+  # Vite bakes VITE_BACKEND_URL into the JS bundle at build time. It is
+  # derived from REACT_APP_BACKEND_URL so operators only have to set ONE
+  # variable (which also drives the operator UI build). The Dockerfile
+  # hard-fails if it is empty.
+  # ---------------------------------------------------------------------------
+  opportunity_center:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/opportunity_center/Dockerfile
+      args:
+        VITE_BACKEND_URL: ${REACT_APP_BACKEND_URL:?REACT_APP_BACKEND_URL is required for the opportunity_center build (e.g. https://arbicore.example.com). Set it in .env.shared.}
+        GITSHA: ${GITSHA:-unknown}
+    image: ${OPPORTUNITY_CENTER_IMAGE_TAG:-arbicore-x-opportunity-center:1.0.2}
+    container_name: ${OPPORTUNITY_CENTER_CONTAINER_NAME:-arbicore-x-opportunity-center}
+    hostname: ${OPPORTUNITY_CENTER_CONTAINER_NAME:-arbicore-x-opportunity-center}
+    restart: *restart
+
+    networks:
+      shared:
+        aliases:
+          - ${OPPORTUNITY_CENTER_NETWORK_ALIAS:-arbicore-opportunity-center}
+
+    ports:
+      - "${OPPORTUNITY_CENTER_HOST_BIND:-127.0.0.1}:${OPPORTUNITY_CENTER_HOST_PORT:-8103}:80"
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          cpus: "${OPPORTUNITY_CENTER_CPU_LIMIT:-0.5}"
+          memory: "${OPPORTUNITY_CENTER_MEM_LIMIT:-256M}"
+
+    logging: *log-defaults
+
+    labels:
+      arbicore.role: opportunity_center
+      arbicore.gitsha: ${GITSHA:-unknown}
+      arbicore.profile: shared
+      caddy: ${CADDY_OPPORTUNITY_CENTER_HOST:-}
+      caddy.reverse_proxy: "{{upstreams 80}}"
+
+# =============================================================================
+#  END docker-compose.shared.yml
+# =============================================================================

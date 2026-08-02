@@ -1,0 +1,13 @@
+{
+  "name": "arbicore-x-verify",
+  "version": "1.0.2",
+  "private": true,
+  "type": "module",
+  "description": "Deployment verification helpers for ArbiCore X (Playwright browser checks).",
+  "scripts": {
+    "verify:browser": "node verify-browser.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
