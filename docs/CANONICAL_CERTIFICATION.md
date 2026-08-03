@@ -1,3 +1,48 @@
+# Canonical Certification — ArbiCore X v2.0.1 (Sprint 1A · MID)
+
+**Certification date:** 2026-08-02
+**Tag:** `v2.0.1`
+**Scope:** Market Intelligence Database (MID) foundation
+
+## Verdict (v2.0.1)
+
+> ✅ **CERTIFIED for deployment to VPS in SHADOW mode.**
+
+Sprint 1A shipped the platform-wide persistent intelligence foundation per operator directive. Every observation the platform produces will be permanently recorded through the MID façade from the first tick after deployment.
+
+### Delta from v2.0.0
+
+- **New module:** `arbicore/data/mid/` (5 files: `__init__`, `enums`, `schemas`, `writers`, `readers`, `indexes`)
+- **New collections:** 11 (10 domain + `mid_enum_warnings`)
+- **New REST endpoints:** 3 (`/api/arbicore/mid/status`, `/api/arbicore/mid/query/{domain}`, `/api/arbicore/mid/enums`)
+- **New tests:** 27 (`tests/test_mid_sprint1a.py`)
+- **Regression:** 1442 → **1469 passed**, 76 skipped, 0 failed (delta: +27, all MID)
+
+### Design invariants enforced
+
+1. **Single write path** — every producer routes through `MidWriter`
+2. **Additive-only Mongo schema** — new `mid_*` collections; no existing collections modified
+3. **Per-domain TTL** — configurable, sensible defaults (permanent: routes/opportunities/decisions/outcomes)
+4. **No parallel storage systems**
+5. **Zero new external dependencies**
+6. **Strategy-agnostic** — every row carries `{strategy_type, opportunity_type, capital_source, chain, protocol, execution_mode, market_regime, tags[]}` metadata (v2.0.1 populates flash-loan values; future strategy families require zero migration)
+7. **Replay-ready** — every row carries a `replay_context` block (`block_number`, `block_timestamp`, `quote_snapshot_id`, `liquidity_snapshot_id`, `gas_snapshot_id`, `route_snapshot_id`, `decision_snapshot_id`, `market_snapshot_id`)
+8. **Stable canonical identifiers** — `mid_id` (row UUID), `event_id`, `route_id`, `provider_id`, `market_snapshot_id`. Downstream analytics reference by ID.
+
+### What Sprint 1A does NOT include (deferred to Sprint 1B onward, per operator directive)
+
+- Wiring dormant intelligence producers (Confidence, ROI, Route Ranking, Economics, Regime, Entity Scoring) to write into the MID — the API is present; the producers get wired in Sprint 1B on the deployed VPS
+- Scanner activation (dex_arbitrage, flash_loan_arbitrage) — Sprint 1B
+- Opportunity Lifetime Intelligence (P1-β) — Sprint 2
+- Historical Market Intelligence (P1-γ) — Sprint 3
+- Replay & Outcome Intelligence + Stablecoin Depeg gate — Sprint 4
+
+### Deployment instructions
+
+See [`V2_MIGRATION_GUIDE.md`](V2_MIGRATION_GUIDE.md). No new required env vars; the MID starts in bootstrap mode with default per-domain TTL policies. Operator can adjust TTLs from Settings → Market Intelligence Database once the UI card ships in Sprint 1B.
+
+---
+
 # Canonical Certification — ArbiCore X v2.0.0
 
 **Certification date:** 2026-08-02

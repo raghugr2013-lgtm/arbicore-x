@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -3537,6 +3537,102 @@ async def _start_calibration_worker():
         await _CALIBRATION_WORKER.start()
     except Exception as exc:  # noqa: BLE001
         logger.exception("failed to start calibration worker: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Sprint 1A — Market Intelligence Database (MID)
+# ---------------------------------------------------------------------------
+# Platform-wide persistent intelligence foundation.  Every MID row carries
+# strategy-agnostic metadata (see docs/V2_PLATFORM_ROADMAP.md §P1-α).
+# Producers wire through the façade in Sprint 1A; downstream sprints extend
+# what each producer records.  Boot posture: writers ready, indexes ensured.
+try:
+    from arbicore.data.mid import (
+        MidWriter, MidReader, ensure_indexes as _mid_ensure_indexes, DOMAINS as _MID_DOMAINS,
+        make_meta as _mid_make_meta, get_registry as _mid_get_registry,
+    )
+    _MID_WRITER: Optional[MidWriter] = MidWriter(db)
+    _MID_READER: Optional[MidReader] = MidReader(db)
+except Exception:  # noqa: BLE001
+    _MID_WRITER = None
+    _MID_READER = None
+    logger.exception("failed to construct MID writer/reader — endpoints will report unavailable")
+
+
+@app.on_event("startup")
+async def _mid_ensure_indexes_startup():
+    """Sprint 1A — ensure MID indexes + TTL policies at every boot (idempotent)."""
+    if _MID_WRITER is None:
+        return
+    try:
+        summary = await _mid_ensure_indexes(db)
+        logger.info("MID indexes ensured across %d collections", len(summary))
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("failed to ensure MID indexes: %s", exc)
+
+
+@app.get("/api/arbicore/mid/status")
+async def mid_status() -> Dict[str, Any]:
+    """Sprint 1A — MID health + per-domain counts + last-write timestamps."""
+    if _MID_READER is None:
+        return {"available": False, "reason": "mid_reader_unavailable", "generated_at": _iso_now()}
+    payload = await _MID_READER.status()
+    payload.update({"available": True, "generated_at": _iso_now()})
+    return payload
+
+
+@app.get("/api/arbicore/mid/query/{domain}")
+async def mid_query(domain: str,
+                     strategy_type: Optional[str] = None,
+                     opportunity_type: Optional[str] = None,
+                     capital_source: Optional[str] = None,
+                     chain: Optional[str] = None,
+                     protocol: Optional[str] = None,
+                     execution_mode: Optional[str] = None,
+                     market_regime: Optional[str] = None,
+                     ts_gte: Optional[str] = None,
+                     ts_lte: Optional[str] = None,
+                     limit: int = 100) -> Dict[str, Any]:
+    """Sprint 1A — parameterised MID query surface with strategy-agnostic filters."""
+    if _MID_READER is None:
+        raise HTTPException(status_code=503, detail="mid_reader_unavailable")
+    if domain not in _MID_DOMAINS:
+        raise HTTPException(status_code=404, detail=f"unknown MID domain: {domain}")
+    try:
+        rows = await _MID_READER.query(
+            domain, limit=limit,
+            strategy_type=strategy_type, opportunity_type=opportunity_type,
+            capital_source=capital_source, chain=chain, protocol=protocol,
+            execution_mode=execution_mode, market_regime=market_regime,
+            ts_gte=ts_gte, ts_lte=ts_lte,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {
+        "domain": domain,
+        "count": len(rows),
+        "filters": {
+            "strategy_type": strategy_type, "opportunity_type": opportunity_type,
+            "capital_source": capital_source, "chain": chain, "protocol": protocol,
+            "execution_mode": execution_mode, "market_regime": market_regime,
+            "ts_gte": ts_gte, "ts_lte": ts_lte, "limit": limit,
+        },
+        "rows": rows,
+        "generated_at": _iso_now(),
+    }
+
+
+@app.get("/api/arbicore/mid/enums")
+async def mid_enums() -> Dict[str, Any]:
+    """Sprint 1A — enum registry snapshot + closed-enum flags."""
+    reg = _mid_get_registry()
+    snap = reg.snapshot()
+    closed = {name: reg.is_closed(name) for name in snap}
+    return {
+        "enums": snap,
+        "closed": closed,
+        "generated_at": _iso_now(),
+    }
 
 
 @app.on_event("startup")

@@ -126,10 +126,49 @@ The MID is designed as **the platform's permanent intelligence foundation**, not
   execution_mode:  "shadow" | "paper" | "limited_live" | "full_live"
                                                         (closed enum — mode ladder)
 
+  market_regime:   "UNKNOWN" | "CALM" | "VOLATILE" | "TRENDING" | "CHOP" | ...
+                                                        (open enum; default "UNKNOWN"
+                    at write time; regime engine — dormant until Sprint 1B —
+                    back-annotates this field without schema change)
+
   tags:            [str]              // free-form tags, e.g. ["depeg", "usdc_bridge",
                                       //                        "high_volatility_regime"]
 }
 ```
+
+**Design invariant 7 — Replay-ready from day one.**
+
+Every persisted MID row retains enough context to reconstruct the market moment later. In addition to the domain-specific payload, every row (where applicable) carries a `replay_context` block:
+
+```
+{
+  block_number:            Optional[int]    // on-chain block at write time
+  block_timestamp:         Optional[str]    // ISO-8601 UTC — chain-clock, not host-clock
+  quote_snapshot_id:       Optional[str]    // stable ID of the mid_quotes row that
+                                            //   captured the quote used at this moment
+  liquidity_snapshot_id:   Optional[str]    // stable ID of the mid_liquidity row
+  gas_snapshot_id:         Optional[str]    // stable ID of the mid_gas row
+  route_snapshot_id:       Optional[str]    // stable ID of the mid_routes row
+  decision_snapshot_id:    Optional[str]    // stable ID of the mid_decisions row
+                                            //   (upstream gate verdict, if any)
+  market_snapshot_id:      Optional[str]    // stable ID of the mid_market_state row
+                                            //   for the same (chain, dex, pair, ts)
+}
+```
+
+**Design invariant 8 — Stable canonical identifiers, no duplication.**
+
+Every MID row exposes stable identifiers so downstream analytics reference by ID instead of duplicating payload:
+
+| ID | Semantics | Assigned when |
+|---|---|---|
+| `mid_id` | Every row's own canonical UUID (v4). Stable for row lifetime. Primary key alternative to Mongo `_id`. | On write |
+| `event_id` | Every `mid_opportunities` row's canonical event ID (`{opp_id}:{event_ordinal}`). Foreign-keyable from other domains. | On write |
+| `route_id` | Stable fingerprint of a route (`{chain}:{family}:{in_token}→{out_token}:{dex_path_hash}`). Same route across weeks always resolves to the same `route_id`. | Computed on first observation, memoised in `mid_routes` |
+| `provider_id` | Stable canonical provider identifier (`{provider_family}:{chain}` — e.g. `aave_v3:base`, `binance_spot:off_chain_cex`, `prime_broker_jump:off_chain`). | Registered in `mid.enums` + memoised in `mid_providers` |
+| `market_snapshot_id` | Stable canonical ID for a market moment. Rows that describe the same market moment across domains share this ID. | Assigned by the first writer to observe the market moment; reused by subsequent writers at the same tick |
+
+**Downstream contract:** any consumer that needs to correlate rows across domains **MUST** join by these IDs, never by duplicating payload. The Opportunity Knowledge Graph (P3-8) is expressed entirely in terms of these IDs.
 
 **Consequences:**
 
@@ -421,6 +460,7 @@ Per-tier acceptance criteria — the platform advances to the next tier only whe
 | 2026-08-02 | Initial ratification alongside v2.0.0 canonical release |
 | 2026-08-02 | **Amendment:** renamed P1-α from "Market History Storage" to "Market Intelligence Database" (MID); expanded MID scope to 11 domains (market state · quotes · liquidity · gas · providers · routes · opportunities · confidence · decisions · outcomes · replay) under a single façade with no parallel storage systems. Moved MID to Sprint 1 (was Sprint 3 in the flash-loan capability audit) so the memory foundation exists before any producer starts producing. Added P3-8 Opportunity Knowledge Graph (foundation) and P4 semantic layer. Updated non-negotiables §6.5 + §6.8 to enforce MID as sole persistence surface. |
 | 2026-08-02 | **Amendment:** split Sprint 1 into **Sprint 1A (pre-deployment)** and **Sprint 1B onward (post-deployment)**. Sprint 1A ships only the MID foundation, tagged as `v2.0.1`, then the platform is deployed to the VPS in SHADOW mode. From that moment the VPS is continuously recording market intelligence while Sprints 1B–5 continue development in the canonical repo. Added **Design invariant 6 — Strategy-agnostic** to the MID: every stored entity carries a `{strategy_type, opportunity_type, capital_source, chain, protocol, execution_mode, tags}` metadata block, making the MID the permanent intelligence foundation for the entire ArbiCore X platform — not a flash-loan-specific database. Future strategy families (CEX-DEX, funding, treasury, liquidation, institutional credit, cross-chain) populate the same MID with different metadata values; zero schema migration required. |
+| 2026-08-02 | **Amendment:** Sprint 1A architectural amendments (operator-approved). (1) Replay-readiness from day one — every persisted MID row carries a `replay_context` block (`block_number`, `block_timestamp`, `quote_snapshot_id`, `liquidity_snapshot_id`, `gas_snapshot_id`, `route_snapshot_id`, `decision_snapshot_id`, `market_snapshot_id`) sufficient to reconstruct the market moment. (2) Stable canonical identifiers — every row carries `mid_id`; opportunity events carry `event_id`; routes carry `route_id`; providers carry `provider_id`; market moments carry `market_snapshot_id`. Downstream analytics reference by ID, never by payload duplication. (3) Metadata block extended with `market_regime` (default `"UNKNOWN"`; regime engine — dormant until Sprint 1B — back-annotates without schema change). (4) After Sprint 1A regression is green, immediately package and deploy `v2.0.1` to VPS in SHADOW mode — do not wait for Sprint 1B. |
 
 ---
 
