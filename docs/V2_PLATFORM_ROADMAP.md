@@ -79,7 +79,7 @@ The platform's memory has to be built **before** its cognition. P1 is entirely a
 | **Quotes** — every route quote produced by discovery / planner (successful and rejected) | Provenance for every opportunity decision; feeds Route Confidence + counter-factual replay | `arbicore/execution/quoter.py` — no new quote logic |
 | **Liquidity** — pool depth snapshots per `(chain, dex, pool, timestamp)` with reserves + tick liquidity where applicable | Depth-aware borrow selection (P1-α consumer); Liquidity Mapping (P3 consumer) | Quoter eth_call plumbing — no new adapter |
 | **Gas** — gas price + priority fee snapshots per `(chain, timestamp)` | Gas Intelligence (P2), Volatility, Prediction | `arbicore/execution/gas.py` — no new oracle |
-| **Providers** — per-flash-loan-provider availability + observed premium + revert-count snapshots | Provider Intelligence (P2); depth-aware borrow selection (Sprint 2 refinement) | `arbicore/execution/adapters.py` — no new adapters |
+| **Providers** — per-capital-source availability + observed cost + revert-count snapshots (initially flash-loan providers; extensible to CEX venue accounts, margin credit lines, treasury allocations, institutional-credit facilities) | Provider Intelligence (P2); depth-aware borrow selection (Sprint 2 refinement) | `arbicore/execution/adapters.py` — no new adapters |
 | **Routes** — every unique route fingerprint the platform has ever seen, with cumulative persistence + first_seen + recurrence counters | Route Ranking (dormant `intelligence/scoring.py`); Route Confidence (dormant `intelligence/confidence.py`); AI Opportunity Ranking (dormant `intel/scorer.py`) | Existing route-fingerprint scheme |
 | **Opportunities** — the full write path of every candidate opportunity, retained permanently regardless of terminal verdict (executed / shadow / rejected / policy-denied / expired) | Opportunity Lifetime (P1-β) reads from here; Historical Market Intelligence (P1-γ) reads from here | Extends `arbicore/data/journal.py` — no new journal |
 | **Confidence** — every confidence score emitted + inputs at the time of emission | Auditability, calibration drift telemetry, replay | Wires dormant `SignalConfidenceEngine` write path |
@@ -92,14 +92,79 @@ The platform's memory has to be built **before** its cognition. P1 is entirely a
 1. **Single write path** — one `MID` façade module (`arbicore/data/mid/__init__.py`) exposes a small typed API (`write_market_state`, `write_quote`, `write_liquidity_snapshot`, `write_gas_snapshot`, `write_provider_snapshot`, `write_route_observation`, `write_opportunity_event`, `write_confidence`, `write_decision`, `write_outcome`, `write_replay`). Every producer in the codebase writes through this façade. Never directly to Mongo.
 2. **Additive-only Mongo schema** — new collections under a shared namespace (`mid_market_state`, `mid_quotes`, `mid_liquidity`, `mid_gas`, `mid_providers`, `mid_routes`, `mid_confidence`, `mid_decisions`, `mid_outcomes`, `mid_replay`). Existing collections (`opportunities`, `opportunity_journal`, `calibration_log`, `arbicore_signal_metrics`) remain untouched — the MID is a superset that references them.
 3. **Retention policy is per-domain** — TTL index configurable per collection via UI (Settings → Market Intelligence Database). Sensible defaults: `mid_market_state` 90d, `mid_quotes` 30d, `mid_liquidity` 90d, `mid_gas` 180d, `mid_providers` 365d, `mid_routes` **no TTL** (permanent), `mid_confidence` 90d, `mid_decisions` **no TTL** (permanent audit), `mid_outcomes` **no TTL** (permanent), `mid_replay` 30d (recomputable).
-4. **No parallel systems** — the MID **replaces** any ad-hoc historical-state writes elsewhere in the codebase. Any producer discovered to write outside the façade during Sprint 1 is refactored to use the façade in the same PR.
-5. **Zero new external dependencies** — every writer reuses already-active substrate (Quoter, Gas oracle, Adapter registry, Journal). Sprint 1 is a persistence layer, not a data-source expansion.
+4. **No parallel systems** — the MID **replaces** any ad-hoc historical-state writes elsewhere in the codebase. Any producer discovered to write outside the façade during Sprint 1A is refactored to use the façade in the same PR.
+5. **Zero new external dependencies** — every writer reuses already-active substrate (Quoter, Gas oracle, Adapter registry, Journal). The MID is a persistence layer, not a data-source expansion.
 
-**Effort:** M–L (~1.5 weeks — larger than the original "Market History Storage" scope because it unifies 11 domains under one façade; still tractable in Sprint 1 because every producer already exists).
+**Design invariant 6 — Strategy-agnostic. Platform-wide, not flash-loan-specific.**
 
-**Deployment impact:** ~10 new Mongo collections (all additive, all under the `mid_` prefix); one new background writer per domain (11 total, all thin — batched writes every 30 s); no new external calls.
+The MID is designed as **the platform's permanent intelligence foundation**, not as a flash-loan-specific database. Every stored entity across all 11 domains carries the same additive metadata block:
 
-**Rationale for Sprint 1 placement (operator directive, 2026-08-02):** everything else depends on historical data. If we activate scanners and intelligence first, the platform will emit opportunities/quotes/decisions that are permanently lost. The MID must exist before any producer starts producing — so from the first tick after deployment, every observation is captured. Deferring MID even by one sprint means permanently losing the training data that would have been generated during Sprints 2–4.
+```
+{
+  strategy_type:   "flash_loan_arbitrage" | "cex_dex_arbitrage" | "funding_rate" |
+                   "liquidation" | "treasury_yield" | "institutional_credit" |
+                   "cross_chain_arbitrage" | ...  (open enum, extensible)
+
+  opportunity_type: "dex_arbitrage" | "multi_hop" | "triangular" |
+                    "cex_dex" | "funding_delta" | "liquidation_call" |
+                    "stablecoin_depeg" | "yield_arbitrage" | ...  (open enum)
+
+  capital_source:  "flash_loan_aave_v3" | "flash_loan_balancer_v2" |
+                   "flash_loan_uniswap_v3" | "wallet_burner" | "wallet_treasury" |
+                   "cex_venue_binance" | "cex_venue_okx" | "margin_bybit" |
+                   "credit_facility_prime_broker" | "vault_yield" | ...  (open enum)
+
+  chain:           "base" | "arbitrum" | "optimism" | "polygon" | "ethereum" |
+                   "solana" | "sui" | "off_chain_cex" | ...  (open enum,
+                   "off_chain_cex" for CEX-only opportunities that touch no chain)
+
+  protocol:        "uniswap_v3" | "aerodrome_slipstream" | "aave_v3" |
+                   "balancer_v2" | "binance_spot" | "okx_spot" |
+                   "bybit_perp" | "compound_v3" | ...  (open enum — any DEX, CEX,
+                   lending market, perp venue, or credit protocol)
+
+  execution_mode:  "shadow" | "paper" | "limited_live" | "full_live"
+                                                        (closed enum — mode ladder)
+
+  tags:            [str]              // free-form tags, e.g. ["depeg", "usdc_bridge",
+                                      //                        "high_volatility_regime"]
+}
+```
+
+**Consequences:**
+
+- **v2.1.0 populates only flash-loan-family values** (`strategy_type = "flash_loan_arbitrage"`, `capital_source in {flash_loan_aave_v3, flash_loan_balancer_v2, flash_loan_uniswap_v3}`) — but the schema is not narrowed to those values.
+- **Future strategy families require zero schema migration.** When CEX-DEX arbitrage launches (some later phase), its writer simply calls `mid.write_opportunity_event(..., strategy_type="cex_dex_arbitrage", capital_source="cex_venue_binance", chain="off_chain_cex", protocol="binance_spot", execution_mode="shadow", ...)`. All existing indexes, queries, endpoints, TTL policies, and analytics continue to work.
+- **Every query surface accepts the metadata block as filters.** Endpoints like `/mid/query/opportunities?strategy_type=flash_loan_arbitrage&chain=base` and `/mid/query/outcomes?capital_source=cex_venue_binance` are supported from Sprint 1A.
+- **No flash-loan-specific storage architecture exists anywhere in the codebase.** Any producer discovered to hardcode strategy assumptions (e.g. a Mongo write that omits `strategy_type`, or a collection named `flash_loan_*` outside the `mid_` namespace, or a schema that treats "borrow provider" and "capital source" as different things) is refactored in the same PR.
+
+**Enum registry (`arbicore/data/mid/enums.py`):** open enums are registered in a single module with a `register(strategy_type="…")` helper. Registration is verified at process start; unknown values written to the MID emit a warning log and a `mid_enum_warnings` audit row rather than fail — the enum is a documentation surface, not a validation gate. This ensures new strategy families never crash Sprint-1A-era producers still running when Sprint-6+ strategies launch.
+
+---
+
+**Sprint 1 split (2026-08-02 amendment):**
+
+**Sprint 1A — Pre-deployment (MID foundation only)**
+- `arbicore/data/mid/` façade (`__init__.py`, `writers.py`, `readers.py`, `enums.py`, `schemas.py`)
+- 10 new Mongo collections in the `mid_` namespace, each with the strategy-agnostic metadata block indexed alongside the domain-specific fields
+- Per-domain TTL policies applied via `ensure_indexes()`
+- 11 producers wired to the façade (see Sprint 1A step list in `V2_FLASH_LOAN_CAPABILITY_AUDIT.md` §8)
+- Query endpoints: `GET /api/arbicore/mid/status`, `GET /api/arbicore/mid/query/{domain}?...` — with metadata filters
+- Settings UI card: **Settings → Market Intelligence Database** (per-domain TTL + cadence)
+- Regression: all 1442 existing tests must still pass; new MID tests added
+- **Deliverable of Sprint 1A:** the platform can be deployed to the VPS in SHADOW mode with the MID capturing every observation from t=0. Sprint 1A produces a tagged release (`v2.0.1` — MINOR).
+
+**Sprint 1B onward — Post-deployment, MID-consuming work**
+Sprint 1B (formerly "Sprint 2") through Sprint 5 continue on the deployed platform. From the moment the VPS is up, the MID is accumulating data; every subsequent sprint reads from and writes to the MID that is already live. No code lands on the VPS between Sprint 1A and Sprint 1B — the VPS accumulates data unimpeded while development continues in the canonical repo.
+
+**Effort:**
+- Sprint 1A (pre-deploy): **~1 week** — MID façade + 10 collections + 11 producers + query endpoints + Settings card + regression. Producers wire minimal happy-path writes; Sprint 1B expands the write contents as new information sources come online.
+- Sprints 1B–5 (post-deploy): ~5 weeks total, unchanged from prior plan.
+
+**Deployment impact (Sprint 1A):** ~10 new Mongo collections (all additive, all under the `mid_` prefix, all indexed on `strategy_type` + `chain` + timestamp); one new background writer per domain (11 total, batched writes 30–300 s cadence); no new external calls.
+
+**Rationale for the 1A/1B split (operator directive, 2026-08-02):** deploying with the MID complete but without downstream analytics gives the VPS a running head start — every second on the VPS is a second of accumulated market intelligence, even while Sprint 1B–5 development continues in the canonical repo. Waiting for all analytics before deploying costs us that head start irreversibly.
+
 
 #### P1-β — **Opportunity Lifetime Intelligence** _(second P1)_
 
@@ -256,34 +321,44 @@ All P4 items are deferred, non-blocking, and gated on P2 + P3 being mature. Emer
 
 ---
 
-## 5. Sequence & timing (revised — Sprint 1 = MID first)
+## 5. Sequence & timing (revised — Sprint 1A/1B split, deploy after 1A)
 
 ```
-   t=0            deploy v2.0.0 → VPS. Enter SHADOW mode.
-   t=+1.5 wk      SPRINT 1 · P1-α  Market Intelligence Database writing to Mongo
-                     → 11 domains (market state · quotes · liquidity · gas · providers
-                       · routes · opportunities · confidence · decisions · outcomes · replay)
-                       persisted via single MID façade. Every future producer writes here.
-   t=+2.5 wk      SPRINT 2 · P1-δ  Activate dormant intelligence surface
-                     → Confidence · ROI · Route Ranking · Economics · Regime · Entity Scoring
-                       All wire into MID as their persistence backing. Zero new code.
-   t=+3.5 wk      SPRINT 3 · P1-β  Opportunity Lifetime Intelligence
-                     → first_seen / last_seen / disappeared_at / lifetime / recurrence
-                       / survival probability. Reads MID.mid_opportunities + MID.mid_routes.
-   t=+4.5 wk      SPRINT 4 · P1-γ  Historical Market Intelligence
-                     → observation_only sample class + backfill. Reads MID exhaustively.
-   t=+6.0 wk      SPRINT 5 · Replay & Outcome (partial 5-Q) + Stablecoin Depeg gate
+   t=0            Canonical repo at v2.0.0. Not yet deployed.
+   t=+1 wk        SPRINT 1A · P1-α  Market Intelligence Database — foundation
+                     → façade + 10 collections + 11 producers + query endpoints
+                     + Settings card + regression green + strategy-agnostic
+                       metadata block on every entity
+                     → Tag v2.0.1 (MINOR — additive)
+   t=+1 wk        ▶ DEPLOY v2.0.1 → VPS in SHADOW mode
+                     From this moment, every market observation is permanently
+                     recorded. VPS accumulates MID data continuously while
+                     development continues in the canonical repo.
+   t=+2 wk        SPRINT 1B · P1-δ  Activate dormant intelligence
+                     → Confidence · ROI · Route Ranking · Economics · Regime
+                       · Entity Scoring — every activation wires its persistence
+                       through the deployed MID
+   t=+3 wk        SPRINT 3 · P1-β  Opportunity Lifetime Intelligence
+                     → first_seen / last_seen / disappeared_at / lifetime
+                       / recurrence / survival probability
+   t=+4 wk        SPRINT 4 · P1-γ  Historical Market Intelligence
+                     → observation_only sample class + backfill
+   t=+5 wk        SPRINT 5 · Replay & Outcome partial + Stablecoin Depeg gate
                      + regression + certification + package v2.1.0
                      → SHADOW → LIMITED_LIVE promotion authorisation gate opens
-   t=+6.0 → +14 wk P2 items land incrementally during LIMITED_LIVE ramp
-   t=+14 wk       LIMITED_LIVE → FULL_LIVE for the first strategy
-   t=+15 → +26 wk P3 items land during FULL_LIVE operation
+   t=+5 → +13 wk  P2 items land incrementally during LIMITED_LIVE ramp
+   t=+13 wk       LIMITED_LIVE → FULL_LIVE for the first strategy
+   t=+14 → +26 wk P3 items land during FULL_LIVE operation
                      → P3-8 Opportunity Knowledge Graph foundation lands here
    t=+26 wk+      P4 (AI readiness) begins
                      → P4 semantic layer over Knowledge Graph lands here
 ```
 
-**Cadence:** Sprint 1 (MID) tag `v2.0.1`. Sprints 2–5 tag `v2.1.0`. Full P2 lands as `v2.2.0`. `v3.0.0` when P4 begins LLM-integrated flows.
+**Cadence:**
+- **Sprint 1A → tag `v2.0.1`** (MINOR — additive: MID + strategy-agnostic metadata + 10 collections + 11 producers + query endpoints)
+- Sprints 1B–5 → tag `v2.1.0` cumulative on the deployed VPS
+- Full P2 lands as `v2.2.0`
+- `v3.0.0` when P4 begins LLM-integrated flows
 
 ---
 
@@ -345,6 +420,7 @@ Per-tier acceptance criteria — the platform advances to the next tier only whe
 |---|---|
 | 2026-08-02 | Initial ratification alongside v2.0.0 canonical release |
 | 2026-08-02 | **Amendment:** renamed P1-α from "Market History Storage" to "Market Intelligence Database" (MID); expanded MID scope to 11 domains (market state · quotes · liquidity · gas · providers · routes · opportunities · confidence · decisions · outcomes · replay) under a single façade with no parallel storage systems. Moved MID to Sprint 1 (was Sprint 3 in the flash-loan capability audit) so the memory foundation exists before any producer starts producing. Added P3-8 Opportunity Knowledge Graph (foundation) and P4 semantic layer. Updated non-negotiables §6.5 + §6.8 to enforce MID as sole persistence surface. |
+| 2026-08-02 | **Amendment:** split Sprint 1 into **Sprint 1A (pre-deployment)** and **Sprint 1B onward (post-deployment)**. Sprint 1A ships only the MID foundation, tagged as `v2.0.1`, then the platform is deployed to the VPS in SHADOW mode. From that moment the VPS is continuously recording market intelligence while Sprints 1B–5 continue development in the canonical repo. Added **Design invariant 6 — Strategy-agnostic** to the MID: every stored entity carries a `{strategy_type, opportunity_type, capital_source, chain, protocol, execution_mode, tags}` metadata block, making the MID the permanent intelligence foundation for the entire ArbiCore X platform — not a flash-loan-specific database. Future strategy families (CEX-DEX, funding, treasury, liquidation, institutional credit, cross-chain) populate the same MID with different metadata values; zero schema migration required. |
 
 ---
 
