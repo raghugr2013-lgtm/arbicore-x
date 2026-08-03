@@ -3594,10 +3594,37 @@ except Exception:  # noqa: BLE001
 
 @app.on_event("startup")
 async def _auth_seed_startup():
+    """v2.0.6 — surface the truthful seed summary at boot.
+
+    Historical bug: the previous implementation always logged
+    "seeded 2 default users" even when nothing was inserted.  We now
+    call the refactored ``ensure_seed_users`` which returns a summary
+    dict, and we log that summary verbatim so operators can see
+    exactly what happened in Mongo.
+    """
     if not _AUTH_AVAILABLE:
         return
     try:
-        await _auth_ensure_seed(db)
+        summary = await _auth_ensure_seed(db)
+        # summary is guaranteed to be a dict; older stub versions
+        # returned None, so we tolerate that shape for safety.
+        if isinstance(summary, dict):
+            logger.info(
+                "auth: startup seed summary — db=%s coll=%s inserted=%s "
+                "existed_before=%s skipped_existing=%s verified=%s ok=%s",
+                summary.get("database"),
+                summary.get("collection"),
+                summary.get("inserted"),
+                summary.get("existed_before"),
+                summary.get("skipped_existing"),
+                summary.get("verified"),
+                summary.get("ok"),
+            )
+            if not summary.get("ok"):
+                logger.error(
+                    "auth: startup seed verification FAILED — "
+                    "default users missing after seed routine"
+                )
     except Exception as exc:  # noqa: BLE001
         logger.exception("failed to seed auth users: %s", exc)
 
@@ -3671,6 +3698,47 @@ async def auth_me(authorization: Optional[str] = Header(default=None)):
     }
 
 
+@app.get("/api/auth/diagnostics")
+async def auth_diagnostics(authorization: Optional[str] = Header(default=None)):
+    """v2.0.7 — admin-only introspection into the ``auth_users`` collection.
+
+    Purpose: give operators a truthful, one-shot view of what is actually
+    in Mongo for the default seed accounts so bugs like the VPS
+    ``invalid_credentials`` regression can be diagnosed in seconds instead
+    of by SSH-ing into the DB.
+
+    NEVER returns the password hash, only its length and prefix (bcrypt
+    identifier). NEVER lists arbitrary users — only the two defaults
+    (``admin``, ``operator``).
+    """
+    if not _AUTH_AVAILABLE:
+        raise HTTPException(status_code=503, detail="auth_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    if ctx.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="admin_only")
+
+    coll = db["auth_users"]
+    result: Dict[str, Any] = {"users": {}, "generated_at": _iso_now()}
+    for uname in ("admin", "operator"):
+        doc = await coll.find_one({"username": uname})
+        if not doc:
+            result["users"][uname] = {"exists": False}
+            continue
+        h = doc.get("password_hash") or ""
+        result["users"][uname] = {
+            "exists": True,
+            "user_id": doc.get("user_id"),
+            "role": doc.get("role"),
+            "active_field": doc.get("active", None),
+            "has_password_hash": bool(h),
+            "hash_prefix": h[:4] if h else None,
+            "hash_len": len(h),
+            "created_at": doc.get("created_at"),
+        }
+    return result
+
 
 @app.get("/api/arbicore/mid/status")
 async def mid_status() -> Dict[str, Any]:
@@ -3734,6 +3802,249 @@ async def mid_enums() -> Dict[str, Any]:
         "closed": closed,
         "generated_at": _iso_now(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Sprint 1B-α — Intelligence Activation
+# ---------------------------------------------------------------------------
+# Wires the six previously-dormant intelligence engines through the MID
+# evidence bridge.  Boot posture: engines instantiated at startup, each
+# activation surfaced in ``/api/arbicore/intelligence/status``.  No scanner
+# is activated in this wave; that ships in Sprint 1B-β.
+try:
+    from arbicore.intelligence.wave1b import activate_all as _intel_activate_all
+    _INTEL_ACTIVATION = None  # populated by startup event below
+    _INTEL_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _INTEL_ACTIVATION = None
+    _INTEL_AVAILABLE = False
+    logger.exception(
+        "intelligence Wave 1B-α unavailable — /api/arbicore/intelligence/* "
+        "will report 503"
+    )
+
+
+@app.on_event("startup")
+async def _intelligence_activate_startup():
+    """Sprint 1B-α — activate all six intelligence engines through MID."""
+    global _INTEL_ACTIVATION
+    if not _INTEL_AVAILABLE or _MID_WRITER is None:
+        logger.warning(
+            "intelligence: activation SKIPPED "
+            "(available=%s, writer_ready=%s)",
+            _INTEL_AVAILABLE, _MID_WRITER is not None,
+        )
+        return
+    try:
+        _INTEL_ACTIVATION = _intel_activate_all(_MID_WRITER)
+        summary = _INTEL_ACTIVATION.registry.summary()
+        logger.info(
+            "intelligence: Wave 1B-α activation summary — "
+            "active=%s errored=%s",
+            summary.get("active"), summary.get("errored"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("intelligence: activation failed: %s", exc)
+
+
+@app.get("/api/arbicore/intelligence/status")
+async def intelligence_status() -> Dict[str, Any]:
+    """Sprint 1B-α — per-engine activation state + MidEvidenceBridge stats."""
+    if _INTEL_ACTIVATION is None:
+        return {
+            "available": False,
+            "reason": "intelligence_not_activated",
+            "generated_at": _iso_now(),
+        }
+    return {
+        "available": True,
+        "wave": "1B-α",
+        **_INTEL_ACTIVATION.summary(),
+        "generated_at": _iso_now(),
+    }
+
+
+@app.get("/api/arbicore/intelligence/{engine_id}/snapshot")
+async def intelligence_snapshot(engine_id: str) -> Dict[str, Any]:
+    """Sprint 1B-α — return the current public state of one engine."""
+    if _INTEL_ACTIVATION is None:
+        raise HTTPException(
+            status_code=503, detail="intelligence_not_activated")
+    status = _INTEL_ACTIVATION.registry.get(engine_id)
+    if status is None:
+        raise HTTPException(
+            status_code=404, detail=f"unknown engine: {engine_id}")
+    return {
+        "engine": status.to_dict(),
+        **status.snapshot(),
+        "generated_at": _iso_now(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Sprint 1B-β — Scanner Activation (SHADOW MODE)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.scanners.wave1b import activate_scanners as _scanner_activate
+    _SCANNER_ACTIVATION = None  # populated by startup event below
+    _SCANNER_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _SCANNER_ACTIVATION = None
+    _SCANNER_AVAILABLE = False
+    logger.exception(
+        "scanners Wave 1B-β unavailable — /api/arbicore/scanners/* "
+        "will report 503"
+    )
+
+
+@app.on_event("startup")
+async def _scanners_activate_startup():
+    """Sprint 1B-β — register shadow scanners (DORMANT boot)."""
+    global _SCANNER_ACTIVATION
+    if (not _SCANNER_AVAILABLE
+            or _MID_WRITER is None or _MID_READER is None):
+        logger.warning(
+            "scanners: activation SKIPPED "
+            "(available=%s, writer=%s, reader=%s)",
+            _SCANNER_AVAILABLE,
+            _MID_WRITER is not None,
+            _MID_READER is not None,
+        )
+        return
+    try:
+        _SCANNER_ACTIVATION = _scanner_activate(_MID_WRITER, _MID_READER)
+        summary = _SCANNER_ACTIVATION.registry.summary()
+        logger.info(
+            "scanners: Wave 1B-β activation summary — count=%d "
+            "running=%s errored=%s (all boot DORMANT)",
+            summary.get("scanner_count"),
+            summary.get("running"),
+            summary.get("errored"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("scanners: activation failed: %s", exc)
+
+
+@app.get("/api/arbicore/scanners/status")
+async def scanners_status() -> Dict[str, Any]:
+    """Sprint 1B-β — per-scanner activation + runtime state + bridge stats.
+
+    Also includes the intelligence pipeline totals so operators can see the
+    full ``scanners → MidEvidenceBridge → engines`` throughput in one call.
+    """
+    if _SCANNER_ACTIVATION is None:
+        return {
+            "available": False,
+            "reason": "scanners_not_activated",
+            "generated_at": _iso_now(),
+        }
+    payload = {
+        "available": True,
+        "wave": "1B-β",
+        "mode": "shadow",
+        **_SCANNER_ACTIVATION.summary(),
+        "generated_at": _iso_now(),
+    }
+    if _INTEL_ACTIVATION is not None:
+        payload["intelligence_bridge_stats"] = (
+            _INTEL_ACTIVATION.bridge.stats.to_dict())
+    return payload
+
+
+@app.post("/api/arbicore/scanners/{scanner_id}/start")
+async def scanner_start(
+    scanner_id: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    """Sprint 1B-β — operator-controlled start (admin OR operator)."""
+    if _SCANNER_ACTIVATION is None:
+        raise HTTPException(
+            status_code=503, detail="scanners_not_activated")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    if ctx.get("role") not in ("admin", "operator"):
+        raise HTTPException(
+            status_code=403, detail="admin_or_operator_only")
+    adapter = _SCANNER_ACTIVATION.get_adapter(scanner_id)
+    if adapter is None:
+        raise HTTPException(
+            status_code=404, detail=f"unknown scanner: {scanner_id}")
+    result = await adapter.start()
+    logger.info(
+        "scanners: START scanner_id=%s by=%s result=%s",
+        scanner_id, ctx.get("username"), result,
+    )
+    return {"scanner_id": scanner_id, "mode": "shadow", **result,
+            "generated_at": _iso_now()}
+
+
+@app.post("/api/arbicore/scanners/{scanner_id}/stop")
+async def scanner_stop(
+    scanner_id: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    if _SCANNER_ACTIVATION is None:
+        raise HTTPException(
+            status_code=503, detail="scanners_not_activated")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    if ctx.get("role") not in ("admin", "operator"):
+        raise HTTPException(
+            status_code=403, detail="admin_or_operator_only")
+    adapter = _SCANNER_ACTIVATION.get_adapter(scanner_id)
+    if adapter is None:
+        raise HTTPException(
+            status_code=404, detail=f"unknown scanner: {scanner_id}")
+    result = await adapter.stop()
+    logger.info(
+        "scanners: STOP scanner_id=%s by=%s result=%s",
+        scanner_id, ctx.get("username"), result,
+    )
+    return {"scanner_id": scanner_id, **result,
+            "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/observability")
+async def observability() -> Dict[str, Any]:
+    """Sprint 1B-β — one-shot operational observability endpoint.
+
+    Aggregates health for the entire intelligence pipeline:
+      * MID health + per-domain counts
+      * Intelligence engine activation state + bridge throughput
+      * Scanner activation state + shadow bridge throughput + backlog
+      * Last-execution timestamps + error counters
+    """
+    payload: Dict[str, Any] = {"generated_at": _iso_now()}
+
+    # MID
+    if _MID_READER is not None:
+        try:
+            payload["mid"] = await _MID_READER.status()
+            payload["mid"]["available"] = True
+        except Exception as exc:  # noqa: BLE001
+            payload["mid"] = {"available": False, "error": str(exc)}
+    else:
+        payload["mid"] = {"available": False}
+
+    # Intelligence engines
+    if _INTEL_ACTIVATION is not None:
+        payload["intelligence"] = _INTEL_ACTIVATION.summary()
+        payload["intelligence"]["available"] = True
+    else:
+        payload["intelligence"] = {"available": False}
+
+    # Scanners
+    if _SCANNER_ACTIVATION is not None:
+        payload["scanners"] = _SCANNER_ACTIVATION.summary()
+        payload["scanners"]["available"] = True
+    else:
+        payload["scanners"] = {"available": False}
+
+    # Auth
+    payload["auth"] = {"available": _AUTH_AVAILABLE}
+    return payload
 
 
 @app.on_event("startup")
