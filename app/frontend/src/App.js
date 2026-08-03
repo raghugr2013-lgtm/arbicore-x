@@ -1,34 +1,57 @@
-import { useEffect } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
-import axios from "axios";
-import { AuthProvider } from "@/context/AuthContext";
-import { AppShell as UiV2AppShell } from "@/v2/components/AppShell";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AppShell as DashboardShell } from "@/v2/components/AppShell";
+import LoginPage from "@/v2/pages/LoginPage";
+import InitializationPage from "@/v2/pages/InitializationPage";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+/**
+ * Production entry flow (v2.0.1):
+ *   /                    → routes based on auth+init state
+ *   /login               → Login form (unauthenticated only)
+ *   /initialization      → Loading experience (authenticated, uninitialized)
+ *   /dashboard/*         → ArbiCore X home (authenticated + initialized)
+ *   /v2/*                → legacy alias — redirects to /dashboard
+ *   *                    → routed based on auth state
+ *
+ * The AppShell (formerly rooted at /v2) is remounted at /dashboard as the
+ * primary entry point of the platform.  /v2 remains as a backward-compat
+ * redirect only; it is no longer exposed in the primary navigation.
+ */
 
-const LegacyLanding = () => {
-  useEffect(() => {
-    axios.get(`${API}/`).catch(() => {});
-  }, []);
-  return (
-    <div style={{ padding: 40, fontFamily: "system-ui, sans-serif", color: "#c9d4e0", background: "#0b0f14", minHeight: "100vh" }}>
-      <h1 style={{ fontSize: 20, marginBottom: 8 }}>ArbiCore X — Preview Pod</h1>
-      <p style={{ color: "#8a97a8", marginBottom: 16 }}>Legacy UI is a stub in this preview environment. Open the Slice 0 shell:</p>
-      <Link to="/v2" style={{ color: "#ffb224", textDecoration: "none", fontFamily: "monospace" }}>→ /v2 (UI v2 Slice 0 shell)</Link>
-    </div>
-  );
-};
+function RootRedirect() {
+  const { isAuthenticated, isInitialized } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isInitialized) return <Navigate to="/initialization" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
+
+function ProtectedDashboard() {
+  const { isAuthenticated, isInitialized } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!isInitialized) return <Navigate to="/initialization" replace />;
+  return <DashboardShell />;
+}
+
+function LegacyV2Redirect() {
+  // Preserve deep-link semantics from the old /v2/* paths.
+  const path = window.location.pathname.replace(/^\/v2/, "/dashboard");
+  const suffix = path === "/dashboard" ? "" : path.slice("/dashboard".length);
+  return <Navigate to={`/dashboard${suffix}${window.location.search}`} replace />;
+}
 
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/v2/*" element={<UiV2AppShell />} />
-          <Route path="/" element={<LegacyLanding />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/initialization" element={<InitializationPage />} />
+          <Route path="/dashboard/*" element={<ProtectedDashboard />} />
+          <Route path="/v2" element={<LegacyV2Redirect />} />
+          <Route path="/v2/*" element={<LegacyV2Redirect />} />
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="*" element={<RootRedirect />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

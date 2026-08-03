@@ -1,0 +1,200 @@
+/* ArbiCore X — InitializationPage — sequential-step splash */
+
+.arbicore-init {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(255, 178, 36, 0.06), transparent 70%),
+    var(--v2-bg-canvas);
+  color: var(--v2-text-primary);
+  font-family: var(--v2-font-sans, system-ui, sans-serif);
+  padding: 40px 20px;
+}
+
+.arbicore-init__panel {
+  width: 100%;
+  max-width: 480px;
+  background: var(--v2-bg-surface);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: 2px;
+  padding: 40px 40px 30px;
+  box-shadow: 0 40px 80px rgba(0, 0, 0, 0.6);
+}
+
+.arbicore-init__brand {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.arbicore-init__wordmark {
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 20px;
+  letter-spacing: 4px;
+  color: var(--v2-text-strong);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.arbicore-init__tag {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--v2-text-muted);
+}
+
+.arbicore-init__steps {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 28px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.arbicore-init__step {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--v2-bg-canvas);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: 1px;
+  transition: border-color 200ms ease, background 200ms ease;
+}
+
+.arbicore-init__step--running {
+  border-color: #ffb224;
+  background: rgba(255, 178, 36, 0.05);
+}
+
+.arbicore-init__step--ok {
+  border-color: var(--v2-border-strong);
+  opacity: 0.85;
+}
+
+.arbicore-init__step--warn {
+  border-color: #ff9040;
+  background: rgba(255, 144, 64, 0.05);
+}
+
+.arbicore-init__step-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.arbicore-init__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--v2-border-strong);
+}
+
+.arbicore-init__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 178, 36, 0.25);
+  border-top-color: #ffb224;
+  border-radius: 50%;
+  animation: arbicore-init-spin 700ms linear infinite;
+}
+
+@keyframes arbicore-init-spin {
+  to { transform: rotate(360deg); }
+}
+
+.arbicore-init__check {
+  color: #57c780;
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.arbicore-init__warn {
+  color: #ff9040;
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.arbicore-init__step-label {
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--v2-text-primary);
+}
+
+.arbicore-init__step-detail {
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  color: var(--v2-text-muted);
+  text-transform: uppercase;
+}
+
+.arbicore-init__progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.arbicore-init__progress-track {
+  flex: 1;
+  height: 3px;
+  background: var(--v2-bg-canvas);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.arbicore-init__progress-fill {
+  height: 100%;
+  background: #ffb224;
+  transition: width 400ms ease;
+}
+
+.arbicore-init__progress-label {
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--v2-text-secondary);
+  min-width: 44px;
+  text-align: right;
+}
+
+.arbicore-init__error {
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  color: #ff6b6b;
+  padding: 8px 10px;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  border-radius: 1px;
+  margin-bottom: 16px;
+}
+
+.arbicore-init__footer {
+  padding-top: 16px;
+  border-top: 1px solid var(--v2-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--v2-text-muted);
+}
+
+.arbicore-init__footer-sep {
+  color: var(--v2-border-strong);
+}

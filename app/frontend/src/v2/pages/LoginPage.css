@@ -1,0 +1,148 @@
+/* ArbiCore X — LoginPage — obsidian + amber institutional login card */
+
+.arbicore-login {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse 900px 500px at 50% -10%, rgba(255, 178, 36, 0.06), transparent 70%),
+    radial-gradient(ellipse 700px 400px at 50% 110%, rgba(255, 178, 36, 0.04), transparent 70%),
+    var(--v2-bg-canvas);
+  color: var(--v2-text-primary);
+  font-family: var(--v2-font-sans, system-ui, sans-serif);
+  padding: 40px 20px;
+}
+
+.arbicore-login__panel {
+  width: 100%;
+  max-width: 400px;
+  background: var(--v2-bg-surface);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: 2px;
+  padding: 44px 40px 32px;
+  box-shadow:
+    0 40px 80px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+}
+
+.arbicore-login__brand {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.arbicore-login__wordmark {
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 22px;
+  letter-spacing: 4px;
+  color: var(--v2-text-strong);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.arbicore-login__tag {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--v2-text-muted);
+  max-width: 320px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.arbicore-login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.arbicore-login__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.arbicore-login__label {
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--v2-text-secondary);
+}
+
+.arbicore-login__field input {
+  background: var(--v2-bg-canvas);
+  border: 1px solid var(--v2-border-subtle);
+  border-radius: 1px;
+  padding: 12px 14px;
+  color: var(--v2-text-strong);
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 13px;
+  letter-spacing: 0.4px;
+  outline: none;
+  transition: border-color 120ms ease;
+}
+
+.arbicore-login__field input:focus {
+  border-color: #ffb224;
+}
+
+.arbicore-login__field input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.arbicore-login__error {
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: #ff6b6b;
+  padding: 8px 10px;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  border-radius: 1px;
+}
+
+.arbicore-login__submit {
+  margin-top: 4px;
+  padding: 12px 14px;
+  background: #ffb224;
+  color: #0b0f14;
+  border: 1px solid #ffb224;
+  border-radius: 1px;
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 12px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, opacity 120ms ease;
+}
+
+.arbicore-login__submit:hover:not(:disabled) {
+  background: #ffbf47;
+}
+
+.arbicore-login__submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.arbicore-login__footer {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--v2-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--v2-text-muted);
+}
+
+.arbicore-login__footer-sep {
+  color: var(--v2-border-strong);
+}

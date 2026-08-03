@@ -1,3 +1,57 @@
+# Canonical Certification — ArbiCore X v2.0.2 (Production Entry Experience)
+
+**Certification date:** 2026-08-02
+**Tag:** `v2.0.2`
+**Scope:** frontend routing refinement — Login → Initialization → Dashboard
+
+## Verdict (v2.0.2)
+
+> ✅ **CERTIFIED for deployment to VPS in SHADOW mode.**
+
+The "Preview Pod" landing page is retired.  The application now opens
+into the production entry experience: unauthenticated users see the
+Login page, authenticated users transition through a professional
+Initialization screen that hits real backend health endpoints, then
+land on the Dashboard as the application's home.
+
+## Delta from v2.0.1
+
+- **New pages:** `LoginPage.jsx` + `InitializationPage.jsx` (+ tokenised CSS)
+- **New context:** `AuthContext.jsx` (localStorage-backed session; drop-in
+  replaceable when backend `/api/auth/login` is activated in Sprint 1B)
+- **New routing:**
+  - `/`               → routes based on auth+init state
+  - `/login`          → LoginPage (unauthenticated only)
+  - `/initialization` → InitializationPage (authenticated, uninitialized)
+  - `/dashboard/*`    → AppShell (formerly `/v2/*`) — protected
+  - `/v2/*`           → legacy alias, redirects to `/dashboard`
+- **Initialization steps** (each hits a real backend endpoint):
+  - "Connecting to Market…"                       → `GET /api/`
+  - "Loading Intelligence…"                       → `GET /api/system/status`
+  - "Synchronizing Market Intelligence Database…" → `GET /api/arbicore/mid/status`
+  - "Preparing Opportunity Engine…"               → `GET /api/arbicore/opportunities/summary`
+- **Design language:** obsidian + amber consistent with UI v2 tokens; no
+  new dependencies added.
+
+## Verified
+
+Frontend automated browser suite:
+- `/` redirect to `/login` — pass
+- Login validation (empty fields, short passphrase) — pass
+- Login → `/initialization` — pass
+- Initialization sequential steps (4/4 respond) — pass
+- Initialization → `/dashboard` — pass
+- `/dashboard` mounts the AppShell (`v2-root` + `v2-content` present) — pass
+- `/v2` deep-link redirects to `/dashboard` — pass
+- Session persistence across reload — pass
+- "Preview Pod" text no longer exists anywhere on the page — pass
+
+## Backend regression
+
+Untouched — 1469 tests still pass (no backend business logic changed).
+
+---
+
 # Canonical Certification — ArbiCore X v2.0.1 (Sprint 1A · MID)
 
 **Certification date:** 2026-08-02
