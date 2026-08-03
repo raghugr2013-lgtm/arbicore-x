@@ -81,7 +81,12 @@ services:
   #   peer Caddy (running on the host or in another container) can proxy to it.
   # ---------------------------------------------------------------------------
   backend:
-    image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:1.0.2}
+    build:
+      context: ../..
+      dockerfile: deployment/docker/backend/Dockerfile
+      args:
+        GITSHA: ${GITSHA:-unknown}
+    image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:2.0.3}
     container_name: ${BACKEND_CONTAINER_NAME:-arbicore-x-backend}
     hostname: ${BACKEND_CONTAINER_NAME:-arbicore-x-backend}
     restart: *restart
@@ -162,7 +167,7 @@ services:
       args:
         REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:?REACT_APP_BACKEND_URL is required for the frontend build (e.g. https://arbicore.example.com). Set it in .env.shared.}
         GITSHA: ${GITSHA:-unknown}
-    image: ${FRONTEND_IMAGE_TAG:-arbicore-x-frontend:1.0.2}
+    image: ${FRONTEND_IMAGE_TAG:-arbicore-x-frontend:2.0.3}
     container_name: ${FRONTEND_CONTAINER_NAME:-arbicore-x-frontend}
     hostname: ${FRONTEND_CONTAINER_NAME:-arbicore-x-frontend}
     restart: *restart
@@ -211,7 +216,7 @@ services:
       args:
         VITE_BACKEND_URL: ${REACT_APP_BACKEND_URL:?REACT_APP_BACKEND_URL is required for the opportunity_center build (e.g. https://arbicore.example.com). Set it in .env.shared.}
         GITSHA: ${GITSHA:-unknown}
-    image: ${OPPORTUNITY_CENTER_IMAGE_TAG:-arbicore-x-opportunity-center:1.0.2}
+    image: ${OPPORTUNITY_CENTER_IMAGE_TAG:-arbicore-x-opportunity-center:2.0.3}
     container_name: ${OPPORTUNITY_CENTER_CONTAINER_NAME:-arbicore-x-opportunity-center}
     hostname: ${OPPORTUNITY_CENTER_CONTAINER_NAME:-arbicore-x-opportunity-center}
     restart: *restart

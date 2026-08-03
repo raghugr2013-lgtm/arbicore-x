@@ -66,7 +66,7 @@ services:
       args:
         GITSHA: ${GITSHA:-unknown}
         SCHEMA: v1
-    image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:1.0.2}
+    image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:2.0.3}
     container_name: arbicore-x-backend
     restart: *restart
     depends_on:
@@ -111,7 +111,7 @@ services:
       args:
         REACT_APP_BACKEND_URL: ${REACT_APP_BACKEND_URL:?REACT_APP_BACKEND_URL is required for the frontend build (e.g. https://arbicore.example.com). Set it in .env at the repo root.}
         GITSHA: ${GITSHA:-unknown}
-    image: ${FRONTEND_IMAGE_TAG:-arbicore-x-frontend:1.0.2}
+    image: ${FRONTEND_IMAGE_TAG:-arbicore-x-frontend:2.0.3}
     container_name: arbicore-x-frontend
     restart: *restart
     networks:
@@ -141,7 +141,7 @@ services:
       args:
         VITE_BACKEND_URL: ${REACT_APP_BACKEND_URL:?REACT_APP_BACKEND_URL is required for the opportunity_center build (e.g. https://arbicore.example.com). Set it in .env at the repo root.}
         GITSHA: ${GITSHA:-unknown}
-    image: ${OPPORTUNITY_CENTER_IMAGE_TAG:-arbicore-x-opportunity-center:1.0.2}
+    image: ${OPPORTUNITY_CENTER_IMAGE_TAG:-arbicore-x-opportunity-center:2.0.3}
     container_name: arbicore-x-opportunity-center
     restart: *restart
     networks:

@@ -116,6 +116,15 @@ restore:
 build:
 	@cd $(COMPOSE_DIR) && $(DC) build
 
+build-backend:
+	@cd $(COMPOSE_DIR) && $(DC) build backend
+
+build-frontend:
+	@cd $(COMPOSE_DIR) && $(DC) build frontend
+
+build-oc:
+	@cd $(COMPOSE_DIR) && $(DC) build opportunity_center
+
 test-backend:
 	@cd $(COMPOSE_DIR) && $(DC) exec -T backend python -m pytest tests/ --tb=short -q
 
