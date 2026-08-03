@@ -3571,6 +3571,107 @@ async def _mid_ensure_indexes_startup():
         logger.exception("failed to ensure MID indexes: %s", exc)
 
 
+# ---------------------------------------------------------------------------
+# v2.0.3 — Backend authentication (JWT · roles · seeded users)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.auth import (
+        ensure_seed_users as _auth_ensure_seed,
+        authenticate as _auth_authenticate,
+        issue_token as _auth_issue_token,
+        decode_token as _auth_decode_token,
+        record_session as _auth_record_session,
+        revoke_session as _auth_revoke_session,
+        is_session_revoked as _auth_is_revoked,
+    )
+    from fastapi import Header
+    from jwt import ExpiredSignatureError, InvalidTokenError
+    _AUTH_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _AUTH_AVAILABLE = False
+    logger.exception("auth module unavailable — /api/auth/* will report 503")
+
+
+@app.on_event("startup")
+async def _auth_seed_startup():
+    if not _AUTH_AVAILABLE:
+        return
+    try:
+        await _auth_ensure_seed(db)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("failed to seed auth users: %s", exc)
+
+
+async def _resolve_current_user(authorization):
+    if not _AUTH_AVAILABLE or not authorization:
+        return None
+    if not authorization.lower().startswith("bearer "):
+        return None
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = _auth_decode_token(token)
+    except ExpiredSignatureError:
+        return None
+    except InvalidTokenError:
+        return None
+    jti = payload.get("jti")
+    if jti and await _auth_is_revoked(db, jti):
+        return None
+    return {
+        "user_id": payload.get("sub"),
+        "username": payload.get("username"),
+        "role": payload.get("role"),
+        "jti": jti,
+    }
+
+
+@app.post("/api/auth/login")
+async def auth_login(body: Dict[str, Any]):
+    if not _AUTH_AVAILABLE:
+        raise HTTPException(status_code=503, detail="auth_unavailable")
+    username = (body or {}).get("username") or ""
+    password = (body or {}).get("password") or (body or {}).get("passphrase") or ""
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise HTTPException(status_code=400, detail="invalid_credentials_payload")
+    user = await _auth_authenticate(db, username.strip(), password)
+    if not user:
+        raise HTTPException(status_code=401, detail="invalid_credentials")
+    token_info = _auth_issue_token(user)
+    await _auth_record_session(db, user, token_info)
+    return {
+        "token": token_info["token"],
+        "token_type": "bearer",
+        "expires_at": token_info["expires_at"],
+        "user": {"user_id": user["user_id"], "username": user["username"], "role": user["role"]},
+    }
+
+
+@app.post("/api/auth/logout")
+async def auth_logout(authorization: Optional[str] = Header(default=None)):
+    if not _AUTH_AVAILABLE:
+        raise HTTPException(status_code=503, detail="auth_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx or not ctx.get("jti"):
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    revoked = await _auth_revoke_session(db, ctx["jti"])
+    return {"revoked": revoked, "logged_out_at": _iso_now()}
+
+
+@app.get("/api/auth/me")
+async def auth_me(authorization: Optional[str] = Header(default=None)):
+    if not _AUTH_AVAILABLE:
+        raise HTTPException(status_code=503, detail="auth_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    return {
+        "authenticated": True,
+        "user": {"user_id": ctx["user_id"], "username": ctx["username"], "role": ctx["role"]},
+        "generated_at": _iso_now(),
+    }
+
+
+
 @app.get("/api/arbicore/mid/status")
 async def mid_status() -> Dict[str, Any]:
     """Sprint 1A — MID health + per-domain counts + last-write timestamps."""

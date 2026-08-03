@@ -1,3 +1,30 @@
+# Canonical Certification — ArbiCore X v2.0.3 (Backend Auth + Release Readiness)
+
+**Certification date:** 2026-08-02
+**Tag:** `v2.0.3`
+**Verdict:** ✅ **READY FOR DEPLOYMENT**
+
+## Scope of v2.0.3
+
+- Backend authentication (JWT · roles · seeded users · session revocation)
+- Frontend AuthContext wired to real backend
+- Final release-readiness certification (44 backend checks — all pass)
+- OCE design document (`docs/V2_OCE_DESIGN.md`) — design only, no code
+
+## Verification summary
+
+**Backend regression:** 1469 passed · 76 skipped · 0 failed
+**Auth certification:** 10/10 tests pass (login/me/logout/revocation/idempotency)
+**Endpoint certification:** 17/17 production endpoints operational
+
+## Deployment blockers
+
+**NONE.** All critical production paths verified.
+
+See `docs/RELEASE_NOTES_v2.0.3.md` and `docs/DEPLOYMENT_CHECKLIST_v2.0.3.md`.
+
+---
+
 # Canonical Certification — ArbiCore X v2.0.2 (Production Entry Experience)
 
 **Certification date:** 2026-08-02

@@ -1,19 +1,15 @@
 /**
- * ArbiCore X — AuthContext (v2.0.2 · production entry experience)
+ * ArbiCore X — AuthContext (v2.0.3 · backend-integrated)
  *
- * localStorage-backed session state driving the production Login →
- * Initialization → Dashboard flow.
- *
- * Backend auth endpoint (`/api/auth/login`) currently lives in the dormant
- * canonical routes tree; until it is wired in Sprint 1B this context
- * performs a local session bind (non-empty username + passphrase is
- * accepted).  The session shape and API is designed so the wire-up in
- * Sprint 1B is a drop-in replacement of `login()` internals — no
- * consumer changes required.
+ * Real backend authentication via /api/auth/login (JWT bearer).
+ * Session persisted in localStorage; refreshed via /api/auth/me on mount.
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import axios from "axios";
 
-const STORAGE_KEY = "arbicore.session.v1";
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const API = `${BACKEND_URL}/api`;
+const STORAGE_KEY = "arbicore.session.v2";
 
 const AuthContext = createContext(null);
 
@@ -22,7 +18,7 @@ function readSession() {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || !parsed.username) return null;
+    if (!parsed || !parsed.token || !parsed.user) return null;
     return parsed;
   } catch {
     return null;
@@ -39,8 +35,36 @@ function writeSession(sess) {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => readSession());
   const [initialized, setInitialized] = useState(() => Boolean(readSession()?.initialized));
+  const [validating, setValidating] = useState(() => Boolean(readSession()));
 
-  // Login — sprint-1A local stub; drop-in replaceable in Sprint 1B.
+  // Validate token via /auth/me on mount — logs out silently if revoked / expired.
+  useEffect(() => {
+    let cancelled = false;
+    async function validate() {
+      const s = readSession();
+      if (!s?.token) { setValidating(false); return; }
+      try {
+        const res = await axios.get(`${API}/auth/me`, {
+          headers: { Authorization: `Bearer ${s.token}` },
+          timeout: 8000,
+          validateStatus: () => true,
+        });
+        if (cancelled) return;
+        if (res.status !== 200 || !res.data?.authenticated) {
+          writeSession(null);
+          setSession(null);
+          setInitialized(false);
+        }
+      } catch {
+        // network error during boot — keep local session (offline-tolerant)
+      } finally {
+        if (!cancelled) setValidating(false);
+      }
+    }
+    validate();
+    return () => { cancelled = true; };
+  }, []);
+
   const login = useCallback(async ({ username, passphrase }) => {
     const cleanUser = (username || "").trim();
     const cleanPass = (passphrase || "").trim();
@@ -54,17 +78,51 @@ export function AuthProvider({ children }) {
       err.code = "WEAK_PASSPHRASE";
       throw err;
     }
-    // Sprint 1A: no backend round-trip.  We record the session locally so
-    // the app can boot into the initialization + dashboard experience.
-    const now = new Date().toISOString();
-    const sess = { username: cleanUser, role: "operator", createdAt: now, initialized: false };
+    let res;
+    try {
+      res = await axios.post(`${API}/auth/login`, {
+        username: cleanUser,
+        password: cleanPass,
+      }, { timeout: 10000, validateStatus: () => true });
+    } catch (err) {
+      const e = new Error("Cannot reach authentication service.");
+      e.code = "NETWORK_ERROR";
+      throw e;
+    }
+    if (res.status === 401) {
+      const e = new Error("Invalid credentials.");
+      e.code = "INVALID_CREDENTIALS";
+      throw e;
+    }
+    if (res.status !== 200 || !res.data?.token) {
+      const e = new Error(res.data?.detail || `Login failed (HTTP ${res.status}).`);
+      e.code = "LOGIN_FAILED";
+      throw e;
+    }
+    const sess = {
+      token: res.data.token,
+      tokenType: res.data.token_type || "bearer",
+      expiresAt: res.data.expires_at,
+      user: res.data.user,
+      initialized: false,
+    };
     writeSession(sess);
     setSession(sess);
     setInitialized(false);
     return sess;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    const s = readSession();
+    if (s?.token) {
+      try {
+        await axios.post(`${API}/auth/logout`, null, {
+          headers: { Authorization: `Bearer ${s.token}` },
+          timeout: 5000,
+          validateStatus: () => true,
+        });
+      } catch { /* ignore — we log out locally regardless */ }
+    }
     writeSession(null);
     setSession(null);
     setInitialized(false);
@@ -80,20 +138,17 @@ export function AuthProvider({ children }) {
     });
   }, []);
 
-  // Reset initialized flag on tab open if the session says so (fresh boot
-  // after a real deploy should always show the init sequence once).
-  useEffect(() => {
-    if (session && !session.initialized) setInitialized(false);
-  }, [session]);
-
   const value = useMemo(() => ({
-    user: session ? { username: session.username, role: session.role } : null,
-    isAuthenticated: Boolean(session),
-    isInitialized: Boolean(session) && initialized,
+    user: session?.user || null,
+    role: session?.user?.role || null,
+    token: session?.token || null,
+    isAuthenticated: Boolean(session?.token),
+    isInitialized: Boolean(session?.token) && initialized,
+    isValidating: validating,
     login,
     logout,
     markInitialized,
-  }), [session, initialized, login, logout, markInitialized]);
+  }), [session, initialized, validating, login, logout, markInitialized]);
 
   return React.createElement(AuthContext.Provider, { value }, children);
 }
@@ -101,15 +156,11 @@ export function AuthProvider({ children }) {
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) {
-    // Preserve back-compat with the earlier preview stub — callers that
-    // render outside an AuthProvider (e.g. isolated storybook stubs) see
-    // a benign shape rather than a hard crash.
     return {
-      user: null,
-      isAuthenticated: false,
-      isInitialized: false,
+      user: null, role: null, token: null,
+      isAuthenticated: false, isInitialized: false, isValidating: false,
       login: async () => { throw new Error("AuthProvider not mounted"); },
-      logout: () => {},
+      logout: async () => {},
       markInitialized: () => {},
     };
   }
