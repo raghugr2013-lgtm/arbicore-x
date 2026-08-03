@@ -145,7 +145,7 @@ Level 1 (immediate refinements — small effort, high leverage):
   └── Wallet Health card refine (already partial)              depends on: L0
 
 Level 2 (data producers — build once, reuse everywhere):
-  ├── Market History Storage + Engine      (🔴→✅ NEW)          depends on: L0, RPC/subgraph
+  ├── Market Intelligence Database (MID)   (🔴→✅ NEW)          depends on: L0, RPC/subgraph — see V2_PLATFORM_ROADMAP.md §P1-α
   ├── Gas Intelligence historical writer   (🟡→✅ UPGRADE)      depends on: L0
   ├── Liquidity snapshot writer            (🟡→✅ UPGRADE)      depends on: L2 Market History
   └── Multi-DEX + Multi-Flashloan adapter expansion            depends on: adapters framework
@@ -200,7 +200,7 @@ _All refinements of existing dormant/stub modules. No new dependencies. No deplo
 
 ### Phase 3-B — Data producers (Sprint 2, ~2 weeks)
 _Foundational writers that unblock everything in Levels 3–5._
-9. Build **Market History Storage** — new `market_history_writer` background task + `market_history` collection (Build new — M)
+9. Build **Market Intelligence Database (MID)** — 11-domain unified persistence layer under `arbicore/data/mid/` façade (Build new — M–L). See `V2_PLATFORM_ROADMAP.md` §P1-α for the full domain table.
 10. Upgrade **Gas Intelligence** — add historical snapshot writer to existing gas oracle (Upgrade — S)
 11. Upgrade **Liquidity Intelligence** — add depth snapshot writer to existing quoter (Upgrade — S)
 12. Upgrade **Multi-DEX** — add SushiSwap, Curve adapters (Upgrade — S each)
@@ -251,7 +251,7 @@ _All read-only aggregations over L2 data + Journal._
 | Tier | Contents |
 |---|---|
 | **P0** | None. v2.0.0 is deployment-ready. |
-| **P1** | **P1-α Market History Storage** (top priority, first post-deploy build) · **P1-β Opportunity Lifetime Intelligence** (permanent record of first_seen / last_seen / disappeared_at / lifetime / recurrence / survival probability) · **P1-γ Historical Market Intelligence** (learn from observed-but-not-executed) · **P1-δ zero-risk dormant-module activations** (regime, outcome, stub swaps, drift telemetry) |
+| **P1** | **P1-α Market Intelligence Database** (renamed from Market History Storage; expanded to 11 domains — Sprint 1) · **P1-β Opportunity Lifetime Intelligence** (permanent record of first_seen / last_seen / disappeared_at / lifetime / recurrence / survival probability) · **P1-γ Historical Market Intelligence** (learn from observed-but-not-executed) · **P1-δ zero-risk dormant-module activations** (regime, outcome, stub swaps, drift telemetry) |
 | **P1↔P2 bridge** | **Replay & Outcome Intelligence** — the five-question contract per execution (why succeed / why fail / better route? / better provider? / better size?). SHADOW → LIMITED_LIVE promotion gate. |
 | **P2** | Provider Intelligence · Borrow Optimization · Capital Allocator (portfolio-aware) · Multi-chain Optimization · Opportunity Prediction (+ Volatility / Seasonality / Multi-DEX / Gas historical / Heatmaps / Daily Reports / full Confidence + Recommendation surface / extended Performance Analytics from the original audit) |
 | **P3** | Dormant scanner activation · Additional protocol activation · Autonomous Research · AI-generated strategy discovery · Alerting router + Recovery + ENFORCE governance · Market Replay Engine batch + Replay Learning retro-inject |
@@ -276,7 +276,7 @@ _Total effort_: ~1 week for all of P1. Zero external dependencies. Read-only end
 
 ### P2 — Can build AFTER deployment (build during SHADOW validation window)
 Everything in Phases 3-B, 3-C, 3-D:
-- Market History Storage + engine
+- Market Intelligence Database (renamed; expanded to 11 domains)
 - Gas / Liquidity / Volatility / Seasonal analytics
 - Multi-DEX + Multi-Flashloan expansion
 - Confidence + Recommendation full wiring
@@ -334,13 +334,13 @@ Everything in Phase 3-F. Not needed for LIMITED_LIVE / FULL_LIVE operation.
 
 1. **Dormant modules the tree ALREADY ships** but does not wire (11 items marked ⚪). Every one of these becomes a **refine** — flip a flag / activate a worker / swap a stub for the dormant real engine. **No net-new modules to build.** Estimated total effort: ~1 week for all of P1.
 
-2. **Genuinely missing capabilities** (10 items marked 🔴). Half of these are downstream consumers of a **single missing writer** (Market History Storage). Build that one writer first and the analytics stack (Volatility / Seasonal / Heatmaps / Prediction) all become 1-day items each.
+2. **Genuinely missing capabilities** (10 items marked 🔴). Half of these are downstream consumers of a **single missing persistence layer** (the Market Intelligence Database — MID). Build that first and the analytics stack (Volatility / Seasonal / Heatmaps / Prediction) all become 1-day items each.
 
 **Recommended path forward:**
 
 1. **Ship v2.0.0 to VPS now.** Do not delay for P1 or P2. The current feature set is production-grade.
 2. **In parallel with the 14-day SHADOW validation window**, execute Phase 3-A (P1) — pure refinements, no new dependencies, gives operators a richer cockpit day-one.
-3. **After SHADOW validation closes**, execute Phase 3-B (build Market History Storage) as the single upstream investment. Everything else in P2 becomes cheap once that lands.
+3. **Build the Market Intelligence Database (MID) FIRST in Sprint 1** as the single upstream investment. Everything else in P1/P2/P3 becomes cheap once that lands. Original Phase 3-B ordering has been superseded by the 5-sprint plan in `V2_FLASH_LOAN_CAPABILITY_AUDIT.md` §8.
 4. **Only build "new" where there is no foundation.** Of the 10 🔴 items, 7 already have adjacent modules that can be leveraged (survival.py, sequence_miner.py, journal.py). Reuse before rebuild.
 
 **What NOT to do:**
