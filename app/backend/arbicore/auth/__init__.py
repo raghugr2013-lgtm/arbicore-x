@@ -97,13 +97,18 @@ async def ensure_seed_users(db: Any) -> Dict[str, Any]:
         {
             "username": "admin",
             "role": "admin",
-            "password_env": "ARBICORE_ADMIN_PASSWORD",
+            # v2.1.1 — accept both the shared-profile convention
+            # (``ARBICORE_ADMIN_PASS``) and the historical name
+            # (``ARBICORE_ADMIN_PASSWORD``). First non-empty wins.
+            "password_env": ("ARBICORE_ADMIN_PASS",
+                             "ARBICORE_ADMIN_PASSWORD"),
             "password_default": "admin-shadow-2026",
         },
         {
             "username": "operator",
             "role": "operator",
-            "password_env": "ARBICORE_OPERATOR_PASSWORD",
+            "password_env": ("ARBICORE_OPERATOR_PASS",
+                             "ARBICORE_OPERATOR_PASSWORD"),
             "password_default": "operator-shadow-2026",
         },
     ]
@@ -112,13 +117,31 @@ async def ensure_seed_users(db: Any) -> Dict[str, Any]:
     inserted: list = []
     skipped_existing: list = []
 
+    def _resolve_password(spec: Dict[str, Any]) -> str:
+        """First non-empty env var wins; fall back to the hardcoded default.
+
+        Accepts either a single env-var name (legacy) or a tuple of
+        candidates (v2.1.1). This mirrors how deployments actually name
+        their secrets and prevents seed-time silent fallback to the
+        hardcoded default — the root cause of the VPS ``invalid_credentials``
+        regression before v2.1.1.
+        """
+        names = spec["password_env"]
+        if isinstance(names, str):
+            names = (names,)
+        for name in names:
+            v = os.environ.get(name, "")
+            if v:
+                return v
+        return spec["password_default"]
+
     for spec in desired:
         found = await coll.find_one({"username": spec["username"]})
         if found:
             existed_before.append(spec["username"])
             skipped_existing.append(spec["username"])
             continue
-        password = os.environ.get(spec["password_env"], spec["password_default"])
+        password = _resolve_password(spec)
         doc = {
             "user_id": str(uuid.uuid4()),
             "username": spec["username"],
@@ -144,6 +167,39 @@ async def ensure_seed_users(db: Any) -> Dict[str, Any]:
 
     ok = verified["admin"] and verified["operator"]
 
+    # v2.1.1 — safety net for the env-var-NAME-MISMATCH class of bug that
+    # bit the VPS: if a seed doc already exists whose stored hash
+    # matches the *hardcoded default* plaintext, that means an earlier
+    # seed ran without the real password env var set — and login will
+    # now silently 401 for the operator who thinks they set the secret.
+    # We repair that automatically, but ONLY when the mismatch is
+    # provable (default-hash detected AND a real env value is present).
+    # We NEVER overwrite a hash that already matches the real env value.
+    rehashed: list = []
+    for spec in desired:
+        stored = await coll.find_one({"username": spec["username"]})
+        if not stored:
+            continue
+        env_pw = _resolve_password(spec)
+        default_pw = spec["password_default"]
+        if env_pw == default_pw:
+            # nothing to reconcile — deployment didn't set a custom secret
+            continue
+        h = (stored.get("password_hash") or "").encode()
+        try:
+            hits_default = bcrypt.checkpw(default_pw.encode(), h)
+            hits_env     = bcrypt.checkpw(env_pw.encode(),     h)
+        except Exception:
+            hits_default = hits_env = False
+        if hits_default and not hits_env:
+            new_hash = _hash_password(env_pw)
+            await coll.update_one(
+                {"username": spec["username"],
+                 "user_id":  stored["user_id"]},
+                {"$set": {"password_hash": new_hash}},
+            )
+            rehashed.append(spec["username"])
+
     db_name = getattr(db, "name", "?")
     summary = {
         "collection": USERS_COLL,
@@ -151,11 +207,18 @@ async def ensure_seed_users(db: Any) -> Dict[str, Any]:
         "existed_before": existed_before,
         "inserted": inserted,
         "skipped_existing": skipped_existing,
+        "rehashed_from_default": rehashed,
         "verified": verified,
         "ok": ok,
     }
 
     # truthful logging
+    if rehashed:
+        logger.warning(
+            "auth: rehashed %d default-plaintext user(s) [%s] in %s.%s — "
+            "seed had used the hardcoded default; env-var secret is now honoured",
+            len(rehashed), ", ".join(rehashed), db_name, USERS_COLL,
+        )
     if inserted and skipped_existing:
         logger.info(
             "auth: seeded %d new user(s) [%s] in %s.%s; %d already existed [%s]",
