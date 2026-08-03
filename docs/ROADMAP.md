@@ -145,10 +145,14 @@ None of the above is required for `v1.0.0`. All are eligible for consideration i
 
 | Version | Date | Notes |
 |---|---|---|
+| `v2.0.0` | 2026-08-02 | **Major** — canonical consolidation. Merged `arbicore-x` v1.0.2 (deployment tree) with `Arbicorex-ui-v2-slice-02` (UI v2 + Wave 6 + Phase 7–10 execution). UI v2 primary, legacy CRA retained behind feature flag. Dormant modules preserved in-tree (activation deferred to per-cluster validation waves). 1442 tests passed, 76 skipped. See [`V2_CONSOLIDATION_AUDIT.md`](V2_CONSOLIDATION_AUDIT.md), [`V2_INTELLIGENCE_AUDIT.md`](V2_INTELLIGENCE_AUDIT.md), and [`V2_PLATFORM_ROADMAP.md`](V2_PLATFORM_ROADMAP.md) (product/feature roadmap toward the Autonomous Institutional Arbitrage Intelligence Platform vision). |
 | `v1.0.1` | 2026-07-29 | Runtime-correctness patch. Backend build no longer depends on `install.sh` requirements swap (works uniformly for greenfield + shared profiles). Frontend + OC unprivileged-nginx made robust across `nginx:1.25-alpine` base variants. All healthchecks use `127.0.0.1` (alpine minimal `/etc/hosts` compatibility) and normalized on `/healthz`. `.env.shared.example` MongoDB auth guidance strengthened. See [`releases/v1.0.1.md`](releases/v1.0.1.md). |
 | `v1.0.0` | 2026-01 | First canonical release. Full application absorption from `ArbiCoreX-V01`; deployment infrastructure absorbed from `arbicore-x-vps-bundle`; frontend reproducibility (`yarn.lock`, `.npmrc`) canonical from day one; legacy release-bundle download endpoints retired to structured stubs; nested bundle layout flattened; RC lineage retired. See [`MIGRATION_SUMMARY.md`](MIGRATION_SUMMARY.md). |
 
 Future releases append here.
+
+> **Product/feature roadmap:** see [`V2_PLATFORM_ROADMAP.md`](V2_PLATFORM_ROADMAP.md).
+> This governance document (`ROADMAP.md`) covers *how* the repository evolves; the platform roadmap covers *what* is being built and in what order.
 
 ## 10. Governance
 
