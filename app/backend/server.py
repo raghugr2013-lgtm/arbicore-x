@@ -4120,6 +4120,105 @@ async def lifetime_by_opp(opp_id: str) -> Dict[str, Any]:
     return {"row": row, "generated_at": _iso_now()}
 
 
+# ---------------------------------------------------------------------------
+# Phase 3 — Opportunity Memory & Learning (v2.3.0)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.intelligence.wave3 import OpportunityMemory as _Memory
+    _MEMORY: Optional[Any] = _Memory(db)
+    _MEMORY_AVAILABLE = True
+    logger.info("memory: Phase 3 activated — read-side aggregator ready")
+except Exception:  # noqa: BLE001
+    _MEMORY = None
+    _MEMORY_AVAILABLE = False
+    logger.exception("Phase 3 memory unavailable")
+
+
+@app.get("/api/arbicore/memory/summary")
+async def memory_summary() -> Dict[str, Any]:
+    if _MEMORY is None:
+        raise HTTPException(status_code=503, detail="memory_not_activated")
+    return {**await _MEMORY.summary(), "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/memory/recurring")
+async def memory_recurring(
+    limit: int = 20, min_recurrence: int = 1,
+    opportunity_type: Optional[str] = None,
+) -> Dict[str, Any]:
+    if _MEMORY is None:
+        raise HTTPException(status_code=503, detail="memory_not_activated")
+    rows = await _MEMORY.top_recurring(
+        limit=max(1, min(int(limit), 200)),
+        min_recurrence=max(0, int(min_recurrence)),
+        opportunity_type=opportunity_type,
+    )
+    return {"count": len(rows), "rows": rows,
+            "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/memory/persistent")
+async def memory_persistent(limit: int = 20,
+                             min_observations: int = 2) -> Dict[str, Any]:
+    if _MEMORY is None:
+        raise HTTPException(status_code=503, detail="memory_not_activated")
+    rows = await _MEMORY.most_persistent(
+        limit=max(1, min(int(limit), 200)),
+        min_observations=max(1, int(min_observations)))
+    return {"count": len(rows), "rows": rows,
+            "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/memory/confidence/{opp_id}")
+async def memory_confidence(opp_id: str, limit: int = 100) -> Dict[str, Any]:
+    if _MEMORY is None:
+        raise HTTPException(status_code=503, detail="memory_not_activated")
+    return {**await _MEMORY.confidence_history(
+        opp_id, limit=max(1, min(int(limit), 500))),
+        "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/memory/profitability/{opp_id}")
+async def memory_profitability(opp_id: str,
+                                limit: int = 100) -> Dict[str, Any]:
+    if _MEMORY is None:
+        raise HTTPException(status_code=503, detail="memory_not_activated")
+    return {**await _MEMORY.profitability_history(
+        opp_id, limit=max(1, min(int(limit), 500))),
+        "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/memory/routes")
+async def memory_routes(limit: int = 20,
+                         chain: Optional[str] = None) -> Dict[str, Any]:
+    if _MEMORY is None:
+        raise HTTPException(status_code=503, detail="memory_not_activated")
+    rows = await _MEMORY.route_quality(
+        limit=max(1, min(int(limit), 200)), chain=chain)
+    return {"count": len(rows), "rows": rows,
+            "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/memory/venues")
+async def memory_venues(limit: int = 50) -> Dict[str, Any]:
+    if _MEMORY is None:
+        raise HTTPException(status_code=503, detail="memory_not_activated")
+    rows = await _MEMORY.venue_quality(
+        limit=max(1, min(int(limit), 200)))
+    return {"count": len(rows), "rows": rows,
+            "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/memory/regime")
+async def memory_regime(hours: float = 24.0,
+                         limit: int = 200) -> Dict[str, Any]:
+    if _MEMORY is None:
+        raise HTTPException(status_code=503, detail="memory_not_activated")
+    return {**await _MEMORY.regime_history(
+        hours=float(hours), limit=max(1, min(int(limit), 500))),
+        "generated_at": _iso_now()}
+
+
 @app.get("/api/arbicore/observability")
 async def observability() -> Dict[str, Any]:
     """Sprint 1B-β — one-shot operational observability endpoint.
