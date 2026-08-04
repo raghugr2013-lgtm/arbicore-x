@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# arbictl bootstrap — pure-shell wrapper.
+# Ensures Python + httpx are available, then hands off to arbictl.py.
+
+set -euo pipefail
+
+REPO="${ARBICTL_REPO:-/app/canonical_repo}"
+PYBIN="${ARBICTL_PYTHON:-python3}"
+
+# Ensure httpx present
+if ! "$PYBIN" -c "import httpx" >/dev/null 2>&1; then
+  echo "arbictl: installing httpx..."
+  "$PYBIN" -m pip install --quiet httpx
+fi
+
+exec "$PYBIN" "$REPO/ops/arbictl.py" "$@"
