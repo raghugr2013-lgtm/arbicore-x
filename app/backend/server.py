@@ -4721,6 +4721,69 @@ async def validation_last_daily() -> Dict[str, Any]:
              "generated_at": _iso_now()}
 
 
+# ---------------------------------------------------------------------------
+# Post-Validation Review & Calibration (v2.8.0 — read-only)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.postvalidation import PostValidationReviewer as _PVR
+    _POSTVAL_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _POSTVAL_AVAILABLE = False
+    _PVR = None  # type: ignore
+    logger.exception("post-validation import failed")
+
+
+def _pv_reviewer():
+    if not _POSTVAL_AVAILABLE or _RUNTIME_CFG is None:
+        return None
+    return _PVR(
+        mid_reader=_MID_READER,
+        registry=_PROVIDER_REGISTRY,
+        live_scanners=_all_live_scanners(),
+        runtime_config=_RUNTIME_CFG,
+        paper_engine=_PAPER_ENGINE,
+        kill_switch=_KILL,
+        validation_reporter=_VALIDATION_REPORTER,
+        daily_writer=_DAILY_WRITER,
+    )
+
+
+@app.get("/api/arbicore/postvalidation/report")
+async def postval_report(sample_limit: int = 2000) -> Dict[str, Any]:
+    r = _pv_reviewer()
+    if r is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True, **(await r.calibration_report(
+        sample_limit=int(sample_limit)))}
+
+
+@app.get("/api/arbicore/postvalidation/recommendations")
+async def postval_recommendations(sample_limit: int = 2000) -> Dict[str, Any]:
+    r = _pv_reviewer()
+    if r is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True, **(await r.recommendations(
+        sample_limit=int(sample_limit)))}
+
+
+@app.get("/api/arbicore/postvalidation/readiness_score")
+async def postval_readiness(sample_limit: int = 2000) -> Dict[str, Any]:
+    r = _pv_reviewer()
+    if r is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True, **(await r.readiness_score(
+        sample_limit=int(sample_limit)))}
+
+
+@app.get("/api/arbicore/postvalidation/executive_summary")
+async def postval_exec_summary(sample_limit: int = 2000) -> Dict[str, Any]:
+    r = _pv_reviewer()
+    if r is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True, **(await r.executive_summary(
+        sample_limit=int(sample_limit)))}
+
+
 # ---------- safety endpoints ----------
 
 @app.get("/api/arbicore/safety/status")
