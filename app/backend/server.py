@@ -4609,6 +4609,118 @@ async def flj_status() -> Dict[str, Any]:
              "generated_at": _iso_now()}
 
 
+# ---------------------------------------------------------------------------
+# Phase 6/7/8/9 — Runtime config + Preflight + Daily Summary Writer
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.config.runtime import get_runtime_config as _get_rc
+    from arbicore.validation.operations import (
+        PreflightRunner as _PreflightRunner,
+        DailySummaryWriter as _DailyWriter,
+    )
+    _RUNTIME_CFG = _get_rc()
+    _OPS_AVAILABLE = True
+    logger.info(
+        "runtime_config activated (chains=%d, autostart_daily=%s)",
+        len(_RUNTIME_CFG.rpc.urls_by_chain),
+        _RUNTIME_CFG.validation.autostart_daily_writer)
+except Exception:  # noqa: BLE001
+    _RUNTIME_CFG = None
+    _PreflightRunner = None    # type: ignore
+    _DailyWriter = None        # type: ignore
+    _OPS_AVAILABLE = False
+    logger.exception("runtime_config/operations import failed")
+
+
+_DAILY_WRITER: Optional[Any] = None
+
+
+@app.get("/api/arbicore/config/runtime")
+async def config_runtime() -> Dict[str, Any]:
+    if _RUNTIME_CFG is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True,
+             "config": _RUNTIME_CFG.to_dict(),
+             "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/preflight")
+async def preflight() -> Dict[str, Any]:
+    if not _OPS_AVAILABLE or _RUNTIME_CFG is None:
+        return {"available": False, "generated_at": _iso_now()}
+    runner = _PreflightRunner(
+        mongo_client=client,
+        mid_reader=_MID_READER,
+        mid_writer=_MID_WRITER,
+        provider_registry=_PROVIDER_REGISTRY,
+        live_scanners=_all_live_scanners(),
+        paper_engine=_PAPER_ENGINE,
+        kill_switch=_KILL,
+        runtime_config=_RUNTIME_CFG,
+    )
+    return await runner.run()
+
+
+@app.on_event("startup")
+async def _daily_summary_startup():
+    global _DAILY_WRITER
+    if not _OPS_AVAILABLE or _RUNTIME_CFG is None:
+        return
+    if (_VALIDATION_REPORTER is None or _MID_WRITER is None
+            or _PROVIDER_REGISTRY is None):
+        return
+    _DAILY_WRITER = _DailyWriter(
+        validation_reporter=_VALIDATION_REPORTER,
+        mid_writer=_MID_WRITER,
+        registry=_PROVIDER_REGISTRY,
+        live_scanners=_all_live_scanners(),
+        runtime_config=_RUNTIME_CFG,
+    )
+    if _RUNTIME_CFG.validation.autostart_daily_writer:
+        await _DAILY_WRITER.start()
+        logger.info("daily_summary_writer: autostarted run_id=%s",
+                    _DAILY_WRITER.run_id)
+
+
+@app.on_event("shutdown")
+async def _daily_summary_shutdown():
+    if _DAILY_WRITER is not None and _DAILY_WRITER.is_running():
+        await _DAILY_WRITER.stop()
+
+
+@app.get("/api/arbicore/validation/daily_status")
+async def validation_daily_status() -> Dict[str, Any]:
+    if _DAILY_WRITER is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True,
+             "run_id": _DAILY_WRITER.run_id,
+             "running": _DAILY_WRITER.is_running(),
+             "last_summary_at": (_DAILY_WRITER.last_summary or {}).get("at"),
+             "last_anomalies": _DAILY_WRITER.last_anomalies,
+             "generated_at": _iso_now()}
+
+
+@app.post("/api/arbicore/validation/daily_run_now")
+async def validation_daily_run_now(
+        authorization: Optional[str] = Header(default=None)):
+    if _DAILY_WRITER is None:
+        raise HTTPException(status_code=503, detail="daily_writer_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx or ctx.get("role") not in ("admin", "operator"):
+        raise HTTPException(status_code=403,
+                             detail="admin_or_operator_only")
+    return await _DAILY_WRITER.run_once()
+
+
+@app.get("/api/arbicore/validation/last_daily")
+async def validation_last_daily() -> Dict[str, Any]:
+    if _DAILY_WRITER is None or _DAILY_WRITER.last_summary is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True,
+             "summary": _DAILY_WRITER.last_summary,
+             "generated_at": _iso_now()}
+
+
 # ---------- safety endpoints ----------
 
 @app.get("/api/arbicore/safety/status")
