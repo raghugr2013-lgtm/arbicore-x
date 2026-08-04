@@ -70,9 +70,22 @@ class ScannerBridgeStats:
 
 
 class ScannerEvidenceBridge:
-    def __init__(self, writer: MidWriter) -> None:
+    def __init__(self, writer: MidWriter, tracker: Optional[Any] = None) -> None:
+        """Phase 2 (v2.2.0): accepts an optional
+        :class:`OpportunityLifetimeTracker`. When present, every
+        emission also upserts the ``mid_opportunity_lifetime`` aggregate
+        for its ``opp_id``. The tracker is intentionally typed ``Any``
+        to avoid a circular import — the concrete type lives in
+        :mod:`arbicore.intelligence.wave2.tracker`.
+        """
         self._writer = writer
+        self._tracker = tracker
         self.stats = ScannerBridgeStats()
+
+    def set_lifetime_tracker(self, tracker: Any) -> None:
+        """Late-bind the tracker after construction (server startup uses
+        this to keep constructors free of import cycles)."""
+        self._tracker = tracker
 
     async def publish_emission(
         self,
@@ -141,4 +154,33 @@ class ScannerEvidenceBridge:
                     f"route[{scanner_id}]: {exc!r}")
 
         self.stats.record(scanner_id, event_type, route_written)
+
+        # 3. Phase 2 — opportunity lifetime aggregate (best-effort;
+        #    never fails the emission if the tracker is unavailable).
+        if self._tracker is not None:
+            try:
+                await self._tracker.observe(
+                    opp_id=opp_id,
+                    opportunity_type=payload.get("opportunity_type",
+                                                   "unknown"),
+                    chain=payload.get("chain", "unknown"),
+                    payload=payload,
+                    meta=meta,
+                    event_type=event_type,
+                    confidence=payload.get("confidence"),
+                    profitability=payload.get("profitability"),
+                    evidence_pointer={
+                        "opportunity_event_id":
+                            result.get("opportunity_event_id"),
+                        "route_observation_id":
+                            result.get("route_observation_id"),
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.exception(
+                    "ScannerEvidenceBridge lifetime tracker failed: %s",
+                    exc)
+                self.stats.last_error = (
+                    f"lifetime[{scanner_id}]: {exc!r}")
+
         return result

@@ -271,6 +271,70 @@ class OpportunityEventRecord:
 
 
 @dataclass
+class OpportunityLifetimeRecord:
+    """``mid_opportunity_lifetime`` — per-opp_id aggregate lifetime doc.
+
+    Phase 2 addition. UPSERT semantics identical to
+    :class:`RouteObservationRecord` — one doc per unique ``opp_id``.
+    Callers use ``MidWriter.upsert_opportunity_lifetime`` which does the
+    race-safe merge.
+
+    Field vocabulary reuses the pre-existing ``JournalEntry`` names so
+    downstream consumers already recognise the shape.
+    """
+
+    mid_id: str                          # UUID assigned on first insert
+    ts: str                              # first-observation ISO
+    meta: MidMetadata
+    replay_context: Optional[ReplayContext]
+
+    opp_id: str
+    opportunity_type: str
+    chain: str
+
+    # lifecycle timestamps + counters
+    first_seen: str
+    last_seen: str
+    lifetime_seconds: float = 0.0
+    opportunity_age_seconds: float = 0.0
+    observation_count: int = 1
+    rediscovery_count: int = 0
+    recurrence_count: int = 0
+
+    # derived status (ACTIVE / STALE / EXPIRED) — computed by the tracker
+    opportunity_status: str = "ACTIVE"
+
+    # rolling window trends (bounded, config-driven — default 100)
+    last_confidence: Optional[float] = None
+    last_profitability: Optional[float] = None
+    confidence_trend: List[Dict[str, Any]] = field(default_factory=list)
+    profitability_trend: List[Dict[str, Any]] = field(default_factory=list)
+    evidence_history: List[Dict[str, Any]] = field(default_factory=list)
+
+    def to_doc(self) -> Dict[str, Any]:
+        d = _base_doc(self.mid_id, self.ts, self.meta, self.replay_context)
+        d.update({
+            "opp_id": self.opp_id,
+            "opportunity_type": self.opportunity_type,
+            "chain": self.chain,
+            "first_seen": self.first_seen,
+            "last_seen": self.last_seen,
+            "lifetime_seconds": self.lifetime_seconds,
+            "opportunity_age_seconds": self.opportunity_age_seconds,
+            "observation_count": self.observation_count,
+            "rediscovery_count": self.rediscovery_count,
+            "recurrence_count": self.recurrence_count,
+            "opportunity_status": self.opportunity_status,
+            "last_confidence": self.last_confidence,
+            "last_profitability": self.last_profitability,
+            "confidence_trend": self.confidence_trend,
+            "profitability_trend": self.profitability_trend,
+            "evidence_history": self.evidence_history,
+        })
+        return d
+
+
+@dataclass
 class ConfidenceRecord:
     """``mid_confidence`` — every confidence score emitted + inputs."""
 
@@ -381,6 +445,10 @@ DOMAINS: List[str] = [
     "decisions",
     "outcomes",
     "replay",
+    # Phase 2 — Opportunity Lifetime Intelligence.  UPSERT-per-opp_id
+    # aggregate; every scanner emission and every intelligence write
+    # updates the same document via bridge/tracker.
+    "opportunity_lifetime",
 ]
 
 MID_COLLECTION_MAP: Dict[str, str] = {d: f"mid_{d}" for d in DOMAINS}

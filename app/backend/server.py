@@ -4006,6 +4006,120 @@ async def scanner_stop(
             "generated_at": _iso_now()}
 
 
+# ---------------------------------------------------------------------------
+# Phase 2 — Opportunity Lifetime Intelligence (v2.2.0)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.intelligence.wave2 import (
+        OpportunityLifetimeTracker as _LifetimeTracker,
+        LifetimeSweeper as _LifetimeSweeper,
+        load_config_from_env as _load_lifetime_cfg,
+    )
+    _LIFETIME_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _LIFETIME_AVAILABLE = False
+    logger.exception(
+        "Phase 2 lifetime tracker unavailable — /api/arbicore/lifetime/* "
+        "will report 503"
+    )
+
+_LIFETIME_TRACKER: Optional[Any] = None
+_LIFETIME_SWEEPER: Optional[Any] = None
+
+
+@app.on_event("startup")
+async def _lifetime_activate_startup():
+    """Phase 2 — construct the lifetime tracker, wire it into the
+    scanner bridge, and start the background sweeper."""
+    global _LIFETIME_TRACKER, _LIFETIME_SWEEPER
+    if (not _LIFETIME_AVAILABLE or _MID_WRITER is None
+            or _SCANNER_ACTIVATION is None):
+        logger.warning(
+            "lifetime: activation SKIPPED "
+            "(available=%s, writer=%s, scanner_activation=%s)",
+            _LIFETIME_AVAILABLE, _MID_WRITER is not None,
+            _SCANNER_ACTIVATION is not None,
+        )
+        return
+    try:
+        cfg = _load_lifetime_cfg()
+        _LIFETIME_TRACKER = _LifetimeTracker(db=db, writer=_MID_WRITER,
+                                              config=cfg)
+        await _LIFETIME_TRACKER.ensure_indexes()
+        _SCANNER_ACTIVATION.bridge.set_lifetime_tracker(_LIFETIME_TRACKER)
+
+        _LIFETIME_SWEEPER = _LifetimeSweeper(_LIFETIME_TRACKER, cfg)
+        await _LIFETIME_SWEEPER.start()   # boots ACTIVE — status decay
+                                          # must happen even if no
+                                          # scanner is running.
+        logger.info(
+            "lifetime: Phase 2 activated — tracker wired into scanner "
+            "bridge, sweeper started (interval=%.1fs, active=%.0fs, "
+            "stale=%.0fs)",
+            cfg.sweeper_interval_seconds, cfg.active_seconds,
+            cfg.stale_seconds,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("lifetime: activation failed: %s", exc)
+
+
+@app.on_event("shutdown")
+async def _lifetime_shutdown():
+    if _LIFETIME_SWEEPER is not None:
+        try:
+            await _LIFETIME_SWEEPER.stop()
+        except Exception:  # noqa: BLE001
+            logger.exception("lifetime sweeper shutdown failed")
+
+
+@app.get("/api/arbicore/lifetime/status")
+async def lifetime_status() -> Dict[str, Any]:
+    """Phase 2 — aggregate status counts + tracker + sweeper stats."""
+    if _LIFETIME_TRACKER is None:
+        return {"available": False,
+                "reason": "lifetime_not_activated",
+                "generated_at": _iso_now()}
+    payload = await _LIFETIME_TRACKER.status_summary()
+    payload.update({
+        "available": True,
+        "tracker_stats": _LIFETIME_TRACKER.stats.to_dict(),
+        "sweeper_stats": (_LIFETIME_SWEEPER.stats
+                           if _LIFETIME_SWEEPER is not None else None),
+        "sweeper_running": (_LIFETIME_SWEEPER.is_running()
+                             if _LIFETIME_SWEEPER is not None else False),
+        "generated_at": _iso_now(),
+    })
+    return payload
+
+
+@app.get("/api/arbicore/lifetime/recent")
+async def lifetime_recent(
+    limit: int = 50,
+    status: Optional[str] = None,
+    opportunity_type: Optional[str] = None,
+) -> Dict[str, Any]:
+    if _LIFETIME_TRACKER is None:
+        raise HTTPException(status_code=503,
+                             detail="lifetime_not_activated")
+    limit = max(1, min(int(limit), 500))
+    rows = await _LIFETIME_TRACKER.list_recent(
+        limit=limit, status=status, opportunity_type=opportunity_type)
+    return {"count": len(rows), "rows": rows,
+            "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/lifetime/{opp_id}")
+async def lifetime_by_opp(opp_id: str) -> Dict[str, Any]:
+    if _LIFETIME_TRACKER is None:
+        raise HTTPException(status_code=503,
+                             detail="lifetime_not_activated")
+    row = await _LIFETIME_TRACKER.get(opp_id)
+    if row is None:
+        raise HTTPException(status_code=404,
+                             detail=f"unknown opp_id: {opp_id}")
+    return {"row": row, "generated_at": _iso_now()}
+
+
 @app.get("/api/arbicore/observability")
 async def observability() -> Dict[str, Any]:
     """Sprint 1B-β — one-shot operational observability endpoint.
@@ -4044,6 +4158,27 @@ async def observability() -> Dict[str, Any]:
 
     # Auth
     payload["auth"] = {"available": _AUTH_AVAILABLE}
+
+    # Phase 2 — Opportunity Lifetime Intelligence
+    if _LIFETIME_TRACKER is not None:
+        try:
+            summary = await _LIFETIME_TRACKER.status_summary()
+            payload["lifetime"] = {
+                "available":         True,
+                "total":             summary.get("total"),
+                "by_status":         summary.get("by_status"),
+                "tracker_stats":     _LIFETIME_TRACKER.stats.to_dict(),
+                "sweeper_running":   (_LIFETIME_SWEEPER.is_running()
+                                       if _LIFETIME_SWEEPER else False),
+                "sweeper_stats":     (_LIFETIME_SWEEPER.stats
+                                       if _LIFETIME_SWEEPER else None),
+                "config":            summary.get("config"),
+            }
+        except Exception as exc:  # noqa: BLE001
+            payload["lifetime"] = {"available": True, "error": str(exc)}
+    else:
+        payload["lifetime"] = {"available": False}
+
     return payload
 
 
