@@ -32,7 +32,7 @@ from .dex import (
     BalancerV2Vault, JupiterQuoter, RaydiumHealth,
 )
 from .cex import ALL_CEX
-from .aux import (
+from .aux_providers import (
     OneInchQuoter, ZeroExQuoter,
     RpcDerivedGasProvider, StaticTokenMetadataProvider,
 )

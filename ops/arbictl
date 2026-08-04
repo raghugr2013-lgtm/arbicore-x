@@ -1,16 +1,83 @@
 #!/usr/bin/env bash
-# arbictl bootstrap — pure-shell wrapper.
-# Ensures Python + httpx are available, then hands off to arbictl.py.
+# =============================================================================
+#  arbictl bootstrap — pure-shell wrapper.
+#
+#  v2.9.1: This wrapper NEVER performs runtime `pip install`. It ONLY selects
+#  a Python interpreter that can already `import httpx`. Ubuntu 24.04's
+#  PEP 668 "externally-managed" marker breaks runtime `pip install`, and
+#  `--break-system-packages` on a production VPS is unacceptable.
+#
+#  Interpreter discovery order (first match wins):
+#    1) $ARBICTL_PYTHON        (operator override)
+#    2) $ARBICTL_VENV/bin/python    (optional operator-created venv)
+#    3) ${REPO}/.venv/bin/python    (project-local venv, if present)
+#    4) ${REPO}/venv/bin/python     (alternate venv name)
+#    5) /app/venv/bin/python        (compose backend image venv)
+#    6) python3
+#
+#  If none of the candidates can `import httpx`, we print an actionable error
+#  and exit 3, telling the operator how to provision httpx OUT-OF-BAND (a
+#  project venv, apt package, or the backend container). We DO NOT try to
+#  install anything.
+# =============================================================================
 
 set -euo pipefail
 
 REPO="${ARBICTL_REPO:-/app/canonical_repo}"
-PYBIN="${ARBICTL_PYTHON:-python3}"
 
-# Ensure httpx present
-if ! "$PYBIN" -c "import httpx" >/dev/null 2>&1; then
-  echo "arbictl: installing httpx..."
-  "$PYBIN" -m pip install --quiet httpx
+# Ordered list of interpreter candidates.
+CANDIDATES=()
+[ -n "${ARBICTL_PYTHON:-}" ]  && CANDIDATES+=("${ARBICTL_PYTHON}")
+[ -n "${ARBICTL_VENV:-}" ]    && CANDIDATES+=("${ARBICTL_VENV}/bin/python")
+CANDIDATES+=("${REPO}/.venv/bin/python")
+CANDIDATES+=("${REPO}/venv/bin/python")
+CANDIDATES+=("/app/venv/bin/python")
+CANDIDATES+=("python3")
+
+pick_python() {
+  for py in "${CANDIDATES[@]}"; do
+    # Must be executable and able to import httpx.
+    if command -v "$py" >/dev/null 2>&1 && \
+       "$py" -c "import httpx" >/dev/null 2>&1; then
+      echo "$py"
+      return 0
+    fi
+  done
+  return 1
+}
+
+if PYBIN="$(pick_python)"; then
+  exec "$PYBIN" "$REPO/ops/arbictl.py" "$@"
 fi
 
-exec "$PYBIN" "$REPO/ops/arbictl.py" "$@"
+# ---------------------------------------------------------------------------
+# No interpreter with httpx available. Print an actionable message and exit.
+# ---------------------------------------------------------------------------
+cat >&2 <<'EOF'
+arbictl: httpx is not available in any candidate Python interpreter.
+
+arbictl v2.9.1 never runs `pip install` at runtime (Ubuntu 24 / PEP 668
+blocks it, and --break-system-packages is unsafe on production hosts).
+
+Pick ONE of the following to make httpx available:
+
+  1) Use the backend virtualenv (Docker compose profile):
+       export ARBICTL_PYTHON=/app/venv/bin/python
+       arbictl version
+
+  2) Create a project venv once:
+       python3 -m venv "$REPO/.venv"
+       "$REPO/.venv/bin/pip" install httpx
+       arbictl version                # picked up automatically
+
+  3) Point arbictl at your own venv:
+       export ARBICTL_VENV=/path/to/existing/venv
+       arbictl version
+
+  4) System package (Debian/Ubuntu, requires root):
+       sudo apt-get install -y python3-httpx
+       arbictl version
+
+Then re-run:  arbictl <subcommand>
+EOF
+exit 3

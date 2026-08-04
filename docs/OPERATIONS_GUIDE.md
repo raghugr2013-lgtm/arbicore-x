@@ -1,4 +1,4 @@
-# ArbiCore X — Operations Guide (v2.9.0)
+# ArbiCore X — Operations Guide (v2.9.1)
 
 Every operator task is now one command via **`arbictl`**.
 
@@ -16,8 +16,42 @@ Verify:
 arbictl version
 ```
 
-`arbictl` only depends on `httpx`. The bootstrap wrapper installs it
-automatically on first use.
+### httpx runtime dependency (v2.9.1 change)
+
+`arbictl` depends on the `httpx` Python module.
+
+**v2.9.0 and earlier** installed `httpx` at runtime via `pip install httpx`.
+This breaks on Ubuntu 24.04 (PEP 668 "externally-managed-environment") and
+is unsafe on production hosts.
+
+**v2.9.1 onwards** never runs `pip install` at runtime. Instead, the bash
+wrapper (`ops/arbictl`) discovers a Python interpreter that already has
+`httpx` available. Discovery order:
+
+1. `$ARBICTL_PYTHON` — operator override
+2. `$ARBICTL_VENV/bin/python` — operator-created venv
+3. `${REPO}/.venv/bin/python` — project-local venv
+4. `${REPO}/venv/bin/python` — alternate venv name
+5. `/app/venv/bin/python` — compose backend image venv
+6. `python3` — system Python (must already have httpx)
+
+Provision `httpx` OUT-OF-BAND once, using any of:
+
+```bash
+# a) system package (Debian/Ubuntu 24)
+sudo apt-get install -y python3-httpx
+
+# b) project venv (preferred on VPS hosts)
+python3 -m venv /app/canonical_repo/.venv
+/app/canonical_repo/.venv/bin/pip install httpx
+
+# c) reuse the backend container venv (Docker compose profile)
+export ARBICTL_PYTHON=/app/venv/bin/python
+```
+
+If none of the candidates has `httpx`, `arbictl` exits `3` with an
+actionable message. It will never touch the system Python or require
+`--break-system-packages`.
 
 Global flags (env-overridable):
 
@@ -28,14 +62,16 @@ Global flags (env-overridable):
 | `--releases` / `ARBICTL_RELEASES` | `/app/releases` | release bundle dir |
 | `--evidence` / `ARBICTL_EVIDENCE` | `/var/lib/arbicore/evidence` | daily snapshot root |
 | `--backup` / `ARBICTL_BACKUP` | `/var/lib/arbicore/backups` | deploy backups |
+| `ARBICTL_PYTHON` | `python3` | interpreter override (wrapper only) |
+| `ARBICTL_VENV` | *(unset)* | path to an existing venv (wrapper only) |
 
 ## Deployment
 
 ```bash
 # safe deploy (fetches tag, restarts services, waits for backend,
 # runs preflight — fails clean if any step breaks)
-arbictl deploy --tag v2.9.0 \
-  --checksum /app/releases/v2.9.0/arbicore-x-v2.9.0.SHASUMS
+arbictl deploy --tag v2.9.1 \
+  --checksum /app/releases/v2.9.1/arbicore-x-v2.9.1.SHASUMS
 ```
 
 The `--checksum` flag runs `sha256sum -c` against the shipped SHASUMS
@@ -110,6 +146,7 @@ curl -s $BASE/api/arbicore/postvalidation/executive_summary > exec.json
 
 | Symptom | Fix |
 |---|---|
+| `arbictl` exits with `httpx is not available` | Provision `httpx` out-of-band — see the "httpx runtime dependency" section above. Never use `--break-system-packages`. |
 | `arbictl preflight` fails on `kill switch engaged=False` | Someone disengaged the kill switch. Re-engage via `POST /safety/kill/engage` — `arbictl validate-start` refuses to run until it's back on. |
 | `arbictl deploy` fails on checksum verify | You shipped the wrong file — pull the correct SHASUMS from `/app/releases/<tag>/`. |
 | `snapshot` reports > 0 failed endpoints | Backend not fully up. Wait 15s and re-run. |

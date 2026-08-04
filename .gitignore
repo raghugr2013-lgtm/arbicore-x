@@ -67,3 +67,4 @@ release_bundle/
 *.tgz
 *.zip
 *.SHASUMS
+.emergent/

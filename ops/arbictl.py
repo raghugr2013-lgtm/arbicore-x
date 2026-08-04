@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""arbictl — ArbiCore X Production Operations Toolkit (v2.9.0)
+"""arbictl — ArbiCore X Production Operations Toolkit (v2.9.1)
 
 Single-file CLI. Zero runtime dependencies beyond stdlib + httpx.
 Every subcommand is idempotent and read-only against a live deployment
 unless it explicitly restarts services.
+
+v2.9.1 maintenance release — no behaviour changes. Runtime `pip install`
+was removed to comply with Ubuntu 24.04 / PEP 668. httpx must be provided
+by the surrounding environment (project venv, backend container venv, or
+distro package). See ops/arbictl (bash wrapper) for interpreter discovery.
 
 Subcommands:
     deploy         one-command safe deploy
@@ -33,9 +38,22 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 try:
     import httpx
 except ImportError:
-    print("arbictl: httpx not installed; install it: pip install httpx",
-          file=sys.stderr)
-    sys.exit(2)
+    # v2.9.1: never suggest a runtime `pip install` here — Ubuntu 24 / PEP 668
+    # blocks it. The bash wrapper (ops/arbictl) selects an interpreter that
+    # already has httpx; direct invocation should point the operator at that
+    # wrapper (or an existing venv). We deliberately do NOT `pip install`.
+    print(
+        "arbictl: python interpreter missing httpx and no runtime install "
+        "is permitted.\n"
+        "  Use the shell wrapper (ops/arbictl) — it auto-selects a venv that "
+        "already has httpx.\n"
+        "  Or run against an existing venv, e.g.:\n"
+        "      /app/venv/bin/python ops/arbictl.py <cmd>\n"
+        "  Or provision a project venv once:\n"
+        "      python3 -m venv .venv && .venv/bin/pip install httpx",
+        file=sys.stderr,
+    )
+    sys.exit(3)
 
 
 # ---------------------------------------------------------------------------

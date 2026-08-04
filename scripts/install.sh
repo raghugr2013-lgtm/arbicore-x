@@ -60,6 +60,7 @@ set -a; source "$ENV_FILE"; set +a
 : "${LETSENCRYPT_EMAIL:?LETSENCRYPT_EMAIL missing in .env}"
 : "${JWT_SECRET:?JWT_SECRET missing in .env}"
 : "${VAULT_KEY:?VAULT_KEY missing in .env}"
+: "${REACT_APP_BACKEND_URL:?REACT_APP_BACKEND_URL missing in .env (required: CRA bakes it into the JS bundle at build time; empty value produces a black-screen operator UI)}"
 [ "${#JWT_SECRET}" -ge 32 ]   || die "JWT_SECRET must be >= 32 chars"
 [ "${#VAULT_KEY}"  -ge 32 ]   || die "VAULT_KEY must be >= 32 chars"
 ok ".env validated (DOMAIN=${DOMAIN}, cert mode=${LETSENCRYPT_MODE:-staging})"
