@@ -4419,6 +4419,196 @@ async def live_opportunities(limit: int = 25) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
+# ---------------------------------------------------------------------------
+# Stage 3 (v2.6.0) — Cross-venue scanners (CEX↔DEX + DEX↔DEX)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.scanners.live.cross import CexDexScanner, DexDexScanner
+    _CROSS_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _CROSS_AVAILABLE = False
+    CexDexScanner = DexDexScanner = None  # type: ignore
+    logger.exception("cross scanner import failed")
+
+_CEX_DEX_SCANNER: Optional[Any] = None
+_DEX_DEX_SCANNER: Optional[Any] = None
+
+
+@app.on_event("startup")
+async def _cross_scanner_startup():
+    global _CEX_DEX_SCANNER, _DEX_DEX_SCANNER
+    if not _CROSS_AVAILABLE:
+        return
+    if (_MID_WRITER is None or _MID_READER is None
+            or _SCANNER_ACTIVATION is None
+            or _PROVIDER_REGISTRY is None):
+        return
+
+    common = dict(
+        registry=_PROVIDER_REGISTRY,
+        bridge=_SCANNER_ACTIVATION.bridge,
+        mid_reader=_MID_READER,
+        paper_engine=_PAPER_ENGINE,
+        tick_interval_s=float(os.environ.get(
+            "CROSS_TICK_INTERVAL_SECONDS", "25") or 25),
+        min_net_bps=float(os.environ.get(
+            "CROSS_MIN_NET_BPS", "8") or 8),
+        notional_usd=float(os.environ.get(
+            "CROSS_NOTIONAL_USD", "10000") or 10000),
+    )
+    if _CEX_DEX_SCANNER is None:
+        _CEX_DEX_SCANNER = CexDexScanner(**common)
+        if os.environ.get("CROSS_AUTOSTART", "1") == "1":
+            await _CEX_DEX_SCANNER.start()
+            logger.info("live_cex_dex: autostarted")
+    if _DEX_DEX_SCANNER is None:
+        _DEX_DEX_SCANNER = DexDexScanner(**common)
+        if os.environ.get("CROSS_AUTOSTART", "1") == "1":
+            await _DEX_DEX_SCANNER.start()
+            logger.info("live_dex_dex: autostarted")
+
+
+@app.on_event("shutdown")
+async def _cross_scanner_shutdown():
+    for s in (_CEX_DEX_SCANNER, _DEX_DEX_SCANNER):
+        if s is not None and s.is_running():
+            await s.stop()
+
+
+@app.get("/api/arbicore/scanners/cross/status")
+async def cross_scanners_status() -> Dict[str, Any]:
+    def _s(sc):
+        if sc is None:
+            return {"available": False}
+        return {"available": True, "running": sc.is_running(),
+                 "stats": sc.stats,
+                 "scanner_id": sc.scanner_id}
+    return {"cex_dex": _s(_CEX_DEX_SCANNER),
+             "dex_dex": _s(_DEX_DEX_SCANNER),
+             "generated_at": _iso_now()}
+
+
+# ---------------------------------------------------------------------------
+# Stage 3 (v2.6.0) — Validation framework
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.validation import ValidationReporter
+    _VALIDATION_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _VALIDATION_AVAILABLE = False
+    ValidationReporter = None  # type: ignore
+
+_VALIDATION_REPORTER: Optional[Any] = None
+
+
+def _all_live_scanners():
+    return [s for s in (_LIVE_SCANNER, _CEX_DEX_SCANNER, _DEX_DEX_SCANNER)
+             if s is not None]
+
+
+@app.on_event("startup")
+async def _validation_startup():
+    global _VALIDATION_REPORTER
+    if _VALIDATION_AVAILABLE and _MID_READER is not None:
+        _VALIDATION_REPORTER = ValidationReporter(_MID_READER)
+
+
+@app.get("/api/arbicore/validation/summary")
+async def validation_summary() -> Dict[str, Any]:
+    if _VALIDATION_REPORTER is None or _PROVIDER_REGISTRY is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True,
+             **(await _VALIDATION_REPORTER.summary(
+                 scanners=_all_live_scanners(),
+                 registry=_PROVIDER_REGISTRY)),
+             }
+
+
+@app.get("/api/arbicore/validation/recurrence")
+async def validation_recurrence(limit: int = 500) -> Dict[str, Any]:
+    if _VALIDATION_REPORTER is None:
+        return {"available": False}
+    return {"available": True,
+             **(await _VALIDATION_REPORTER.opportunity_recurrence(limit=limit))}
+
+
+@app.get("/api/arbicore/validation/calibration")
+async def validation_calibration(limit: int = 500) -> Dict[str, Any]:
+    if _VALIDATION_REPORTER is None:
+        return {"available": False}
+    return {"available": True,
+             **(await _VALIDATION_REPORTER.confidence_calibration(limit=limit))}
+
+
+@app.get("/api/arbicore/validation/venue_ranking")
+async def validation_venue_ranking(limit: int = 500) -> Dict[str, Any]:
+    if _VALIDATION_REPORTER is None:
+        return {"available": False}
+    return {"available": True,
+             **(await _VALIDATION_REPORTER.venue_ranking(limit=limit))}
+
+
+@app.get("/api/arbicore/validation/regime")
+async def validation_regime(limit: int = 500) -> Dict[str, Any]:
+    if _VALIDATION_REPORTER is None:
+        return {"available": False}
+    return {"available": True,
+             **(await _VALIDATION_REPORTER.regime_analysis(limit=limit))}
+
+
+# ---------------------------------------------------------------------------
+# Stage 4 (v2.6.0) — Flash-Loan Operator Journey (dry-run only)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.flashloan import FlashLoanOperatorJourney
+    _FLJ_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _FLJ_AVAILABLE = False
+    FlashLoanOperatorJourney = None  # type: ignore
+
+_FL_JOURNEY: Optional[Any] = None
+
+
+@app.on_event("startup")
+async def _flj_startup():
+    global _FL_JOURNEY
+    if not _FLJ_AVAILABLE:
+        return
+    if (_PROVIDER_REGISTRY is None or _KILL is None
+            or _CAPITAL is None or _MID_WRITER is None):
+        return
+    _FL_JOURNEY = FlashLoanOperatorJourney(
+        registry=_PROVIDER_REGISTRY,
+        kill_switch=_KILL,
+        capital_policy=_CAPITAL,
+        approval_gate=_APPROVAL,
+        mid_writer=_MID_WRITER,
+    )
+    logger.info("flashloan.operator_journey: initialised (dry-run only)")
+
+
+@app.post("/api/arbicore/flashloan/journey/run")
+async def flj_run(opp: Dict[str, Any],
+                    authorization: Optional[str] = Header(default=None)):
+    if _FL_JOURNEY is None:
+        raise HTTPException(status_code=503,
+                             detail="flashloan_journey_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx or ctx.get("role") not in ("admin", "operator"):
+        raise HTTPException(status_code=403,
+                             detail="admin_or_operator_only")
+    return await _FL_JOURNEY.run(opp)
+
+
+@app.get("/api/arbicore/flashloan/journey/status")
+async def flj_status() -> Dict[str, Any]:
+    return {"available": _FL_JOURNEY is not None,
+             "ready_for_signing": False,
+             "ready_for_broadcast": False,
+             "safety_note": "v2.6.0 — kill switch engaged, dry-run only",
+             "generated_at": _iso_now()}
+
+
 # ---------- safety endpoints ----------
 
 @app.get("/api/arbicore/safety/status")

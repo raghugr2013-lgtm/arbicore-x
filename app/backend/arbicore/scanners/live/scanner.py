@@ -199,6 +199,8 @@ class LiveMarketScanner:
 
     async def _maybe_emit(self, symbol: str,
                             tickers: List[Dict[str, Any]]) -> None:
+        from ...economics import (compute_net_profit, VENUE_FEE_BPS,
+                                     WITHDRAWAL_FEE_USD)
         best_bid = max(tickers, key=lambda t: t["bid"])
         best_ask = min(tickers, key=lambda t: t["ask"])
         if best_bid["venue"] == best_ask["venue"]:
@@ -210,21 +212,38 @@ class LiveMarketScanner:
         if spread_bps < self._min_spread_bps:
             return
 
-        gross_profit_usd = self._notional_usd * spread
+        buy_venue = best_ask["venue"]
+        sell_venue = best_bid["venue"]
+        net = compute_net_profit(
+            gross_spread_bps=spread_bps,
+            notional_usd=self._notional_usd,
+            buy_venue_fee_bps=VENUE_FEE_BPS.get(buy_venue, 30.0),
+            sell_venue_fee_bps=VENUE_FEE_BPS.get(sell_venue, 30.0),
+            withdrawal_fee_usd=WITHDRAWAL_FEE_USD["cex_to_cex"],
+            slippage_bps=5.0,
+            liquidity_impact_bps=2.0,
+        )
         opp_id = f"live:cex_spot_arb:{symbol.replace('/','')}:{uuid.uuid4().hex[:8]}"
         payload = {
             "opportunity_type": "cex_spot_arbitrage",
             "chain": "cex",
             "symbol": symbol,
-            "venue_buy": best_ask["venue"],
-            "venue_sell": best_bid["venue"],
+            "venue_buy": buy_venue,
+            "venue_sell": sell_venue,
             "buy_price": best_ask["ask"],
             "sell_price": best_bid["bid"],
             "spread_bps": round(spread_bps, 2),
             "notional_usd": self._notional_usd,
-            "expected_profit_usd": round(gross_profit_usd, 4),
-            "expected_gas_usd": 0.0,     # CEX pair — no gas
-            "slippage_bps": 5.0,         # conservative default
+            "gross_profit_usd": net.gross_profit_usd,
+            "expected_profit_usd": net.net_profit_usd,
+            "net_profit_usd": net.net_profit_usd,
+            "net_profit_bps": net.net_profit_bps,
+            "expected_gas_usd": net.gas_cost_usd,
+            "trading_fees_usd": net.trading_fees_usd,
+            "withdrawal_fees_usd": net.withdrawal_fees_usd,
+            "slippage_cost_usd": net.slippage_cost_usd,
+            "liquidity_impact_usd": net.liquidity_impact_usd,
+            "flash_loan_fee_usd": net.flash_loan_fee_usd,
             "capital_required_usd": self._notional_usd,
             "flash_loan_fee_bps": 0.0,
             "confidence": 0.6,
@@ -233,13 +252,14 @@ class LiveMarketScanner:
             "observed_at": _iso(),
             "shadow": False,
             "live": True,
+            "net_profit_breakdown": net.to_dict(),
         }
         route = {
-            "route_id": f"cex:{best_ask['venue']}->{best_bid['venue']}:{symbol}",
+            "route_id": f"cex:{buy_venue}->{sell_venue}:{symbol}",
             "fingerprint_parts": {
                 "kind": "cex_spread",
-                "buy_venue": best_ask["venue"],
-                "sell_venue": best_bid["venue"],
+                "buy_venue": buy_venue,
+                "sell_venue": sell_venue,
                 "symbol": symbol,
             },
         }

@@ -11,6 +11,7 @@ import { LeftNavRail } from "@/v2/components/LeftNavRail";
 import { CommandPalette } from "@/v2/components/CommandPalette";
 import { useKeyboardShortcuts } from "@/v2/hooks/useKeyboardShortcuts";
 import HomePage from "@/v2/pages/HomePage";
+import OpsCenter from "@/v2/pages/OpsCenter";
 import DiscoveryPage from "@/v2/pages/DiscoveryPage";
 import OpportunitiesPage from "@/v2/pages/OpportunitiesPage";
 import PortfolioPage from "@/v2/pages/PortfolioPage";
@@ -42,7 +43,9 @@ export function AppShell() {
         </div>
         <main className="v2-app__content" data-testid="v2-content">
           <Routes>
-            <Route index element={<HomePage />} />
+            <Route index element={<OpsCenter />} />
+            <Route path="ops" element={<OpsCenter />} />
+            <Route path="home" element={<HomePage />} />
             <Route path="discovery/*" element={<DiscoveryPage />} />
             <Route path="opportunities/*" element={<OpportunitiesPage />} />
             <Route path="portfolio/*" element={<PortfolioPage />} />
