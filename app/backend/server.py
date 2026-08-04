@@ -4219,6 +4219,173 @@ async def memory_regime(hours: float = 24.0,
         "generated_at": _iso_now()}
 
 
+# ---------------------------------------------------------------------------
+# Phase 5 — Provider Registry (vendor-independent abstraction layer)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.providers import ProviderRegistry as _ProviderRegistry
+    from arbicore.wallets import NoOpWalletProvider, EnvSecretProvider
+    _PROVIDER_REGISTRY = _ProviderRegistry()
+    _PROVIDER_REGISTRY.register(NoOpWalletProvider(), priority=1000)
+    _PROVIDER_REGISTRY.register(EnvSecretProvider(),  priority=1000)
+    _PROVIDERS_AVAILABLE = True
+    logger.info(
+        "providers: Phase 5 registry activated (%d bootstrap providers)",
+        len(_PROVIDER_REGISTRY.list(include_tripped=True)))
+except Exception:  # noqa: BLE001
+    _PROVIDER_REGISTRY = None
+    _PROVIDERS_AVAILABLE = False
+    logger.exception("Phase 5 provider registry unavailable")
+
+
+@app.get("/api/arbicore/providers/status")
+async def providers_status() -> Dict[str, Any]:
+    if _PROVIDER_REGISTRY is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True, **_PROVIDER_REGISTRY.snapshot(),
+            "generated_at": _iso_now()}
+
+
+# ---------------------------------------------------------------------------
+# Phase 8 — Safety infrastructure (kill switch / capital / audit)
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.safety import (
+        load_policy_from_env as _load_policy,
+        KillSwitch as _KillSwitch,
+        CapitalAllocationPolicy as _CapPolicy,
+        ApprovalGate as _ApprovalGate,
+        AuditLog as _AuditLog,
+    )
+    _POLICY = _load_policy()
+    _KILL = _KillSwitch(_POLICY)
+    _CAPITAL = _CapPolicy(_POLICY)
+    _APPROVAL = _ApprovalGate(_POLICY, _KILL)
+    _AUDIT = None                     # bound after MID writer boots
+    _SAFETY_AVAILABLE = True
+    logger.info(
+        "safety: Phase 8 activated — kill.engaged=%s live_exec=%s "
+        "max_per_trade_usd=%.2f",
+        _KILL.is_engaged(), _POLICY.live_execution_enabled,
+        _POLICY.max_per_trade_usd)
+except Exception:  # noqa: BLE001
+    _POLICY = _KILL = _CAPITAL = _APPROVAL = _AUDIT = None
+    _SAFETY_AVAILABLE = False
+    logger.exception("Phase 8 safety infrastructure unavailable")
+
+
+# ---------------------------------------------------------------------------
+# Phase 6 — Paper Opportunity Engine
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.paper import PaperEngine as _PaperEngine
+    _PAPER_ENGINE = None
+    _PAPER_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _PAPER_ENGINE = None
+    _PAPER_AVAILABLE = False
+    logger.exception("Phase 6 paper engine unavailable")
+
+
+@app.on_event("startup")
+async def _phase6_8_activate_startup():
+    """Bind the audit log + paper engine to the running MidWriter."""
+    global _AUDIT, _PAPER_ENGINE
+    if _MID_WRITER is None:
+        return
+    if _SAFETY_AVAILABLE and _AUDIT is None:
+        _AUDIT = _AuditLog(_MID_WRITER)
+        await _AUDIT.log(event="boot", by="server",
+                          payload={"live_execution_enabled":
+                                   _POLICY.live_execution_enabled,
+                                   "kill_engaged": _KILL.is_engaged()})
+    if _PAPER_AVAILABLE and _PAPER_ENGINE is None:
+        _PAPER_ENGINE = _PaperEngine(
+            _MID_WRITER, kill_switch=_KILL, capital_policy=_CAPITAL)
+        logger.info("paper: Phase 6 engine bound to MidWriter")
+
+
+# ---------- safety endpoints ----------
+
+@app.get("/api/arbicore/safety/status")
+async def safety_status() -> Dict[str, Any]:
+    if not _SAFETY_AVAILABLE:
+        return {"available": False, "generated_at": _iso_now()}
+    return {
+        "available":                True,
+        "live_execution_enabled":   _POLICY.live_execution_enabled,
+        "require_approval_gate":    _POLICY.require_approval_gate,
+        "require_paper_validation": _POLICY.require_paper_validation,
+        "kill":                     _KILL.to_dict(),
+        "capital_policy":           _CAPITAL.to_dict(),
+        "generated_at":             _iso_now(),
+    }
+
+
+@app.post("/api/arbicore/safety/kill/engage")
+async def kill_engage(
+    reason: str = "operator_request",
+    authorization: Optional[str] = Header(default=None),
+):
+    if not _SAFETY_AVAILABLE:
+        raise HTTPException(status_code=503, detail="safety_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx or ctx.get("role") not in ("admin", "operator"):
+        raise HTTPException(status_code=403, detail="admin_or_operator_only")
+    entry = _KILL.engage(by=ctx.get("username"), reason=reason)
+    if _AUDIT is not None:
+        await _AUDIT.log(event="kill.engage",
+                          by=ctx.get("username"),
+                          payload={"reason": reason})
+    return {**entry, "current": _KILL.to_dict()}
+
+
+@app.post("/api/arbicore/safety/kill/disengage")
+async def kill_disengage(
+    reason: str = "operator_request",
+    authorization: Optional[str] = Header(default=None),
+):
+    if not _SAFETY_AVAILABLE:
+        raise HTTPException(status_code=503, detail="safety_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx or ctx.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="admin_only")
+    entry = _KILL.disengage(by=ctx.get("username"), reason=reason)
+    if _AUDIT is not None:
+        await _AUDIT.log(event="kill.disengage",
+                          by=ctx.get("username"),
+                          payload={"reason": reason})
+    return {**entry, "current": _KILL.to_dict()}
+
+
+# ---------- paper engine endpoints ----------
+
+@app.post("/api/arbicore/paper/analyse")
+async def paper_analyse(
+    body: Dict[str, Any],
+    authorization: Optional[str] = Header(default=None),
+):
+    if _PAPER_ENGINE is None:
+        raise HTTPException(status_code=503, detail="paper_engine_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx or ctx.get("role") not in ("admin", "operator"):
+        raise HTTPException(status_code=403, detail="admin_or_operator_only")
+    try:
+        analysis = await _PAPER_ENGINE.analyse(body)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"opp_id": analysis.opp_id, **analysis.to_payload(),
+            "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/paper/stats")
+async def paper_stats() -> Dict[str, Any]:
+    if _PAPER_ENGINE is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True, **_PAPER_ENGINE.stats.to_dict(),
+            "generated_at": _iso_now()}
+
+
 @app.get("/api/arbicore/observability")
 async def observability() -> Dict[str, Any]:
     """Sprint 1B-β — one-shot operational observability endpoint.
@@ -4277,6 +4444,24 @@ async def observability() -> Dict[str, Any]:
             payload["lifetime"] = {"available": True, "error": str(exc)}
     else:
         payload["lifetime"] = {"available": False}
+
+    # Phase 5 — providers
+    payload["providers"] = (
+        {"available": True, **_PROVIDER_REGISTRY.snapshot()}
+        if _PROVIDER_REGISTRY else {"available": False})
+
+    # Phase 8 — safety
+    payload["safety"] = (
+        {"available": True,
+         "live_execution_enabled": _POLICY.live_execution_enabled,
+         "kill": _KILL.to_dict(),
+         "capital_policy": _CAPITAL.to_dict()}
+        if _SAFETY_AVAILABLE else {"available": False})
+
+    # Phase 6 — paper engine
+    payload["paper"] = (
+        {"available": True, **_PAPER_ENGINE.stats.to_dict()}
+        if _PAPER_ENGINE else {"available": False})
 
     return payload
 
