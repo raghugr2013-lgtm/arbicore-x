@@ -4224,16 +4224,19 @@ async def memory_regime(hours: float = 24.0,
 # ---------------------------------------------------------------------------
 try:
     from arbicore.providers import ProviderRegistry as _ProviderRegistry
+    from arbicore.providers.bootstrap import bootstrap as _bootstrap_providers
     from arbicore.wallets import NoOpWalletProvider, EnvSecretProvider
     _PROVIDER_REGISTRY = _ProviderRegistry()
     _PROVIDER_REGISTRY.register(NoOpWalletProvider(), priority=1000)
     _PROVIDER_REGISTRY.register(EnvSecretProvider(),  priority=1000)
+    _PROVIDER_BOOTSTRAP_SUMMARY = _bootstrap_providers(_PROVIDER_REGISTRY)
     _PROVIDERS_AVAILABLE = True
     logger.info(
-        "providers: Phase 5 registry activated (%d bootstrap providers)",
+        "providers: Phase 5 registry activated (%d providers total)",
         len(_PROVIDER_REGISTRY.list(include_tripped=True)))
 except Exception:  # noqa: BLE001
     _PROVIDER_REGISTRY = None
+    _PROVIDER_BOOTSTRAP_SUMMARY = None
     _PROVIDERS_AVAILABLE = False
     logger.exception("Phase 5 provider registry unavailable")
 
@@ -4243,6 +4246,7 @@ async def providers_status() -> Dict[str, Any]:
     if _PROVIDER_REGISTRY is None:
         return {"available": False, "generated_at": _iso_now()}
     return {"available": True, **_PROVIDER_REGISTRY.snapshot(),
+            "bootstrap": _PROVIDER_BOOTSTRAP_SUMMARY,
             "generated_at": _iso_now()}
 
 
@@ -4303,6 +4307,116 @@ async def _phase6_8_activate_startup():
         _PAPER_ENGINE = _PaperEngine(
             _MID_WRITER, kill_switch=_KILL, capital_policy=_CAPITAL)
         logger.info("paper: Phase 6 engine bound to MidWriter")
+
+
+# ---------------------------------------------------------------------------
+# Stage 2 (v2.5.0) — Live Market Intelligence scanner
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.scanners.live import LiveMarketScanner as _LiveScanner
+    _LIVE_SCANNER: Optional[Any] = None
+    _LIVE_AVAILABLE = True
+except Exception:  # noqa: BLE001
+    _LIVE_SCANNER = None
+    _LIVE_AVAILABLE = False
+    logger.exception("live_market scanner unavailable")
+
+
+@app.on_event("startup")
+async def _live_market_startup():
+    """Bind the Live Market Scanner once MID + registry + paper are ready.
+
+    Autostart is controlled by ``LIVE_MARKET_AUTOSTART`` (default: '1').
+    The scanner runs in OBSERVE mode — no signing, no trading. Safety
+    gates (kill switch + capital caps) still apply to the paper engine
+    downstream.
+    """
+    global _LIVE_SCANNER
+    if not _LIVE_AVAILABLE:
+        return
+    if (_MID_WRITER is None or _MID_READER is None
+            or _SCANNER_ACTIVATION is None
+            or _PROVIDER_REGISTRY is None):
+        return
+    if _LIVE_SCANNER is not None:
+        return
+    _LIVE_SCANNER = _LiveScanner(
+        registry=_PROVIDER_REGISTRY,
+        bridge=_SCANNER_ACTIVATION.bridge,
+        mid_reader=_MID_READER,
+        paper_engine=_PAPER_ENGINE,
+        tick_interval_s=float(os.environ.get(
+            "LIVE_TICK_INTERVAL_SECONDS", "15") or 15),
+        min_spread_bps=float(os.environ.get(
+            "LIVE_MIN_SPREAD_BPS", "5") or 5),
+        notional_usd=float(os.environ.get(
+            "LIVE_QUOTE_NOTIONAL_USD", "10000") or 10000),
+    )
+    if os.environ.get("LIVE_MARKET_AUTOSTART", "1") == "1":
+        await _LIVE_SCANNER.start()
+        logger.info("live_market: autostarted")
+
+
+@app.on_event("shutdown")
+async def _live_market_shutdown():
+    if _LIVE_SCANNER is not None and _LIVE_SCANNER.is_running():
+        await _LIVE_SCANNER.stop()
+
+
+@app.get("/api/arbicore/live/status")
+async def live_status() -> Dict[str, Any]:
+    if _LIVE_SCANNER is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True,
+            "running": _LIVE_SCANNER.is_running(),
+            "stats": _LIVE_SCANNER.stats,
+            "generated_at": _iso_now()}
+
+
+@app.post("/api/arbicore/live/start")
+async def live_start(authorization: Optional[str] = Header(default=None)):
+    if _LIVE_SCANNER is None:
+        raise HTTPException(status_code=503, detail="live_market_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx or ctx.get("role") not in ("admin", "operator"):
+        raise HTTPException(status_code=403,
+                             detail="admin_or_operator_only")
+    return await _LIVE_SCANNER.start()
+
+
+@app.post("/api/arbicore/live/stop")
+async def live_stop(authorization: Optional[str] = Header(default=None)):
+    if _LIVE_SCANNER is None:
+        raise HTTPException(status_code=503, detail="live_market_unavailable")
+    ctx = await _resolve_current_user(authorization)
+    if not ctx or ctx.get("role") not in ("admin", "operator"):
+        raise HTTPException(status_code=403,
+                             detail="admin_or_operator_only")
+    return await _LIVE_SCANNER.stop()
+
+
+@app.get("/api/arbicore/live/prices")
+async def live_prices() -> Dict[str, Any]:
+    """Latest cross-venue price snapshot for every scanned symbol."""
+    if _LIVE_SCANNER is None:
+        return {"available": False, "generated_at": _iso_now()}
+    return {"available": True,
+            "prices": _LIVE_SCANNER.last_prices,
+            "generated_at": _iso_now()}
+
+
+@app.get("/api/arbicore/live/opportunities")
+async def live_opportunities(limit: int = 25) -> Dict[str, Any]:
+    """Recent live opportunities from MID (cex_spot_arbitrage & friends)."""
+    if _MID_READER is None:
+        return {"available": False, "generated_at": _iso_now()}
+    try:
+        rows = await _MID_READER.query("opportunities", limit=int(limit))
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "error": str(exc),
+                "generated_at": _iso_now()}
+    return {"available": True, "count": len(rows), "opportunities": rows,
+            "generated_at": _iso_now()}
 
 
 # ---------- safety endpoints ----------

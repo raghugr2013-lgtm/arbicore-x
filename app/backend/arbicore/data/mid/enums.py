@@ -35,7 +35,9 @@ _SEED_VALUES: Dict[str, Set[str]] = {
         "multi_hop",
         "triangular",
         "stablecoin_depeg",
-        # future: cex_dex, funding_delta, liquidation_call, yield_arbitrage, ...
+        "cex_spot_arbitrage",
+        "cex_dex_arbitrage",
+        # future: funding_delta, liquidation_call, yield_arbitrage, ...
         "unknown",
     },
     CAPITAL_SOURCE: {
@@ -48,8 +50,14 @@ _SEED_VALUES: Dict[str, Set[str]] = {
     },
     CHAIN: {
         "base",
-        # future: arbitrum, optimism, polygon, ethereum, solana, sui,
-        #         off_chain_cex, ...
+        "ethereum",
+        "arbitrum",
+        "optimism",
+        "polygon",
+        "bnb",
+        "solana",
+        "cex",
+        # future: sui, off_chain_cex, ...
         "unknown",
     },
     PROTOCOL: {
