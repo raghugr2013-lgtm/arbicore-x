@@ -653,21 +653,21 @@ async def v2_opportunity_approve(opp_id: str) -> Dict[str, Any]:
                 canonical.mark_approved()
             await _CANONICAL_OPP_REPO.upsert(canonical)
             # Slice 1: record decision on the journal (audit trail).
-            try:
-                await _OPPORTUNITY_JOURNAL.record_event(
-                    opp_id, kind="operator_approved",
-                    detail={"new_status": canonical.status.value},
-                    status=canonical.status.value,
-                )
-            except Exception:
-                logger.exception("approve: journal.record_event failed for %s", opp_id)
+            await _journal_record_operator_event(
+                canonical,
+                kind="operator_approved",
+                detail={"new_status": canonical.status.value},
+                status=canonical.status.value,
+            )
             return {"ok": True, "id": opp_id, "status": canonical.status.value,
                     "canonical": True, "generated_at": _iso_now()}
     except InvalidTransitionError as exc:
         return {"ok": False, "id": opp_id, "error": str(exc),
                 "generated_at": _iso_now()}
+    except HTTPException:
+        raise
     except Exception:
-        pass
+        logger.exception("approve: canonical mutation failed for %s", opp_id)
     # Slice 1 · canonical-only. No preview fallback.
     raise HTTPException(status_code=404, detail={"error": "not_found", "id": opp_id})
 
@@ -683,24 +683,61 @@ async def v2_opportunity_reject(opp_id: str,
             canonical.mark_rejected(reason)
             await _CANONICAL_OPP_REPO.upsert(canonical)
             # Slice 1: record decision on the journal.
-            try:
-                await _OPPORTUNITY_JOURNAL.record_event(
-                    opp_id, kind="operator_rejected",
-                    detail={"new_status": canonical.status.value, "reason": reason},
-                    status=canonical.status.value,
-                )
-            except Exception:
-                logger.exception("reject: journal.record_event failed for %s", opp_id)
+            await _journal_record_operator_event(
+                canonical,
+                kind="operator_rejected",
+                detail={"new_status": canonical.status.value, "reason": reason},
+                status=canonical.status.value,
+            )
             return {"ok": True, "id": opp_id, "status": canonical.status.value,
                     "canonical": True, "reason": reason,
                     "generated_at": _iso_now()}
     except InvalidTransitionError as exc:
         return {"ok": False, "id": opp_id, "error": str(exc),
                 "generated_at": _iso_now()}
+    except HTTPException:
+        raise
     except Exception:
-        pass
+        logger.exception("reject: canonical mutation failed for %s", opp_id)
     # Slice 1 · canonical-only. No preview fallback.
     raise HTTPException(status_code=404, detail={"error": "not_found", "id": opp_id})
+
+
+async def _journal_record_operator_event(
+    canonical: "CanonicalOpportunity",
+    *,
+    kind: str,
+    detail: Dict[str, Any],
+    status: str,
+) -> None:
+    """Slice 1 audit-trail bridge.
+
+    ``OpportunityJournal.record_event`` will not create a new journal row
+    for an opportunity that never passed through the discovery pipeline
+    (e.g. seeded canonical rows).  We first try to append, and if the row
+    is missing we seed it via ``record_discovery`` and then append.  This
+    guarantees every operator decision produces an audit entry without
+    changing the journal's original contract.
+    """
+    opp_id = canonical.opportunity_id
+    try:
+        appended = await _OPPORTUNITY_JOURNAL.record_event(
+            opp_id, kind=kind, detail=detail, status=status,
+        )
+        if appended is not None:
+            return
+        # Row did not exist — seed a discovery entry, then append the operator event.
+        await _OPPORTUNITY_JOURNAL.record_discovery(
+            canonical,
+            mode="OPERATOR",
+            scanner_family="operator_console",
+            detail={"seeded_by": kind},
+        )
+        await _OPPORTUNITY_JOURNAL.record_event(
+            opp_id, kind=kind, detail=detail, status=status,
+        )
+    except Exception:
+        logger.exception("journal audit write failed for %s (kind=%s)", opp_id, kind)
 
 
 # ---------------------------------------------------------------------------
@@ -778,7 +815,7 @@ async def v2_opportunity_timeline(opp_id: str) -> Dict[str, Any]:
     if journal_entry is not None:
         for ev in getattr(journal_entry, "events", []) or []:
             events.append({
-                "kind": f"journal:{ev.kind}",
+                "kind": ev.kind,
                 "at": getattr(ev, "at", None),
                 "collection": "opportunity_journal",
                 "payload": {"kind": ev.kind, "detail": ev.detail},
