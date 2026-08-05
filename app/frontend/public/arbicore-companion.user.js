@@ -12,6 +12,8 @@
 // @run-at       document-start
 // ==/UserScript==
 
+/* global GM_xmlhttpRequest, GM_setValue, GM_getValue */
+
 (function () {
   'use strict';
 
