@@ -60,7 +60,7 @@ x-log-defaults: &log-defaults
 #   stack, not by ArbiCore X.
 networks:
   shared:
-    name: ${NETWORK_NAME:-arbicore-x-net}
+    name: ${NETWORK_NAME:?NETWORK_NAME must be set in .env.shared — see .env.shared.example (typical values: vqb-network for factory-mongo co-tenancy, or arbicore-x-net for self-owned).}
     external: true
 
 # ---------------------------------------------------------------- Volumes
@@ -101,7 +101,10 @@ services:
     environment:
       # MONGO_URL takes precedence if set explicitly. Otherwise we build it
       # from MONGO_HOST/MONGO_PORT so the operator only has to change one var.
-      MONGO_URL: ${MONGO_URL:-mongodb://${MONGO_HOST:-factory-mongo}:${MONGO_PORT:-27017}}
+      # v2.11.3: switched from silent fallback (${MONGO_HOST:-factory-mongo})
+      # to fail-fast (${MONGO_HOST:?...}). The previous silent fallback +
+      # mismatched NETWORK_NAME default caused a silent broken deploy.
+      MONGO_URL: ${MONGO_URL:-mongodb://${MONGO_HOST:?MONGO_HOST or MONGO_URL must be set in .env.shared — see .env.shared.example.  It must be a container name that is reachable on NETWORK_NAME (typically factory-mongo on vqb-network).}:${MONGO_PORT:-27017}}
       DB_NAME: ${DB_NAME:-arbicore_x}
       # Provenance labels for /api/arbicore/health
       ARBICORE_DEPLOY_PROFILE: shared
