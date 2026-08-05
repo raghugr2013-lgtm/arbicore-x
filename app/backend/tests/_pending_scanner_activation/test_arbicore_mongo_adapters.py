@@ -120,7 +120,6 @@ def test_inmemory_metrics_and_regime_smoke(event_loop):
     rows = _run(event_loop, metrics.list_signal_metrics(signal_id="s1"))
     assert len(rows) == 1 and rows[0].score_impact_mean == -0.15
 
-    from arbicore.data._inmemory import InMemoryRegimeSnapshotRepository
     regime = InMemoryRegimeSnapshotRepository()
     _run(event_loop, regime.append(RegimeSnapshot(
         captured_at=time.time(), dominant_regime="CALM",

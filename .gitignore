@@ -68,3 +68,15 @@ release_bundle/
 *.zip
 *.SHASUMS
 .emergent/
+
+
+# session-specific credentials scratch — not part of releases
+memory/test_credentials.md
+
+test_reports/
+*.env
+.credentials
+
+# platform-injected git identity — not part of releases
+.gitconfig
+

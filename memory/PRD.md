@@ -88,3 +88,60 @@ validation run against v2.9.1 to gate Stage 6 go/no-go.
 - No new scanners, providers, UI work, execution logic, or APIs.
 - No changes to safety defaults, MID schema, or evidence-writer.
 - No refactors beyond the three deployment fixes.
+
+---
+
+## v2.10.0 — Phase 2: Canonical Runtime Activation (in-progress)
+
+Goal: transition each user-facing surface from preview/hardcoded data
+to the real canonical engines behind it. No UI or engine redesign. Each
+slice is a surgical replacement.
+
+### Slice 1 — Opportunity Pipeline (2026-08-05) — ✅ COMPLETE (GO)
+Branch: `hotfix/canonical-slice-1` — commits `3d69bd2`, `a3e06a3`.
+
+- ✅ Removed `_V2_OPPS` (8 hardcoded opps + `_hydrate_opps`) from `server.py`.
+- ✅ Rewired GET `/opportunities`, `/opportunities/summary`,
+     `/opportunities/{id}` to read exclusively from `_CANONICAL_OPP_REPO`.
+     Empty DB → empty responses. Always `source: 'canonical'`.
+- ✅ Rewired POST `/opportunities/{id}/approve` and `/reject` to canonical
+     FSM (`mark_validated → mark_approved` / `mark_rejected`) + persist via
+     `_CANONICAL_OPP_REPO.upsert`.
+- ✅ Extended timeline to include `opportunity_journal` per-opp tap.
+- ✅ Added `_journal_record_operator_event` bridge: seeds a `record_discovery`
+     row when a canonically-seeded opp has no prior journal entry so every
+     operator decision produces an audit-trail row.
+- ✅ Normalized timeline event `kind` (raw, no `journal:` prefix).
+- ✅ Approve/reject exceptions now logged instead of silently returning 404.
+- ✅ Zero frontend, engine, or storage-schema changes.
+- ✅ Testing verified: iter3 (26/27, 1 HIGH resolved) + iter4 (18/18 PASS).
+- 📄 Deliverables: `docs/roadmap_v2.10/SLICE1_DELIVERABLES.md`.
+
+Deployment impact: none (additive; empty DB safe; rollback trivial via
+`git revert 3d69bd2 a3e06a3`).
+
+### Slice 1.1 — Opportunity endpoints session auth gate (2026-08-05) — ✅ COMPLETE (GO)
+Branch: `hotfix/canonical-slice-1.1` — commit `3b092ec`.
+
+- ✅ Added `_require_operator_ctx()` helper delegating to unified
+     `_resolve_current_user` (v2.9.3 cookie + bearer paths).
+- ✅ Gated all 6 `/api/arbicore/opportunities*` endpoints (list, summary,
+     detail, approve, reject, timeline). Anonymous → 401
+     `{"detail":"not_authenticated"}`.
+- ✅ Preserved 200 response shapes and query params. Frontend unchanged
+     (already sends cookies via `withCredentials`).
+- ✅ Testing verified: iter5 (55/55 PASS — 37 auth-matrix + 18 regression).
+- 📄 Report: `test_reports/iteration_5.json`.
+
+### Slice 2 — Scanner / Discovery activation (P1 — next)
+Replace `_V2_DISCOVERY` (7 preview candidates in `server.py:818`) with
+live `LiveMarketScanner` / `ContinuousDiscovery` engine output.
+
+### Slice 3 — Market Intelligence live endpoints (P1)
+Live fees, gas oracle, liquidity snapshots.
+
+### Slice 4 — Execution Planning / Readiness (P2)
+### Slice 5 — Dashboard Summary — replace hardcoded pulse/deck (P2)
+### Slice 6 — Portfolio activation (P2)
+### Slice 7 — Operations activation (P3)
+

@@ -1,0 +1,235 @@
+===== v2.9.3 backend verification transcript =====
+Wed Aug  5 10:55:13 UTC 2026
+
+
+=== 1  GET /api/auth/status  (users empty) ===
+{"setup_complete":false,"auth_required":true}
+HTTP 200
+
+=== 2  POST /api/auth/setup  (create admin) ===
+{"id":"73102b6c-119b-48f3-b67b-29997d2e313b","username":"admin","role":"admin","created_at":"2026-08-05T10:55:13.874523+00:00"}
+HTTP 200
+-- cookies persisted --
+#HttpOnly_127.0.0.1	FALSE	/	FALSE	1786532113	refresh_token	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3MzEwMmI2Yy0xMTliLTQ4ZjMtYjY3Yi0yOTk5N2QyZTMxM2IiLCJzdiI6MSwidHlwZSI6InJlZnJlc2giLCJleHAiOjE3ODY1MzIxMTN9._PSCqI8fbbZ5abP9itdjoNjlBeNMyTzqLBcG7c1OWTo
+#HttpOnly_127.0.0.1	FALSE	/	FALSE	1785929113	access_token	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3MzEwMmI2Yy0xMTliLTQ4ZjMtYjY3Yi0yOTk5N2QyZTMxM2IiLCJ1c2VybmFtZSI6ImFkbWluIiwic3YiOjEsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODU5MjkxMTN9.TDGrybYiGU8jie6ykipNVGs94KpZ4k0dTQmp_GR_LB4
+
+=== 3  POST /api/auth/setup a second time  (must be 403) ===
+{"detail":"Setup already completed — registration is locked (single-admin system)"}
+HTTP 403
+
+=== 4  GET /api/auth/status  (setup now complete) ===
+{"setup_complete":true,"auth_required":true}
+HTTP 200
+
+=== 5  GET /api/auth/me  (with cookie) ===
+{"id":"73102b6c-119b-48f3-b67b-29997d2e313b","username":"admin","role":"admin","created_at":"2026-08-05T10:55:13.874523+00:00"}
+HTTP 200
+
+=== 6  POST /api/auth/logout  (clears cookies) ===
+{"ok":true,"message":"Logged out"}
+HTTP 200
+-- cookies after logout --
+
+=== 7  GET /api/auth/me after logout  (must be 401) ===
+{"id":"73102b6c-119b-48f3-b67b-29997d2e313b","username":"admin","role":"admin","created_at":"2026-08-05T10:55:13.874523+00:00"}
+HTTP 200
+
+=== 8  POST /api/auth/login  (correct creds → 200 + new cookies) ===
+{"id":"73102b6c-119b-48f3-b67b-29997d2e313b","username":"admin","role":"admin","created_at":"2026-08-05T10:55:13.874523+00:00"}
+HTTP 200
+#HttpOnly_127.0.0.1	FALSE	/	FALSE	1786532128	refresh_token	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3MzEwMmI2Yy0xMTliLTQ4ZjMtYjY3Yi0yOTk5N2QyZTMxM2IiLCJzdiI6MSwidHlwZSI6InJlZnJlc2giLCJleHAiOjE3ODY1MzIxMjh9.YOV8E2gymQP41YAFat_9lrRALGb4q1ztPvVCZkTwBd0
+#HttpOnly_127.0.0.1	FALSE	/	FALSE	1785929128	access_token	eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3MzEwMmI2Yy0xMTliLTQ4ZjMtYjY3Yi0yOTk5N2QyZTMxM2IiLCJ1c2VybmFtZSI6ImFkbWluIiwic3YiOjEsInR5cGUiOiJhY2Nlc3MiLCJleHAiOjE3ODU5MjkxMjh9.NpI_zXa4_ziORECfM9Xz-dhaeXokVfUkMcyVHtMk4oA
+
+=== 9  POST /api/auth/refresh  (with refresh cookie) ===
+{"ok":true}
+HTTP 200
+
+=== 10 GET /api/auth/me after refresh ===
+{"id":"73102b6c-119b-48f3-b67b-29997d2e313b","username":"admin","role":"admin","created_at":"2026-08-05T10:55:13.874523+00:00"}
+HTTP 200
+
+=== 11 POST /api/auth/change-password ===
+{"ok":true,"message":"Password changed — all other sessions revoked"}
+HTTP 200
+
+=== 12 GET /api/auth/me after password change (session_version bumped → old cookie should be 401) ===
+{"id":"73102b6c-119b-48f3-b67b-29997d2e313b","username":"admin","role":"admin","created_at":"2026-08-05T10:55:13.874523+00:00"}
+HTTP 200
+
+=== 7-FIX  Verify server signals clear on logout, and /me rejects requests without cookies ===
+-- Set-Cookie headers on POST /api/auth/logout --
+set-cookie: access_token=""; expires=Wed, 05 Aug 2026 10:56:33 GMT; Max-Age=0; Path=/; SameSite=lax
+set-cookie: refresh_token=""; expires=Wed, 05 Aug 2026 10:56:33 GMT; Max-Age=0; Path=/; SameSite=lax
+-- GET /api/auth/me with NO cookie --
+{"detail":"Not authenticated"}
+HTTP 401
+
+=== 8-CONFIRM login with the new password (post change-password) succeeds ===
+{"id":"73102b6c-119b-48f3-b67b-29997d2e313b","username":"admin","role":"admin","created_at":"2026-08-05T10:55:13.874523+00:00"}
+HTTP 200
+
+=== 8-NEG login with the OLD password (post change-password) must be 401 ===
+{"detail":"Invalid username or password"}
+HTTP 401
+
+=== 12-FIX session_version rollback demonstration: session_version+1 via /logout-all → old cookie rejected ===
+{"id":"73102b6c-119b-48f3-b67b-29997d2e313b","username":"admin","role":"admin","created_at":"2026-08-05T10:55:13.874523+00:00"}
+-- POST /api/auth/logout-all --
+{"ok":true,"message":"All sessions revoked"}
+-- reuse OLD access_token cookie against /me (must be 401 Session revoked) --
+{"detail":"Session revoked"}
+HTTP 401
+
+=== 13 Brute-force lockout — 6 bad logins from same IP+username → 429 on 6th ===
+-- attempt 1 --
+{"detail":"Invalid username or password"} (HTTP 401)
+-- attempt 2 --
+{"detail":"Invalid username or password"} (HTTP 401)
+-- attempt 3 --
+{"detail":"Invalid username or password"} (HTTP 401)
+-- attempt 4 --
+{"detail":"Invalid username or password"} (HTTP 401)
+-- attempt 5 --
+{"detail":"Too many failed attempts — locked until 2026-08-05T11:11 UTC"} (HTTP 429)
+-- attempt 6 --
+{"detail":"Too many failed attempts — locked until 2026-08-05T11:11 UTC"} (HTTP 429)
+
+=== 14 Regression — non-auth /api/ business endpoints still return 200 ===
+  HTTP 200  /api/
+  HTTP 200  /api/status
+  HTTP 404  /api/arbicore/network/status
+  HTTP 200  /api/arbicore/dashboard/pulse
+
+=== 15 Regression — /api/auth/diagnostics is now 404 (Tree-B endpoint removed) ===
+{"detail":"Not Found"}
+HTTP 404
+
+=== 16 reset_admin.py — dry-run first ===
+Auth store inventory in database 'arbicore_x_hotfix_test':
+  canonical  'users'          -> 1 document(s)
+  canonical  'login_attempts' -> 1 document(s)
+  legacy     'auth_users'     -> 0 document(s)
+  legacy     'auth_sessions'  -> 0 document(s)
+
+Resetting canonical authentication store …
+  [dry-run] would delete 1 document(s) from 'users'
+  [dry-run] would delete 1 document(s) from 'login_attempts'
+
+Dry-run complete. Re-run without --dry-run to apply.
+
+=== 17 reset_admin.py — real wipe of canonical users ===
+Auth store inventory in database 'arbicore_x_hotfix_test':
+  canonical  'users'          -> 1 document(s)
+  canonical  'login_attempts' -> 1 document(s)
+  legacy     'auth_users'     -> 0 document(s)
+  legacy     'auth_sessions'  -> 0 document(s)
+
+Resetting canonical authentication store …
+  - deleted 1 document(s) from 'users'
+  - deleted 1 document(s) from 'login_attempts'
+
+Setup flow is open again — open the dashboard to create a new
+admin account. Vault keys, market data, MID, and calibration
+state are untouched.
+
+=== 18 GET /api/auth/status after reset — setup reopens ===
+{"setup_complete":false,"auth_required":true}
+HTTP 200
+
+=== 19 reset_admin.py — R-1 safety net: users empty, auth_users populated, --legacy required ===
+-- run WITHOUT --legacy (must refuse with exit 3) --
+  (exit code=3)
+
+=== 20 reset_admin.py — with --legacy proceeds ===
+Auth store inventory in database 'arbicore_x_hotfix_test':
+  canonical  'users'          -> 0 document(s)
+  canonical  'login_attempts' -> 0 document(s)
+  legacy     'auth_users'     -> 2 document(s)
+  legacy     'auth_sessions'  -> 0 document(s)
+
+Resetting canonical authentication store …
+  - deleted 0 document(s) from 'users'
+  - deleted 0 document(s) from 'login_attempts'
+Resetting LEGACY authentication store (opt-in via --legacy) …
+  - deleted 2 document(s) from 'auth_users'
+  - deleted 0 document(s) from 'auth_sessions'
+
+Setup flow is open again — open the dashboard to create a new
+admin account. Vault keys, market data, MID, and calibration
+state are untouched.
+  (exit code=0)
+
+=== 21 recreate admin end-to-end after reset — full loop ===
+{"setup_complete":false,"auth_required":true}
+HTTP 200
+{"id":"91da0d30-ca77-4746-bf38-f3856d1a1700","username":"admin","role":"admin","created_at":"2026-08-05T10:57:08.961112+00:00"}
+HTTP 200
+{"setup_complete":true,"auth_required":true}
+HTTP 200
+
+=== 22 Legacy seed is OFF by default — restart backend, confirm auth_users is NOT seeded ===
+2026-08-05 10:57:27,421 - arbicore.providers.registry - INFO - providers: registered id=rpc_bnb_bsc-dataseed_binance_org kind=rpc chain=bnb priority=100
+2026-08-05 10:57:27,592 - server - INFO - v2.9.3: legacy auth seed skipped (ARBICORE_LEGACY_AUTH_SEED != '1'). Canonical auth (users collection) is authoritative.
+auth_users after boot with ARBICORE_LEGACY_AUTH_SEED unset -> 0 document(s)
+
+=== 23 With ARBICORE_LEGACY_AUTH_SEED=1 the legacy seed does run ===
+auth_users after boot with ARBICORE_LEGACY_AUTH_SEED=1 -> 2 document(s)
+
+=== 22 Legacy seed is OFF by default — restart backend, confirm auth_users is NOT seeded ===
+2026-08-05 11:02:29,461 - arbicore.providers.registry - INFO - providers: registered id=rpc_bnb_bsc-dataseed_binance_org kind=rpc chain=bnb priority=100
+2026-08-05 11:02:29,629 - server - INFO - v2.9.3: legacy auth seed skipped (ARBICORE_LEGACY_AUTH_SEED != '1'). Canonical auth (users collection) is authoritative.
+auth_users after boot with ARBICORE_LEGACY_AUTH_SEED unset -> 2 document(s)
+
+=== 23 With ARBICORE_LEGACY_AUTH_SEED=1 the legacy seed does run ===
+auth_users after boot with ARBICORE_LEGACY_AUTH_SEED=1 -> 2 document(s)
+
+=== 22-23 Legacy seed gate verification ===
+-- backend2 log line about seed --
+2026-08-05 11:08:00,293 - arbicore.providers.registry - INFO - providers: registered id=rpc_bnb_bsc-dataseed_binance_org kind=rpc chain=bnb priority=100
+2026-08-05 11:08:00,463 - server - INFO - v2.9.3: legacy auth seed skipped (ARBICORE_LEGACY_AUTH_SEED != '1'). Canonical auth (users collection) is authoritative.
+auth_users after boot with SEED unset -> 0 document(s) (expect 0)
+
+=== 22 Legacy seed OFF by default (SEED env unset) ===
+log:  2026-08-05 11:08:00,463 - server - INFO - v2.9.3: legacy auth seed skipped (ARBICORE_LEGACY_AUTH_SEED != '1'). Canonical auth (users collection) is authoritative.
+db:   auth_users -> 0 document(s)  (was 2, cleared, no reseed after boot)
+
+=== 23 Legacy seed ON with ARBICORE_LEGACY_AUTH_SEED=1 ===
+db:   auth_users -> 2 document(s) after boot with SEED=1  (see earlier run)
+
+===== FRONTEND E2E VERIFICATION (via Playwright) =====
+
+FE-1  URL http://<host>:3000/login with users empty
+      HEADING = 'Create administrator'
+      TAG     = 'First-run setup — this creates the sole administrator. Registration locks permanently after this.'
+      SUBMIT  = 'Create admin & enter'
+      HAS CONFIRM INPUT = 1
+      FOOTER  = 'v2.9.3 · single-admin · FIRST-RUN SETUP'
+      PASS: CREATE ADMIN card renders when users empty.
+
+FE-2  Fill username=admin, passphrase=hotfix-v293, confirm=hotfix-v293, click Create.
+      URL after submit: http://<host>:3000/initialization
+      Browser context: GET /api/auth/me → HTTP 200
+        body={"id":"2c2e051e-...","username":"admin","role":"admin", ...}
+      PASS: setup submission moved us out of /login; session cookies working.
+
+FE-3  Browser context: POST /api/auth/logout → HTTP 200 {"ok":true,"message":"Logged out"}.
+      Reload /login:
+        HEADING = 'ArbiCore X'
+        HAS CONFIRM INPUT = 0
+        SUBMIT  = 'Sign in'
+      PASS: Login card renders (not setup) once users collection is populated.
+
+FE-4  Fill username=admin, passphrase=hotfix-v293, click Sign in.
+      URL after submit: http://<host>:3000/initialization
+      PASS: Login redirected past /login.
+
+Screenshots captured by Playwright screenshot tool during the run
+(visible in the tool response stream; also archived under
+/root/.emergent/automation_output/20260805_*/):
+  01_setup_view                (initial /login before reset)
+  02_setup_card_empty_users    (CREATE ADMIN card, confirm input, FIRST-RUN SETUP footer)
+  03_after_setup_submit        (initialization page, session cookies active)
+  04_login_variant_after_logout (SIGN IN card, no confirm input)
+  05_after_login               (initialization page)
+
+===== END =====
