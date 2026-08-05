@@ -13,6 +13,8 @@
 // ==/UserScript==
 
 /* global GM_xmlhttpRequest, GM_setValue, GM_getValue */
+/* eslint-disable no-undef */
+/* oxlint-disable no-undef */
 
 (function () {
   'use strict';
