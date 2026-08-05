@@ -4,6 +4,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
@@ -336,6 +337,87 @@ _SCANNER_CONFIG      = ScannerConfigRepo(
 
 # Create the main app without a prefix
 app = FastAPI()
+
+
+# ---------------------------------------------------------------------------
+# v2.11.2 · Boot-stage instrumentation.
+#
+# Wrap every @app.on_event("startup") handler with:
+#   * entry / exit / duration logging
+#   * a per-handler asyncio.wait_for timeout so no single handler can
+#     ever block Uvicorn's startup phase indefinitely.
+#
+# Why: the v2.11 VPS boot hung silently because a Mongo-dependent
+# startup handler awaited motor with the default 30-s
+# ``serverSelectionTimeoutMS``. Uvicorn never emitted
+# "Application startup complete." so nothing bound to port 8001 and
+# every health check failed with connect-refused.  We now:
+#   * log ``BOOT: <handler> start`` and ``BOOT: <handler> done (<dt>s)``
+#     around every handler, so the last successful handler is always
+#     identifiable from the logs;
+#   * cancel any handler that exceeds ``_BOOT_HANDLER_TIMEOUT_S`` and log
+#     an explicit BOOT-TIMED-OUT error — startup continues without it,
+#     and the abandoned coroutine is fire-and-forget (the resource it
+#     was initialising will report the same failure on first user hit
+#     and its own retry ladder, if any, will kick in).
+#
+# 8-second per-handler timeout is tighter than motor's default 30-s
+# ``serverSelectionTimeoutMS`` so an unreachable Mongo surfaces fast.
+# On the happy path every existing handler completes in <100 ms, so
+# this bound is invisible.
+# ---------------------------------------------------------------------------
+
+_BOOT_HANDLER_TIMEOUT_S = 8.0
+_orig_app_on_event = app.on_event
+
+
+def _instrumented_on_event(event_name: str):
+    """FastAPI ``@app.on_event`` decorator wrapped with boot instrumentation.
+
+    Only ``startup`` is wrapped; ``shutdown`` is passed through untouched
+    so existing tear-down semantics are not altered.
+    """
+    if event_name != "startup":
+        return _orig_app_on_event(event_name)
+
+    def _decorator(fn):
+        async def _wrapped(*args, **kwargs):
+            fn_name = getattr(fn, "__name__", str(fn))
+            loop = asyncio.get_event_loop()
+            t0 = loop.time()
+            logger.info("BOOT: %s start", fn_name)
+            try:
+                await asyncio.wait_for(
+                    fn(*args, **kwargs), timeout=_BOOT_HANDLER_TIMEOUT_S,
+                )
+            except asyncio.TimeoutError:
+                dt = loop.time() - t0
+                logger.error(
+                    "BOOT: %s TIMED OUT after %.2fs "
+                    "(> %.1fs budget) — startup continues without it",
+                    fn_name, dt, _BOOT_HANDLER_TIMEOUT_S,
+                )
+                return
+            except Exception as exc:  # noqa: BLE001
+                dt = loop.time() - t0
+                logger.exception(
+                    "BOOT: %s FAILED after %.2fs: %s — startup continues",
+                    fn_name, dt, exc,
+                )
+                return
+            dt = loop.time() - t0
+            logger.info("BOOT: %s done (%.2fs)", fn_name, dt)
+
+        # Preserve the original name so downstream introspection stays sane.
+        _wrapped.__name__ = getattr(fn, "__name__", "on_startup")
+        _wrapped.__qualname__ = getattr(fn, "__qualname__", _wrapped.__name__)
+        return _orig_app_on_event(event_name)(_wrapped)
+
+    return _decorator
+
+
+app.on_event = _instrumented_on_event  # type: ignore[assignment]
+
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
