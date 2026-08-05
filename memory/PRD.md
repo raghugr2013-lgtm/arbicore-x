@@ -88,3 +88,51 @@ validation run against v2.9.1 to gate Stage 6 go/no-go.
 - No new scanners, providers, UI work, execution logic, or APIs.
 - No changes to safety defaults, MID schema, or evidence-writer.
 - No refactors beyond the three deployment fixes.
+
+---
+
+## 2026-08-05 · v2.9.3 authentication routing hotfix (branch `hotfix/auth-routing`)
+
+### Root cause
+- `server.py` never imported the canonical `routes/auth.py`;
+  `/api/auth/status` and `/api/auth/setup` were 404 in production.
+- Frontend `AuthContext.jsx` (rewritten in v2.0.3) did not expose the
+  `setupComplete`, `setup`, `formatApiErrorDetail`, `logoutAll` symbols
+  that `LoginPage`, `SecuritySection`, `TelegramSection`, `VaultSection`
+  and `opportunity_center` imported.
+- `reset_admin.py` cleared the wrong Mongo collection (canonical `users`
+  vs. legacy `auth_users` that the running quick-wire actually read).
+
+### Fix (surgical, 4 code files + 2 docs)
+- **Backend**: mounted `routes/auth.py` in `server.py`; removed the four
+  inline Tree-B endpoints (`login`, `logout`, `me`, `diagnostics`).
+  Rewrote `_resolve_current_user` to prefer canonical cookie/bearer first
+  with legacy bearer fallback; updated 9 downstream admin endpoints to
+  accept `Request`. Gated `_auth_seed_startup` behind
+  `ARBICORE_LEGACY_AUTH_SEED=1` (default OFF).
+- **Frontend**: replaced `context/AuthContext.jsx` with cookie-based
+  canonical wire-up. Extended `v2/pages/LoginPage.jsx` with a conditional
+  CREATE-ADMIN variant. Set `axios.defaults.withCredentials=true`.
+- **Ops**: rewrote `reset_admin.py` as auth-store-aware with `--dry-run`,
+  `--legacy`, `--skip-canonical`. Safety net: refuses to touch legacy
+  store unless `--legacy` is passed.
+
+### Verified end-to-end
+23 backend curl steps + 4 frontend Playwright steps, all pass. Full
+transcript at `docs/verification_v2.9.3/backend_curl_transcript.txt`.
+
+### Status
+Release candidate on branch `hotfix/auth-routing`. **Not merged into
+`main`**. Awaiting review before tag `v2.9.3`.
+
+### Canonical auth (as of v2.9.3)
+- Collection `users` in Mongo `arbicore_x`.
+- Endpoints `/api/auth/{status,setup,login,logout,logout-all,me,refresh,change-password}`.
+- httpOnly cookies signed with `JWT_SECRET` (HS256); bearer header also accepted.
+- Single-admin, first-run setup locks permanently after admin creation.
+- Brute-force: 5 failures per `ip:username` → 15-min lockout.
+
+### Legacy auth (retired, preserved on-disk)
+- Collection `auth_users` + `auth_sessions`.
+- Module `arbicore/auth/__init__.py` — no HTTP endpoints wired.
+- Startup seed disabled unless `ARBICORE_LEGACY_AUTH_SEED=1`.
