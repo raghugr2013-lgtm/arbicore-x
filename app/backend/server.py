@@ -341,6 +341,45 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 
+# ---------------------------------------------------------------------------
+# Slice 1.1 · Session-cookie operator guard.
+# Defined early so decorators on routes below can use it via
+# ``dependencies=[Depends(_require_operator_dep)]``.  The actual auth
+# resolver (``_resolve_current_user``) is defined much later in this file —
+# that reference resolves at request time, so forward-referencing is safe.
+# ---------------------------------------------------------------------------
+
+
+async def _require_operator_ctx(
+    request: Request,
+    authorization: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Session guard used by protected /arbicore/* routes.
+
+    Delegates to the unified ``_resolve_current_user`` resolver so the
+    same cookie/bearer paths that gate the rest of v2.9.3 apply here.
+    Raises 401 for anonymous callers; response body preserves the
+    canonical shape used elsewhere ({"detail": "not_authenticated"}).
+    """
+    ctx = await _resolve_current_user(request, authorization)
+    if not ctx:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    return ctx
+
+
+async def _require_operator_dep(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    """FastAPI ``Depends``-compatible wrapper over ``_require_operator_ctx``.
+
+    Used with ``dependencies=[Depends(_require_operator_dep)]`` on the
+    APIRouter or per-route so protected endpoints don't need to plumb
+    ``request`` / ``authorization`` through their signatures.
+    """
+    return await _require_operator_ctx(request, authorization)
+
+
 # Define Models
 class StatusCheck(BaseModel):
     model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
@@ -354,7 +393,8 @@ class StatusCheckCreate(BaseModel):
 
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
-async def root():
+async def root(
+):
     return {"message": "Hello World"}
 
 @api_router.post("/status", response_model=StatusCheck)
@@ -444,12 +484,10 @@ async def v2_deck(limit: int = 5) -> Dict[str, Any]:
     }
 
 
-@api_router.get("/arbicore/opportunities/summary")
+@api_router.get("/arbicore/opportunities/summary", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunities_summary(
-    request: Request,
     window_hours: int = 24,
-    max_scan: int = 1000,
-    authorization: Optional[str] = Header(default=None),
+    max_scan: int = 1000
 ) -> Dict[str, Any]:
     """Slice 1 · Canonical activation.
 
@@ -457,7 +495,6 @@ async def v2_opportunities_summary(
     opportunity_type / chain / status.  Returns empty counts when the
     canonical store is empty — never falls back to placeholder totals.
     """
-    await _require_operator_ctx(request, authorization)
     by_family: Dict[str, int] = {}
     by_chain: Dict[str, int] = {}
     by_status: Dict[str, int] = {}
@@ -489,7 +526,8 @@ async def v2_opportunities_summary(
 
 
 @api_router.get("/arbicore/roi-probability")
-async def v2_roi_probability(route_id: str) -> Dict[str, Any]:
+async def v2_roi_probability(
+route_id: str) -> Dict[str, Any]:
     return {
         "route_id": route_id,
         "sample_size": 42,
@@ -525,58 +563,25 @@ async def v2_system_status() -> Dict[str, Any]:
 #
 # Slice 1.1 · Session-cookie auth gate.  Every /arbicore/opportunities*
 # handler requires a valid authenticated operator context (cookie or
-# bearer, resolved by _resolve_current_user).  Anonymous callers receive
-# 401.  Contract otherwise preserved.
+# bearer, resolved by _resolve_current_user via _require_operator_dep).
+# Anonymous callers receive 401.  Contract otherwise preserved.
 # ---------------------------------------------------------------------------
 
 
-async def _require_operator_ctx(
-    request: Request,
-    authorization: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Slice 1.1 — session guard for /arbicore/opportunities*.
-
-    Delegates to the unified ``_resolve_current_user`` resolver so the
-    same cookie/bearer paths that gate the rest of v2.9.3 apply here.
-    Raises 401 for anonymous callers; response body preserves the
-    canonical shape used elsewhere ({"detail": "not_authenticated"}).
-    """
-    ctx = await _resolve_current_user(request, authorization)
-    if not ctx:
-        raise HTTPException(status_code=401, detail="not_authenticated")
-    return ctx
-
-
-async def _require_operator_dep(
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
-) -> Dict[str, Any]:
-    """FastAPI ``Depends``-compatible wrapper over ``_require_operator_ctx``.
-
-    Used with ``dependencies=[Depends(_require_operator_dep)]`` on the
-    APIRouter or per-route so protected endpoints don't need to plumb
-    ``request`` / ``authorization`` through their signatures.
-    """
-    return await _require_operator_ctx(request, authorization)
-
-
-@api_router.get("/arbicore/opportunities")
+@api_router.get("/arbicore/opportunities", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunities_list(
-    request: Request,
     family: Optional[str] = None,
     chain: Optional[str] = None,
     verdict: Optional[str] = None,
     min_confidence: float = 0.0,
     sort_by: Optional[str] = None,
     limit: int = 100,
-    authorization: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     """Slice 1 · Canonical activation.
 
     Reads the canonical ``arbicore_opportunities`` collection and translates
     each row into the frontend v2 contract.  Never falls back to preview.
     """
-    await _require_operator_ctx(request, authorization)
     try:
         canonical_rows = await _CANONICAL_OPP_REPO.find({}, limit=int(limit) * 2)
         items = [_canonical_opp_to_contract(opp) for opp in canonical_rows]
@@ -652,14 +657,11 @@ def _canonical_opp_to_contract(opp: "CanonicalOpportunity") -> Dict[str, Any]:
     }
 
 
-@api_router.get("/arbicore/opportunities/{opp_id}")
+@api_router.get("/arbicore/opportunities/{opp_id}", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_detail(
     opp_id: str,
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     # Phase 8: canonical-first.
-    await _require_operator_ctx(request, authorization)
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
     except Exception:
@@ -689,14 +691,11 @@ async def v2_opportunity_detail(
     raise HTTPException(status_code=404, detail={"error": "not_found", "id": opp_id})
 
 
-@api_router.post("/arbicore/opportunities/{opp_id}/approve")
+@api_router.post("/arbicore/opportunities/{opp_id}/approve", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_approve(
     opp_id: str,
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     # Phase 8: route through canonical FSM.
-    await _require_operator_ctx(request, authorization)
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
         if canonical is not None:
@@ -726,14 +725,11 @@ async def v2_opportunity_approve(
     raise HTTPException(status_code=404, detail={"error": "not_found", "id": opp_id})
 
 
-@api_router.post("/arbicore/opportunities/{opp_id}/reject")
+@api_router.post("/arbicore/opportunities/{opp_id}/reject", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_reject(
     opp_id: str,
-    request: Request,
-    body: Optional[Dict[str, Any]] = None,
-    authorization: Optional[str] = Header(default=None),
+    body: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    await _require_operator_ctx(request, authorization)
     reason = (body or {}).get("reason") or "operator_rejected"
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
@@ -802,11 +798,9 @@ async def _journal_record_operator_event(
 # Phase 8 · Per-opportunity Execution Timeline (join view — no new persistence)
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/opportunities/{opp_id}/timeline")
+@api_router.get("/arbicore/opportunities/{opp_id}/timeline", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_timeline(
-    opp_id: str,
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
+    opp_id: str
 ) -> Dict[str, Any]:
     """Join view across every existing audit collection.  Read-only.
 
@@ -827,7 +821,6 @@ async def v2_opportunity_timeline(
     each so a single per-opportunity view is not overwhelmed by ambient
     system activity.  The scoped collections are unbounded (small tables).
     """
-    await _require_operator_ctx(request, authorization)
     events: List[Dict[str, Any]] = []
     GLOBAL_CAP = 8
 
@@ -1040,14 +1033,12 @@ def _canonical_discovery_calibration(rows: List["CanonicalOpportunity"]) -> Dict
     }
 
 
-@api_router.get("/arbicore/discovery/candidates")
+@api_router.get("/arbicore/discovery/candidates", dependencies=[Depends(_require_operator_dep)])
 async def v2_discovery_candidates(
-    request: Request,
     status: Optional[str] = None,
     kind: Optional[str] = None,
     min_score: float = 0.0,
-    limit: int = 100,
-    authorization: Optional[str] = Header(default=None),
+    limit: int = 100
 ) -> Dict[str, Any]:
     """Slice 2 · Canonical activation.
 
@@ -1055,7 +1046,6 @@ async def v2_discovery_candidates(
     each row into the Discovery UI contract.  Empty repo → empty items.
     No preview fallback.
     """
-    await _require_operator_ctx(request, authorization)
     try:
         canonical_rows = await _CANONICAL_OPP_REPO.find({}, limit=1000)
     except Exception:
@@ -1091,12 +1081,10 @@ async def v2_discovery_candidates(
     }
 
 
-@api_router.post("/arbicore/discovery/candidates/{cand_id}/action")
+@api_router.post("/arbicore/discovery/candidates/{cand_id}/action", dependencies=[Depends(_require_operator_dep)])
 async def v2_discovery_action(
     cand_id: str,
-    action: str,
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
+    action: str
 ) -> Dict[str, Any]:
     """Slice 2 · Canonical activation.
 
@@ -1105,7 +1093,6 @@ async def v2_discovery_action(
     unknown action or a no-op reset → returns the current status without
     mutating the row.
     """
-    await _require_operator_ctx(request, authorization)
     verb = (action or "").lower().strip()
     try:
         canonical = await _CANONICAL_OPP_REPO.get(cand_id)
@@ -1169,10 +1156,9 @@ async def v2_discovery_action(
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/intelligence/recommendations")
+@api_router.get("/arbicore/intelligence/recommendations", dependencies=[Depends(_require_operator_dep)])
 async def v2_recommendations(
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
+
 ) -> Dict[str, Any]:
     """Slice 3 · Canonical activation.
 
@@ -1187,7 +1173,6 @@ async def v2_recommendations(
                     scorer (``services.execution.arbitrage_intel`` scorer
                     surfaced via ``get_entity_scorer``).
     """
-    await _require_operator_ctx(request, authorization)
     try:
         rows = await _CANONICAL_OPP_REPO.find({}, limit=2000)
     except Exception:
@@ -1266,14 +1251,12 @@ async def v2_recommendations(
     }
 
 
-@api_router.get("/arbicore/intelligence/decisions")
+@api_router.get("/arbicore/intelligence/decisions", dependencies=[Depends(_require_operator_dep)])
 async def v2_decisions(
-    request: Request,
     verdict: Optional[str] = None,
     family: Optional[str] = None,
     min_confidence: float = 0.0,
-    limit: int = 100,
-    authorization: Optional[str] = Header(default=None),
+    limit: int = 100
 ) -> Dict[str, Any]:
     """Slice 3 · Canonical activation.
 
@@ -1288,7 +1271,6 @@ async def v2_decisions(
 
     Empty journal → empty items list.  No fabricated decisions.
     """
-    await _require_operator_ctx(request, authorization)
     verdict_from_kind = {
         "operator_approved": "GO",
         "operator_rejected": "HARD_NO",
@@ -1381,12 +1363,10 @@ async def v2_decisions(
 #   GET /api/arbicore/intelligence/models        <- ModelRegistry.list_active()
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/intelligence/calibration")
+@api_router.get("/arbicore/intelligence/calibration", dependencies=[Depends(_require_operator_dep)])
 async def v2_calibration(
-    request: Request,
     model: Optional[str] = None,
-    window_days: Optional[int] = None,
-    authorization: Optional[str] = Header(default=None),
+    window_days: Optional[int] = None
 ) -> Dict[str, Any]:
     """Slice 3 · Canonical activation.
 
@@ -1395,7 +1375,6 @@ async def v2_calibration(
     exists yet, returns a genuine empty state (``available: false``) —
     no bootstrap stub, no fabricated buckets.
     """
-    await _require_operator_ctx(request, authorization)
     try:
         active = await _CALIBRATION_REPO.get_active("confidence")
     except Exception:
@@ -1434,10 +1413,9 @@ async def v2_calibration(
     }
 
 
-@api_router.get("/arbicore/intelligence/models")
+@api_router.get("/arbicore/intelligence/models", dependencies=[Depends(_require_operator_dep)])
 async def v2_models(
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
+
 ) -> Dict[str, Any]:
     """Slice 3 · Canonical activation.
 
@@ -1446,7 +1424,6 @@ async def v2_models(
     when no models have been fitted yet.  Also surfaces the current
     active adaptive-weight recommendation for completeness.
     """
-    await _require_operator_ctx(request, authorization)
     items: List[Dict[str, Any]] = []
     promotions: List[Dict[str, Any]] = []
 
@@ -1524,17 +1501,15 @@ async def v2_models(
 #          (arbicore/routes/arbicore.py list_entities + top_entity_scores)
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/intelligence/certification")
+@api_router.get("/arbicore/intelligence/certification", dependencies=[Depends(_require_operator_dep)])
 async def v2_certification(
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
+
 ) -> Dict[str, Any]:
     """Slice 3 · Canonical activation.
 
     Wraps ``services.execution.certification_review.latest_review``.
     Empty state when no shadow campaign has completed.
     """
-    await _require_operator_ctx(request, authorization)
     try:
         from services.execution.certification_review import latest_review
         pkg = await latest_review()
@@ -1554,19 +1529,16 @@ async def v2_certification(
     return pkg
 
 
-@api_router.get("/arbicore/intelligence/entities")
+@api_router.get("/arbicore/intelligence/entities", dependencies=[Depends(_require_operator_dep)])
 async def v2_entities(
-    request: Request,
     entity_type: Optional[str] = None,
-    limit: int = 50,
-    authorization: Optional[str] = Header(default=None),
+    limit: int = 50
 ) -> Dict[str, Any]:
     """Slice 3 · Canonical activation.
 
     Wraps the canonical entity repository + entity scorer.  Empty stores
     return empty lists.  Vocabulary is frozen at the canonical enum.
     """
-    await _require_operator_ctx(request, authorization)
     from arbicore.intel.entity_types import EntityType
     from arbicore.runtime.composition import get_entity_repo, get_entity_scorer
     vocabulary = [e.value for e in EntityType]
