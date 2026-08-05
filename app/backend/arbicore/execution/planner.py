@@ -168,6 +168,14 @@ class ExecutionPlanner:
                 )
             provider_versions[dex_name] = dex_adapter.version
             dex_route.append(dex_name)
+            missing = [k for k in ("token_in", "token_out",
+                                    "amount_in_wei", "min_amount_out_wei")
+                       if k not in hop]
+            if missing:
+                raise ValueError(
+                    f"swap hop {i} missing required field(s): "
+                    f"{', '.join(missing)}"
+                )
             swap_dict = dex_adapter.swap_step(
                 chain=chain,
                 token_in=hop["token_in"],

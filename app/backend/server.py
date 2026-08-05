@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Header, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -545,6 +545,19 @@ async def _require_operator_ctx(
     if not ctx:
         raise HTTPException(status_code=401, detail="not_authenticated")
     return ctx
+
+
+async def _require_operator_dep(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    """FastAPI ``Depends``-compatible wrapper over ``_require_operator_ctx``.
+
+    Used with ``dependencies=[Depends(_require_operator_dep)]`` on the
+    APIRouter or per-route so protected endpoints don't need to plumb
+    ``request`` / ``authorization`` through their signatures.
+    """
+    return await _require_operator_ctx(request, authorization)
 
 
 @api_router.get("/arbicore/opportunities")
@@ -2701,12 +2714,12 @@ async def v2_execution_secrets_test(handle_id: str) -> Dict[str, Any]:
 # SHADOW ONLY.  No signing, no broadcasting anywhere below.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/adapters")
+@api_router.get("/arbicore/execution/adapters", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_adapters() -> Dict[str, Any]:
     return {**_ADAPTER_REGISTRY.catalog(), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/plans/build")
+@api_router.post("/arbicore/execution/plans/build", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plan_build(body: Dict[str, Any]) -> Dict[str, Any]:
     """Build (and dry-run) an execution plan.  The result is persisted
     to ``db.execution_plans`` but never signed or broadcast."""
@@ -2779,7 +2792,7 @@ async def v2_execution_plan_build(body: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
-@api_router.get("/arbicore/execution/plans/{plan_id}")
+@api_router.get("/arbicore/execution/plans/{plan_id}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plan_one(plan_id: str) -> Dict[str, Any]:
     try:
         plan = await _EXECUTION_PLANS_REPO.get(plan_id)
@@ -2788,7 +2801,7 @@ async def v2_execution_plan_one(plan_id: str) -> Dict[str, Any]:
     return {"plan": plan, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/plans")
+@api_router.get("/arbicore/execution/plans", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plans(strategy: Optional[str] = None,
                              chain: Optional[str] = None,
                              limit: int = 20) -> Dict[str, Any]:
@@ -2806,14 +2819,14 @@ async def v2_execution_plans(strategy: Optional[str] = None,
 # SHADOW-only.  Every endpoint below is READ-ONLY.  None broadcasts.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/simulation/status")
+@api_router.get("/arbicore/execution/simulation/status", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_simulation_status() -> Dict[str, Any]:
     """Simulator registry status — which backends are wired, which is
     the current default, and the read-only RPC allowlist."""
     return {**_SIMULATION_REGISTRY.status(), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/gas")
+@api_router.get("/arbicore/execution/gas", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_gas(chain: str = "base",
                            steps: Optional[str] = None) -> Dict[str, Any]:
     """Live gas estimate for a canonical Borrow → Swap → Repay → Profit
@@ -2830,7 +2843,7 @@ async def v2_execution_gas(chain: str = "base",
                 "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/mev/routers")
+@api_router.get("/arbicore/execution/mev/routers", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_mev_routers(chain: str = "base",
                                     router: Optional[str] = None,
                                     protected: bool = True) -> Dict[str, Any]:
@@ -2848,7 +2861,7 @@ async def v2_execution_mev_routers(chain: str = "base",
     return catalog
 
 
-@api_router.post("/arbicore/execution/plans/{plan_id}/simulate")
+@api_router.post("/arbicore/execution/plans/{plan_id}/simulate", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plan_simulate(plan_id: str,
                                       body: Optional[Dict[str, Any]] = None
                                       ) -> Dict[str, Any]:
@@ -2928,7 +2941,7 @@ async def v2_execution_plan_simulate(plan_id: str,
 # Wave-6D · Capital Allocation Policy
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/capital-policy")
+@api_router.get("/arbicore/execution/capital-policy", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_capital_policy_list() -> Dict[str, Any]:
     try:
         items = await _CAPITAL_POLICY_REPO.list_all()
@@ -2939,7 +2952,7 @@ async def v2_execution_capital_policy_list() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/capital-policy/{strategy}")
+@api_router.get("/arbicore/execution/capital-policy/{strategy}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_capital_policy_one(strategy: str) -> Dict[str, Any]:
     try:
         row = await _CAPITAL_POLICY_REPO.get(strategy)
@@ -2950,7 +2963,7 @@ async def v2_execution_capital_policy_one(strategy: str) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.patch("/arbicore/execution/capital-policy/{strategy}")
+@api_router.patch("/arbicore/execution/capital-policy/{strategy}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_capital_policy_update(strategy: str,
                                               body: Dict[str, Any]) -> Dict[str, Any]:
     try:
@@ -2965,7 +2978,7 @@ async def v2_execution_capital_policy_update(strategy: str,
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/capital-policy/{strategy}/evaluate")
+@api_router.post("/arbicore/execution/capital-policy/{strategy}/evaluate", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_capital_policy_evaluate(strategy: str,
                                                  body: Dict[str, Any]) -> Dict[str, Any]:
     """Preview a sizing decision for a proposed plan.  Read-only."""
@@ -2988,7 +3001,7 @@ async def v2_execution_capital_policy_evaluate(strategy: str,
 # Wave-6D · Kill Switch
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/kill-switch")
+@api_router.get("/arbicore/execution/kill-switch", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_state() -> Dict[str, Any]:
     try:
         state = await _KILL_SWITCH_REPO.state()
@@ -2998,7 +3011,7 @@ async def v2_execution_kill_switch_state() -> Dict[str, Any]:
                 "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/kill-switch/engage")
+@api_router.post("/arbicore/execution/kill-switch/engage", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_engage(body: Dict[str, Any]) -> Dict[str, Any]:
     b = body or {}
     reason = (b.get("reason") or "").strip()
@@ -3010,7 +3023,7 @@ async def v2_execution_kill_switch_engage(body: Dict[str, Any]) -> Dict[str, Any
     return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/kill-switch/disengage")
+@api_router.post("/arbicore/execution/kill-switch/disengage", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_disengage(body: Dict[str, Any]) -> Dict[str, Any]:
     b = body or {}
     reason = (b.get("reason") or "").strip()
@@ -3022,7 +3035,7 @@ async def v2_execution_kill_switch_disengage(body: Dict[str, Any]) -> Dict[str, 
     return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/kill-switch/audit")
+@api_router.get("/arbicore/execution/kill-switch/audit", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_audit(limit: int = 50) -> Dict[str, Any]:
     try:
         items = await _KILL_SWITCH_REPO.audit_history(limit=limit)
@@ -3035,7 +3048,7 @@ async def v2_execution_kill_switch_audit(limit: int = 50) -> Dict[str, Any]:
 # Wave-6D · Live Signer (gate ladder — never emits signed bytes)
 # ---------------------------------------------------------------------------
 
-@api_router.post("/arbicore/execution/plans/{plan_id}/sign")
+@api_router.post("/arbicore/execution/plans/{plan_id}/sign", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plan_sign(plan_id: str,
                                    body: Optional[Dict[str, Any]] = None
                                    ) -> Dict[str, Any]:
@@ -3068,7 +3081,7 @@ async def v2_execution_plan_sign(plan_id: str,
 # Wave-6E · End-to-end Execution Certification
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/certification/stages")
+@api_router.get("/arbicore/execution/certification/stages", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_certification_stages() -> Dict[str, Any]:
     """Canonical list of pipeline stages the certifier evaluates."""
     return {"stages": list(PIPELINE_STAGES),
@@ -3076,7 +3089,7 @@ async def v2_execution_certification_stages() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/certification/run")
+@api_router.post("/arbicore/execution/certification/run", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_certification_run(body: Dict[str, Any]) -> Dict[str, Any]:
     """Run the full Discovery → Planning → Simulation → Evidence
     pipeline for a proposed plan and return a certification report.
@@ -3664,7 +3677,7 @@ async def v2_settings_scanner_reload(body: Optional[Dict[str, Any]] = None) -> D
 # Wave-7C · Bytes-level calldata + LIMITED_LIVE broadcaster (6-gate)
 # ---------------------------------------------------------------------------
 
-@api_router.post("/arbicore/execution/plans/{plan_id}/calldata")
+@api_router.post("/arbicore/execution/plans/{plan_id}/calldata", dependencies=[Depends(_require_operator_dep)])
 async def v2_plan_calldata(plan_id: str) -> Dict[str, Any]:
     """Encode the bytes-level calldata for a stored plan's borrow head.
     Read-only — no signing, no broadcast."""
@@ -3682,7 +3695,7 @@ async def v2_plan_calldata(plan_id: str) -> Dict[str, Any]:
                 "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/plans/{plan_id}/broadcast")
+@api_router.post("/arbicore/execution/plans/{plan_id}/broadcast", dependencies=[Depends(_require_operator_dep)])
 async def v2_plan_broadcast(plan_id: str,
                               body: Optional[Dict[str, Any]] = None
                               ) -> Dict[str, Any]:
@@ -3713,10 +3726,6 @@ async def v2_plan_broadcast(plan_id: str,
                                      if "expected_net_profit_usd" in b else None),
         )
         return {"receipt": receipt.to_dict(), "generated_at": _iso_now()}
-    except Exception as exc:  # noqa: BLE001
-        return {"error": f"{type(exc).__name__}: {exc}",
-                "generated_at": _iso_now()}
-
     except Exception as exc:  # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}",
                 "generated_at": _iso_now()}
