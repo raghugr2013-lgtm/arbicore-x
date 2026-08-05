@@ -3,7 +3,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://unified-codebase-4.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://arbix-router-repair.preview.emergentagent.com').rstrip('/')
 OPPS = f"{BASE_URL}/api/arbicore/opportunities"
 
 

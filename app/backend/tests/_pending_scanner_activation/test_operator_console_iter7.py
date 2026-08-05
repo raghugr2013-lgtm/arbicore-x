@@ -3,7 +3,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://core-handover-docs.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://arbix-router-repair.preview.emergentagent.com").rstrip("/")
 ADMIN_USER = "admin"
 ADMIN_PASS = "ArbiCore2026!"
 

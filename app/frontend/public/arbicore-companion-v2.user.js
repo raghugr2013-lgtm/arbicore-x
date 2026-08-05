@@ -19,7 +19,7 @@
 
   // ── Config (persisted via GM_setValue) ────────────────────────────────────
   const ARBICORE_BASE = GM_getValue('arbicore_base',
-    'https://core-handover-docs.preview.emergentagent.com');
+    'https://arbix-router-repair.preview.emergentagent.com');
   const QUOTE_KEY = GM_getValue('arbicore_key', '');
   const TEST_MODE = GM_getValue('arbicore_test_mode', false) === true;
   const DEBUG = GM_getValue('arbicore_debug', false) === true;
