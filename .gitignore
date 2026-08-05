@@ -74,3 +74,9 @@ release_bundle/
 memory/test_credentials.md
 
 test_reports/
+*.env
+.credentials
+
+# platform-injected git identity — not part of releases
+.gitconfig
+

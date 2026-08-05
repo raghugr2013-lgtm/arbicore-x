@@ -71,10 +71,21 @@ first-run setup flow trigger.
 cd /opt/arbicorex
 git fetch --all --tags
 git checkout hotfix/auth-routing
-git log -1 --format='%h %s'          # expect: ad4b23a v2.9.3 hotfix — restore canonical /api/auth/*
+git log -1 --format='%h %s'
+# expect a subject starting with: docs(deploy): update DEPLOY_v2.9.3.md
+# (the branch tip advances as review comments land; the runbook is
+# intentionally SHA-agnostic. What matters is that the branch is
+# hotfix/auth-routing and the last commit is docs/tests, not a code fix
+# added out of scope. If the subject reads "auth-routing" and belongs to
+# the v2.9.3 series, the branch is deployable.)
+git rev-list --count v2.9.2..HEAD
+# expect a small number of commits — as of this runbook, ~10 commits
+# (7 real + auto-commit noise from the platform).
 
-# Optional: tag now so you can roll back by tag later
-git tag -a v2.9.3-rc.1 -m "v2.9.3 RC1 — auth routing hotfix" ad4b23a
+# Optional: tag now so you can roll back by tag later. Substitute the
+# actual tip SHA that `git rev-parse HEAD` prints on your VPS clone.
+TIP_SHA=$(git rev-parse HEAD)
+git tag -a v2.9.3-rc.1 -m "v2.9.3 RC1 — auth routing hotfix" "$TIP_SHA"
 ```
 
 ## 3. Rebuild the two container images
