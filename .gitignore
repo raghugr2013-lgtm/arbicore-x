@@ -68,3 +68,8 @@ release_bundle/
 *.zip
 *.SHASUMS
 .emergent/
+
+
+# session-specific credentials scratch — not part of releases
+memory/test_credentials.md
+
