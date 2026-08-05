@@ -168,8 +168,52 @@ Explicitly out of scope per user directive: narrative-intelligence engine,
 external integrations (Twitter/CoinGecko/GitHub), new collections. Discovery
 is the pre-approval view of the same funnel Slice 1 activated.
 
-### Slice 3 — Market Intelligence live endpoints (P1 — next)
-Live fees, gas oracle, liquidity snapshots.
+### Slice 2 — Canonical Discovery View (2026-08-05) — ✅ COMPLETE (v2.10.1)
+Merged to main. See earlier entry above.
+
+---
+
+## v2.11 — Execution Ready (2026-08-05) — ✅ COMPLETE (FULL GO)
+
+**Branch**: `hotfix/canonical-v2.11` (merged to main).
+**Commits**: `57fb80f`, `17a41ec`, `133ffdb`.
+**Test evidence**: `test_reports/iteration_8.json` — **145 / 145 PASS**.
+**Deliverables**: `docs/roadmap_v2.10/V2.11_DELIVERABLES.md`, `docs/RELEASE_NOTES_v2.11.md`.
+
+### Slice 3 — Market Intelligence canonical activation (P0)
+
+- ✅ 6 intelligence endpoints (`recommendations`, `decisions`, `calibration`,
+     `models`, `certification`, `entities`) rewired to canonical sources.
+- ✅ Empty stores return empty responses; no fabricated fallbacks.
+- ✅ Session-cookie auth-gated.
+
+### Slice 4 — Execution Planning readiness (P0)
+
+- ✅ 20 planner routes now session-cookie auth-gated (`/execution/*`).
+- ✅ End-to-end pipeline verified (build → simulate → sign → calldata → broadcast(dry)).
+- ✅ Bug fixes: swap-hop validation (no more 500 KeyError); orphan `except` removed.
+
+### Phase C — Backend architectural cleanup (P0)
+
+- ✅ Auth pattern consolidated: all 34 protected endpoints in `server.py`
+     use `dependencies=[Depends(_require_operator_dep)]`.
+- ✅ Manual `await _require_operator_ctx(...)` calls removed from 14
+     Slice 1/1.1/2/3 handlers.
+- ✅ Auth helpers moved to top-of-file for decorator import-time binding.
+
+### Missing links before Limited Live (documented, deferred)
+
+1. Calldata encoder for `aave_v3` / `uniswap_v3` flash heads (Wave 7C).
+2. Executor smart-contract deployment on `base`.
+3. 20-cycle shadow certification threshold (operational).
+4. Adaptive-weight / calibration fitting scheduler.
+5. Kill-switch operator UI wiring.
+
+See `V2.11_DELIVERABLES.md` §8 for the full assessment.
+
+### Slice 5 — Dashboard Summary (P1 — next)
+### Slice 6 — Portfolio activation (P2)
+### Slice 7 — Operations activation (P3)
 
 ### Slice 4 — Execution Planning / Readiness (P2)
 ### Slice 5 — Dashboard Summary — replace hardcoded pulse/deck (P2)
