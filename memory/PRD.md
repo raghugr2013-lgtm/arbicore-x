@@ -133,11 +133,42 @@ Branch: `hotfix/canonical-slice-1.1` — commit `3b092ec`.
 - ✅ Testing verified: iter5 (55/55 PASS — 37 auth-matrix + 18 regression).
 - 📄 Report: `test_reports/iteration_5.json`.
 
-### Slice 2 — Scanner / Discovery activation (P1 — next)
-Replace `_V2_DISCOVERY` (7 preview candidates in `server.py:818`) with
-live `LiveMarketScanner` / `ContinuousDiscovery` engine output.
+### Slice 2 — Canonical Discovery View (2026-08-05) — ✅ COMPLETE (GO)
+Branch: `hotfix/canonical-slice-2` — commits `c1ca7d0`, `eb6c8a3`.
+Merged to main as v2.10.1.
 
-### Slice 3 — Market Intelligence live endpoints (P1)
+- ✅ Removed `_V2_DISCOVERY` (7 hardcoded narrative candidates) and
+     `_hydrate_discovery` from `server.py`.
+- ✅ Rewrote GET `/arbicore/discovery/candidates` to project the canonical
+     opportunity population (`arbicore_opportunities`) into the existing
+     UI contract via `_canonical_opp_to_discovery`. Filters
+     status/kind/min_score/limit preserved. Empty DB → empty items.
+- ✅ Rewrote POST `/arbicore/discovery/candidates/{id}/action` to route
+     through the canonical FSM (`mark_validated / mark_approved /
+     mark_rejected`), journals as `discovery_watch/promote/dismiss`.
+     Illegal transitions return `{ok:false, error:<msg>}`.
+- ✅ Replaced the hardcoded `{n_samples:214, ...}` calibration block with
+     an honest one computed from live canonical rows (decile promotion
+     rates; defaults to 0.0 when n<10).
+- ✅ Session-cookie auth-gated (Slice 1.1 pattern).
+- ✅ Testing verified: iter6 (33/34, 1 MEDIUM fixed) + iter7 (**79/79 PASS**
+     — 42 Slice 2 + 37 Slice 1 regression).
+- 📄 Deliverables: `docs/roadmap_v2.10/SLICE2_DELIVERABLES.md`,
+     `docs/RELEASE_NOTES_v2.10.1.md`.
+
+Status vocabulary map (canonical FSM → UI):
+```
+CANDIDATE  ↔ NEW
+VALIDATED  ↔ WATCHING
+APPROVED   ↔ PROMOTED
+REJECTED   ↔ DISMISSED
+```
+
+Explicitly out of scope per user directive: narrative-intelligence engine,
+external integrations (Twitter/CoinGecko/GitHub), new collections. Discovery
+is the pre-approval view of the same funnel Slice 1 activated.
+
+### Slice 3 — Market Intelligence live endpoints (P1 — next)
 Live fees, gas oracle, liquidity snapshots.
 
 ### Slice 4 — Execution Planning / Readiness (P2)
