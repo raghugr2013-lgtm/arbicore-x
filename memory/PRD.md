@@ -136,3 +136,34 @@ Release candidate on branch `hotfix/auth-routing`. **Not merged into
 - Collection `auth_users` + `auth_sessions`.
 - Module `arbicore/auth/__init__.py` — no HTTP endpoints wired.
 - Startup seed disabled unless `ARBICORE_LEGACY_AUTH_SEED=1`.
+
+## 2026-08-05 · Runtime Data Integrity Audit + Canonical Activation Roadmap
+
+Committed to `hotfix/auth-routing` (94c8140):
+
+### /app/docs/DEPLOY_v2.9.3.md
+Ready-to-execute VPS runbook for the auth hotfix: pre-flight backup (Mongo
+snapshot of `users` + `auth_users`), env var confirmation (`JWT_SECRET`),
+build + reset + roll out, 6-step curl smoke, 8-step browser test, rollback.
+
+### /app/docs/RUNTIME_INTEGRITY_AUDIT.md
+187 preview-stub endpoints in server.py vs 213 dormant canonical endpoints
+across arbicore/routes/ + routes/. Only 2 collisions. Frontend has no
+hardcoded arrays — all fake data comes from server.py stubs.
+
+### /app/docs/roadmap_v2.10/CANONICAL_ACTIVATION_ROADMAP.md
+8-slice, ~27-dev-day plan to replace every placeholder with real runtime
+data, ranked P0..P3:
+- v2.10 Opportunity Center       (P0, 2.25 d) — Slice 1 first target
+- v2.11 Scanner / Discovery      (P0, 3.25 d)
+- v2.12 Dashboard summary        (P1, 2.25 d)
+- v2.13 Portfolio                (P1, 7.50 d)
+- v2.14 Operations               (P2, 5.00 d)
+- v2.15 Intelligence Wave-1      (P2, 4.00 d)
+- v2.16 Settings verification    (P3, 2.00 d)
+- v2.17 Ancillary de-stub        (P3, 1.00 d)
+
+### Status
+Waiting for user approval on:
+(a) VPS deployment of v2.9.3 (runbook is ready).
+(b) Kickoff of Slice 1 (`hotfix/canonical-slice-1` off deployed main).
