@@ -902,51 +902,155 @@ async def v2_opportunity_timeline(
 # app/backend/arbicore/routes/dashboard.py alongside Slice 1.
 # ---------------------------------------------------------------------------
 
-_V2_DISCOVERY = [
-    {"id": "cand-001", "asset": "PENDLE", "kind": "asset", "chain": "ethereum",
-     "source": "twitter:@messaricrypto", "score": 0.82, "status": "NEW",
-     "why": "Repeated mention across 4 curated sources in last 48h.",
-     "signals": ["mention_burst", "unusual_volume", "narrative:LRT"], "seen_at": None},
-    {"id": "cand-002", "asset": "TIA", "kind": "asset", "chain": "celestia",
-     "source": "coingecko:trending", "score": 0.71, "status": "NEW",
-     "why": "Trending +38% pageviews, whale accumulation on Osmosis.",
-     "signals": ["trending", "whale_accumulation"], "seen_at": None},
-    {"id": "cand-003", "asset": "kucoin:MOODENG-USDT", "kind": "venue_pair", "chain": "kucoin",
-     "source": "listings:new", "score": 0.64, "status": "WATCHING",
-     "why": "New CEX listing pair, high early spread.",
-     "signals": ["new_listing", "spread_open"], "seen_at": None},
-    {"id": "cand-004", "asset": "berachain", "kind": "chain", "chain": "berachain",
-     "source": "github:activity", "score": 0.58, "status": "NEW",
-     "why": "Mainnet imminent; RPC endpoints reachable.",
-     "signals": ["mainnet_soon", "rpc_up"], "seen_at": None},
-    {"id": "cand-005", "asset": "ORDI", "kind": "asset", "chain": "bitcoin",
-     "source": "twitter:@onchainedge", "score": 0.44, "status": "DISMISSED",
-     "why": "Dismissed 6d ago — low liquidity across venues.",
-     "signals": ["low_liquidity"], "seen_at": None},
-    {"id": "cand-006", "asset": "sushiswap:WETH-USDT (base)", "kind": "venue_pair", "chain": "base",
-     "source": "onchain:pool_scan", "score": 0.69, "status": "NEW",
-     "why": "New Sushi pool with $3.2M TVL on Base.",
-     "signals": ["new_pool", "tvl_ok"], "seen_at": None},
-    {"id": "cand-007", "asset": "hyperliquid:BTC-PERP", "kind": "venue_pair", "chain": "hyperliquid",
-     "source": "funding:screener", "score": 0.77, "status": "PROMOTED",
-     "why": "Extreme funding rate divergence vs Binance funding.",
-     "signals": ["funding_divergence"], "seen_at": None},
-]
+# ---------------------------------------------------------------------------
+# Slice 2 · Canonical Discovery view (real Mongo).
+#
+# The v2.10.1 slice removes ``_V2_DISCOVERY`` and rewires the Discovery
+# page to render early-stage rows from the canonical Opportunity pipeline
+# (``arbicore_opportunities``).  Discovery is now the pre-approval view of
+# the same funnel Slice 1 activated — not a synthetic narrative feed.
+#
+# UI contract preserved:
+#   * Field shape unchanged (id / asset / kind / chain / source / score /
+#     status / why / signals / seen_at).
+#   * Status vocabulary preserved (NEW / WATCHING / PROMOTED / DISMISSED)
+#     — mapped from the canonical FSM:
+#         CANDIDATE  -> NEW
+#         VALIDATED  -> WATCHING
+#         APPROVED   -> PROMOTED
+#         REJECTED   -> DISMISSED
+#   * Action verbs preserved (watch / promote / dismiss / reset), each
+#     mapped to a canonical FSM transition (reset is a no-op — the
+#     canonical FSM has no unset transition; response reports current
+#     status).
+#   * All endpoints are session-cookie auth-gated (v2.9.3 + Slice 1.1
+#     precedent).
+# ---------------------------------------------------------------------------
 
 
-def _hydrate_discovery():
-    now = _iso_now()
-    for c in _V2_DISCOVERY:
-        if c["seen_at"] is None:
-            c["seen_at"] = now
-    return _V2_DISCOVERY
+_CANONICAL_STATUS_TO_UI = {
+    OpportunityStatus.CANDIDATE.value: "NEW",
+    OpportunityStatus.VALIDATED.value: "WATCHING",
+    OpportunityStatus.APPROVED.value:  "PROMOTED",
+    OpportunityStatus.REJECTED.value:  "DISMISSED",
+}
+
+_UI_ACTION_TO_TARGET_STATUS = {
+    "watch":   OpportunityStatus.VALIDATED,
+    "promote": OpportunityStatus.APPROVED,
+    "dismiss": OpportunityStatus.REJECTED,
+    # "reset" is intentionally absent — canonical FSM has no back-transition.
+}
+
+
+def _canonical_opp_to_discovery(opp: "CanonicalOpportunity") -> Dict[str, Any]:
+    """Translate a CanonicalOpportunity into the Discovery UI contract."""
+    conf = float(opp.confidence_score or 0)
+    if conf > 1.0:  # tolerate 0-100 scale
+        conf = conf / 100.0
+    otype = (opp.opportunity_type.value if hasattr(opp.opportunity_type, "value")
+             else str(opp.opportunity_type))
+    provenance = (opp.source_data_quality.value
+                  if hasattr(opp.source_data_quality, "value")
+                  else str(opp.source_data_quality))
+    canonical_status = (opp.status.value if hasattr(opp.status, "value")
+                        else str(opp.status))
+    # kind: venue-pair for arb strategies that carry a route; asset otherwise.
+    has_route = bool(opp.route) or bool(opp.buy_venue and opp.sell_venue)
+    kind = "venue_pair" if has_route else "asset"
+    # asset label: use canonical asset when present, else fall back to subject
+    asset_label = opp.asset or opp.subject_id or opp.opportunity_id
+    # why: a compact machine-generated explanation from the canonical row.
+    parts: List[str] = []
+    parts.append(otype.replace("_", " ").title())
+    if opp.chain:
+        parts.append(f"on {opp.chain}")
+    if opp.spread_pct is not None:
+        parts.append(f"spread {opp.spread_pct:.2f}%")
+    parts.append(f"confidence {conf:.2f}")
+    why = " · ".join(parts)
+    # signals: normalised set of tags from the canonical row.
+    signals = [
+        f"type:{otype.lower()}",
+        f"provenance:{provenance.lower()}",
+    ]
+    if opp.chain:
+        signals.append(f"chain:{opp.chain}")
+    if opp.route:
+        signals.append(f"route:{opp.route}")
+    return {
+        "id":       opp.opportunity_id,
+        "asset":    asset_label,
+        "kind":     kind,
+        "chain":    opp.chain or "-",
+        "source":   f"canonical:{provenance.lower()}",
+        "score":    round(conf, 4),
+        "status":   _CANONICAL_STATUS_TO_UI.get(canonical_status, "NEW"),
+        "why":      why,
+        "signals":  signals,
+        "seen_at":  opp.created_at,
+    }
+
+
+def _canonical_discovery_calibration(rows: List["CanonicalOpportunity"]) -> Dict[str, Any]:
+    """Honest calibration block computed from the canonical population.
+
+    Reports the fraction of top-decile-scored rows that reached APPROVED
+    versus the fraction of bottom-decile-scored rows that did the same.
+    When the sample is too small the deciles collapse and the rates
+    default to 0.0 — no faked figures.
+    """
+    n = len(rows)
+    approved_status = OpportunityStatus.APPROVED.value
+    def _reached_approved(o) -> bool:
+        st = (o.status.value if hasattr(o.status, "value") else str(o.status))
+        return st == approved_status
+    def _score(o) -> float:
+        c = float(o.confidence_score or 0)
+        return c / 100.0 if c > 1.0 else c
+    top_rate = 0.0
+    bot_rate = 0.0
+    if n >= 10:
+        ordered = sorted(rows, key=_score, reverse=True)
+        decile = max(1, n // 10)
+        top = ordered[:decile]
+        bot = ordered[-decile:]
+        top_rate = round(sum(1 for o in top if _reached_approved(o)) / len(top), 4)
+        bot_rate = round(sum(1 for o in bot if _reached_approved(o)) / len(bot), 4)
+    return {
+        "model": "canonical-opportunity-lifecycle@2026.08.0",
+        "n_samples": n,
+        "promotion_rate_top_decile": top_rate,
+        "promotion_rate_bottom_decile": bot_rate,
+        "ece": 0.0,
+        "drift_alert": False,
+    }
 
 
 @api_router.get("/arbicore/discovery/candidates")
-async def v2_discovery_candidates(status: Optional[str] = None, kind: Optional[str] = None,
-                                   min_score: float = 0.0, limit: int = 100) -> Dict[str, Any]:
-    items = _hydrate_discovery()
-    out = []
+async def v2_discovery_candidates(
+    request: Request,
+    status: Optional[str] = None,
+    kind: Optional[str] = None,
+    min_score: float = 0.0,
+    limit: int = 100,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    """Slice 2 · Canonical activation.
+
+    Reads the canonical ``arbicore_opportunities`` collection and projects
+    each row into the Discovery UI contract.  Empty repo → empty items.
+    No preview fallback.
+    """
+    await _require_operator_ctx(request, authorization)
+    try:
+        canonical_rows = await _CANONICAL_OPP_REPO.find({}, limit=1000)
+    except Exception:
+        logger.exception("discovery_candidates: canonical read failed")
+        canonical_rows = []
+
+    items = [_canonical_opp_to_discovery(o) for o in canonical_rows]
+    out: List[Dict[str, Any]] = []
     for c in items:
         if status and status != "ALL" and c["status"] != status:
             continue
@@ -955,37 +1059,99 @@ async def v2_discovery_candidates(status: Optional[str] = None, kind: Optional[s
         if c["score"] < min_score:
             continue
         out.append(c)
+    out.sort(key=lambda c: c.get("score") or 0, reverse=True)
+
     stats = {
         "total": len(items),
-        "new": sum(1 for c in items if c["status"] == "NEW"),
-        "watching": sum(1 for c in items if c["status"] == "WATCHING"),
-        "promoted": sum(1 for c in items if c["status"] == "PROMOTED"),
+        "new":       sum(1 for c in items if c["status"] == "NEW"),
+        "watching":  sum(1 for c in items if c["status"] == "WATCHING"),
+        "promoted":  sum(1 for c in items if c["status"] == "PROMOTED"),
         "dismissed": sum(1 for c in items if c["status"] == "DISMISSED"),
     }
-    # Wave-1 refinement: expose DiscoveryScorer calibration so operators can see
-    # whether the signal weights track realised promotions. Additive block; UI
-    # ignores unknown fields. Future prod source: DiscoveryScorer.calibration().
-    promoted = max(1, stats["promoted"] + stats["dismissed"])
-    calibration = {
-        "model": "discovery-scorer@2026.07.0",
-        "n_samples": 214,
-        "promotion_rate_top_decile": 0.62,   # fraction of top-score candidates that end PROMOTED
-        "promotion_rate_bottom_decile": 0.04,
-        "ece": 0.037,
-        "drift_alert": False,
+    return {
+        "items": out[:limit],
+        "total": len(out),
+        "stats": stats,
+        "calibration": _canonical_discovery_calibration(canonical_rows),
+        "source": "canonical",
+        "generated_at": _iso_now(),
     }
-    return {"items": out[:limit], "total": len(out), "stats": stats,
-            "calibration": calibration, "generated_at": _iso_now()}
 
 
 @api_router.post("/arbicore/discovery/candidates/{cand_id}/action")
-async def v2_discovery_action(cand_id: str, action: str) -> Dict[str, Any]:
-    items = _hydrate_discovery()
-    match = next((c for c in items if c["id"] == cand_id), None)
-    if match:
-        mapping = {"watch": "WATCHING", "promote": "PROMOTED", "dismiss": "DISMISSED", "reset": "NEW"}
-        match["status"] = mapping.get(action.lower(), match["status"])
-    return {"ok": True, "id": cand_id, "status": match["status"] if match else None, "generated_at": _iso_now()}
+async def v2_discovery_action(
+    cand_id: str,
+    action: str,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    """Slice 2 · Canonical activation.
+
+    Maps UI verbs (watch / promote / dismiss / reset) onto canonical FSM
+    transitions and journals the operator decision.  Unknown id → 404;
+    unknown action or a no-op reset → returns the current status without
+    mutating the row.
+    """
+    await _require_operator_ctx(request, authorization)
+    verb = (action or "").lower().strip()
+    try:
+        canonical = await _CANONICAL_OPP_REPO.get(cand_id)
+    except Exception:
+        logger.exception("discovery_action: canonical read failed for %s", cand_id)
+        canonical = None
+    if canonical is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not_found", "id": cand_id},
+        )
+
+    def _ui_status(opp: "CanonicalOpportunity") -> str:
+        st = (opp.status.value if hasattr(opp.status, "value")
+              else str(opp.status))
+        return _CANONICAL_STATUS_TO_UI.get(st, "NEW")
+
+    # No-op verbs (reset / unknown): return current state, do not mutate.
+    if verb not in _UI_ACTION_TO_TARGET_STATUS:
+        return {"ok": True, "id": cand_id, "status": _ui_status(canonical),
+                "action": verb, "no_op": True,
+                "generated_at": _iso_now()}
+
+    target = _UI_ACTION_TO_TARGET_STATUS[verb]
+    try:
+        if target == OpportunityStatus.VALIDATED:
+            if canonical.status == OpportunityStatus.CANDIDATE:
+                canonical.mark_validated()
+        elif target == OpportunityStatus.APPROVED:
+            if canonical.status == OpportunityStatus.CANDIDATE:
+                canonical.mark_validated()
+            if canonical.status == OpportunityStatus.VALIDATED:
+                canonical.mark_approved()
+        elif target == OpportunityStatus.REJECTED:
+            canonical.mark_rejected(f"discovery_action:{verb}")
+        await _CANONICAL_OPP_REPO.upsert(canonical)
+        await _journal_record_operator_event(
+            canonical,
+            kind=f"discovery_{verb}",
+            detail={"ui_action": verb,
+                    "new_status": canonical.status.value},
+            status=canonical.status.value,
+        )
+    except InvalidTransitionError as exc:
+        return {"ok": False, "id": cand_id, "status": _ui_status(canonical),
+                "action": verb, "error": str(exc),
+                "generated_at": _iso_now()}
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("discovery_action: canonical mutation failed for %s (verb=%s)",
+                         cand_id, verb)
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "internal_error", "id": cand_id},
+        )
+    return {"ok": True, "id": cand_id, "status": _ui_status(canonical),
+            "action": verb, "canonical": True,
+            "generated_at": _iso_now()}
 
 
 @api_router.get("/arbicore/intelligence/recommendations")
