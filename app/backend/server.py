@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Header
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -445,13 +445,19 @@ async def v2_deck(limit: int = 5) -> Dict[str, Any]:
 
 
 @api_router.get("/arbicore/opportunities/summary")
-async def v2_opportunities_summary(window_hours: int = 24, max_scan: int = 1000) -> Dict[str, Any]:
+async def v2_opportunities_summary(
+    request: Request,
+    window_hours: int = 24,
+    max_scan: int = 1000,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
     """Slice 1 · Canonical activation.
 
     Aggregate the ``arbicore_opportunities`` collection grouped by
     opportunity_type / chain / status.  Returns empty counts when the
     canonical store is empty — never falls back to placeholder totals.
     """
+    await _require_operator_ctx(request, authorization)
     by_family: Dict[str, int] = {}
     by_chain: Dict[str, int] = {}
     by_status: Dict[str, int] = {}
@@ -516,23 +522,48 @@ async def v2_system_status() -> Dict[str, Any]:
 # read exclusively from ``_CANONICAL_OPP_REPO`` and mutate exclusively via
 # ``_OPPORTUNITY_JOURNAL``.  Empty repository → empty response, never a
 # hardcoded placeholder.
+#
+# Slice 1.1 · Session-cookie auth gate.  Every /arbicore/opportunities*
+# handler requires a valid authenticated operator context (cookie or
+# bearer, resolved by _resolve_current_user).  Anonymous callers receive
+# 401.  Contract otherwise preserved.
 # ---------------------------------------------------------------------------
+
+
+async def _require_operator_ctx(
+    request: Request,
+    authorization: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Slice 1.1 — session guard for /arbicore/opportunities*.
+
+    Delegates to the unified ``_resolve_current_user`` resolver so the
+    same cookie/bearer paths that gate the rest of v2.9.3 apply here.
+    Raises 401 for anonymous callers; response body preserves the
+    canonical shape used elsewhere ({"detail": "not_authenticated"}).
+    """
+    ctx = await _resolve_current_user(request, authorization)
+    if not ctx:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    return ctx
 
 
 @api_router.get("/arbicore/opportunities")
 async def v2_opportunities_list(
+    request: Request,
     family: Optional[str] = None,
     chain: Optional[str] = None,
     verdict: Optional[str] = None,
     min_confidence: float = 0.0,
     sort_by: Optional[str] = None,
     limit: int = 100,
+    authorization: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     """Slice 1 · Canonical activation.
 
     Reads the canonical ``arbicore_opportunities`` collection and translates
     each row into the frontend v2 contract.  Never falls back to preview.
     """
+    await _require_operator_ctx(request, authorization)
     try:
         canonical_rows = await _CANONICAL_OPP_REPO.find({}, limit=int(limit) * 2)
         items = [_canonical_opp_to_contract(opp) for opp in canonical_rows]
@@ -609,8 +640,13 @@ def _canonical_opp_to_contract(opp: "CanonicalOpportunity") -> Dict[str, Any]:
 
 
 @api_router.get("/arbicore/opportunities/{opp_id}")
-async def v2_opportunity_detail(opp_id: str) -> Dict[str, Any]:
+async def v2_opportunity_detail(
+    opp_id: str,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
     # Phase 8: canonical-first.
+    await _require_operator_ctx(request, authorization)
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
     except Exception:
@@ -641,8 +677,13 @@ async def v2_opportunity_detail(opp_id: str) -> Dict[str, Any]:
 
 
 @api_router.post("/arbicore/opportunities/{opp_id}/approve")
-async def v2_opportunity_approve(opp_id: str) -> Dict[str, Any]:
+async def v2_opportunity_approve(
+    opp_id: str,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
     # Phase 8: route through canonical FSM.
+    await _require_operator_ctx(request, authorization)
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
         if canonical is not None:
@@ -673,9 +714,13 @@ async def v2_opportunity_approve(opp_id: str) -> Dict[str, Any]:
 
 
 @api_router.post("/arbicore/opportunities/{opp_id}/reject")
-async def v2_opportunity_reject(opp_id: str,
-                                  body: Optional[Dict[str, Any]] = None
-                                  ) -> Dict[str, Any]:
+async def v2_opportunity_reject(
+    opp_id: str,
+    request: Request,
+    body: Optional[Dict[str, Any]] = None,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    await _require_operator_ctx(request, authorization)
     reason = (body or {}).get("reason") or "operator_rejected"
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
@@ -745,7 +790,11 @@ async def _journal_record_operator_event(
 # ---------------------------------------------------------------------------
 
 @api_router.get("/arbicore/opportunities/{opp_id}/timeline")
-async def v2_opportunity_timeline(opp_id: str) -> Dict[str, Any]:
+async def v2_opportunity_timeline(
+    opp_id: str,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
     """Join view across every existing audit collection.  Read-only.
 
     Phase 8 institutional trail — orders events chronologically (descending)
@@ -765,6 +814,7 @@ async def v2_opportunity_timeline(opp_id: str) -> Dict[str, Any]:
     each so a single per-opportunity view is not overwhelmed by ambient
     system activity.  The scoped collections are unbounded (small tables).
     """
+    await _require_operator_ctx(request, authorization)
     events: List[Dict[str, Any]] = []
     GLOBAL_CAP = 8
 
