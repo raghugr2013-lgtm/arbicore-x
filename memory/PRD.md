@@ -120,9 +120,18 @@ Branch: `hotfix/canonical-slice-1` — commits `3d69bd2`, `a3e06a3`.
 Deployment impact: none (additive; empty DB safe; rollback trivial via
 `git revert 3d69bd2 a3e06a3`).
 
-Documented spec drift (deferred): `/api/arbicore/opportunities*` remain
-public (never were auth-gated). User to decide whether to add
-`Depends(get_current_user)` in a follow-up.
+### Slice 1.1 — Opportunity endpoints session auth gate (2026-08-05) — ✅ COMPLETE (GO)
+Branch: `hotfix/canonical-slice-1.1` — commit `3b092ec`.
+
+- ✅ Added `_require_operator_ctx()` helper delegating to unified
+     `_resolve_current_user` (v2.9.3 cookie + bearer paths).
+- ✅ Gated all 6 `/api/arbicore/opportunities*` endpoints (list, summary,
+     detail, approve, reject, timeline). Anonymous → 401
+     `{"detail":"not_authenticated"}`.
+- ✅ Preserved 200 response shapes and query params. Frontend unchanged
+     (already sends cookies via `withCredentials`).
+- ✅ Testing verified: iter5 (55/55 PASS — 37 auth-matrix + 18 regression).
+- 📄 Report: `test_reports/iteration_5.json`.
 
 ### Slice 2 — Scanner / Discovery activation (P1 — next)
 Replace `_V2_DISCOVERY` (7 preview candidates in `server.py:818`) with

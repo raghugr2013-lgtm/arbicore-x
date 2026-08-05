@@ -149,22 +149,28 @@ TIMELINE journal kinds:  ['operator_approved', 'discovered']    ← no 'journal:
 
 ---
 
-## 7. Documented Spec Drift (User Decision Required)
+## 7. Spec Drift — CLOSED by Slice 1.1
 
-`/api/arbicore/opportunities*` endpoints are not auth-gated. They return 200 without a session cookie. This is **NOT** a Slice 1 regression — the endpoints were never auth-gated on the pre-branch (`5f11ab1`) either. The `user requirement 5a` in the retest scope presumed they were protected.
+**Update (Slice 1.1, commit `3b092ec`)**: All `/api/arbicore/opportunities*` endpoints are now session-cookie auth-gated (Option 1 from the original recommendation). Anonymous callers receive `401 {"detail":"not_authenticated"}`. Both cookie (access_token, HttpOnly, SameSite=Lax) and bearer (`Authorization: Bearer <access_token>`) paths accepted via the unified `_resolve_current_user` resolver.
 
-**Options for a follow-up slice (Slice 1.1 or bundled into Slice 2):**
-1. Add `Depends(services.auth.get_current_user)` to all `/opportunities*` handlers. Frontend already sends cookies (`withCredentials`) so no UI change is required.
-2. Keep public read; require auth only on mutations (`/approve`, `/reject`).
-3. Keep endpoints public (accept the drift; document it).
+Testing: iter5 report `/app/test_reports/iteration_5.json` — **55/55 PASS** (37 auth-matrix cases + 18 regression). GO for merge to main.
 
-Recommendation: option (1). Small surgical change, and it aligns with the user's original assumption.
+Gated endpoints:
+- `GET /arbicore/opportunities`
+- `GET /arbicore/opportunities/summary`
+- `GET /arbicore/opportunities/{id}`
+- `POST /arbicore/opportunities/{id}/approve`
+- `POST /arbicore/opportunities/{id}/reject`
+- `GET /arbicore/opportunities/{id}/timeline`
+
+Frontend: no change (`withCredentials` already in use).
 
 ---
 
 ## 8. Outstanding / Recommended Follow-ups (Non-blocking)
 
-1. **Auth-gate decision** (§7).
+1. ~~Auth-gate decision (§7).~~ ✅ Closed by Slice 1.1.
 2. `server.py` is 5053 lines — recommend splitting into `routes/*.py` per bounded context in a dedicated cleanup slice.
 3. Optional: make `OpportunityJournal.record_event` upsert-on-missing so the bridge helper becomes unnecessary. Currently the bridge is one extra round-trip on first mutation of a canonically-seeded opp — negligible in practice.
-4. Optional: Slice 2 (Scanner / Discovery activation) — replace preview `_V2_DISCOVERY` in `server.py:818` with the live `LiveMarketScanner` / `ContinuousDiscovery` engines.
+4. Optional: convert the six per-handler `_require_operator_ctx` calls to a shared `Depends()` on an `APIRouter` (so future opportunity endpoints inherit the gate).
+5. Next slice: Slice 2 (Scanner / Discovery activation) — replace preview `_V2_DISCOVERY` in `server.py` with the live `LiveMarketScanner` / `ContinuousDiscovery` engines.
