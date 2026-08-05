@@ -167,3 +167,35 @@ data, ranked P0..P3:
 Waiting for user approval on:
 (a) VPS deployment of v2.9.3 (runbook is ready).
 (b) Kickoff of Slice 1 (`hotfix/canonical-slice-1` off deployed main).
+
+## 2026-08-05 (continued) · Execution-pipeline reframe + widget sweep
+
+- Empty-state widget sweep across all 15 mounted v2 pages: **PASS**.
+  All pages guard against items:[] / data:null / errors gracefully.
+- Discovered: OpsCenter (the default landing) is already 100% wired to
+  real runtime data (_MEMORY, _LIVE_SCANNER, _KILL_SWITCH_REPO,
+  _VALIDATION_SUMMARY, providers). The operator's daily view is truthful.
+  Placeholder replacement affects the per-slice deep-dive tabs only.
+- Only widget-level hardcoded literal found: HomePage.jsx line 65
+  "ARMED" interlock text — micro-fix folded into Pipeline Stage 3.
+
+- Roadmap reframed as **execution-pipeline stages**:
+  Stage 1 · Opportunity Detection (P0, 2.25 d) — kickoff after v2.9.3 lands
+  Stage 2 · Discovery (P0, 3.25 d) — ✅ MANDATORY PAUSE + 7-check e2e
+  Stage 3 · Market Intelligence (P0, 3.5 d)
+  Stage 4 · Execution Planning (P0, 3 d) — ✅ e2e gate before paper val.
+  Stage 5 · Dashboard (P1, 2.25 d)
+  Stage 6 · Portfolio (P1, split 6a mount 1.5 d + 6b repos 4 d)
+  Stage 7 · Operations (P2, 5 d)
+  Stage 8 · Informational (P3, 7 d)
+
+- **Critical path to paper-validation readiness = stages 1–4 = 12 dev-days**
+  (~2.5 weeks single-engineer).
+- Portfolio and Operations demoted so Portfolio does not block flash-loan
+  paper validation.
+
+### Status
+Awaiting user's Phase-1 (v2.9.3) VPS deployment. Once complete + admin
+created on prod, will open `hotfix/canonical-slice-1` off deployed `main`
+and start Pipeline Stage 1 (Opportunity Detection). No code writing until
+explicit go.
