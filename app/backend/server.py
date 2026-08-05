@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Header, Depends
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -341,6 +341,45 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 
+# ---------------------------------------------------------------------------
+# Slice 1.1 · Session-cookie operator guard.
+# Defined early so decorators on routes below can use it via
+# ``dependencies=[Depends(_require_operator_dep)]``.  The actual auth
+# resolver (``_resolve_current_user``) is defined much later in this file —
+# that reference resolves at request time, so forward-referencing is safe.
+# ---------------------------------------------------------------------------
+
+
+async def _require_operator_ctx(
+    request: Request,
+    authorization: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Session guard used by protected /arbicore/* routes.
+
+    Delegates to the unified ``_resolve_current_user`` resolver so the
+    same cookie/bearer paths that gate the rest of v2.9.3 apply here.
+    Raises 401 for anonymous callers; response body preserves the
+    canonical shape used elsewhere ({"detail": "not_authenticated"}).
+    """
+    ctx = await _resolve_current_user(request, authorization)
+    if not ctx:
+        raise HTTPException(status_code=401, detail="not_authenticated")
+    return ctx
+
+
+async def _require_operator_dep(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    """FastAPI ``Depends``-compatible wrapper over ``_require_operator_ctx``.
+
+    Used with ``dependencies=[Depends(_require_operator_dep)]`` on the
+    APIRouter or per-route so protected endpoints don't need to plumb
+    ``request`` / ``authorization`` through their signatures.
+    """
+    return await _require_operator_ctx(request, authorization)
+
+
 # Define Models
 class StatusCheck(BaseModel):
     model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
@@ -354,7 +393,8 @@ class StatusCheckCreate(BaseModel):
 
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
-async def root():
+async def root(
+):
     return {"message": "Hello World"}
 
 @api_router.post("/status", response_model=StatusCheck)
@@ -444,12 +484,10 @@ async def v2_deck(limit: int = 5) -> Dict[str, Any]:
     }
 
 
-@api_router.get("/arbicore/opportunities/summary")
+@api_router.get("/arbicore/opportunities/summary", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunities_summary(
-    request: Request,
     window_hours: int = 24,
-    max_scan: int = 1000,
-    authorization: Optional[str] = Header(default=None),
+    max_scan: int = 1000
 ) -> Dict[str, Any]:
     """Slice 1 · Canonical activation.
 
@@ -457,7 +495,6 @@ async def v2_opportunities_summary(
     opportunity_type / chain / status.  Returns empty counts when the
     canonical store is empty — never falls back to placeholder totals.
     """
-    await _require_operator_ctx(request, authorization)
     by_family: Dict[str, int] = {}
     by_chain: Dict[str, int] = {}
     by_status: Dict[str, int] = {}
@@ -489,7 +526,8 @@ async def v2_opportunities_summary(
 
 
 @api_router.get("/arbicore/roi-probability")
-async def v2_roi_probability(route_id: str) -> Dict[str, Any]:
+async def v2_roi_probability(
+route_id: str) -> Dict[str, Any]:
     return {
         "route_id": route_id,
         "sample_size": 42,
@@ -525,45 +563,25 @@ async def v2_system_status() -> Dict[str, Any]:
 #
 # Slice 1.1 · Session-cookie auth gate.  Every /arbicore/opportunities*
 # handler requires a valid authenticated operator context (cookie or
-# bearer, resolved by _resolve_current_user).  Anonymous callers receive
-# 401.  Contract otherwise preserved.
+# bearer, resolved by _resolve_current_user via _require_operator_dep).
+# Anonymous callers receive 401.  Contract otherwise preserved.
 # ---------------------------------------------------------------------------
 
 
-async def _require_operator_ctx(
-    request: Request,
-    authorization: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Slice 1.1 — session guard for /arbicore/opportunities*.
-
-    Delegates to the unified ``_resolve_current_user`` resolver so the
-    same cookie/bearer paths that gate the rest of v2.9.3 apply here.
-    Raises 401 for anonymous callers; response body preserves the
-    canonical shape used elsewhere ({"detail": "not_authenticated"}).
-    """
-    ctx = await _resolve_current_user(request, authorization)
-    if not ctx:
-        raise HTTPException(status_code=401, detail="not_authenticated")
-    return ctx
-
-
-@api_router.get("/arbicore/opportunities")
+@api_router.get("/arbicore/opportunities", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunities_list(
-    request: Request,
     family: Optional[str] = None,
     chain: Optional[str] = None,
     verdict: Optional[str] = None,
     min_confidence: float = 0.0,
     sort_by: Optional[str] = None,
     limit: int = 100,
-    authorization: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     """Slice 1 · Canonical activation.
 
     Reads the canonical ``arbicore_opportunities`` collection and translates
     each row into the frontend v2 contract.  Never falls back to preview.
     """
-    await _require_operator_ctx(request, authorization)
     try:
         canonical_rows = await _CANONICAL_OPP_REPO.find({}, limit=int(limit) * 2)
         items = [_canonical_opp_to_contract(opp) for opp in canonical_rows]
@@ -639,14 +657,11 @@ def _canonical_opp_to_contract(opp: "CanonicalOpportunity") -> Dict[str, Any]:
     }
 
 
-@api_router.get("/arbicore/opportunities/{opp_id}")
+@api_router.get("/arbicore/opportunities/{opp_id}", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_detail(
     opp_id: str,
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     # Phase 8: canonical-first.
-    await _require_operator_ctx(request, authorization)
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
     except Exception:
@@ -676,14 +691,11 @@ async def v2_opportunity_detail(
     raise HTTPException(status_code=404, detail={"error": "not_found", "id": opp_id})
 
 
-@api_router.post("/arbicore/opportunities/{opp_id}/approve")
+@api_router.post("/arbicore/opportunities/{opp_id}/approve", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_approve(
     opp_id: str,
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
 ) -> Dict[str, Any]:
     # Phase 8: route through canonical FSM.
-    await _require_operator_ctx(request, authorization)
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
         if canonical is not None:
@@ -713,14 +725,11 @@ async def v2_opportunity_approve(
     raise HTTPException(status_code=404, detail={"error": "not_found", "id": opp_id})
 
 
-@api_router.post("/arbicore/opportunities/{opp_id}/reject")
+@api_router.post("/arbicore/opportunities/{opp_id}/reject", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_reject(
     opp_id: str,
-    request: Request,
-    body: Optional[Dict[str, Any]] = None,
-    authorization: Optional[str] = Header(default=None),
+    body: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
-    await _require_operator_ctx(request, authorization)
     reason = (body or {}).get("reason") or "operator_rejected"
     try:
         canonical = await _CANONICAL_OPP_REPO.get(opp_id)
@@ -789,11 +798,9 @@ async def _journal_record_operator_event(
 # Phase 8 · Per-opportunity Execution Timeline (join view — no new persistence)
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/opportunities/{opp_id}/timeline")
+@api_router.get("/arbicore/opportunities/{opp_id}/timeline", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_timeline(
-    opp_id: str,
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
+    opp_id: str
 ) -> Dict[str, Any]:
     """Join view across every existing audit collection.  Read-only.
 
@@ -814,7 +821,6 @@ async def v2_opportunity_timeline(
     each so a single per-opportunity view is not overwhelmed by ambient
     system activity.  The scoped collections are unbounded (small tables).
     """
-    await _require_operator_ctx(request, authorization)
     events: List[Dict[str, Any]] = []
     GLOBAL_CAP = 8
 
@@ -1027,14 +1033,12 @@ def _canonical_discovery_calibration(rows: List["CanonicalOpportunity"]) -> Dict
     }
 
 
-@api_router.get("/arbicore/discovery/candidates")
+@api_router.get("/arbicore/discovery/candidates", dependencies=[Depends(_require_operator_dep)])
 async def v2_discovery_candidates(
-    request: Request,
     status: Optional[str] = None,
     kind: Optional[str] = None,
     min_score: float = 0.0,
-    limit: int = 100,
-    authorization: Optional[str] = Header(default=None),
+    limit: int = 100
 ) -> Dict[str, Any]:
     """Slice 2 · Canonical activation.
 
@@ -1042,7 +1046,6 @@ async def v2_discovery_candidates(
     each row into the Discovery UI contract.  Empty repo → empty items.
     No preview fallback.
     """
-    await _require_operator_ctx(request, authorization)
     try:
         canonical_rows = await _CANONICAL_OPP_REPO.find({}, limit=1000)
     except Exception:
@@ -1078,12 +1081,10 @@ async def v2_discovery_candidates(
     }
 
 
-@api_router.post("/arbicore/discovery/candidates/{cand_id}/action")
+@api_router.post("/arbicore/discovery/candidates/{cand_id}/action", dependencies=[Depends(_require_operator_dep)])
 async def v2_discovery_action(
     cand_id: str,
-    action: str,
-    request: Request,
-    authorization: Optional[str] = Header(default=None),
+    action: str
 ) -> Dict[str, Any]:
     """Slice 2 · Canonical activation.
 
@@ -1092,7 +1093,6 @@ async def v2_discovery_action(
     unknown action or a no-op reset → returns the current status without
     mutating the row.
     """
-    await _require_operator_ctx(request, authorization)
     verb = (action or "").lower().strip()
     try:
         canonical = await _CANONICAL_OPP_REPO.get(cand_id)
@@ -1156,83 +1156,202 @@ async def v2_discovery_action(
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/intelligence/recommendations")
-async def v2_recommendations() -> Dict[str, Any]:
+@api_router.get("/arbicore/intelligence/recommendations", dependencies=[Depends(_require_operator_dep)])
+async def v2_recommendations(
+
+) -> Dict[str, Any]:
+    """Slice 3 · Canonical activation.
+
+    Derives ``top_routes`` / ``top_chains`` / ``top_entities`` from the live
+    canonical stores.  No fabricated recommendations — empty stores return
+    empty lists.
+      * top_routes  aggregates ``arbicore_opportunities`` by (buy_venue,
+                    sell_venue) with win_rate (approved / total), trials,
+                    mean confidence.
+      * top_chains  aggregates ``arbicore_opportunities`` by chain.
+      * top_entities pulls the top-scored rows from the canonical entity
+                    scorer (``services.execution.arbitrage_intel`` scorer
+                    surfaced via ``get_entity_scorer``).
+    """
+    try:
+        rows = await _CANONICAL_OPP_REPO.find({}, limit=2000)
+    except Exception:
+        logger.exception("intelligence/recommendations: canonical read failed")
+        rows = []
+
+    def _route_key(o: "CanonicalOpportunity") -> Optional[str]:
+        bv, sv = getattr(o, "buy_venue", None), getattr(o, "sell_venue", None)
+        if bv and sv:
+            return f"{bv} → {sv}"
+        if getattr(o, "route", None):
+            return str(o.route)
+        return None
+
+    def _score(o: "CanonicalOpportunity") -> float:
+        c = float(o.confidence_score or 0)
+        return c / 100.0 if c > 1.0 else c
+
+    approved_v = OpportunityStatus.APPROVED.value
+    from collections import defaultdict
+    route_agg: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {"trials": 0, "wins": 0, "conf_sum": 0.0})
+    chain_agg: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {"opps": 0, "conf_sum": 0.0})
+    for o in rows:
+        rk = _route_key(o)
+        s = _score(o)
+        st = (o.status.value if hasattr(o.status, "value") else str(o.status))
+        if rk:
+            route_agg[rk]["trials"] += 1
+            route_agg[rk]["conf_sum"] += s
+            if st == approved_v:
+                route_agg[rk]["wins"] += 1
+        if o.chain:
+            chain_agg[o.chain]["opps"] += 1
+            chain_agg[o.chain]["conf_sum"] += s
+
+    top_routes = sorted(
+        ({"route": rk, "win_rate": round(v["wins"] / v["trials"], 4) if v["trials"] else 0.0,
+          "trials": v["trials"],
+          "mean_confidence": round(v["conf_sum"] / v["trials"], 4) if v["trials"] else 0.0}
+         for rk, v in route_agg.items()),
+        key=lambda r: (r["win_rate"], r["trials"]), reverse=True,
+    )[:10]
+    top_chains = sorted(
+        ({"chain": c, "opps": v["opps"],
+          "avg_confidence": round(v["conf_sum"] / v["opps"], 4) if v["opps"] else 0.0}
+         for c, v in chain_agg.items()),
+        key=lambda r: (r["opps"], r["avg_confidence"]), reverse=True,
+    )[:10]
+
+    # Entities: canonical scorer if available; else empty (no fabrication).
+    top_entities: List[Dict[str, Any]] = []
+    try:
+        from arbicore.runtime.composition import get_entity_scorer
+        scorer = get_entity_scorer()
+        rows_e = await scorer.top(limit=10)
+        for r in rows_e:
+            d = r.to_dict() if hasattr(r, "to_dict") else dict(r)
+            top_entities.append({
+                "entity": d.get("entity_id"),
+                "kind": d.get("entity_type", "UNKNOWN"),
+                "score": round(float(d.get("avg_outcome_score", 0.0) or 0.0), 4),
+                "samples": int(d.get("sample_count", 0) or 0),
+            })
+    except Exception:
+        logger.exception("intelligence/recommendations: entity scorer unavailable")
+        top_entities = []
+
     return {
-        "top_routes": [
-            {"route": "binance:ETH-USDT → kucoin:ETH-USDT", "win_rate": 0.68, "trials": 128, "mean_roi": 0.0031},
-            {"route": "uniswap-v3:WETH/USDC → sushiswap:WETH/USDC", "win_rate": 0.61, "trials": 89, "mean_roi": 0.0022},
-            {"route": "binance:BTC-USDT → okx:BTC-USDT", "win_rate": 0.72, "trials": 214, "mean_roi": 0.0018},
-            {"route": "bybit:SOL-PERP short + spot long", "win_rate": 0.54, "trials": 46, "mean_roi": 0.0014},
-            {"route": "aave-flash → quickswap → sushiswap (MATIC)", "win_rate": 0.49, "trials": 22, "mean_roi": 0.0026},
-        ],
-        "top_chains": [
-            {"chain": "ethereum", "opps_24h": 41, "avg_confidence": 0.73, "avg_safety": 0.86},
-            {"chain": "arbitrum", "opps_24h": 32, "avg_confidence": 0.68, "avg_safety": 0.82},
-            {"chain": "solana", "opps_24h": 27, "avg_confidence": 0.61, "avg_safety": 0.71},
-            {"chain": "base", "opps_24h": 18, "avg_confidence": 0.65, "avg_safety": 0.79},
-        ],
-        "top_entities": [
-            {"entity": "binance", "kind": "venue", "score": 0.91},
-            {"entity": "uniswap-v3", "kind": "venue", "score": 0.87},
-            {"entity": "ETH-USDT", "kind": "market", "score": 0.83},
-            {"entity": "WETH/USDC", "kind": "market", "score": 0.78},
-        ],
-        "generated_at": _iso_now(),
+        "top_routes":    top_routes,
+        "top_chains":    top_chains,
+        "top_entities":  top_entities,
+        "source":        "canonical",
+        "generated_at":  _iso_now(),
     }
 
 
-@api_router.get("/arbicore/intelligence/decisions")
-async def v2_decisions(verdict: Optional[str] = None, family: Optional[str] = None,
-                        min_confidence: float = 0.0, limit: int = 100) -> Dict[str, Any]:
-    # Wave-1 refinement: every decision now carries model_version + policy_version
-    # so operators + auditors can trace which classifier + policy produced the
-    # verdict. Additive to the Slice-2 shape (existing UI ignores unknown fields).
-    log = [
-        {"id": "dec-001", "opp_id": "opp-001", "asset": "ETH-USDT", "family": "CEX_ARBITRAGE",
-         "verdict": "GO", "confidence": 0.87, "regime": "CALM",
-         "top_factors": ["+6 route history", "+4 regime CALM", "+3 depth"],
-         "model_version": "conf-scorer@2026.07.2", "policy_version": "exec-policy@v1.4.0",
-         "at": _iso_now()},
-        {"id": "dec-002", "opp_id": "opp-002", "asset": "WETH/USDC", "family": "DEX_ARBITRAGE",
-         "verdict": "GO", "confidence": 0.79, "regime": "CALM",
-         "top_factors": ["+5 route history", "+3 regime CALM", "-1 gas volatility"],
-         "model_version": "conf-scorer@2026.07.2", "policy_version": "exec-policy@v1.4.0",
-         "at": _iso_now()},
-        {"id": "dec-003", "opp_id": "opp-003", "asset": "SOL-PERP", "family": "FUNDING_ARBITRAGE",
-         "verdict": "SOFT_NO", "confidence": 0.71, "regime": "CALM",
-         "top_factors": ["-3 safety (venue drift)", "+2 spread", "-1 funding vol"],
-         "model_version": "conf-scorer@2026.07.2", "policy_version": "exec-policy@v1.4.0",
-         "at": _iso_now()},
-        {"id": "dec-004", "opp_id": "opp-008", "asset": "WETH/USDT (base)", "family": "DEX_ARBITRAGE",
-         "verdict": "HARD_NO", "confidence": 0.42, "regime": "CALM",
-         "top_factors": ["-6 safety_min gate", "-3 depth_min gate"],
-         "model_version": "conf-scorer@2026.07.2", "policy_version": "exec-policy@v1.4.0",
-         "at": _iso_now()},
-        {"id": "dec-005", "opp_id": "opp-004", "asset": "BTC-USDT", "family": "CEX_ARBITRAGE",
-         "verdict": "GO", "confidence": 0.65, "regime": "CALM",
-         "top_factors": ["+4 route history", "+2 depth", "-2 fresh window"],
-         "model_version": "conf-scorer@2026.07.2", "policy_version": "exec-policy@v1.4.0",
-         "at": _iso_now()},
-        {"id": "dec-006", "opp_id": "opp-007", "asset": "MATIC/USDC", "family": "FLASH_LOAN_ARBITRAGE",
-         "verdict": "GO", "confidence": 0.61, "regime": "CALM",
-         "top_factors": ["+3 flash-fee coverage", "+2 route history"],
-         "model_version": "conf-scorer@2026.07.2-shadow", "policy_version": "exec-policy@v1.4.0",
-         "at": _iso_now()},
-    ]
+@api_router.get("/arbicore/intelligence/decisions", dependencies=[Depends(_require_operator_dep)])
+async def v2_decisions(
+    verdict: Optional[str] = None,
+    family: Optional[str] = None,
+    min_confidence: float = 0.0,
+    limit: int = 100
+) -> Dict[str, Any]:
+    """Slice 3 · Canonical activation.
+
+    Derives operator decisions from the canonical audit trail:
+    ``arbicore_opportunity_journal`` events (``operator_approved`` /
+    ``operator_rejected`` / ``discovery_promote`` / ``discovery_dismiss``)
+    joined against ``arbicore_opportunities`` for the enrichment fields.
+
+    Verdict mapping (canonical event → UI verdict):
+        operator_approved / discovery_promote  → GO
+        operator_rejected / discovery_dismiss  → HARD_NO
+
+    Empty journal → empty items list.  No fabricated decisions.
+    """
+    verdict_from_kind = {
+        "operator_approved": "GO",
+        "operator_rejected": "HARD_NO",
+        "discovery_promote": "GO",
+        "discovery_dismiss": "HARD_NO",
+        "discovery_watch":   "SOFT_NO",
+    }
+    items: List[Dict[str, Any]] = []
+    try:
+        db = _CANONICAL_OPP_REPO._col.database  # type: ignore[attr-defined]
+        cursor = db.arbicore_opportunity_journal.find({}, {"_id": 0}) \
+                                                .sort("updated_at", -1) \
+                                                .limit(min(int(limit) * 4, 500))
+        journal_rows = await cursor.to_list(length=None)
+    except Exception:
+        logger.exception("intelligence/decisions: journal read failed")
+        journal_rows = []
+
+    for jrow in journal_rows:
+        opp_id = jrow.get("opportunity_id")
+        if not opp_id:
+            continue
+        try:
+            canonical = await _CANONICAL_OPP_REPO.get(opp_id)
+        except Exception:
+            canonical = None
+        canonical_family = None
+        canonical_asset = None
+        canonical_conf = 0.0
+        if canonical is not None:
+            ot = canonical.opportunity_type
+            canonical_family = ot.value if hasattr(ot, "value") else str(ot)
+            canonical_asset = canonical.asset or canonical.subject_id or opp_id
+            c = float(canonical.confidence_score or 0)
+            canonical_conf = c / 100.0 if c > 1.0 else c
+        for ev in reversed(jrow.get("events", []) or []):
+            kind = ev.get("kind")
+            if kind not in verdict_from_kind:
+                continue
+            det = ev.get("detail") or {}
+            factors: List[str] = []
+            if canonical is not None:
+                if canonical.spread_pct is not None:
+                    factors.append(f"spread {canonical.spread_pct:.2f}%")
+                if canonical.chain:
+                    factors.append(f"chain:{canonical.chain}")
+                if getattr(canonical, "source_data_quality", None):
+                    prov = canonical.source_data_quality
+                    factors.append(
+                        f"prov:{prov.value if hasattr(prov,'value') else prov}")
+            if det.get("reason"):
+                factors.append(f"reason:{det['reason']}")
+            items.append({
+                "id":        f"{opp_id}::{kind}::{ev.get('at')}",
+                "opp_id":    opp_id,
+                "asset":     canonical_asset,
+                "family":    canonical_family,
+                "verdict":   verdict_from_kind[kind],
+                "confidence": round(canonical_conf, 4),
+                "regime":    "CALM",
+                "top_factors": factors,
+                "kind":      kind,
+                "at":        ev.get("at"),
+            })
+
+    # Filter.
     out = []
-    for d in log:
+    for d in items:
         if verdict and verdict != "ALL" and d["verdict"] != verdict:
             continue
         if family and family != "ALL" and d["family"] != family:
             continue
         if d["confidence"] < min_confidence:
             continue
-        # Wave-3 refinement — every decision carries the calibrator version
-        # so audits can trace which calibration curve produced the confidence.
-        d.setdefault("calibrator_version", _CALIBRATION_CFG.calibrator_version)
         out.append(d)
-    return {"items": out[:limit], "total": len(out), "generated_at": _iso_now()}
+    return {
+        "items":        out[:limit],
+        "total":        len(out),
+        "source":       "canonical",
+        "generated_at": _iso_now(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1244,88 +1363,129 @@ async def v2_decisions(verdict: Optional[str] = None, family: Optional[str] = No
 #   GET /api/arbicore/intelligence/models        <- ModelRegistry.list_active()
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/intelligence/calibration")
-async def v2_calibration(model: Optional[str] = None, window_days: Optional[int] = None) -> Dict[str, Any]:
-    # Wave-3: prefer the currently-active row from db.calibration_models.
-    # Fallback path — no active row yet (bootstrap) — returns an identity
-    # baseline with a stable 10-bucket demo shape so the UI keeps rendering.
-    # Both paths emit the frozen Wave-1 contract keys.
-    active = None
+@api_router.get("/arbicore/intelligence/calibration", dependencies=[Depends(_require_operator_dep)])
+async def v2_calibration(
+    model: Optional[str] = None,
+    window_days: Optional[int] = None
+) -> Dict[str, Any]:
+    """Slice 3 · Canonical activation.
+
+    Reads the active row from ``calibration_models`` via
+    ``_CALIBRATION_REPO.get_active('confidence')``.  When no active model
+    exists yet, returns a genuine empty state (``available: false``) —
+    no bootstrap stub, no fabricated buckets.
+    """
     try:
         active = await _CALIBRATION_REPO.get_active("confidence")
     except Exception:
+        logger.exception("intelligence/calibration: canonical read failed")
         active = None
-    if active is not None:
+    if active is None:
         return {
-            "model": active.get("id"),
-            "window_days": active.get("window_days") or _CALIBRATION_CFG.window_days,
-            "n_samples": active.get("n_samples", 0),
-            "brier_score": active.get("brier_score", 0.0),
-            "ece": active.get("ece", 0.0),
-            "drift_alert": bool(active.get("drift_alert", False)),
-            "buckets": active.get("buckets", []),
-            "algorithm": active.get("algorithm"),
-            "calibrator_version": active.get("calibrator_version"),
-            "supersedes": active.get("supersedes"),
-            "generated_at": _iso_now(),
+            "available":            False,
+            "model":                None,
+            "window_days":          window_days or _CALIBRATION_CFG.window_days,
+            "n_samples":            0,
+            "brier_score":          0.0,
+            "ece":                  0.0,
+            "drift_alert":          False,
+            "buckets":              [],
+            "algorithm":            None,
+            "calibrator_version":   _CALIBRATION_CFG.calibrator_version,
+            "supersedes":           None,
+            "source":               "canonical",
+            "generated_at":         _iso_now(),
         }
-    # Bootstrap fallback (identity mapping) — Wave-1 stub shape retained.
-    win = window_days if window_days is not None else _CALIBRATION_CFG.window_days
-    buckets = [
-        {"bucket": "0.0-0.1", "predicted": 0.05, "realised": 0.06, "n": 12},
-        {"bucket": "0.1-0.2", "predicted": 0.15, "realised": 0.11, "n": 24},
-        {"bucket": "0.2-0.3", "predicted": 0.25, "realised": 0.22, "n": 38},
-        {"bucket": "0.3-0.4", "predicted": 0.35, "realised": 0.31, "n": 51},
-        {"bucket": "0.4-0.5", "predicted": 0.45, "realised": 0.43, "n": 72},
-        {"bucket": "0.5-0.6", "predicted": 0.55, "realised": 0.52, "n": 96},
-        {"bucket": "0.6-0.7", "predicted": 0.65, "realised": 0.66, "n": 148},
-        {"bucket": "0.7-0.8", "predicted": 0.75, "realised": 0.73, "n": 214},
-        {"bucket": "0.8-0.9", "predicted": 0.85, "realised": 0.81, "n": 189},
-        {"bucket": "0.9-1.0", "predicted": 0.95, "realised": 0.92, "n": 87},
-    ]
-    n_total = sum(b["n"] for b in buckets)
-    brier = sum(((b["predicted"] - b["realised"]) ** 2) * b["n"] for b in buckets) / n_total
-    ece = sum(abs(b["predicted"] - b["realised"]) * b["n"] for b in buckets) / n_total
     return {
-        "model": model or "conf-scorer@2026.07.2",
-        "window_days": win,
-        "n_samples": n_total,
-        "brier_score": round(brier, 4),
-        "ece": round(ece, 4),
-        "drift_alert": ece > 0.05,
-        "buckets": buckets,
-        "algorithm": "identity",
-        "calibrator_version": _CALIBRATION_CFG.calibrator_version,
-        "supersedes": None,
-        "generated_at": _iso_now(),
+        "available":            True,
+        "model":                active.get("id"),
+        "window_days":          active.get("window_days") or _CALIBRATION_CFG.window_days,
+        "n_samples":            active.get("n_samples", 0),
+        "brier_score":          active.get("brier_score", 0.0),
+        "ece":                  active.get("ece", 0.0),
+        "drift_alert":          bool(active.get("drift_alert", False)),
+        "buckets":              active.get("buckets", []),
+        "algorithm":            active.get("algorithm"),
+        "calibrator_version":   active.get("calibrator_version"),
+        "supersedes":           active.get("supersedes"),
+        "source":               "canonical",
+        "generated_at":         _iso_now(),
     }
 
 
-@api_router.get("/arbicore/intelligence/models")
-async def v2_models() -> Dict[str, Any]:
-    active = [
-        {"id": "conf-scorer@2026.07.2", "kind": "confidence", "state": "ACTIVE",
-         "promoted_at": "2026-07-14T09:00:00+00:00", "shadow": False,
-         "trained_on_samples": 42_180, "eval_brier": 0.078, "eval_ece": 0.021},
-        {"id": "safety-scorer@2026.06.1", "kind": "safety", "state": "ACTIVE",
-         "promoted_at": "2026-06-02T09:00:00+00:00", "shadow": False,
-         "trained_on_samples": 28_400, "eval_brier": 0.093, "eval_ece": 0.028},
-        {"id": "regime-detector@2026.07.0", "kind": "regime", "state": "ACTIVE",
-         "promoted_at": "2026-07-01T09:00:00+00:00", "shadow": False,
-         "trained_on_samples": 60_120, "eval_brier": 0.051, "eval_ece": 0.017},
-        {"id": "conf-scorer@2026.07.2-shadow", "kind": "confidence", "state": "SHADOW",
-         "promoted_at": None, "shadow": True,
-         "trained_on_samples": 45_012, "eval_brier": 0.071, "eval_ece": 0.019},
-    ]
-    promotions = [
-        {"at": "2026-07-14T09:00:00+00:00", "from": "conf-scorer@2026.06.1",
-         "to": "conf-scorer@2026.07.2", "reason": "Brier +12% on holdout"},
-        {"at": "2026-07-01T09:00:00+00:00", "from": "regime-detector@2026.06.1",
-         "to": "regime-detector@2026.07.0", "reason": "Regime accuracy +4pp"},
-        {"at": "2026-06-02T09:00:00+00:00", "from": "safety-scorer@2026.05.0",
-         "to": "safety-scorer@2026.06.1", "reason": "False-safe rate halved"},
-    ]
-    return {"items": active, "promotions": promotions, "generated_at": _iso_now()}
+@api_router.get("/arbicore/intelligence/models", dependencies=[Depends(_require_operator_dep)])
+async def v2_models(
+
+) -> Dict[str, Any]:
+    """Slice 3 · Canonical activation.
+
+    Lists fitted calibration models from ``calibration_models`` (recent
+    rows across the ``confidence`` + ``adaptive_weights`` kinds).  Empty
+    when no models have been fitted yet.  Also surfaces the current
+    active adaptive-weight recommendation for completeness.
+    """
+    items: List[Dict[str, Any]] = []
+    promotions: List[Dict[str, Any]] = []
+
+    def _row_to_item(row: Dict[str, Any], kind: str) -> Dict[str, Any]:
+        return {
+            "id":                  row.get("id"),
+            "kind":                kind,
+            "state":               (row.get("state") or "").upper(),
+            "promoted_at":         row.get("promoted_at"),
+            "fitted_at":           row.get("fitted_at"),
+            "shadow":              row.get("state") == "shadow",
+            "trained_on_samples":  int(row.get("n_samples", 0) or 0),
+            "eval_brier":          float(row.get("brier_score", 0.0) or 0.0),
+            "eval_ece":            float(row.get("ece", 0.0) or 0.0),
+            "algorithm":           row.get("algorithm"),
+            "calibrator_version":  row.get("calibrator_version"),
+            "supersedes":          row.get("supersedes"),
+        }
+
+    for kind in ("confidence",):
+        try:
+            recent = await _CALIBRATION_REPO.list_recent(kind, limit=20)
+        except Exception:
+            logger.exception("intelligence/models: list_recent(%s) failed", kind)
+            recent = []
+        for row in recent:
+            items.append(_row_to_item(row, kind))
+            if row.get("supersedes"):
+                promotions.append({
+                    "at":     row.get("promoted_at"),
+                    "from":   row.get("supersedes"),
+                    "to":     row.get("id"),
+                    "kind":   kind,
+                    "reason": row.get("promotion_reason") or "promotion recorded",
+                })
+    # Add current active adaptive weights row (state row, not a model per se).
+    try:
+        w_active = await _ADAPTIVE_WEIGHTS_REPO.get_active("adaptive_weights")
+    except Exception:
+        w_active = None
+    if w_active:
+        items.append({
+            "id":                  w_active.get("id"),
+            "kind":                "adaptive_weights",
+            "state":               (w_active.get("state") or "active").upper(),
+            "promoted_at":         w_active.get("promoted_at"),
+            "fitted_at":           w_active.get("fitted_at"),
+            "shadow":              False,
+            "trained_on_samples":  int(w_active.get("n_samples", 0) or 0),
+            "eval_brier":          0.0,
+            "eval_ece":            0.0,
+            "algorithm":           w_active.get("algorithm"),
+            "calibrator_version":  w_active.get("weights_version"),
+            "supersedes":          w_active.get("supersedes"),
+        })
+    promotions.sort(key=lambda p: p.get("at") or "", reverse=True)
+    return {
+        "items":        items,
+        "promotions":   promotions,
+        "source":       "canonical",
+        "generated_at": _iso_now(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1341,127 +1501,96 @@ async def v2_models() -> Dict[str, Any]:
 #          (arbicore/routes/arbicore.py list_entities + top_entity_scores)
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/intelligence/certification")
-async def v2_certification() -> Dict[str, Any]:
-    # Shape mirrors services/execution/certification_review.latest_review()
-    # exactly so the future lift is only a handler swap.
-    return {
-        "phase": "E4.5 — Shadow Certification Review",
-        "available": True,
-        "generated_at": _iso_now(),
-        "recommendation": "NEEDS_MORE_DATA",
-        "headline": "12 completed shadow cycles · 8 more needed for micro-capital review.",
-        "campaign": {
-            "id": "cmp-2026-07-31-a",
-            "status": "COMPLETED",
-            "target_completed": 20,
-            "start_at": "2026-07-24T09:00:00+00:00",
-            "ended_at": "2026-07-31T04:12:00+00:00",
-            "breach_reason": None,
-            "breach_thresholds": {"max_stuck_pct": 40.0, "max_variance_pct": 35.0, "min_recovery_pct": 70.0},
-            "final_verdict_report": "NEEDS_MORE_DATA",
-        },
-        "summary": {
-            "total_cycles": 12, "completed": 11, "aborted": 1,
-            "completion_rate_pct": 91.67,
-            "ever_stuck": 2, "stuck_rate_pct": 16.67,
-            "recovery_success_rate_pct": 100.0,
-            "recovery_failures": 0,
-            "expected_total_quote": 4823.4,
-            "realized_total_quote": 4712.9,
-            "variance_pct": 2.29,
-            "profitable_rate_pct": 90.9,
-            "avg_realized_per_cycle": 428.4,
-            "recommended_safe_cycle_usd": 350.0,
-            "criteria_passed": 5, "criteria_failed": 2, "criteria_na": 0,
-        },
-        "readiness_criteria": {
-            "min_completed_cycles": 20,
-            "require_positive_avg_realized": True,
-            "min_completion_rate_pct": 90.0,
-            "min_recovery_success_rate_pct": 95.0,
-            "max_stuck_rate_pct": 10.0,
-            "max_variance_pct": 15.0,
-            "min_profitable_rate_pct": 80.0,
-        },
-        "sections": [
-            {"title": "Sample size", "verdict": "FAIL",
-             "evidence": [{"metric": "completed_cycles", "value": 11, "threshold": 20, "status": "FAIL"}]},
-            {"title": "Profitability", "verdict": "PASS",
-             "evidence": [{"metric": "profitable_rate_pct", "value": 90.9, "threshold": 80.0, "status": "PASS"},
-                          {"metric": "avg_realized_per_cycle", "value": 428.4, "threshold": 0.0, "status": "PASS"}]},
-            {"title": "Completion", "verdict": "PASS",
-             "evidence": [{"metric": "completion_rate_pct", "value": 91.67, "threshold": 90.0, "status": "PASS"}]},
-            {"title": "Stuck rate", "verdict": "FAIL",
-             "evidence": [{"metric": "stuck_rate_pct", "value": 16.67, "threshold": 10.0, "status": "FAIL"}]},
-            {"title": "Recovery", "verdict": "PASS",
-             "evidence": [{"metric": "recovery_success_rate_pct", "value": 100.0, "threshold": 95.0, "status": "PASS"}]},
-            {"title": "Variance", "verdict": "PASS",
-             "evidence": [{"metric": "variance_pct", "value": 2.29, "threshold": 15.0, "status": "PASS"}]},
-            {"title": "Recommended safe cycle size", "verdict": "INFO",
-             "evidence": [{"metric": "recommended_safe_cycle_usd", "value": 350.0, "threshold": None, "status": "INFO"}]},
-        ],
-        "next_steps": [
-            "Run additional shadow cycles until completed_cycles ≥ 20",
-            "Investigate the 2 stuck events (both STUCK_WAITING_FOR_BDAG)",
-            "Recheck stuck_rate_pct after next campaign",
-        ],
-        "note": ("Read-only evidence package from recorded shadow cycles only. Does NOT authorize "
-                 "execution. No trading, no wallet, no withdrawals, no fund movement."),
-    }
+@api_router.get("/arbicore/intelligence/certification", dependencies=[Depends(_require_operator_dep)])
+async def v2_certification(
+
+) -> Dict[str, Any]:
+    """Slice 3 · Canonical activation.
+
+    Wraps ``services.execution.certification_review.latest_review``.
+    Empty state when no shadow campaign has completed.
+    """
+    try:
+        from services.execution.certification_review import latest_review
+        pkg = await latest_review()
+    except Exception:
+        logger.exception("intelligence/certification: latest_review failed")
+        pkg = {
+            "phase":          "E4.5 — Shadow Certification Review",
+            "available":      False,
+            "recommendation": None,
+            "message":        "Certification service unavailable.",
+        }
+    if isinstance(pkg, dict):
+        pkg.setdefault("phase", "E4.5 — Shadow Certification Review")
+        pkg.setdefault("available", False)
+        pkg["source"] = "canonical"
+        pkg["generated_at"] = _iso_now()
+    return pkg
 
 
-@api_router.get("/arbicore/intelligence/entities")
-async def v2_entities(entity_type: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
-    # Composed shape: mirrors `/entities` (list) + `/entities/scores/top` (score).
-    # Real canonical vocabulary (frozen): WALLET, SMART_MONEY, EXCHANGE_WALLET,
-    # MARKET_MAKER, LIQUIDITY_PROVIDER, LAUNCH_PARTICIPANT, CEX_ACCOUNT, DEX_POOL, UNKNOWN.
-    all_items = [
-        {"entity_id": "ent-w-001", "entity_type": "SMART_MONEY", "label": "0x7Aa9…3F1c",
-         "score": 0.94, "samples": 412, "last_seen": _iso_now(),
-         "extras": {"chains": ["ethereum", "arbitrum"], "notable": "3× launch alpha last 30d"}},
-        {"entity_id": "ent-w-002", "entity_type": "MARKET_MAKER", "label": "0x1F31…C09b",
-         "score": 0.88, "samples": 1_248, "last_seen": _iso_now(),
-         "extras": {"chains": ["ethereum"], "notable": "Wintermute cluster"}},
-        {"entity_id": "ent-w-003", "entity_type": "EXCHANGE_WALLET", "label": "binance-hot-01",
-         "score": 0.82, "samples": 9_812, "last_seen": _iso_now(),
-         "extras": {"venue": "binance", "notable": "primary hot wallet"}},
-        {"entity_id": "ent-p-004", "entity_type": "DEX_POOL", "label": "uniswap-v3 · WETH/USDC 0.05%",
-         "score": 0.79, "samples": 3_412, "last_seen": _iso_now(),
-         "extras": {"chain": "ethereum", "tvl_usd": 348_000_000}},
-        {"entity_id": "ent-w-005", "entity_type": "LIQUIDITY_PROVIDER", "label": "0x9C4b…AB12",
-         "score": 0.76, "samples": 289, "last_seen": _iso_now(),
-         "extras": {"chains": ["ethereum", "base"]}},
-        {"entity_id": "ent-w-006", "entity_type": "LAUNCH_PARTICIPANT", "label": "sol:9r7X…qP2",
-         "score": 0.71, "samples": 44, "last_seen": _iso_now(),
-         "extras": {"chain": "solana", "notable": "top-10 pump.fun launch buyer"}},
-        {"entity_id": "ent-a-007", "entity_type": "CEX_ACCOUNT", "label": "okx-sub-042",
-         "score": 0.68, "samples": 2_140, "last_seen": _iso_now(),
-         "extras": {"venue": "okx"}},
-        {"entity_id": "ent-w-008", "entity_type": "SMART_MONEY", "label": "0x2C8e…9D1f",
-         "score": 0.66, "samples": 189, "last_seen": _iso_now(),
-         "extras": {"chains": ["ethereum"], "notable": "2× correct pre-listing entries"}},
-        {"entity_id": "ent-p-009", "entity_type": "DEX_POOL", "label": "curve · 3pool",
-         "score": 0.63, "samples": 4_902, "last_seen": _iso_now(),
-         "extras": {"chain": "ethereum", "tvl_usd": 82_000_000}},
-        {"entity_id": "ent-w-010", "entity_type": "WALLET", "label": "0x8B72…4E0a",
-         "score": 0.61, "samples": 74, "last_seen": _iso_now(),
-         "extras": {"chains": ["arbitrum"]}},
-    ]
-    filtered = [e for e in all_items
-                if (not entity_type or entity_type == "ALL" or e["entity_type"] == entity_type)]
+@api_router.get("/arbicore/intelligence/entities", dependencies=[Depends(_require_operator_dep)])
+async def v2_entities(
+    entity_type: Optional[str] = None,
+    limit: int = 50
+) -> Dict[str, Any]:
+    """Slice 3 · Canonical activation.
+
+    Wraps the canonical entity repository + entity scorer.  Empty stores
+    return empty lists.  Vocabulary is frozen at the canonical enum.
+    """
+    from arbicore.intel.entity_types import EntityType
+    from arbicore.runtime.composition import get_entity_repo, get_entity_scorer
+    vocabulary = [e.value for e in EntityType]
     counts_by_type: Dict[str, int] = {}
-    for e in all_items:
-        counts_by_type[e["entity_type"]] = counts_by_type.get(e["entity_type"], 0) + 1
+    items: List[Dict[str, Any]] = []
+    total_entities = 0
+    try:
+        repo = get_entity_repo()
+        total_entities = await repo.count()
+        try:
+            scorer = get_entity_scorer()
+            top_scored = await scorer.top(limit=max(limit, 50))
+        except Exception:
+            logger.exception("intelligence/entities: scorer unavailable")
+            top_scored = []
+        for r in top_scored:
+            d = r.to_dict() if hasattr(r, "to_dict") else dict(r)
+            et = d.get("entity_type", "UNKNOWN")
+            counts_by_type[et] = counts_by_type.get(et, 0) + 1
+            if entity_type and entity_type != "ALL" and et != entity_type:
+                continue
+            enrich = await repo.get(d["entity_id"])
+            label = None
+            extras: Dict[str, Any] = {}
+            if enrich is not None:
+                extras = dict(enrich.metadata or {})
+                if enrich.labels:
+                    label = enrich.labels[0]
+                    extras["labels"] = enrich.labels
+                if enrich.external_refs:
+                    extras["external_refs"] = enrich.external_refs
+            items.append({
+                "entity_id":   d.get("entity_id"),
+                "entity_type": et,
+                "label":       label or d.get("entity_id"),
+                "score":       round(float(d.get("avg_outcome_score", 0.0) or 0.0), 4),
+                "samples":     int(d.get("sample_count", 0) or 0),
+                "success_rate": round(float(d.get("success_rate", 0.0) or 0.0), 4),
+                "last_seen":   d.get("updated_at"),
+                "extras":      extras,
+            })
+    except Exception:
+        logger.exception("intelligence/entities: entity repo unavailable")
+
     return {
-        "count": len(filtered),
-        "total_entities": len(all_items),
+        "count":          len(items[:limit]),
+        "total_entities": int(total_entities or 0),
         "counts_by_type": counts_by_type,
-        "items": filtered[:limit],
-        "vocabulary": ["WALLET", "SMART_MONEY", "EXCHANGE_WALLET", "MARKET_MAKER",
-                       "LIQUIDITY_PROVIDER", "LAUNCH_PARTICIPANT", "CEX_ACCOUNT",
-                       "DEX_POOL", "UNKNOWN"],
-        "generated_at": _iso_now(),
+        "items":          items[:limit],
+        "vocabulary":     vocabulary,
+        "source":         "canonical",
+        "generated_at":   _iso_now(),
     }
 
 
@@ -2557,12 +2686,12 @@ async def v2_execution_secrets_test(handle_id: str) -> Dict[str, Any]:
 # SHADOW ONLY.  No signing, no broadcasting anywhere below.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/adapters")
+@api_router.get("/arbicore/execution/adapters", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_adapters() -> Dict[str, Any]:
     return {**_ADAPTER_REGISTRY.catalog(), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/plans/build")
+@api_router.post("/arbicore/execution/plans/build", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plan_build(body: Dict[str, Any]) -> Dict[str, Any]:
     """Build (and dry-run) an execution plan.  The result is persisted
     to ``db.execution_plans`` but never signed or broadcast."""
@@ -2635,7 +2764,7 @@ async def v2_execution_plan_build(body: Dict[str, Any]) -> Dict[str, Any]:
         }
 
 
-@api_router.get("/arbicore/execution/plans/{plan_id}")
+@api_router.get("/arbicore/execution/plans/{plan_id}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plan_one(plan_id: str) -> Dict[str, Any]:
     try:
         plan = await _EXECUTION_PLANS_REPO.get(plan_id)
@@ -2644,7 +2773,7 @@ async def v2_execution_plan_one(plan_id: str) -> Dict[str, Any]:
     return {"plan": plan, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/plans")
+@api_router.get("/arbicore/execution/plans", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plans(strategy: Optional[str] = None,
                              chain: Optional[str] = None,
                              limit: int = 20) -> Dict[str, Any]:
@@ -2662,14 +2791,14 @@ async def v2_execution_plans(strategy: Optional[str] = None,
 # SHADOW-only.  Every endpoint below is READ-ONLY.  None broadcasts.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/simulation/status")
+@api_router.get("/arbicore/execution/simulation/status", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_simulation_status() -> Dict[str, Any]:
     """Simulator registry status — which backends are wired, which is
     the current default, and the read-only RPC allowlist."""
     return {**_SIMULATION_REGISTRY.status(), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/gas")
+@api_router.get("/arbicore/execution/gas", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_gas(chain: str = "base",
                            steps: Optional[str] = None) -> Dict[str, Any]:
     """Live gas estimate for a canonical Borrow → Swap → Repay → Profit
@@ -2686,7 +2815,7 @@ async def v2_execution_gas(chain: str = "base",
                 "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/mev/routers")
+@api_router.get("/arbicore/execution/mev/routers", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_mev_routers(chain: str = "base",
                                     router: Optional[str] = None,
                                     protected: bool = True) -> Dict[str, Any]:
@@ -2704,7 +2833,7 @@ async def v2_execution_mev_routers(chain: str = "base",
     return catalog
 
 
-@api_router.post("/arbicore/execution/plans/{plan_id}/simulate")
+@api_router.post("/arbicore/execution/plans/{plan_id}/simulate", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plan_simulate(plan_id: str,
                                       body: Optional[Dict[str, Any]] = None
                                       ) -> Dict[str, Any]:
@@ -2784,7 +2913,7 @@ async def v2_execution_plan_simulate(plan_id: str,
 # Wave-6D · Capital Allocation Policy
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/capital-policy")
+@api_router.get("/arbicore/execution/capital-policy", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_capital_policy_list() -> Dict[str, Any]:
     try:
         items = await _CAPITAL_POLICY_REPO.list_all()
@@ -2795,7 +2924,7 @@ async def v2_execution_capital_policy_list() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/capital-policy/{strategy}")
+@api_router.get("/arbicore/execution/capital-policy/{strategy}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_capital_policy_one(strategy: str) -> Dict[str, Any]:
     try:
         row = await _CAPITAL_POLICY_REPO.get(strategy)
@@ -2806,7 +2935,7 @@ async def v2_execution_capital_policy_one(strategy: str) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.patch("/arbicore/execution/capital-policy/{strategy}")
+@api_router.patch("/arbicore/execution/capital-policy/{strategy}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_capital_policy_update(strategy: str,
                                               body: Dict[str, Any]) -> Dict[str, Any]:
     try:
@@ -2821,7 +2950,7 @@ async def v2_execution_capital_policy_update(strategy: str,
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/capital-policy/{strategy}/evaluate")
+@api_router.post("/arbicore/execution/capital-policy/{strategy}/evaluate", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_capital_policy_evaluate(strategy: str,
                                                  body: Dict[str, Any]) -> Dict[str, Any]:
     """Preview a sizing decision for a proposed plan.  Read-only."""
@@ -2844,7 +2973,7 @@ async def v2_execution_capital_policy_evaluate(strategy: str,
 # Wave-6D · Kill Switch
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/kill-switch")
+@api_router.get("/arbicore/execution/kill-switch", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_state() -> Dict[str, Any]:
     try:
         state = await _KILL_SWITCH_REPO.state()
@@ -2854,7 +2983,7 @@ async def v2_execution_kill_switch_state() -> Dict[str, Any]:
                 "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/kill-switch/engage")
+@api_router.post("/arbicore/execution/kill-switch/engage", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_engage(body: Dict[str, Any]) -> Dict[str, Any]:
     b = body or {}
     reason = (b.get("reason") or "").strip()
@@ -2866,7 +2995,7 @@ async def v2_execution_kill_switch_engage(body: Dict[str, Any]) -> Dict[str, Any
     return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/kill-switch/disengage")
+@api_router.post("/arbicore/execution/kill-switch/disengage", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_disengage(body: Dict[str, Any]) -> Dict[str, Any]:
     b = body or {}
     reason = (b.get("reason") or "").strip()
@@ -2878,7 +3007,7 @@ async def v2_execution_kill_switch_disengage(body: Dict[str, Any]) -> Dict[str, 
     return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/kill-switch/audit")
+@api_router.get("/arbicore/execution/kill-switch/audit", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_audit(limit: int = 50) -> Dict[str, Any]:
     try:
         items = await _KILL_SWITCH_REPO.audit_history(limit=limit)
@@ -2891,7 +3020,7 @@ async def v2_execution_kill_switch_audit(limit: int = 50) -> Dict[str, Any]:
 # Wave-6D · Live Signer (gate ladder — never emits signed bytes)
 # ---------------------------------------------------------------------------
 
-@api_router.post("/arbicore/execution/plans/{plan_id}/sign")
+@api_router.post("/arbicore/execution/plans/{plan_id}/sign", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_plan_sign(plan_id: str,
                                    body: Optional[Dict[str, Any]] = None
                                    ) -> Dict[str, Any]:
@@ -2924,7 +3053,7 @@ async def v2_execution_plan_sign(plan_id: str,
 # Wave-6E · End-to-end Execution Certification
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/certification/stages")
+@api_router.get("/arbicore/execution/certification/stages", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_certification_stages() -> Dict[str, Any]:
     """Canonical list of pipeline stages the certifier evaluates."""
     return {"stages": list(PIPELINE_STAGES),
@@ -2932,7 +3061,7 @@ async def v2_execution_certification_stages() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/certification/run")
+@api_router.post("/arbicore/execution/certification/run", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_certification_run(body: Dict[str, Any]) -> Dict[str, Any]:
     """Run the full Discovery → Planning → Simulation → Evidence
     pipeline for a proposed plan and return a certification report.
@@ -3520,7 +3649,7 @@ async def v2_settings_scanner_reload(body: Optional[Dict[str, Any]] = None) -> D
 # Wave-7C · Bytes-level calldata + LIMITED_LIVE broadcaster (6-gate)
 # ---------------------------------------------------------------------------
 
-@api_router.post("/arbicore/execution/plans/{plan_id}/calldata")
+@api_router.post("/arbicore/execution/plans/{plan_id}/calldata", dependencies=[Depends(_require_operator_dep)])
 async def v2_plan_calldata(plan_id: str) -> Dict[str, Any]:
     """Encode the bytes-level calldata for a stored plan's borrow head.
     Read-only — no signing, no broadcast."""
@@ -3538,7 +3667,7 @@ async def v2_plan_calldata(plan_id: str) -> Dict[str, Any]:
                 "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/plans/{plan_id}/broadcast")
+@api_router.post("/arbicore/execution/plans/{plan_id}/broadcast", dependencies=[Depends(_require_operator_dep)])
 async def v2_plan_broadcast(plan_id: str,
                               body: Optional[Dict[str, Any]] = None
                               ) -> Dict[str, Any]:
@@ -3569,10 +3698,6 @@ async def v2_plan_broadcast(plan_id: str,
                                      if "expected_net_profit_usd" in b else None),
         )
         return {"receipt": receipt.to_dict(), "generated_at": _iso_now()}
-    except Exception as exc:  # noqa: BLE001
-        return {"error": f"{type(exc).__name__}: {exc}",
-                "generated_at": _iso_now()}
-
     except Exception as exc:  # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}",
                 "generated_at": _iso_now()}
