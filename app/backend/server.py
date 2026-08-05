@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -3531,6 +3531,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# v2.9.3 — Canonical authentication router (single-admin, cookie-based JWT).
+#
+# Historical context: `routes/auth.py`, `services/auth.py`, and `services/db.py`
+# were introduced as the canonical auth surface in v1.0.0 but were left
+# dormant in the v2.0.0 consolidation (see docs/RELEASE_NOTES_v2.9.3.md §2).
+# This wire-up completes the activation without altering any other route.
+#
+# Provides:  /api/auth/{status,setup,login,logout,logout-all,me,refresh,
+#            change-password}
+# ---------------------------------------------------------------------------
+try:
+    from routes.auth import router as _canonical_auth_router
+    app.include_router(_canonical_auth_router)
+    logger.info("v2.9.3: canonical auth router mounted (/api/auth/*)")
+except Exception:  # noqa: BLE001
+    logger.exception(
+        "v2.9.3: canonical auth router failed to import — "
+        "/api/auth/{status,setup,change-password,logout-all,refresh} will be 404"
+    )
+
 @app.on_event("startup")
 async def _start_calibration_worker():
     try:
@@ -3601,8 +3622,23 @@ async def _auth_seed_startup():
     call the refactored ``ensure_seed_users`` which returns a summary
     dict, and we log that summary verbatim so operators can see
     exactly what happened in Mongo.
+
+    v2.9.3 — Gated OFF by default. The canonical auth router
+    (``routes/auth.py``) uses the ``users`` collection with a first-run
+    setup flow. Silently reseeding the legacy ``auth_users`` collection
+    on every boot would mask reset flows on hosts that have migrated
+    to the canonical store. Operators who still depend on the legacy
+    admin/operator seed can opt in explicitly by setting the env var
+    ``ARBICORE_LEGACY_AUTH_SEED=1``.
     """
     if not _AUTH_AVAILABLE:
+        return
+    if os.environ.get("ARBICORE_LEGACY_AUTH_SEED", "0").strip() != "1":
+        logger.info(
+            "v2.9.3: legacy auth seed skipped "
+            "(ARBICORE_LEGACY_AUTH_SEED != '1'). "
+            "Canonical auth (users collection) is authoritative."
+        )
         return
     try:
         summary = await _auth_ensure_seed(db)
@@ -3629,7 +3665,46 @@ async def _auth_seed_startup():
         logger.exception("failed to seed auth users: %s", exc)
 
 
-async def _resolve_current_user(authorization):
+async def _resolve_current_user(
+    request: Optional[Request] = None,
+    authorization: Optional[str] = None,
+):
+    """v2.9.3 — Unified auth resolver.
+
+    Preferred path: the canonical cookie/bearer flow from ``services/auth.py``
+    (single-admin, session_version-versioned, brute-force lockout).  This
+    accepts either the ``access_token`` httpOnly cookie or an
+    ``Authorization: Bearer <access_token>`` header — both are handled by
+    ``services.auth.get_current_user``.
+
+    Fallback path: the legacy bearer flow via ``arbicore.auth`` for anyone
+    who still holds a token issued before v2.9.3.  Kept read-only; no new
+    tokens are issued from this codepath because the Tree-B login endpoint
+    was removed in v2.9.3.
+
+    Returns ``None`` when neither path authenticates.  The returned dict
+    shape is preserved from v2.0.3 so downstream call sites do not change:
+    ``{"user_id", "username", "role", "jti"}``.
+    """
+    # ---- canonical path (cookie or bearer via services.auth) ----
+    if request is not None:
+        try:
+            from services import auth as _canonical_auth  # local import to avoid boot cycles
+            user = await _canonical_auth.get_current_user(request)
+            return {
+                "user_id":  user.get("id"),
+                "username": user.get("username"),
+                "role":     user.get("role"),
+                "jti":      None,   # canonical uses session_version, not JTI
+            }
+        except HTTPException:
+            pass
+        except Exception:  # noqa: BLE001
+            logger.exception("v2.9.3: canonical auth resolver crashed — falling back to legacy")
+        if authorization is None:
+            authorization = request.headers.get("Authorization")
+
+    # ---- legacy bearer fallback (arbicore.auth) ----
     if not _AUTH_AVAILABLE or not authorization:
         return None
     if not authorization.lower().startswith("bearer "):
@@ -3652,93 +3727,20 @@ async def _resolve_current_user(authorization):
     }
 
 
-@app.post("/api/auth/login")
-async def auth_login(body: Dict[str, Any]):
-    if not _AUTH_AVAILABLE:
-        raise HTTPException(status_code=503, detail="auth_unavailable")
-    username = (body or {}).get("username") or ""
-    password = (body or {}).get("password") or (body or {}).get("passphrase") or ""
-    if not isinstance(username, str) or not isinstance(password, str):
-        raise HTTPException(status_code=400, detail="invalid_credentials_payload")
-    user = await _auth_authenticate(db, username.strip(), password)
-    if not user:
-        raise HTTPException(status_code=401, detail="invalid_credentials")
-    token_info = _auth_issue_token(user)
-    await _auth_record_session(db, user, token_info)
-    return {
-        "token": token_info["token"],
-        "token_type": "bearer",
-        "expires_at": token_info["expires_at"],
-        "user": {"user_id": user["user_id"], "username": user["username"], "role": user["role"]},
-    }
-
-
-@app.post("/api/auth/logout")
-async def auth_logout(authorization: Optional[str] = Header(default=None)):
-    if not _AUTH_AVAILABLE:
-        raise HTTPException(status_code=503, detail="auth_unavailable")
-    ctx = await _resolve_current_user(authorization)
-    if not ctx or not ctx.get("jti"):
-        raise HTTPException(status_code=401, detail="not_authenticated")
-    revoked = await _auth_revoke_session(db, ctx["jti"])
-    return {"revoked": revoked, "logged_out_at": _iso_now()}
-
-
-@app.get("/api/auth/me")
-async def auth_me(authorization: Optional[str] = Header(default=None)):
-    if not _AUTH_AVAILABLE:
-        raise HTTPException(status_code=503, detail="auth_unavailable")
-    ctx = await _resolve_current_user(authorization)
-    if not ctx:
-        raise HTTPException(status_code=401, detail="not_authenticated")
-    return {
-        "authenticated": True,
-        "user": {"user_id": ctx["user_id"], "username": ctx["username"], "role": ctx["role"]},
-        "generated_at": _iso_now(),
-    }
-
-
-@app.get("/api/auth/diagnostics")
-async def auth_diagnostics(authorization: Optional[str] = Header(default=None)):
-    """v2.0.7 — admin-only introspection into the ``auth_users`` collection.
-
-    Purpose: give operators a truthful, one-shot view of what is actually
-    in Mongo for the default seed accounts so bugs like the VPS
-    ``invalid_credentials`` regression can be diagnosed in seconds instead
-    of by SSH-ing into the DB.
-
-    NEVER returns the password hash, only its length and prefix (bcrypt
-    identifier). NEVER lists arbitrary users — only the two defaults
-    (``admin``, ``operator``).
-    """
-    if not _AUTH_AVAILABLE:
-        raise HTTPException(status_code=503, detail="auth_unavailable")
-    ctx = await _resolve_current_user(authorization)
-    if not ctx:
-        raise HTTPException(status_code=401, detail="not_authenticated")
-    if ctx.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="admin_only")
-
-    coll = db["auth_users"]
-    result: Dict[str, Any] = {"users": {}, "generated_at": _iso_now()}
-    for uname in ("admin", "operator"):
-        doc = await coll.find_one({"username": uname})
-        if not doc:
-            result["users"][uname] = {"exists": False}
-            continue
-        h = doc.get("password_hash") or ""
-        result["users"][uname] = {
-            "exists": True,
-            "user_id": doc.get("user_id"),
-            "role": doc.get("role"),
-            "active_field": doc.get("active", None),
-            "has_password_hash": bool(h),
-            "hash_prefix": h[:4] if h else None,
-            "hash_len": len(h),
-            "created_at": doc.get("created_at"),
-        }
-    return result
-
+# ---------------------------------------------------------------------------
+# v2.9.3 — Legacy Tree-B `/api/auth/*` endpoints removed.
+#
+# The four handlers that previously lived here (`auth_login`, `auth_logout`,
+# `auth_me`, `auth_diagnostics`) were replaced by the canonical router
+# `routes/auth.py`, mounted in the app-wiring block above.  Removing them is
+# what unblocks `/api/auth/status` and `/api/auth/setup` because FastAPI
+# keeps the first-registered handler for a given (method, path), and these
+# would have collided on `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`.
+#
+# `_resolve_current_user` above still supports legacy bearer tokens for
+# administrative endpoints elsewhere in this file (see call sites below),
+# preserving read-only backward compatibility for tokens issued before v2.9.3.
+# ---------------------------------------------------------------------------
 
 @app.get("/api/arbicore/mid/status")
 async def mid_status() -> Dict[str, Any]:
@@ -3954,13 +3956,14 @@ async def scanners_status() -> Dict[str, Any]:
 @app.post("/api/arbicore/scanners/{scanner_id}/start")
 async def scanner_start(
     scanner_id: str,
+    request: Request,
     authorization: Optional[str] = Header(default=None),
 ):
     """Sprint 1B-β — operator-controlled start (admin OR operator)."""
     if _SCANNER_ACTIVATION is None:
         raise HTTPException(
             status_code=503, detail="scanners_not_activated")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx:
         raise HTTPException(status_code=401, detail="not_authenticated")
     if ctx.get("role") not in ("admin", "operator"):
@@ -3982,12 +3985,13 @@ async def scanner_start(
 @app.post("/api/arbicore/scanners/{scanner_id}/stop")
 async def scanner_stop(
     scanner_id: str,
+    request: Request,
     authorization: Optional[str] = Header(default=None),
 ):
     if _SCANNER_ACTIVATION is None:
         raise HTTPException(
             status_code=503, detail="scanners_not_activated")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx:
         raise HTTPException(status_code=401, detail="not_authenticated")
     if ctx.get("role") not in ("admin", "operator"):
@@ -4374,10 +4378,10 @@ async def live_status() -> Dict[str, Any]:
 
 
 @app.post("/api/arbicore/live/start")
-async def live_start(authorization: Optional[str] = Header(default=None)):
+async def live_start(request: Request, authorization: Optional[str] = Header(default=None)):
     if _LIVE_SCANNER is None:
         raise HTTPException(status_code=503, detail="live_market_unavailable")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") not in ("admin", "operator"):
         raise HTTPException(status_code=403,
                              detail="admin_or_operator_only")
@@ -4385,10 +4389,10 @@ async def live_start(authorization: Optional[str] = Header(default=None)):
 
 
 @app.post("/api/arbicore/live/stop")
-async def live_stop(authorization: Optional[str] = Header(default=None)):
+async def live_stop(request: Request, authorization: Optional[str] = Header(default=None)):
     if _LIVE_SCANNER is None:
         raise HTTPException(status_code=503, detail="live_market_unavailable")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") not in ("admin", "operator"):
         raise HTTPException(status_code=403,
                              detail="admin_or_operator_only")
@@ -4589,11 +4593,12 @@ async def _flj_startup():
 
 @app.post("/api/arbicore/flashloan/journey/run")
 async def flj_run(opp: Dict[str, Any],
+                    request: Request,
                     authorization: Optional[str] = Header(default=None)):
     if _FL_JOURNEY is None:
         raise HTTPException(status_code=503,
                              detail="flashloan_journey_unavailable")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") not in ("admin", "operator"):
         raise HTTPException(status_code=403,
                              detail="admin_or_operator_only")
@@ -4702,10 +4707,11 @@ async def validation_daily_status() -> Dict[str, Any]:
 
 @app.post("/api/arbicore/validation/daily_run_now")
 async def validation_daily_run_now(
+        request: Request,
         authorization: Optional[str] = Header(default=None)):
     if _DAILY_WRITER is None:
         raise HTTPException(status_code=503, detail="daily_writer_unavailable")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") not in ("admin", "operator"):
         raise HTTPException(status_code=403,
                              detail="admin_or_operator_only")
@@ -4803,12 +4809,13 @@ async def safety_status() -> Dict[str, Any]:
 
 @app.post("/api/arbicore/safety/kill/engage")
 async def kill_engage(
+    request: Request,
     reason: str = "operator_request",
     authorization: Optional[str] = Header(default=None),
 ):
     if not _SAFETY_AVAILABLE:
         raise HTTPException(status_code=503, detail="safety_unavailable")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") not in ("admin", "operator"):
         raise HTTPException(status_code=403, detail="admin_or_operator_only")
     entry = _KILL.engage(by=ctx.get("username"), reason=reason)
@@ -4821,12 +4828,13 @@ async def kill_engage(
 
 @app.post("/api/arbicore/safety/kill/disengage")
 async def kill_disengage(
+    request: Request,
     reason: str = "operator_request",
     authorization: Optional[str] = Header(default=None),
 ):
     if not _SAFETY_AVAILABLE:
         raise HTTPException(status_code=503, detail="safety_unavailable")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") != "admin":
         raise HTTPException(status_code=403, detail="admin_only")
     entry = _KILL.disengage(by=ctx.get("username"), reason=reason)
@@ -4842,11 +4850,12 @@ async def kill_disengage(
 @app.post("/api/arbicore/paper/analyse")
 async def paper_analyse(
     body: Dict[str, Any],
+    request: Request,
     authorization: Optional[str] = Header(default=None),
 ):
     if _PAPER_ENGINE is None:
         raise HTTPException(status_code=503, detail="paper_engine_unavailable")
-    ctx = await _resolve_current_user(authorization)
+    ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") not in ("admin", "operator"):
         raise HTTPException(status_code=403, detail="admin_or_operator_only")
     try:

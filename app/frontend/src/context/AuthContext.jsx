@@ -1,154 +1,207 @@
 /**
- * ArbiCore X — AuthContext (v2.0.3 · backend-integrated)
+ * ArbiCore X — AuthContext (v2.9.3 · canonical single-admin, cookie-based)
  *
- * Real backend authentication via /api/auth/login (JWT bearer).
- * Session persisted in localStorage; refreshed via /api/auth/me on mount.
+ * Wire-up for the canonical Tree-A backend authentication surface
+ * (routes/auth.py + services/auth.py).  Session lives entirely server-side
+ * as httpOnly access_token + refresh_token cookies signed with JWT_SECRET.
+ *
+ * Contract exposed by useAuth():
+ *   { user, role, isAuthenticated, isValidating, isInitialized,
+ *     setupComplete, login, setup, logout, markInitialized }
+ *
+ * Also exports the helper `formatApiErrorDetail` used by Settings sections
+ * (SecuritySection, TelegramSection, VaultSection).
+ *
+ * Historical note: v2.0.3's rewrite of this file consumed the retired
+ * Tree-B bearer-token endpoints and dropped the setup / setupComplete
+ * surface.  v2.9.3 restores the canonical contract without altering any
+ * other frontend module.
  */
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext, useCallback, useContext, useEffect, useMemo, useState,
+} from "react";
 import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 const API = `${BACKEND_URL}/api`;
-const STORAGE_KEY = "arbicore.session.v2";
+
+// v2.9.3 — Canonical auth uses httpOnly cookies. Make every axios call in
+// the app credentialed by default so business endpoints (e.g. Settings ➜
+// Change Password, Vault, Telegram) automatically send the session cookie
+// without touching each component.
+axios.defaults.withCredentials = true;
+
+// All auth traffic MUST send cookies; the backend sets httpOnly access_token
+// + refresh_token on /setup and /login.
+const client = axios.create({
+  baseURL: API,
+  withCredentials: true,
+  timeout: 12000,
+  validateStatus: () => true,
+});
 
 const AuthContext = createContext(null);
 
-function readSession() {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.token || !parsed.user) return null;
-    return parsed;
-  } catch {
-    return null;
+/**
+ * Turn any FastAPI error payload (string, dict, or Pydantic validation list)
+ * into a short human-readable string suitable for toast/inline display.
+ * This helper is imported directly by Settings components; do not rename.
+ */
+export function formatApiErrorDetail(detail) {
+  if (!detail) return "";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map((d) => {
+      if (!d || typeof d !== "object") return String(d);
+      const loc = Array.isArray(d.loc) ? d.loc.join(".") : "";
+      return loc ? `${loc}: ${d.msg || ""}` : (d.msg || JSON.stringify(d));
+    }).join(" · ");
   }
-}
-
-function writeSession(sess) {
-  try {
-    if (sess) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sess));
-    else window.localStorage.removeItem(STORAGE_KEY);
-  } catch { /* ignore */ }
+  if (typeof detail === "object") {
+    if (detail.msg) return detail.msg;
+    try { return JSON.stringify(detail); } catch { return String(detail); }
+  }
+  return String(detail);
 }
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(() => readSession());
-  const [initialized, setInitialized] = useState(() => Boolean(readSession()?.initialized));
-  const [validating, setValidating] = useState(() => Boolean(readSession()));
+  const [user, setUser] = useState(null);
+  const [setupComplete, setSetupComplete] = useState(null);   // null = unknown yet
+  const [isValidating, setIsValidating] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Validate token via /auth/me on mount — logs out silently if revoked / expired.
-  useEffect(() => {
-    let cancelled = false;
-    async function validate() {
-      const s = readSession();
-      if (!s?.token) { setValidating(false); return; }
-      try {
-        const res = await axios.get(`${API}/auth/me`, {
-          headers: { Authorization: `Bearer ${s.token}` },
-          timeout: 8000,
-          validateStatus: () => true,
-        });
-        if (cancelled) return;
-        if (res.status !== 200 || !res.data?.authenticated) {
-          writeSession(null);
-          setSession(null);
-          setInitialized(false);
-        }
-      } catch {
-        // network error during boot — keep local session (offline-tolerant)
-      } finally {
-        if (!cancelled) setValidating(false);
+  /**
+   * Boot: check /api/auth/status → setupComplete, then /api/auth/me for
+   * existing session cookies.  Errors are non-fatal; we degrade to "no
+   * session" without blocking render.
+   */
+  const bootstrap = useCallback(async () => {
+    setIsValidating(true);
+    try {
+      const s = await client.get("/auth/status");
+      if (s.status === 200 && s.data && typeof s.data.setup_complete === "boolean") {
+        setSetupComplete(s.data.setup_complete);
+      } else {
+        // Backend reachable but unexpected shape — treat as setup_complete
+        // so login form (not setup form) is shown; safer default.
+        setSetupComplete(true);
       }
+    } catch {
+      // Network unreachable — leave setupComplete as null so LoginPage can
+      // show a neutral "connecting…" state instead of the setup card.
+      setSetupComplete(null);
     }
-    validate();
-    return () => { cancelled = true; };
+
+    try {
+      const me = await client.get("/auth/me");
+      if (me.status === 200 && me.data && me.data.id) {
+        setUser(me.data);
+      } else {
+        setUser(null);
+      }
+    } catch {
+      setUser(null);
+    } finally {
+      setIsValidating(false);
+    }
   }, []);
 
-  const login = useCallback(async ({ username, passphrase }) => {
-    const cleanUser = (username || "").trim();
-    const cleanPass = (passphrase || "").trim();
-    if (!cleanUser || !cleanPass) {
-      const err = new Error("Username and passphrase are required.");
+  useEffect(() => { bootstrap(); }, [bootstrap]);
+
+  /**
+   * First-run admin creation.  Only valid while setupComplete === false.
+   * Server sets cookies and returns the public user document.
+   */
+  const setup = useCallback(async (username, password) => {
+    const u = (username || "").trim();
+    if (u.length < 3) throw new Error("Username must be at least 3 characters.");
+    if (!password || password.length < 8) throw new Error("Password must be at least 8 characters.");
+    const res = await client.post("/auth/setup", { username: u, password });
+    if (res.status === 403) {
+      throw new Error(formatApiErrorDetail(res.data?.detail) || "Setup is locked.");
+    }
+    if (res.status !== 200 || !res.data || !res.data.id) {
+      throw new Error(formatApiErrorDetail(res.data?.detail) || `Setup failed (HTTP ${res.status}).`);
+    }
+    setUser(res.data);
+    setSetupComplete(true);
+    setIsInitialized(false);
+    return res.data;
+  }, []);
+
+  /**
+   * Login accepts either (username, password) positional or an object
+   * ({ username, passphrase }) — the latter is what v2/pages/LoginPage.jsx
+   * uses.  Both names refer to the same secret; we forward as `password`.
+   */
+  const login = useCallback(async (...args) => {
+    let u = "", p = "";
+    if (args.length === 1 && typeof args[0] === "object" && args[0] !== null) {
+      u = args[0].username || "";
+      p = args[0].password || args[0].passphrase || "";
+    } else {
+      u = args[0] || "";
+      p = args[1] || "";
+    }
+    u = u.trim();
+    if (!u || !p) {
+      const err = new Error("Username and password are required.");
       err.code = "EMPTY_CREDENTIALS";
       throw err;
     }
-    if (cleanPass.length < 4) {
-      const err = new Error("Passphrase too short.");
-      err.code = "WEAK_PASSPHRASE";
-      throw err;
-    }
-    let res;
-    try {
-      res = await axios.post(`${API}/auth/login`, {
-        username: cleanUser,
-        password: cleanPass,
-      }, { timeout: 10000, validateStatus: () => true });
-    } catch (err) {
-      const e = new Error("Cannot reach authentication service.");
-      e.code = "NETWORK_ERROR";
-      throw e;
-    }
+    const res = await client.post("/auth/login", { username: u, password: p });
     if (res.status === 401) {
-      const e = new Error("Invalid credentials.");
+      const e = new Error(formatApiErrorDetail(res.data?.detail) || "Invalid username or password.");
       e.code = "INVALID_CREDENTIALS";
       throw e;
     }
-    if (res.status !== 200 || !res.data?.token) {
-      const e = new Error(res.data?.detail || `Login failed (HTTP ${res.status}).`);
+    if (res.status === 429) {
+      const e = new Error(formatApiErrorDetail(res.data?.detail) || "Too many attempts — try again later.");
+      e.code = "LOCKED";
+      throw e;
+    }
+    if (res.status !== 200 || !res.data || !res.data.id) {
+      const e = new Error(formatApiErrorDetail(res.data?.detail) || `Login failed (HTTP ${res.status}).`);
       e.code = "LOGIN_FAILED";
       throw e;
     }
-    const sess = {
-      token: res.data.token,
-      tokenType: res.data.token_type || "bearer",
-      expiresAt: res.data.expires_at,
-      user: res.data.user,
-      initialized: false,
-    };
-    writeSession(sess);
-    setSession(sess);
-    setInitialized(false);
-    return sess;
+    setUser(res.data);
+    setSetupComplete(true);
+    setIsInitialized(false);
+    return res.data;
   }, []);
 
   const logout = useCallback(async () => {
-    const s = readSession();
-    if (s?.token) {
-      try {
-        await axios.post(`${API}/auth/logout`, null, {
-          headers: { Authorization: `Bearer ${s.token}` },
-          timeout: 5000,
-          validateStatus: () => true,
-        });
-      } catch { /* ignore — we log out locally regardless */ }
-    }
-    writeSession(null);
-    setSession(null);
-    setInitialized(false);
+    try { await client.post("/auth/logout"); } catch { /* logout locally anyway */ }
+    setUser(null);
+    setIsInitialized(false);
   }, []);
 
-  const markInitialized = useCallback(() => {
-    setInitialized(true);
-    setSession((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev, initialized: true };
-      writeSession(updated);
-      return updated;
-    });
+  /**
+   * Bump server-side session_version → invalidates every issued token,
+   * including this one. Used by SecuritySection.
+   */
+  const logoutAll = useCallback(async () => {
+    try { await client.post("/auth/logout-all"); } catch { /* fall through */ }
+    setUser(null);
+    setIsInitialized(false);
   }, []);
+
+  const markInitialized = useCallback(() => { setIsInitialized(true); }, []);
 
   const value = useMemo(() => ({
-    user: session?.user || null,
-    role: session?.user?.role || null,
-    token: session?.token || null,
-    isAuthenticated: Boolean(session?.token),
-    isInitialized: Boolean(session?.token) && initialized,
-    isValidating: validating,
+    user,
+    role: user?.role || null,
+    isAuthenticated: Boolean(user),
+    isValidating,
+    isInitialized,
+    setupComplete,
     login,
+    setup,
     logout,
+    logoutAll,
     markInitialized,
-  }), [session, initialized, validating, login, logout, markInitialized]);
+  }), [user, isValidating, isInitialized, setupComplete, login, setup, logout, logoutAll, markInitialized]);
 
   return React.createElement(AuthContext.Provider, { value }, children);
 }
@@ -157,10 +210,13 @@ export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) {
     return {
-      user: null, role: null, token: null,
-      isAuthenticated: false, isInitialized: false, isValidating: false,
+      user: null, role: null,
+      isAuthenticated: false, isValidating: false, isInitialized: false,
+      setupComplete: null,
       login: async () => { throw new Error("AuthProvider not mounted"); },
+      setup: async () => { throw new Error("AuthProvider not mounted"); },
       logout: async () => {},
+      logoutAll: async () => {},
       markInitialized: () => {},
     };
   }
