@@ -89,14 +89,33 @@ class AdaptiveWeightsWorker:
         }
 
     async def start(self) -> None:
+        """Non-blocking start — see CalibrationWorker.start for rationale."""
         if self._running:
             return
-        await self._repo.ensure_indexes()
-        await self._warm_start_cache()
         self._stop_event = asyncio.Event()
         self._running = True
-        self._task = asyncio.create_task(self._loop(), name="arbicore_adaptive_weights_worker")
+        self._task = asyncio.create_task(
+            self._run_with_init(), name="arbicore_adaptive_weights_worker",
+        )
         logger.info("adaptive_weights_worker started (interval=%ss)", self._cfg.tick_interval_s)
+
+    async def _run_with_init(self) -> None:
+        """Boot-init + main-loop wrapper — resilient to Mongo unavailability."""
+        try:
+            await self._repo.ensure_indexes()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "adaptive_weights_worker ensure_indexes deferred (will retry on tick): %s",
+                exc,
+            )
+        try:
+            await self._warm_start_cache()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "adaptive_weights_worker warm_start_cache deferred (will retry on tick): %s",
+                exc,
+            )
+        await self._loop()
 
     async def stop(self) -> None:
         if not self._running:

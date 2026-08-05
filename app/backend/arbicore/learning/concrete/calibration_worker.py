@@ -96,14 +96,45 @@ class CalibrationWorker:
         }
 
     async def start(self) -> None:
+        """Non-blocking start.
+
+        Boot-time init (``ensure_indexes`` + warm-start cache read) requires
+        Mongo. If Mongo is unreachable at process boot (e.g. DNS not yet
+        resolvable on a shared Docker network) those calls would block for
+        pymongo's serverSelectionTimeoutMS and stall Uvicorn's startup.
+
+        We therefore defer init into the background task so ``start()``
+        returns immediately. If init fails, the failure is logged and the
+        main tick loop's existing backoff-and-retry ladder picks it up on
+        the next cycle. Calibration MUST NEVER interrupt inference — and
+        that guarantee now extends to boot as well.
+        """
         if self._running:
             return
-        await self._repo.ensure_indexes()
-        await self._warm_start_cache()
         self._stop_event = asyncio.Event()
         self._running = True
-        self._task = asyncio.create_task(self._loop(), name="arbicore_calibration_worker")
+        self._task = asyncio.create_task(
+            self._run_with_init(), name="arbicore_calibration_worker",
+        )
         logger.info("calibration_worker started (interval=%ss)", self._cfg.tick_interval_s)
+
+    async def _run_with_init(self) -> None:
+        """Boot-init + main-loop wrapper — resilient to Mongo unavailability."""
+        try:
+            await self._repo.ensure_indexes()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "calibration_worker ensure_indexes deferred (will retry on tick): %s",
+                exc,
+            )
+        try:
+            await self._warm_start_cache()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "calibration_worker warm_start_cache deferred (will retry on tick): %s",
+                exc,
+            )
+        await self._loop()
 
     async def stop(self) -> None:
         if not self._running:
