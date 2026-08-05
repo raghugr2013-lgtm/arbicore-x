@@ -1119,13 +1119,15 @@ async def v2_discovery_action(
     target = _UI_ACTION_TO_TARGET_STATUS[verb]
     try:
         if target == OpportunityStatus.VALIDATED:
-            if canonical.status == OpportunityStatus.CANDIDATE:
-                canonical.mark_validated()
+            # watch: only legal from CANDIDATE.  FSM raises otherwise.
+            canonical.mark_validated()
         elif target == OpportunityStatus.APPROVED:
+            # promote: walk the FSM from wherever we are.  Any illegal
+            # source status surfaces as InvalidTransitionError from the
+            # canonical FSM, which is caught below.
             if canonical.status == OpportunityStatus.CANDIDATE:
                 canonical.mark_validated()
-            if canonical.status == OpportunityStatus.VALIDATED:
-                canonical.mark_approved()
+            canonical.mark_approved()
         elif target == OpportunityStatus.REJECTED:
             canonical.mark_rejected(f"discovery_action:{verb}")
         await _CANONICAL_OPP_REPO.upsert(canonical)
