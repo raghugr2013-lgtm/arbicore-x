@@ -41,7 +41,14 @@ JOURNAL_COL = "arbicore_opportunity_journal"
 
 @pytest.fixture(scope="module")
 def client() -> requests.Session:
-    return requests.Session()
+    """After Slice 1.1 auth gate, tests must authenticate to hit /arbicore/opportunities*."""
+    s = requests.Session()
+    r = s.post(f"{API}/auth/login", json=ADMIN, timeout=10)
+    if r.status_code != 200:
+        r = s.post(f"{API}/auth/setup", json=ADMIN, timeout=10)
+        if r.status_code != 200:
+            pytest.skip(f"auth setup/login failed: {r.status_code} {r.text[:120]}")
+    return s
 
 
 @pytest.fixture(scope="module")
