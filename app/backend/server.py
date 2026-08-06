@@ -515,54 +515,157 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-@api_router.get("/arbicore/dashboard/pulse")
+@api_router.get("/arbicore/dashboard/pulse", dependencies=[Depends(_require_operator_dep)])
 async def v2_pulse() -> Dict[str, Any]:
+    """Slice 5 · Canonical activation.
+
+    Derives ``regime`` and ``opportunity_vitals`` from live canonical stores.
+    Empty stores → empty counts (no fabrication).  All other pointer keys
+    remain as endpoint hints for the frontend to fetch on demand.
+    """
+    # opportunity_vitals from the canonical repo
+    try:
+        rows = await _CANONICAL_OPP_REPO.find({}, limit=2000)
+    except Exception:
+        logger.exception("dashboard/pulse: canonical read failed")
+        rows = []
+    by_family: Dict[str, int] = {}
+    by_status: Dict[str, int] = {}
+    for o in rows:
+        ot = o.opportunity_type.value if hasattr(o.opportunity_type, "value") else str(o.opportunity_type)
+        st = o.status.value if hasattr(o.status, "value") else str(o.status)
+        by_family[ot] = by_family.get(ot, 0) + 1
+        by_status[st] = by_status.get(st, 0) + 1
+
+    # regime — read the latest regime snapshot if the repo is composed;
+    # otherwise report UNKNOWN.  No fabricated 'CALM · 0.82'.
+    regime: Dict[str, Any] = {
+        "regime":       "UNKNOWN",
+        "tags":         [],
+        "confidence":   0.0,
+        "source":       "canonical",
+        "observed_at":  None,
+    }
+    try:
+        from arbicore.runtime.composition import get_regime_snapshot_repo
+        r_repo = get_regime_snapshot_repo()
+        latest = await r_repo.latest()
+        if latest is not None:
+            d = latest.to_dict() if hasattr(latest, "to_dict") else dict(latest)
+            regime = {
+                "regime":      d.get("regime", "UNKNOWN"),
+                "tags":        list(d.get("tags", []) or []),
+                "confidence":  float(d.get("confidence", 0.0) or 0.0),
+                "source":      "canonical",
+                "observed_at": d.get("observed_at"),
+            }
+    except Exception:
+        # Repository not composed / no snapshots yet — honest empty regime.
+        logger.debug("dashboard/pulse: regime snapshot repo unavailable")
+
+    # Route-learning trace: count of routes with journal entries so far.
+    tracked_routes = 0
+    try:
+        db = _CANONICAL_OPP_REPO._col.database  # type: ignore[attr-defined]
+        tracked_routes = await db.arbicore_opportunity_journal.count_documents({})
+    except Exception:
+        logger.debug("dashboard/pulse: route trace unavailable")
+
     return {
-        "regime": {
-            "regime": "CALM",
-            "tags": ["low_volatility"],
-            "confidence": 0.82,
-            "source": "preview-stub",
-            "observed_at": _iso_now(),
+        "regime":              regime,
+        "opportunity_vitals":  {
+            "total":     len(rows),
+            "by_family": by_family,
+            "by_status": by_status,
         },
-        "opportunity_vitals": {
-            "total": 14,
-            "by_family": {"CEX_ARBITRAGE": 6, "DEX_ARBITRAGE": 4, "FUNDING_ARBITRAGE": 3, "LAUNCH_ARBITRAGE": 1},
-            "by_status": {"CANDIDATE": 12, "APPROVED": 2},
-        },
-        "route_learning": {"tracked_routes": 47},
-        "scanner_status": {"endpoint": "/api/arbicore/scanners", "detail": "per-family scanner status"},
-        "venue_readiness": {"endpoint": "/api/venues/status", "detail": "venue readiness registry"},
-        "feed_freshness": {"endpoint": "/api/execution/portal/diagnostic", "detail": "portal feed freshness"},
-        "interlock": {"endpoint": "/api/execution/interlock", "detail": "safety interlock status"},
-        "deployable_capital": {"endpoint": "/api/portfolio/deployable", "detail": "deployable capital"},
-        "anomalies": [],
-        "generated_at": _iso_now(),
+        "route_learning":      {"tracked_routes": tracked_routes},
+        # Pointer keys (unchanged; frontend fetches these on demand).
+        "scanner_status":      {"endpoint": "/api/arbicore/scanners", "detail": "per-family scanner status"},
+        "venue_readiness":     {"endpoint": "/api/venues/status", "detail": "venue readiness registry"},
+        "feed_freshness":      {"endpoint": "/api/execution/portal/diagnostic", "detail": "portal feed freshness"},
+        "interlock":           {"endpoint": "/api/execution/interlock", "detail": "safety interlock status"},
+        "deployable_capital":  {"endpoint": "/api/portfolio/deployable", "detail": "deployable capital"},
+        "anomalies":           [],
+        "source":              "canonical",
+        "generated_at":        _iso_now(),
     }
 
 
-@api_router.get("/arbicore/dashboard/deck")
+@api_router.get("/arbicore/dashboard/deck", dependencies=[Depends(_require_operator_dep)])
 async def v2_deck(limit: int = 5) -> Dict[str, Any]:
-    fresh = [
-        {"id": "opp-001", "opportunity_type": "CEX_ARBITRAGE", "subject_id": "ETH-USDT",
-         "chain": "ethereum", "confidence": 0.87, "status": "CANDIDATE", "created_at": _iso_now()},
-        {"id": "opp-002", "opportunity_type": "DEX_ARBITRAGE", "subject_id": "WETH/USDC",
-         "chain": "arbitrum", "confidence": 0.79, "status": "CANDIDATE", "created_at": _iso_now()},
-        {"id": "opp-003", "opportunity_type": "FUNDING_ARBITRAGE", "subject_id": "SOL-PERP",
-         "chain": "solana", "confidence": 0.71, "status": "CANDIDATE", "created_at": _iso_now()},
-        {"id": "opp-004", "opportunity_type": "CEX_ARBITRAGE", "subject_id": "BTC-USDT",
-         "chain": "bitcoin", "confidence": 0.65, "status": "CANDIDATE", "created_at": _iso_now()},
-        {"id": "opp-005", "opportunity_type": "LAUNCH_ARBITRAGE", "subject_id": "NEW-TOKEN",
-         "chain": "solana", "confidence": 0.58, "status": "CANDIDATE", "created_at": _iso_now()},
-    ][:max(1, min(limit, 20))]
+    """Slice 5 · Canonical activation.
+
+    Reads the canonical Opportunity repository directly:
+      * ``fresh_opportunities``   most recent by ``created_at``, any status.
+      * ``pending_approvals``     rows with FSM status VALIDATED (i.e.
+                                   ``WATCHING`` in UI terms) awaiting operator decision.
+      * ``requires_attention``    rows with status CANDIDATE whose
+                                   ``updated_at`` is stale (> 6 h old) — a
+                                   pragmatic definition of "needs a look".
+    Empty stores → empty lists.  No fabrication.
+    """
+    limit = max(1, min(int(limit or 5), 20))
+    try:
+        rows = await _CANONICAL_OPP_REPO.find({}, limit=500)
+    except Exception:
+        logger.exception("dashboard/deck: canonical read failed")
+        rows = []
+
+    def _row(o) -> Dict[str, Any]:
+        c = float(o.confidence_score or 0)
+        conf = c / 100.0 if c > 1.0 else c
+        return {
+            "id":                o.opportunity_id,
+            "opportunity_type":  o.opportunity_type.value if hasattr(o.opportunity_type, "value") else str(o.opportunity_type),
+            "subject_id":        o.subject_id or o.asset or o.opportunity_id,
+            "chain":             o.chain,
+            "confidence":        round(conf, 4),
+            "status":            o.status.value if hasattr(o.status, "value") else str(o.status),
+            "created_at":        o.created_at,
+        }
+
+    validated = OpportunityStatus.VALIDATED.value
+    candidate = OpportunityStatus.CANDIDATE.value
+
+    # Fresh — most recent by created_at desc.
+    fresh_sorted = sorted(rows, key=lambda o: o.created_at or "", reverse=True)
+    fresh = [_row(o) for o in fresh_sorted[:limit]]
+
+    # Pending approvals — currently VALIDATED (awaiting APPROVED/REJECTED).
+    pending = [_row(o) for o in rows
+               if (o.status.value if hasattr(o.status, "value") else str(o.status)) == validated]
+
+    # Requires attention — CANDIDATE untouched for > 6h.
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
+    def _is_stale(o) -> bool:
+        st = (o.status.value if hasattr(o.status, "value") else str(o.status))
+        if st != candidate:
+            return False
+        upd = getattr(o, "updated_at", None) or getattr(o, "created_at", None)
+        if not upd:
+            return False
+        try:
+            if isinstance(upd, str):
+                dt = datetime.fromisoformat(upd.replace("Z", "+00:00"))
+            else:
+                dt = upd
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt < cutoff
+        except Exception:
+            return False
+    attention = [_row(o) for o in rows if _is_stale(o)]
+
     return {
-        "pending_approvals": [],
-        "pending_approvals_total": 0,
-        "fresh_opportunities": fresh,
-        "fresh_opportunities_total": len(fresh),
-        "requires_attention": [],
-        "requires_attention_total": 0,
-        "generated_at": _iso_now(),
+        "pending_approvals":         pending[:limit],
+        "pending_approvals_total":   len(pending),
+        "fresh_opportunities":       fresh,
+        "fresh_opportunities_total": len(fresh_sorted),
+        "requires_attention":        attention[:limit],
+        "requires_attention_total":  len(attention),
+        "source":                    "canonical",
+        "generated_at":              _iso_now(),
     }
 
 
