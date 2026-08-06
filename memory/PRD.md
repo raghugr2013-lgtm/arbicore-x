@@ -223,8 +223,50 @@ Commit `36bbe9d` on main.
      opp-001..opp-005, 'CALM · 0.82' regime).
 - ✅ Testing: iter10 (161/161 PASS · 145 baseline + 16 Slice 5).
 
-### Slice 6 — Portfolio activation (P0 — next)
-### Slice 7 — Operations activation (P0)
+### Slice 6 — Portfolio Canonicalization (2026-08-06) — ✅ COMPLETE (v2.11.6)
+
+- ✅ 8 portfolio endpoints canonicalized: `/positions`, `/balances`,
+     `/transfers`, `/deployable`, `/treasury`, `/ledger`, `/exposure`,
+     `/allocation`.
+- ✅ Removed every hardcoded array (pos-01..pos-06 positions; binance/kucoin
+     /okx balances; tr-014..tr-009 transfers; deployable per-venue rows;
+     cold_wallet/hot_wallet vaults; led-035..led-042 ledger; BTC/ETH/USDT
+     exposure rows; CEX_ARBITRAGE/DEX_ARBITRAGE allocation buckets).
+- ✅ Every endpoint returns a graceful empty payload preserving the UI
+     contract shape. Each carries a `TODO` naming the future canonical
+     source (ExecutionPositionRepository / VenueBalanceService / TreasuryLedger
+     / CapitalRouter / ExposureAnalyzer / AllocationPolicy) so later
+     activation is a repo swap with no contract change.
+- ✅ Session-cookie auth-gated via `dependencies=[Depends(_require_operator_dep)]`
+     on every route. Anonymous → 401 `{"detail":"not_authenticated"}`.
+
+### Slice 7 — Operations Canonicalization (2026-08-06) — ✅ COMPLETE (v2.11.6)
+
+- ✅ 10 operations endpoints canonicalized:
+     - `/scanners` + `/scanners/{family}/action` → canonical
+       `ScannerConfigRepository` + `ScannerStateRepository` (6 real families:
+       CEX/FUNDING/DEX/LAUNCH/CROSS_CHAIN/FLASH_LOAN_ARBITRAGE). Start/pause/
+       stop persists via `ScannerStateRepository.set_enabled` and is
+       round-trip verified through GET `/scanners`. SPATIAL_ARBITRAGE and
+       STATISTICAL_ARBITRAGE removed (no canonical row exists for them).
+     - `/venues` → `VenueCapabilityRepository.all_live()` (empty until a
+       probe lands a row). `kind`/`role` default to `UNKNOWN`/`primary`
+       with a TODO to extend the repo schema.
+     - `/queues` → derived from `DiscoveryQueue.queue_status()` (single
+       `discovery` queue today; TODO for full QueueTelemetryRepo).
+     - `/cycles`, `/interlock`, `/interlock/action`, `/integrations`,
+       `/alerts`, `/alerts/{id}/ack` → graceful empty/default shapes with
+       TODOs pointing to CycleRepository / OperatorFlags / IntegrationHealthRepo
+       / AlertRepository.
+- ✅ Removed the module-level `_V2_SCANNERS` placeholder and every
+     hardcoded cycles/venues/queues/alerts/integrations/interlock array.
+- ✅ Session-cookie auth-gated on every route. Anonymous → 401.
+
+### Regression evidence
+
+- iter11: **221/221 PASS** (161 baseline preserved + 60 new Slice 6/7
+  tests). `backend_issues.critical: []`, `backend_issues.minor: []`.
+  Full GO. Zero regressions.
 
 ---
 
@@ -241,8 +283,21 @@ are the reason connectivity works.
 
 Full details: `docs/DEPLOYMENT_ARCHITECTURE_FROZEN.md`.
 
-Roadmap ahead: Slice 5 → 6 → 7 → executor contract → Paper Validation →
-Shadow Certification → Limited Live.
+Roadmap ahead: ~~Slice 5 → 6 → 7~~ ✅ **all backend canonicalization complete
+(v2.11.6, iter11 221/221)**. Focus shifts from *building* to *proving* the
+platform:
+
+1. Deploy executor smart contract on `base`.
+2. Paper Validation run.
+3. Shadow Certification (20-cycle threshold).
+4. Limited Live + real flash-loan opportunity discovery/execution.
+5. Kill-switch operator UI wiring (P1).
+6. Adaptive-weight / calibration fitting scheduler (P1).
+
+### Deferred documentation task (P3)
+- Docker networking discrepancy (backend on `arbicore-x-net`,
+  `factory-mongo` on `vqb-network`) — purely documentation, do not
+  investigate further per user directive.
 
 ### Slice 4 — Execution Planning / Readiness (P2)
 ### Slice 5 — Dashboard Summary — replace hardcoded pulse/deck (P2)
