@@ -186,6 +186,174 @@ def encode_executor_execute(*,
 
 
 # ---------------------------------------------------------------------------
+# Aave V3 Pool flash-loan calldata (v2.11.7 · executor deployment)
+# ---------------------------------------------------------------------------
+# Two direct-to-Aave encoders + one executor-relayed encoder. Aave V3
+# charges a 5-bps premium on both entry points. All addresses are the
+# canonical Aave V3 Pool per chain.
+#
+# Direct-to-Aave encoders (:func:`encode_aave_v3_flash_loan_simple`,
+# :func:`encode_aave_v3_flash_loan`) target the Pool contract itself and
+# are preserved for future receiver contracts that pre-authorise
+# themselves in the Aave callback.  The LIMITED_LIVE path uses the
+# **executor-relayed** variant (:func:`encode_executor_execute_aave`)
+# because our ``FlashLoanReceiver.executeOperation`` guards the callback
+# with the ``_pendingProvider == 2`` re-entry gate — a direct Pool call
+# would trigger ``NotAuthorized()`` (selector ``0xea8e4eb5``) at
+# callback time.
+
+AAVE_V3_POOL_BY_CHAIN: Dict[str, str] = {
+    # Base mainnet — chain id 8453.
+    "base":         "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+    # Ethereum mainnet.
+    "ethereum":     "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
+    # Arbitrum One.
+    "arbitrum":     "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    # Optimism.
+    "optimism":     "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+    # Polygon PoS.
+    "polygon":      "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+}
+
+
+def encode_aave_v3_flash_loan_simple(*,
+                                      chain: str,
+                                      receiver: str,
+                                      asset: str,
+                                      amount_wei: int,
+                                      params_hex: str = "0x",
+                                      referral_code: int = 0,
+                                      gas_limit_hint: int = 900_000,
+                                      ) -> EncodedCall:
+    """Encode a direct call to ``IAaveV3Pool.flashLoanSimple``.
+
+    Signature: ``flashLoanSimple(address receiverAddress, address asset,
+    uint256 amount, bytes params, uint16 referralCode)``.
+
+    The Pool pushes ``amount`` of ``asset`` to ``receiver``, invokes
+    ``executeOperation`` on the receiver, then *pulls* ``amount +
+    premium`` via ``transferFrom`` after the callback returns.
+    """
+    if chain not in AAVE_V3_POOL_BY_CHAIN:
+        raise ValueError(f"Aave V3 pool not registered for chain '{chain}'")
+    if amount_wei <= 0:
+        raise ValueError("amount_wei must be > 0")
+    if not (0 <= int(referral_code) <= 0xFFFF):
+        raise ValueError("referral_code must fit in uint16")
+    sig = "flashLoanSimple(address,address,uint256,bytes,uint16)"
+    sel = _selector(sig)
+    params = to_bytes(hexstr=params_hex or "0x")
+    encoded = abi_encode(
+        ["address", "address", "uint256", "bytes", "uint16"],
+        [_addr(receiver), _addr(asset), int(amount_wei), params,
+         int(referral_code)],
+    )
+    calldata = sel + encoded
+    return EncodedCall(
+        contract_kind="aave_v3_pool",
+        contract_address=AAVE_V3_POOL_BY_CHAIN[chain],
+        function_signature=sig,
+        selector_hex="0x" + sel.hex(),
+        calldata_hex="0x" + calldata.hex(),
+        value_wei=0,
+        gas_limit_hint=int(gas_limit_hint),
+    )
+
+
+def encode_aave_v3_flash_loan(*,
+                               chain: str,
+                               receiver: str,
+                               assets: List[str],
+                               amounts_wei: List[int],
+                               interest_rate_modes: Optional[List[int]] = None,
+                               on_behalf_of: Optional[str] = None,
+                               params_hex: str = "0x",
+                               referral_code: int = 0,
+                               gas_limit_hint: int = 1_400_000,
+                               ) -> EncodedCall:
+    """Encode a direct call to ``IAaveV3Pool.flashLoan`` (multi-asset).
+
+    Signature: ``flashLoan(address receiverAddress, address[] assets,
+    uint256[] amounts, uint256[] interestRateModes, address onBehalfOf,
+    bytes params, uint16 referralCode)``.
+
+    Setting any ``interestRateModes[i]`` to a non-zero value opens a
+    debt position instead of requiring immediate repayment — LIMITED_LIVE
+    always passes zeros here.
+    """
+    if chain not in AAVE_V3_POOL_BY_CHAIN:
+        raise ValueError(f"Aave V3 pool not registered for chain '{chain}'")
+    if len(assets) != len(amounts_wei) or not assets:
+        raise ValueError("assets[] and amounts_wei[] must be equal-length "
+                         "and non-empty")
+    modes = list(interest_rate_modes or ([0] * len(assets)))
+    if len(modes) != len(assets):
+        raise ValueError("interest_rate_modes[] length mismatch")
+    on_behalf = on_behalf_of or receiver
+    sig = ("flashLoan(address,address[],uint256[],uint256[],address,"
+           "bytes,uint16)")
+    sel = _selector(sig)
+    params = to_bytes(hexstr=params_hex or "0x")
+    encoded = abi_encode(
+        ["address", "address[]", "uint256[]", "uint256[]", "address",
+         "bytes", "uint16"],
+        [_addr(receiver), [_addr(a) for a in assets],
+         [int(x) for x in amounts_wei], [int(m) for m in modes],
+         _addr(on_behalf), params, int(referral_code)],
+    )
+    calldata = sel + encoded
+    return EncodedCall(
+        contract_kind="aave_v3_pool",
+        contract_address=AAVE_V3_POOL_BY_CHAIN[chain],
+        function_signature=sig,
+        selector_hex="0x" + sel.hex(),
+        calldata_hex="0x" + calldata.hex(),
+        value_wei=0,
+        gas_limit_hint=int(gas_limit_hint),
+    )
+
+
+def encode_executor_execute_aave(*,
+                                  executor_address: str,
+                                  asset: str,
+                                  amount_wei: int,
+                                  user_data_hex: str = "0x",
+                                  gas_limit_hint: int = 1_100_000,
+                                  ) -> EncodedCall:
+    """Encode a call to ``FlashLoanReceiver.executeAave(...)`` on the executor.
+
+    Signature: ``executeAave(address asset, uint256 amount, bytes userData)``
+    — selector ``0x4343d8b2``.
+
+    This is the correct Aave-flash LIMITED_LIVE entry point: the executor
+    flips its ``_pendingProvider`` gate to Aave, calls
+    ``IAaveV3Pool.flashLoanSimple`` on itself, and validates the callback
+    caller against the Pool address wired at construction. Direct-to-
+    Pool encoding (see :func:`encode_aave_v3_flash_loan_simple`) bypasses
+    this window and triggers ``NotAuthorized()``.
+    """
+    if amount_wei <= 0:
+        raise ValueError("amount_wei must be > 0")
+    sig = "executeAave(address,uint256,bytes)"
+    sel = _selector(sig)
+    user_data = to_bytes(hexstr=user_data_hex or "0x")
+    encoded = abi_encode(
+        ["address", "uint256", "bytes"],
+        [_addr(asset), int(amount_wei), user_data],
+    )
+    calldata = sel + encoded
+    return EncodedCall(
+        contract_kind="flash_loan_receiver",
+        contract_address=_addr(executor_address),
+        function_signature=sig,
+        selector_hex="0x" + sel.hex(),
+        calldata_hex="0x" + calldata.hex(),
+        value_wei=0,
+        gas_limit_hint=int(gas_limit_hint),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Uniswap V3 SwapRouter exactInputSingle
 # ---------------------------------------------------------------------------
 
@@ -394,11 +562,10 @@ def encode_plan_head_call(
         3. Env var ``ARBICORE_EXECUTOR_ADDRESS_BASE`` (chain=base only)
     """
     provider = plan_doc.get("flash_loan_provider") or ""
-    if provider != "balancer_v2":
+    if provider not in ("balancer_v2", "aave_v3"):
         raise NotImplementedError(
-            f"Wave 7C calldata encoder supports only balancer_v2 flash heads; "
-            f"got '{provider}'.  Aave/Uniswap heads unlock once executor is "
-            f"deployed & verified."
+            f"calldata encoder supports balancer_v2 + aave_v3 flash heads; "
+            f"got '{provider}'."
         )
     borrow_step = next(
         (s for s in (plan_doc.get("steps") or []) if s.get("kind") == "borrow"), None,
@@ -456,5 +623,10 @@ def encode_plan_head_call(
     return encode_executor_execute(
         executor_address=recipient,
         tokens=[token], amounts=[amount],
+        user_data_hex=user_data_hex,
+    ) if provider == "balancer_v2" else encode_executor_execute_aave(
+        executor_address=recipient,
+        asset=token,
+        amount_wei=amount,
         user_data_hex=user_data_hex,
     )

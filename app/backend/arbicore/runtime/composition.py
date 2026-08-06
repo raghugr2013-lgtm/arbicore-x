@@ -464,6 +464,24 @@ def get_scanner_state_repo() -> ScannerStateRepository:
     return _scanner_state_repo
 
 
+# v2.11.8 — Paper Validation Framework repo (canonical evidence store).
+_paper_evidence_repo = None  # type: ignore[assignment]
+
+
+def get_paper_evidence_repo():
+    """Return the singleton :class:`PaperEvidenceRepository`.
+
+    Lazily constructed against the same Mongo handle as the other
+    canonical repos.  Immutable insert-only surface — see the module
+    docstring in :mod:`arbicore.paper.repo`.
+    """
+    global _paper_evidence_repo
+    if _paper_evidence_repo is None:
+        from ..paper import PaperEvidenceRepository
+        _paper_evidence_repo = PaperEvidenceRepository(_get_db())
+    return _paper_evidence_repo
+
+
 def get_cex_arb_scanner() -> CEXArbitrageScanner:
     global _cex_arb_scanner
     if _cex_arb_scanner is None:

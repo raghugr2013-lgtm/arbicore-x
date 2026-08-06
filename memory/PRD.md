@@ -268,9 +268,124 @@ Commit `36bbe9d` on main.
   tests). `backend_issues.critical: []`, `backend_issues.minor: []`.
   Full GO. Zero regressions.
 
+### Executor Package (v2.11.7) — 2026-08-06 — ✅ PHASE 1 COMPLETE (built + tested, NOT broadcast)
+
+- ✅ Foundry project scaffolded at `/app/contracts/` per user layout:
+     `contracts/{core,adapters,interfaces,libraries,tests}`, `script/`,
+     `docs/`.
+- ✅ Canonical `FlashLoanReceiver.sol` implements `execute(address[],
+     uint256[],bytes)` (selector `0x64ba4bc1`) and `executeAave(address,
+     uint256,bytes)` (selector `0x4343d8b2`) — both selectors match the
+     Python encoders byte-for-byte (verified via `cast sig`).
+- ✅ Providers wired: Balancer V2 Vault (0 bps) + Aave V3 Pool (5 bps).
+     DEX = Uniswap V3 `SwapRouter02`. Owner-immutable, no upgrade path,
+     re-entry gate + provider gate + caller check on every callback.
+- ✅ 8 Foundry unit tests passing (`forge test` — mock-driven, no forked
+     RPC required). Compiled artefact: runtime bytecode ~4988 bytes,
+     `solc 0.8.24` + `via_ir` + 200 optimizer runs.
+- ✅ Deployment scripts: `Deploy.s.sol` (one-command deploy, env-driven
+     venue overrides), `Verify.s.sol` (post-deploy verify helper),
+     `.env.example` (Base + Base Sepolia).
+- ✅ Docs: `contracts/docs/DEPLOYMENT.md`,
+     `contracts/docs/VERIFICATION.md`, evidence bundle under
+     `contracts/docs/evidence/`.
+
+### Executor Package (v2.11.7) — Phase 2 (Aave V3 encoders) — ✅ COMPLETE
+
+- ✅ Three new Python encoders in `arbicore/execution/calldata.py`:
+     - `encode_aave_v3_flash_loan_simple` — selector `0x42b0b77c`.
+     - `encode_aave_v3_flash_loan` — selector `0xab9c4b5d`
+       (multi-asset, direct-to-Pool).
+     - `encode_executor_execute_aave` — selector `0x4343d8b2`
+       (executor-relayed, LIMITED_LIVE Aave entry point).
+- ✅ `encode_plan_head_call` now routes `flash_loan_provider="aave_v3"`
+     through the executor-relayed encoder. Unknown providers still
+     raise `NotImplementedError`.
+- ✅ `broadcast.py:_REVERT_SELECTORS` extended with all 10 canonical
+     `FlashLoanReceiver` error selectors + backward-compat legacy
+     aliases.
+
+### Paper Validation Framework (v2.11.8) — 2026-08-06 — ✅ COMPLETE (all 3 slices)
+
+- ✅ **Slice A** — Canonical 8-outcome vocabulary
+  (EXECUTABLE / REJECTED / UNPROFITABLE / LIQUIDITY_FAILURE /
+  GAS_FAILURE / ROUTE_FAILURE / RISK_FAILURE / SIMULATION_FAILURE) +
+  immutable `EvidenceBundle` (frozen dataclass) + validation_id
+  linkage + per-stage `StageMetric` (started_at / ended_at /
+  duration_ms / failure_reason) + insert-only Mongo repo
+  (`arbicore_paper_evidence`) + terminal classification exactly once
+  at pipeline completion.  iter13 — 100% GO.
+- ✅ **Slice B** — Liquidity check stage (env-configurable safety
+  ratio, permissive on missing annotation) + Simulation stage with
+  `SimulationBackend` Protocol (Anvil / Tenderly / forge-fork can
+  plug in without pipeline changes).  Two backends ship:
+  `EthCallSimulator` (real RPC) + `HeuristicSimulator` (documented
+  offline).  `SimulationRouter.from_env()` picks eth_call when
+  `BASE_RPC_URL` is wired, heuristic otherwise.  Backend name
+  recorded on every bundle.  iter14 — 100% GO.
+- ✅ **Slice C** — `PaperValidationRunner` (idempotent, bounded,
+  fail-open, gated behind `ARBICORE_PAPER_VALIDATION_ENABLED`).  Four
+  new auth-gated endpoints under `/api/arbicore/validation/{report,
+  evidence, evidence/{id}, metrics}`.  `/dashboard/pulse` now
+  surfaces a `paper_validation` snapshot (total, executable_rate,
+  runner_running, outcome_counts).  iter15 — 100% GO.
+
+### Regression evidence (Paper Validation)
+
+- iter13: 100% (Slice A + 275 iter12 baseline).
+- iter14: 100% (Slice B).
+- iter15: 100% (Slice C, all 4 new endpoints auth-gated + pulse hook).
+- Zero critical / minor issues across all three iterations.
+- 59 dedicated Slice-A/B/C unit tests + 8 iter15 live e2e tests +
+  full Slice 1-7 + v2.11.7 regression, all green.
+
+### Framework readiness
+
+Full deliverables + sample EvidenceBundle + coverage report:
+`/app/docs/PAPER_VALIDATION_v2.11.8_DELIVERABLES.md`.
+
+**Ready for Shadow Certification design** — do NOT enable
+`ARBICORE_PAPER_VALIDATION_ENABLED=true` in production until an
+operator has explicitly reviewed a paper-validated evidence sample
+and gated promotion criteria are agreed.
+
 ---
 
 ## Deployment architecture — FROZEN (2026-08-05)
+
+### Regression evidence (Executor Package)
+
+- iter12: **275/275 PASS** (221 iter11 baseline + 54 new encoder tests +
+  24-check live API smoke). `backend_issues.critical: []`,
+  `backend_issues.minor: []`. FULL GO for v2.11.7.
+- Foundry: **8/8 PASS**.
+
+### On-chain state
+
+- **Base mainnet:** NOT DEPLOYED.
+- **Base Sepolia:** NOT DEPLOYED.
+- Definition of Done for Phase 1 = "buildable, testable, deployment-
+  ready package" — MET. Broadcast is the next phase (Base Sepolia
+  dry-run → Paper Validation → Shadow Certification → Base mainnet).
+
+---
+
+## Roadmap after v2.11.8
+
+Backend canonicalization + Executor Package + Paper Validation
+Framework are **complete**.  The platform pivots from *building* to
+*proving*.
+
+1. **Shadow Certification** — 20-cycle validation loop against the
+   Paper Validation Framework's outcome vocabulary.  Design lands
+   in v2.11.9.
+2. **Base Sepolia deploy** — first real on-chain broadcast, gated
+   behind Shadow Certification pass.
+3. **Limited Live** — real flash-loan opportunity execution, gated
+   behind explicit operator approval.
+4. **Base mainnet deploy** — final promotion, gated behind Limited
+   Live green stripe.
+5. **P3 · Docker networking discrepancy documentation** (deferred).
 
 VPS audit confirmed: **`factory-mongo` is the canonical ArbiCore production
 database.** All four components (backend, frontend, Opportunity Center,

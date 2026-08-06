@@ -270,6 +270,19 @@ _CONTINUOUS_DISCOVERY._canonical_repo = _CANONICAL_OPP_REPO
 _OPPORTUNITY_JOURNAL = OpportunityJournal(db)
 
 # ---------------------------------------------------------------------------
+# v2.11.8 · Paper Validation Framework — canonical evidence repo + runner.
+# The runner is bootstrapped later in `_start_paper_validation_runner`
+# (deferred until after the OpportunityPipeline is fully assembled).
+# ---------------------------------------------------------------------------
+from arbicore.paper import (
+    PaperEvidenceRepository,
+    PaperValidationRunner,
+    is_enabled_via_env as _paper_runner_enabled_via_env,
+)
+_PAPER_EVIDENCE_REPO = PaperEvidenceRepository(db)
+_PAPER_RUNNER: Optional[PaperValidationRunner] = None
+
+# ---------------------------------------------------------------------------
 # P0-B · Learning Ledger — bridges Opportunity Journal into the existing
 # CalibrationWorker + AdaptiveWeightsWorker. Writes to `db.calibration_log`
 # and `db.arbicore_signal_metrics` which the two workers already consume.
@@ -294,6 +307,9 @@ _OPPORTUNITY_PIPELINE = OpportunityPipeline(
     certifier=_EXECUTION_CERTIFIER,
     broadcaster=_LIMITED_LIVE_BROADCASTER,
     plans_repo=_EXECUTION_PLANS_REPO,
+    # v2.11.8 · Paper Validation Framework — every pipeline evaluation
+    # now writes an immutable EvidenceBundle to arbicore_paper_evidence.
+    evidence_repo=_PAPER_EVIDENCE_REPO,
 )
 
 # ---------------------------------------------------------------------------
@@ -571,6 +587,23 @@ async def v2_pulse() -> Dict[str, Any]:
     except Exception:
         logger.debug("dashboard/pulse: route trace unavailable")
 
+    # v2.11.8 — Paper Validation pulse. Compact histogram + executable
+    # rate; the full report lives at /arbicore/validation/report.
+    paper_validation = {"total": 0, "executable_rate": 0.0,
+                         "runner_running": False, "outcome_counts": {}}
+    try:
+        _pv_total = await _PAPER_EVIDENCE_REPO.count()
+        _pv_hist  = await _PAPER_EVIDENCE_REPO.outcome_histogram()
+        _pv_exec  = int(_pv_hist.get("EXECUTABLE", 0))
+        paper_validation = {
+            "total":            int(_pv_total),
+            "executable_rate":  (_pv_exec / _pv_total) if _pv_total else 0.0,
+            "runner_running":   bool(_PAPER_RUNNER and _PAPER_RUNNER.is_running()),
+            "outcome_counts":   {k: int(v) for k, v in _pv_hist.items()},
+        }
+    except Exception:  # noqa: BLE001
+        logger.debug("dashboard/pulse: paper validation snapshot unavailable")
+
     return {
         "regime":              regime,
         "opportunity_vitals":  {
@@ -579,6 +612,7 @@ async def v2_pulse() -> Dict[str, Any]:
             "by_status": by_status,
         },
         "route_learning":      {"tracked_routes": tracked_routes},
+        "paper_validation":    paper_validation,
         # Pointer keys (unchanged; frontend fetches these on demand).
         "scanner_status":      {"endpoint": "/api/arbicore/scanners", "detail": "per-family scanner status"},
         "venue_readiness":     {"endpoint": "/api/venues/status", "detail": "venue readiness registry"},
@@ -2051,6 +2085,154 @@ async def v2_alert_ack(alert_id: str) -> Dict[str, Any]:
     """
     return {"ok": True, "id": alert_id, "acked": True,
             "generated_at": _iso_now()}
+
+
+# ---------------------------------------------------------------------------
+# v2.11.8 — Paper Validation Framework endpoints (Slice C).
+#
+# Reads are all backed by the immutable ``arbicore_paper_evidence``
+# collection.  The four endpoints below give operators the same view
+# the Shadow Certification + Limited Live promotion gates will consume.
+# Every endpoint is session-cookie auth-gated.
+# ---------------------------------------------------------------------------
+
+@api_router.get(
+    "/arbicore/validation/report",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_paper_report() -> Dict[str, Any]:
+    """Aggregated Paper Validation report.
+
+    Returns:
+      * ``total``     — total EvidenceBundle count.
+      * ``histogram`` — {outcome: count} across the eight canonical outcomes
+                        (every outcome present even if count=0).
+      * ``rates``     — {outcome: fraction} matching histogram; 0.0 when
+                        ``total==0``.
+      * ``executable_rate`` — convenience field = rates["EXECUTABLE"].
+    """
+    from arbicore.paper import PaperOutcome
+    try:
+        total    = await _PAPER_EVIDENCE_REPO.count()
+        hist_raw = await _PAPER_EVIDENCE_REPO.outcome_histogram()
+    except Exception:  # noqa: BLE001
+        logger.exception("validation/report: repo read failed")
+        total    = 0
+        hist_raw = {}
+    # Ensure every canonical outcome is present (0 when absent).
+    histogram = {oc: int(hist_raw.get(oc, 0)) for oc in PaperOutcome.all_values()}
+    rates = ({oc: (histogram[oc] / total) for oc in histogram}
+             if total else {oc: 0.0 for oc in histogram})
+    return {
+        "total":            int(total),
+        "histogram":        histogram,
+        "rates":            rates,
+        "executable_rate":  rates.get("EXECUTABLE", 0.0),
+        "generated_at":     _iso_now(),
+    }
+
+
+@api_router.get(
+    "/arbicore/validation/evidence",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_paper_evidence_list(
+    outcome:  Optional[str] = None,
+    strategy: Optional[str] = None,
+    limit:    int = 50,
+) -> Dict[str, Any]:
+    """Recent EvidenceBundle listing.  Filter by ``outcome`` +/or ``strategy``.
+
+    Returns a compact projection — for the full stage trace call
+    ``GET /arbicore/validation/evidence/{validation_id}``.
+    """
+    try:
+        rows = await _PAPER_EVIDENCE_REPO.list_recent(
+            limit=int(limit), outcome=outcome, strategy=strategy,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("validation/evidence: repo read failed")
+        rows = []
+    items = [{
+        "validation_id":      b.validation_id,
+        "opportunity_id":     b.opportunity_id,
+        "strategy":           b.strategy,
+        "mode":               b.mode,
+        "outcome":            b.outcome.value,
+        "outcome_reason":     b.outcome_reason,
+        "scanner_family":     b.scanner_family,
+        "simulation_backend": b.simulation_backend,
+        "stage_count":        len(b.stages),
+        "created_at":         b.created_at,
+    } for b in rows]
+    return {
+        "items":         items,
+        "total":         len(items),
+        "generated_at":  _iso_now(),
+    }
+
+
+@api_router.get(
+    "/arbicore/validation/evidence/{validation_id}",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_paper_evidence_get(validation_id: str) -> Dict[str, Any]:
+    """Full EvidenceBundle for one validation_id — including per-stage trace."""
+    try:
+        b = await _PAPER_EVIDENCE_REPO.get_by_validation_id(validation_id)
+    except Exception:  # noqa: BLE001
+        logger.exception("validation/evidence/{id}: repo read failed")
+        b = None
+    if b is None:
+        return {"found": False, "validation_id": validation_id,
+                "generated_at": _iso_now()}
+    return {
+        "found":              True,
+        "validation_id":      b.validation_id,
+        "opportunity_id":     b.opportunity_id,
+        "strategy":           b.strategy,
+        "mode":               b.mode,
+        "outcome":            b.outcome.value,
+        "outcome_reason":     b.outcome_reason,
+        "scanner_family":     b.scanner_family,
+        "plan_id":            b.plan_id,
+        "simulation_backend": b.simulation_backend,
+        "pipeline_action":    b.pipeline_action,
+        "inputs":             b.inputs,
+        "stages":             b.stages,
+        "schema_version":     b.schema_version,
+        "created_at":         b.created_at,
+        "generated_at":       _iso_now(),
+    }
+
+
+@api_router.get(
+    "/arbicore/validation/metrics",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_paper_metrics() -> Dict[str, Any]:
+    """Runner health + throughput metrics.
+
+    Reads the in-memory :class:`RunnerMetrics` when the runner is
+    active; returns a canonical empty shape when the runner is
+    disabled or not yet started (metrics_source='disabled').
+    """
+    if _PAPER_RUNNER is None:
+        return {
+            "runner_enabled": False,
+            "metrics_source": "disabled",
+            "runner":         {"is_running": False},
+            "generated_at":   _iso_now(),
+        }
+    return {
+        "runner_enabled":  True,
+        "metrics_source":  "in_memory",
+        "runner":          {
+            "is_running": _PAPER_RUNNER.is_running(),
+            **_PAPER_RUNNER.metrics.to_dict(),
+        },
+        "generated_at":    _iso_now(),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -4197,6 +4379,48 @@ async def _mid_ensure_indexes_startup():
         logger.info("MID indexes ensured across %d collections", len(summary))
     except Exception as exc:  # noqa: BLE001
         logger.exception("failed to ensure MID indexes: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# v2.11.8 · Paper Validation Framework — runner lifecycle.
+# ---------------------------------------------------------------------------
+@app.on_event("startup")
+async def _paper_validation_startup():
+    """Ensure the paper-evidence indexes and (optionally) start the runner.
+
+    The runner is gated behind ``ARBICORE_PAPER_VALIDATION_ENABLED``.  When
+    the flag is not set (default in preview / test environments) we still
+    ensure the indexes so any manual pipeline invocation persists cleanly.
+    """
+    global _PAPER_RUNNER
+    try:
+        await _PAPER_EVIDENCE_REPO.ensure_indexes()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("paper evidence index ensure failed: %s", exc)
+    if not _paper_runner_enabled_via_env():
+        logger.info("PaperValidationRunner disabled "
+                    "(ARBICORE_PAPER_VALIDATION_ENABLED not set)")
+        return
+    try:
+        _PAPER_RUNNER = PaperValidationRunner(
+            opp_source=_CANONICAL_OPP_REPO,
+            pipeline=_OPPORTUNITY_PIPELINE,
+            evidence_repo=_PAPER_EVIDENCE_REPO,
+        )
+        _PAPER_RUNNER.start()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("PaperValidationRunner failed to start: %s", exc)
+
+
+@app.on_event("shutdown")
+async def _paper_validation_shutdown():
+    """Give the runner a chance to drain and stop cleanly."""
+    if _PAPER_RUNNER is None:
+        return
+    try:
+        await _PAPER_RUNNER.stop()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("PaperValidationRunner shutdown error: %s", exc)
 
 
 # ---------------------------------------------------------------------------

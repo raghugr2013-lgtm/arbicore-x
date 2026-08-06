@@ -1,0 +1,126 @@
+{
+  "validation_id": "db841369-d954-4936-92d9-737710e176eb",
+  "opportunity_id": "sample-bundle-1",
+  "strategy": "flash_loan_arbitrage",
+  "mode": "SHADOW",
+  "outcome": "EXECUTABLE",
+  "outcome_reason": "mode not promoted for automatic broadcast",
+  "stages": [
+    {
+      "stage": "quote",
+      "ok": true,
+      "detail": "1 hop(s) resolved from discovery",
+      "payload": {
+        "hops": 1,
+        "route": [
+          "uni-v3"
+        ]
+      },
+      "started_at": "2026-08-06T08:37:22.222724+00:00",
+      "ended_at": "2026-08-06T08:37:22.222731+00:00",
+      "duration_ms": 0.009,
+      "failure_reason": null
+    },
+    {
+      "stage": "liquidity",
+      "ok": true,
+      "detail": "all 1 liquidity-annotated hop(s) exceed borrow*5 (min ratio seen: 100.00)",
+      "payload": {
+        "checked_hops": 1,
+        "skipped_hops": 0,
+        "safety_ratio": 5.0,
+        "min_ratio_seen": 100.0,
+        "failing_hop_index": null
+      },
+      "started_at": "2026-08-06T08:37:22.223798+00:00",
+      "ended_at": "2026-08-06T08:37:22.223831+00:00",
+      "duration_ms": 0.036,
+      "failure_reason": null
+    },
+    {
+      "stage": "gas",
+      "ok": true,
+      "detail": "derived nominal gas estimate",
+      "payload": {
+        "gwei": null,
+        "units": null,
+        "usd": 30.0,
+        "source": "nominal"
+      },
+      "started_at": "2026-08-06T08:37:22.224725+00:00",
+      "ended_at": "2026-08-06T08:37:22.224732+00:00",
+      "duration_ms": 0.009,
+      "failure_reason": null
+    },
+    {
+      "stage": "profit",
+      "ok": true,
+      "detail": "net=42.5000 gas=30.0000 after_gas=12.5000",
+      "payload": {
+        "gross_profit_usd": 42.5,
+        "gas_cost_usd": 30.0,
+        "net_profit_usd": 12.5,
+        "profitable": true
+      },
+      "started_at": "2026-08-06T08:37:22.225545+00:00",
+      "ended_at": "2026-08-06T08:37:22.225552+00:00",
+      "duration_ms": 0.01,
+      "failure_reason": null
+    },
+    {
+      "stage": "policy",
+      "ok": true,
+      "detail": "policy allows in mode SHADOW",
+      "payload": {
+        "decision": "allow",
+        "engine": "composite",
+        "mode": "SHADOW",
+        "reasons": []
+      },
+      "started_at": "2026-08-06T08:37:22.226336+00:00",
+      "ended_at": "2026-08-06T08:37:22.226342+00:00",
+      "duration_ms": 0.008,
+      "failure_reason": null
+    },
+    {
+      "stage": "certification",
+      "ok": true,
+      "detail": "certifier not wired \u2014 skipped",
+      "payload": {
+        "status": "skipped"
+      },
+      "started_at": "2026-08-06T08:37:22.227091+00:00",
+      "ended_at": "2026-08-06T08:37:22.227096+00:00",
+      "duration_ms": 0.007,
+      "failure_reason": null
+    },
+    {
+      "stage": "simulate",
+      "ok": true,
+      "detail": "selector=0x64ba4bc1",
+      "payload": {
+        "backend": "heuristic",
+        "revert_selector": null,
+        "revert_reason": null
+      },
+      "started_at": "2026-08-06T08:37:22.228097+00:00",
+      "ended_at": "2026-08-06T08:37:22.228117+00:00",
+      "duration_ms": 0.024,
+      "failure_reason": null
+    }
+  ],
+  "scanner_family": null,
+  "plan_id": null,
+  "simulation_backend": "heuristic",
+  "inputs": {
+    "strategy": "flash_loan_arbitrage",
+    "chain": "base",
+    "opportunity_type": "flash_loan_arbitrage",
+    "borrow_token": null,
+    "borrow_amount_usd": 5000,
+    "flash_loan_provider": "balancer_v2"
+  },
+  "pipeline_action": "shadow",
+  "created_at": "2026-08-06T08:37:22.229792+00:00",
+  "schema_version": "v2.11.8"
+}

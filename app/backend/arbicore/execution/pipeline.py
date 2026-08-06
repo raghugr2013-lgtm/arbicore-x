@@ -33,11 +33,20 @@ Design invariants:
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ..data.journal import ExecutionStatus, OpportunityJournal
+from ..paper import (
+    EvidenceBundle,
+    PaperOutcome,
+    SimulationRouter,
+    check_liquidity,
+    classify_outcome,
+    new_validation_id,
+)
 
 
 logger = logging.getLogger("arbicore.execution.pipeline")
@@ -80,6 +89,13 @@ class PipelineResult:
     broadcast_receipt: Optional[Dict[str, Any]] = None
     generated_at: str = field(default_factory=_iso_now)
 
+    # v2.11.8 Paper Validation Framework additions — additive, safe for
+    # existing callers.  ``validation_id`` is assigned at pipeline entry;
+    # ``outcome`` is classified exactly once at pipeline completion.
+    validation_id: str = ""
+    outcome: str = ""
+    outcome_reason: str = ""
+
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
@@ -103,6 +119,8 @@ class OpportunityPipeline:
         certifier=None,
         broadcaster=None,
         plans_repo=None,
+        evidence_repo=None,
+        simulator=None,
     ):
         self._journal = journal
         self._mode = mode_repo
@@ -111,6 +129,19 @@ class OpportunityPipeline:
         self._certifier = certifier
         self._broadcaster = broadcaster
         self._plans = plans_repo
+        # v2.11.8 Paper Validation Framework — optional. When None, the
+        # pipeline still classifies + returns the outcome on PipelineResult
+        # but nothing is persisted.
+        self._evidence = evidence_repo
+        # v2.11.8 Slice B — SimulationRouter. Lazily built from env when
+        # no explicit backend is passed. Contract: the router selects
+        # ``eth_call`` when an RPC is wired for the opportunity's chain
+        # and falls back to the ``heuristic`` backend otherwise. Both
+        # backends implement the SimulationBackend Protocol.
+        self._simulator = simulator or SimulationRouter.from_env()
+        # Per-evaluate() slot for the simulation backend name — read by
+        # ``_persist_evidence`` when building the EvidenceBundle.
+        self._last_simulation_backend: Optional[str] = None
 
     # =====================================================================
     # Public entry point
@@ -128,6 +159,56 @@ class OpportunityPipeline:
         (``.to_dict()``) or an ad-hoc dict from a test. The dict must
         carry ``opportunity_id`` at minimum.
         """
+        # v2.11.8 — assign / reuse the canonical Paper Validation ID as
+        # the very first act.  Reuses upstream-assigned IDs (retries,
+        # replays) so evidence bundles are stable across attempts.
+        validation_id = str(opp.get("validation_id") or "").strip() or new_validation_id()
+        # Reset per-evaluate scratchpads so state does not leak between
+        # opps on a long-lived pipeline instance.
+        self._last_simulation_backend = None
+        try:
+            result = await self._evaluate_inner(
+                opp, strategy=strategy, scanner_family=scanner_family,
+                validation_id=validation_id,
+            )
+        finally:
+            # No matter how the pipeline exits, we do not want to lose
+            # a validation_id.  The classifier + evidence-bundle write
+            # happens on the success path below; unexpected exceptions
+            # bubble up (the pipeline is a subordinate — the caller
+            # decides whether to swallow them).
+            pass
+
+        # -----------------------------------------------------------------
+        # Terminal classification — happens exactly once, right here.
+        # -----------------------------------------------------------------
+        outcome, outcome_reason = classify_outcome(
+            action=result.action,
+            stages=result.stages,
+            generic_reason=result.reason,
+        )
+        result.validation_id  = validation_id
+        result.outcome        = outcome.value
+        result.outcome_reason = outcome_reason
+
+        # Persist the immutable EvidenceBundle if a repo is wired.
+        await self._persist_evidence(
+            result=result,
+            opp=opp,
+            outcome=outcome,
+            outcome_reason=outcome_reason,
+            scanner_family=scanner_family,
+        )
+        return result
+
+    async def _evaluate_inner(
+        self,
+        opp: Dict[str, Any],
+        *,
+        strategy: Optional[str] = None,
+        scanner_family: Optional[str] = None,
+        validation_id: str,
+    ) -> PipelineResult:
         opportunity_id = opp.get("opportunity_id") or ""
         if not opportunity_id:
             return PipelineResult(
@@ -149,7 +230,7 @@ class OpportunityPipeline:
              "opportunity_type": opp.get("opportunity_type") or strategy},
             mode=mode,
             scanner_family=scanner_family,
-            detail={"strategy": strategy},
+            detail={"strategy": strategy, "validation_id": validation_id},
         )
 
         result = PipelineResult(
@@ -164,15 +245,18 @@ class OpportunityPipeline:
         if mode not in ANALYSIS_MODES:
             result.action = "observe"
             result.reason = "mode is OBSERVE — no analysis"
-            result.stages.append(StageOutcome(
+            _t_perf = time.perf_counter(); _t_iso = _iso_now()
+            _obs = StageOutcome(
                 stage="observe_only", ok=True,
                 detail="OBSERVE mode records the opportunity and skips downstream stages.",
-            ).to_dict())
+            )
+            result.stages.append(self._stamp(_obs, _t_perf, _t_iso))
             return result
 
         # 3. Quote stage — quote data may already be on the opp
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
         quote_outcome = self._extract_quote(opp)
-        result.stages.append(quote_outcome.to_dict())
+        result.stages.append(self._stamp(quote_outcome, _t_perf, _t_iso))
         await self._journal.record_event(
             opportunity_id, kind="quoted",
             detail=quote_outcome.payload,
@@ -180,9 +264,38 @@ class OpportunityPipeline:
             status=ExecutionStatus.QUOTED.value if quote_outcome.ok else None,
         )
 
+        # 3b. Liquidity stage (v2.11.8 Slice B). Runs immediately after
+        #     the quote so scanners that couldn't populate reserves
+        #     don't trigger it; when hops DO carry ``pool_liquidity_usd``
+        #     we fail-fast on under-liquid hops.  Uses only fields the
+        #     scanner emits — never fabricates a value.
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
+        liq = check_liquidity(opp)
+        _liq_stage = StageOutcome(
+            stage="liquidity", ok=liq.ok,
+            detail=liq.detail,
+            payload=liq.to_stage_payload(),
+        )
+        result.stages.append(self._stamp(_liq_stage, _t_perf, _t_iso))
+        await self._journal.record_event(
+            opportunity_id, kind="liquidity_checked",
+            detail=liq.to_stage_payload(),
+        )
+        if not liq.ok:
+            result.action = "reject"
+            result.reason = liq.detail
+            await self._journal.record_event(
+                opportunity_id, kind="rejected_at_liquidity",
+                detail=liq.to_stage_payload(),
+                patch={"rejection_reason": liq.detail},
+                status=ExecutionStatus.REJECTED.value,
+            )
+            return result
+
         # 4. Gas stage
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
         gas_outcome = self._extract_gas(opp)
-        result.stages.append(gas_outcome.to_dict())
+        result.stages.append(self._stamp(gas_outcome, _t_perf, _t_iso))
         await self._journal.record_event(
             opportunity_id, kind="gas_estimated",
             detail=gas_outcome.payload,
@@ -191,8 +304,9 @@ class OpportunityPipeline:
         )
 
         # 5. Profit stage
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
         profit_outcome = self._compute_profit(opp, gas_outcome.payload)
-        result.stages.append(profit_outcome.to_dict())
+        result.stages.append(self._stamp(profit_outcome, _t_perf, _t_iso))
         await self._journal.record_event(
             opportunity_id, kind="profit_evaluated",
             detail=profit_outcome.payload,
@@ -211,8 +325,9 @@ class OpportunityPipeline:
             return result
 
         # 6. Policy gate — kill switch, mode, capital
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
         policy_outcome = await self._policy_check(strategy, mode, profit_outcome.payload)
-        result.stages.append(policy_outcome.to_dict())
+        result.stages.append(self._stamp(policy_outcome, _t_perf, _t_iso))
         await self._journal.record_event(
             opportunity_id, kind="policy_evaluated",
             detail=policy_outcome.payload,
@@ -230,8 +345,9 @@ class OpportunityPipeline:
 
         # 7. Certification (only for flash-loan style opps; skipped when
         #    the certifier or the required inputs are absent)
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
         cert_outcome = await self._certify(opp, strategy)
-        result.stages.append(cert_outcome.to_dict())
+        result.stages.append(self._stamp(cert_outcome, _t_perf, _t_iso))
         await self._journal.record_event(
             opportunity_id, kind="certified",
             detail=cert_outcome.payload,
@@ -245,6 +361,36 @@ class OpportunityPipeline:
                 opportunity_id, kind="rejected_at_certification",
                 detail=cert_outcome.payload,
                 patch={"rejection_reason": cert_outcome.detail},
+                status=ExecutionStatus.REJECTED.value,
+            )
+            return result
+
+        # 7b. Simulate stage (v2.11.8 Slice B). Runs immediately after
+        #     certification for every ANALYSIS-mode opp — including
+        #     SHADOW/PAPER — so Paper Validation captures the same
+        #     execution-viability check LIMITED_LIVE would apply.
+        #     Uses the SimulationRouter to select eth_call when an RPC
+        #     is wired, otherwise the documented HeuristicSimulator.
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
+        sim_res = await self._run_simulate_stage(opp, strategy)
+        self._last_simulation_backend = sim_res.backend
+        _sim_stage = StageOutcome(
+            stage="simulate", ok=sim_res.ok,
+            detail=sim_res.detail,
+            payload=sim_res.to_stage_payload(),
+        )
+        result.stages.append(self._stamp(_sim_stage, _t_perf, _t_iso))
+        await self._journal.record_event(
+            opportunity_id, kind="simulated",
+            detail=sim_res.to_stage_payload(),
+        )
+        if not sim_res.ok:
+            result.action = "reject"
+            result.reason = sim_res.detail or "simulation reverted"
+            await self._journal.record_event(
+                opportunity_id, kind="rejected_at_simulation",
+                detail=sim_res.to_stage_payload(),
+                patch={"rejection_reason": result.reason},
                 status=ExecutionStatus.REJECTED.value,
             )
             return result
@@ -269,8 +415,9 @@ class OpportunityPipeline:
             return result
 
         # 9. Broadcast — only reached with LIMITED_LIVE or FULL_LIVE
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
         broadcast_outcome = await self._broadcast(opp, strategy, result)
-        result.stages.append(broadcast_outcome.to_dict())
+        result.stages.append(self._stamp(broadcast_outcome, _t_perf, _t_iso))
         if broadcast_outcome.ok:
             result.action = "broadcast"
             result.reason = "broadcast dispatched"
@@ -292,6 +439,96 @@ class OpportunityPipeline:
                 status=ExecutionStatus.BROADCAST_FAILED.value,
             )
         return result
+
+    # =====================================================================
+    # v2.11.8 Paper Validation Framework helpers
+    # =====================================================================
+    def _stamp(self, outcome, start_perf, started_iso):
+        """Enrich a ``StageOutcome`` dict with per-stage timing + normalise
+        the failure_reason field.  Called from every stage-append site."""
+        ended_iso = _iso_now()
+        duration_ms = round((time.perf_counter() - start_perf) * 1000.0, 3)
+        d = outcome.to_dict()
+        d["started_at"]     = started_iso
+        d["ended_at"]       = ended_iso
+        d["duration_ms"]    = duration_ms
+        d["failure_reason"] = None if outcome.ok else (outcome.detail or "").strip() or None
+        return d
+
+    async def _run_simulate_stage(self, opp: Dict[str, Any], strategy: str):
+        """Run the SimulationRouter for one opportunity.
+
+        The router picks ``eth_call`` when an RPC is wired for the opp's
+        chain and falls back to the ``HeuristicSimulator`` otherwise.
+        Both backends implement :class:`~arbicore.paper.SimulationBackend`.
+
+        The pipeline extracts the executor call target + calldata from
+        the plan_head when the opp carries one; otherwise it hands a
+        synthetic payload to the heuristic backend (which validates
+        selector shape only, not on-chain semantics).
+        """
+        # Pull plan head from the opp when the caller populated one
+        # (typical for planner-produced opps).
+        plan = opp.get("plan_head") or {}
+        chain = opp.get("chain") or "base"
+        to    = plan.get("contract_address") or opp.get("executor_address") or ""
+        data  = plan.get("calldata_hex")     or opp.get("calldata_hex")     or ""
+        from_ = opp.get("signer_address") or opp.get("recipient") or opp.get("owner") or "0x0000000000000000000000000000000000000001"
+        # When the opp doesn't carry a plan head (very common for
+        # scanner-emitted candidates), fall through to the heuristic
+        # backend with a placeholder selector so it can still assert
+        # basic shape and record `backend=heuristic` on the evidence.
+        if not to:
+            to   = "0x0000000000000000000000000000000000000001"
+        if not data:
+            data = "0x00000000"
+        return await self._simulator.simulate(
+            chain=chain, to=to, data=data, from_=from_,
+        )
+
+    async def _persist_evidence(self, *,
+                                 result: "PipelineResult",
+                                 opp: Dict[str, Any],
+                                 outcome: "PaperOutcome",
+                                 outcome_reason: str,
+                                 scanner_family: Optional[str]) -> None:
+        """Write the immutable EvidenceBundle exactly once.
+
+        No-ops (with a warning log) when no evidence repo was wired.  Any
+        write failure is logged but never propagated — the pipeline's
+        primary contract is orchestration, not persistence, and every
+        journal event is already written independently.
+        """
+        if self._evidence is None:
+            return
+        try:
+            bundle = EvidenceBundle(
+                validation_id      = result.validation_id,
+                opportunity_id     = result.opportunity_id,
+                strategy           = result.strategy,
+                mode               = result.mode,
+                outcome            = outcome,
+                outcome_reason     = outcome_reason,
+                stages             = list(result.stages),
+                scanner_family     = scanner_family,
+                plan_id            = result.plan_id,
+                simulation_backend = self._last_simulation_backend,
+                inputs             = {
+                    "strategy":          result.strategy,
+                    "chain":             opp.get("chain"),
+                    "opportunity_type":  opp.get("opportunity_type"),
+                    "borrow_token":      opp.get("borrow_token"),
+                    "borrow_amount_usd": opp.get("borrow_amount_usd"),
+                    "flash_loan_provider": opp.get("flash_loan_provider"),
+                },
+                pipeline_action    = result.action,
+            )
+            await self._evidence.insert(bundle)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "PaperEvidence insert failed for validation_id=%s: %s",
+                result.validation_id, exc,
+            )
 
     # =====================================================================
     # Stage implementations

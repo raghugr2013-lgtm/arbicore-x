@@ -1,0 +1,16 @@
+Compiling 6 files with Solc 0.8.24
+Solc 0.8.24 finished in 5.55s
+Compiler run successful!
+
+Ran 8 tests for contracts/tests/FlashLoanReceiver.t.sol:FlashLoanReceiverTest
+[PASS] test_aave_flash_happy_path() (gas: 176637)
+[PASS] test_balancer_flash_happy_path() (gas: 188836)
+[PASS] test_constructor_reverts_on_zero_address() (gas: 111050)
+[PASS] test_executeAave_reverts_when_not_owner() (gas: 11600)
+[PASS] test_executeOperation_reverts_when_not_authorized() (gas: 13417)
+[PASS] test_execute_reverts_when_not_owner() (gas: 12500)
+[PASS] test_receiveFlashLoan_reverts_when_not_authorized() (gas: 16120)
+[PASS] test_rescue_owner_only() (gas: 73881)
+Suite result: ok. 8 passed; 0 failed; 0 skipped; finished in 1.05ms (544.32µs CPU time)
+
+Ran 1 test suite in 179.31ms (1.05ms CPU time): 8 tests passed, 0 failed, 0 skipped (8 total tests)

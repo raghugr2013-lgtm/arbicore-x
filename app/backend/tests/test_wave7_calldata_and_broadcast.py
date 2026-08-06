@@ -112,9 +112,23 @@ class TestPlanHeadEncoder:
         assert r.selector_hex.lower() == "0x64ba4bc1"  # execute(address[],uint256[],bytes)
         assert r.contract_address.lower() == RECIPIENT.lower()
 
-    def test_aave_head_rejected_at_wave7c(self):
+    def test_aave_head_encodes_executor_executeAave(self):
+        """v2.11.7: Aave V3 flash heads unlock once the executor is
+        deployment-ready. Plan heads with ``flash_loan_provider ==
+        "aave_v3"`` now target the executor's ``executeAave(address,
+        uint256, bytes)`` entry point (selector 0x4343d8b2), not the
+        Aave Pool directly.
+        """
         plan = self._plan()
         plan["flash_loan_provider"] = "aave_v3"
+        r = encode_plan_head_call(plan)
+        assert r.contract_kind == "flash_loan_receiver"
+        assert r.selector_hex.lower() == "0x4343d8b2"
+        assert r.contract_address.lower() == RECIPIENT.lower()
+
+    def test_unknown_flash_provider_rejected(self):
+        plan = self._plan()
+        plan["flash_loan_provider"] = "morpho_blue"
         with pytest.raises(NotImplementedError):
             encode_plan_head_call(plan)
 

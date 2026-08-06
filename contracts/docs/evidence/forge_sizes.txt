@@ -1,0 +1,2 @@
+| Contract          | Runtime Size (B) | Initcode Size (B) | Runtime Margin (B) | Initcode Margin (B) |
+| FlashLoanReceiver | 4,987            | 5,360             | 19,589             | 43,792              |

@@ -50,12 +50,20 @@ CHAIN_IDS: Dict[str, int] = {
 # Uniswap V3 router+pool, standard Solidity panic + Error(string)).  When
 # an eth_call revert returns "data" we look up the first 4 bytes here.
 _REVERT_SELECTORS: Dict[str, str] = {
-    # FlashLoanReceiver (canonical_repo/contracts/FlashLoanReceiver.sol)
+    # FlashLoanReceiver (canonical /app/contracts/contracts/core/FlashLoanReceiver.sol)
     "0x30cd7471": "FlashLoanReceiver.NotOwner()",
-    "0x62df0545": "FlashLoanReceiver.NotVault()",
+    "0x62df0545": "FlashLoanReceiver.NotVault()",  # legacy alias (pre-v2.11.7)
     "0xea8e4eb5": "FlashLoanReceiver.NotAuthorized()",
-    "0xaf36925d": "FlashLoanReceiver.HopFailed(uint256)",
-    "0x175edf10": "FlashLoanReceiver.RepayFailed(address)",
+    "0xedd7338f": "FlashLoanReceiver.CallerNotVault()",
+    "0xe9211597": "FlashLoanReceiver.CallerNotPool()",
+    "0x199bb70b": "FlashLoanReceiver.EmptyHops()",
+    "0x6a6fee17": "FlashLoanReceiver.SwapReverted(uint256)",
+    "0xc90bb86a": "FlashLoanReceiver.ApproveFailed(address)",
+    "0x39f1c8d9": "FlashLoanReceiver.TransferFailed(address)",
+    "0xdb42144d": "FlashLoanReceiver.InsufficientBalance(address,uint256,uint256)",
+    "0xd92e233d": "FlashLoanReceiver.ZeroAddress()",
+    "0xaf36925d": "FlashLoanReceiver.HopFailed(uint256)",   # legacy alias
+    "0x175edf10": "FlashLoanReceiver.RepayFailed(address)",  # legacy alias
     # Balancer V2 Vault common
     "0xe08b8af0": "BalancerV2.SwapDeadline()",
     "0x8beb9d16": "BalancerV2.ReentrancyGuard()",

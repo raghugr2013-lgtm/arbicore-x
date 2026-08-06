@@ -1,0 +1,7 @@
+runtime_bytecode_bytes: 4988
+deployment_bytecode_bytes: 5361
+metadata.compiler.version: 0.8.24+commit.e11b9ed9
+metadata.settings.optimizer: {'enabled': True, 'runs': 200}
+abi_function_count: 10
+abi_event_count: 2
+abi_error_count: 10
