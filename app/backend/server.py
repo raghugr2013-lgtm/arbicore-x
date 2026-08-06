@@ -2401,6 +2401,107 @@ async def v2_shadow_cert_readiness() -> Dict[str, Any]:
     return await _shadow_cert_readiness_snapshot()
 
 
+# ---------------------------------------------------------------------------
+# v2.11.10 · Opportunity Decision Analytics — read-only aggregations over
+# the immutable arbicore_paper_evidence collection.  Every processed
+# opportunity is projected through the canonical rejection taxonomy in
+# ``arbicore.analytics.classify_evidence`` so the operator can see:
+#   * acceptance / rejection summary
+#   * rejection-reason histogram
+#   * per-scanner performance
+#   * bottleneck stages
+#   * hourly executable-rate trend
+# The service is instantiated lazily on first use so preview envs
+# without the evidence collection still boot cleanly.
+# ---------------------------------------------------------------------------
+from arbicore.analytics.service import DecisionAnalyticsService as _DecisionAnalyticsSvc  # noqa: E402
+_DECISION_ANALYTICS: Optional[_DecisionAnalyticsSvc] = None
+
+
+def _decision_analytics() -> _DecisionAnalyticsSvc:
+    global _DECISION_ANALYTICS
+    if _DECISION_ANALYTICS is None:
+        _DECISION_ANALYTICS = _DecisionAnalyticsSvc(_PAPER_EVIDENCE_REPO)
+    return _DECISION_ANALYTICS
+
+
+@api_router.get(
+    "/arbicore/analytics/decisions/summary",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_decision_summary(
+    limit: int = 500,
+    since: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Executable / rejected counts, effective rate, category counts."""
+    return await _decision_analytics().summary(limit=limit, since=since)
+
+
+@api_router.get(
+    "/arbicore/analytics/decisions/rejections",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_decision_rejections(
+    limit: int = 500,
+    since: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Rejection breakdown by canonical category with sample reasons."""
+    return await _decision_analytics().rejection_breakdown(limit=limit, since=since)
+
+
+@api_router.get(
+    "/arbicore/analytics/decisions/by_scanner",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_decision_by_scanner(
+    limit: int = 500,
+    since: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Per-scanner-family performance table."""
+    return await _decision_analytics().by_scanner(limit=limit, since=since)
+
+
+@api_router.get(
+    "/arbicore/analytics/decisions/bottlenecks",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_decision_bottlenecks(
+    limit: int = 500,
+    since: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Which stages are eating the most opportunities + their p95 latency."""
+    return await _decision_analytics().bottlenecks(limit=limit, since=since)
+
+
+@api_router.get(
+    "/arbicore/analytics/decisions/trend",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_decision_trend(
+    hours: int = 24,
+    limit: int = 5000,
+) -> Dict[str, Any]:
+    """Hourly executable-rate trend over the last N hours."""
+    return await _decision_analytics().trend(hours=hours, limit=limit)
+
+
+@api_router.get(
+    "/arbicore/analytics/decisions/recent",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_decision_recent(
+    limit: int = 50,
+    scanner_family: Optional[str] = None,
+    outcome: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Recent decision records with classified category + sub-code."""
+    return await _decision_analytics().recent_decisions(
+        limit=limit,
+        scanner_family=scanner_family,
+        outcome=outcome,
+    )
+
+
 @api_router.get(
     "/arbicore/certification/shadow/thresholds",
     dependencies=[Depends(_require_operator_dep)],

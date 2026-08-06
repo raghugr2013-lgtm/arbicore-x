@@ -1,0 +1,1 @@
+{"window":{"since":"2026-08-06T15:35:00","sampled":73,"limit_applied":1000},"executable_count":42,"executable_rate":0.5753424657534246,"effective_executable_rate":0.5753424657534246,"observed_only_count":0,"real_rejection_count":31,"outcome_counts":{"EXECUTABLE":42,"UNPROFITABLE":31},"category_counts":{"EXECUTABLE":42,"PROFITABILITY":31}}

@@ -1,0 +1,1 @@
+{"window":{"since":"2026-08-06T15:35:00","sampled":73,"limit_applied":1000},"families":[{"family":"unknown","sampled":73,"executable":42,"rejected":31,"observe_only":0,"top_category":"EXECUTABLE","category_counts":{"EXECUTABLE":42,"PROFITABILITY":31},"avg_e2e_ms":0.37416438356164383,"executable_rate":0.5753424657534246}]}

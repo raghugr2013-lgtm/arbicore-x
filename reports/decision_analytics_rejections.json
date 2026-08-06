@@ -1,0 +1,1 @@
+{"window":{"since":"2026-08-06T15:35:00","sampled":73,"rejected":31,"limit_applied":1000},"categories":[{"category":"PROFITABILITY","count":31,"share":1.0,"sub_codes":{"negative_after_gas":31},"attributing_stages":{"profit":31},"sample_reasons":["net=42.5000 gas=50.0000 after_gas=-7.5000","net=0.0478 gas=2.0000 after_gas=-1.9522","net=0.1781 gas=2.0000 after_gas=-1.8219"]}]}

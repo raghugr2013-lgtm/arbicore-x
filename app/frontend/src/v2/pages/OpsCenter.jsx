@@ -115,7 +115,7 @@ export default function OpsCenter() {
   const [tick, setTick] = useState(0);
 
   const load = useCallback(async () => {
-    const [live, prices, opps, providers, cross, memory, safety, validation, mid, shadowCert, shadowReadiness, shadowRuns] =
+    const [live, prices, opps, providers, cross, memory, safety, validation, mid, shadowCert, shadowReadiness, shadowRuns, decSummary, decRejections, decBottlenecks, decByScanner] =
       await Promise.all([
         safeGet("/api/arbicore/live/status"),
         safeGet("/api/arbicore/live/prices"),
@@ -129,8 +129,12 @@ export default function OpsCenter() {
         safeGet("/api/arbicore/certification/shadow/current"),
         safeGet("/api/arbicore/certification/shadow/readiness"),
         safeGet("/api/arbicore/certification/shadow/runs?limit=5"),
+        safeGet("/api/arbicore/analytics/decisions/summary?limit=500"),
+        safeGet("/api/arbicore/analytics/decisions/rejections?limit=500"),
+        safeGet("/api/arbicore/analytics/decisions/bottlenecks?limit=500"),
+        safeGet("/api/arbicore/analytics/decisions/by_scanner?limit=500"),
       ]);
-    setState({ live, prices, opps, providers, cross, memory, safety, validation, mid, shadowCert, shadowReadiness, shadowRuns });
+    setState({ live, prices, opps, providers, cross, memory, safety, validation, mid, shadowCert, shadowReadiness, shadowRuns, decSummary, decRejections, decBottlenecks, decByScanner });
     setTick(t => t + 1);
   }, []);
 
@@ -140,7 +144,7 @@ export default function OpsCenter() {
     return () => clearInterval(id);
   }, [load]);
 
-  const { live, prices, opps, providers, cross, memory, safety, validation, shadowCert, shadowReadiness, shadowRuns } = state;
+  const { live, prices, opps, providers, cross, memory, safety, validation, shadowCert, shadowReadiness, shadowRuns, decSummary, decRejections, decBottlenecks, decByScanner } = state;
   const totalProviders = providers?.provider_count ?? 0;
   const scanners = validation?.scanner_ranking?.scanners || [];
   const totalOpsEmitted = scanners.reduce((s, x) => s + (x.opportunities_emitted || 0), 0);
@@ -310,6 +314,168 @@ export default function OpsCenter() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </Section>
+
+      {/* DECISION ANALYTICS — v2.11.10 */}
+      <Section
+        title="Opportunity Decision Analytics"
+        testId="section-decision-analytics"
+        right={(() => {
+          const s = decSummary;
+          if (!s) return "";
+          const total = s.window?.sampled || 0;
+          return `sample ${total} · executable ${(s.effective_executable_rate * 100).toFixed(2)}% (effective)`;
+        })()}
+      >
+        {(() => {
+          const s = decSummary;
+          const rej = decRejections;
+          const bn = decBottlenecks;
+          const bs = decByScanner;
+          if (!s) {
+            return <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 12 }} data-testid="decision-analytics-empty">Loading analytics…</div>;
+          }
+          const cats = rej?.categories || [];
+          const stages = bn?.stages || [];
+          const fams = bs?.families || [];
+          const totalExec = s.executable_count || 0;
+          const totalReal = s.real_rejection_count || 0;
+          const totalObs = s.observed_only_count || 0;
+          return (
+            <div>
+              {/* KPI row */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginBottom: 16 }} data-testid="decision-analytics-kpi">
+                <div>
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase" }}>Sampled</div>
+                  <div style={{ color: "var(--v2-text-strong)", fontSize: 20, fontFamily: "var(--v2-font-mono)" }} data-testid="decision-kpi-sampled">{s.window?.sampled || 0}</div>
+                </div>
+                <div>
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase" }}>Executable</div>
+                  <div style={{ color: totalExec > 0 ? "var(--v2-verdict-go)" : "var(--v2-text-muted)", fontSize: 20, fontFamily: "var(--v2-font-mono)" }} data-testid="decision-kpi-exec">
+                    {totalExec}
+                  </div>
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)" }}>
+                    {(s.effective_executable_rate * 100).toFixed(2)}% effective
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase" }}>Real rejections</div>
+                  <div style={{ color: totalReal > 0 ? "var(--v2-verdict-no-hard)" : "var(--v2-text-muted)", fontSize: 20, fontFamily: "var(--v2-font-mono)" }} data-testid="decision-kpi-rej">{totalReal}</div>
+                </div>
+                <div>
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase" }}>Observe-only (meta)</div>
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 20, fontFamily: "var(--v2-font-mono)" }} data-testid="decision-kpi-obs">{totalObs}</div>
+                </div>
+              </div>
+
+              {/* Two-column layout: rejections + bottlenecks */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                <div data-testid="decision-analytics-rejections">
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase", marginBottom: 6 }}>
+                    Rejection reasons (by category)
+                  </div>
+                  {cats.length === 0 ? (
+                    <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 12 }}>no rejections yet</div>
+                  ) : (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ color: "var(--v2-text-muted)", textAlign: "left", borderBottom: "1px solid var(--v2-border-subtle)" }}>
+                          <th style={{ padding: "4px 8px" }}>Category</th>
+                          <th style={{ padding: "4px 8px" }}>Count</th>
+                          <th style={{ padding: "4px 8px" }}>Share</th>
+                          <th style={{ padding: "4px 8px" }}>Top sub-code</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cats.map((c) => {
+                          const topSub = Object.entries(c.sub_codes || {})[0] || ["—", 0];
+                          const catColor = { EXECUTABLE: "var(--v2-verdict-go)", OBSERVE_ONLY: "var(--v2-text-muted)" }[c.category] || "var(--v2-verdict-no-hard)";
+                          return (
+                            <tr key={c.category} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} data-testid={`decision-rejection-cat-${c.category}`}>
+                              <td style={{ padding: "4px 8px", color: catColor, fontWeight: 600 }}>{c.category}</td>
+                              <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{c.count}</td>
+                              <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{(c.share * 100).toFixed(1)}%</td>
+                              <td style={{ padding: "4px 8px", color: "var(--v2-text-secondary)" }}>{topSub[0]} ({topSub[1]})</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                <div data-testid="decision-analytics-bottlenecks">
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase", marginBottom: 6 }}>
+                    Stage bottlenecks (rejections + p95 latency)
+                  </div>
+                  {stages.length === 0 ? (
+                    <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 12 }}>no stage data yet</div>
+                  ) : (
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>
+                      <thead>
+                        <tr style={{ color: "var(--v2-text-muted)", textAlign: "left", borderBottom: "1px solid var(--v2-border-subtle)" }}>
+                          <th style={{ padding: "4px 8px" }}>Stage</th>
+                          <th style={{ padding: "4px 8px" }}>Rejects</th>
+                          <th style={{ padding: "4px 8px" }}>Share</th>
+                          <th style={{ padding: "4px 8px" }}>p50 ms</th>
+                          <th style={{ padding: "4px 8px" }}>p95 ms</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stages.slice(0, 8).map((st) => (
+                          <tr key={st.stage} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} data-testid={`decision-bottleneck-${st.stage}`}>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{st.stage}</td>
+                            <td style={{ padding: "4px 8px", color: st.rejections > 0 ? "var(--v2-verdict-no-hard)" : "var(--v2-text-muted)" }}>{st.rejections}</td>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{(st.rejection_share * 100).toFixed(1)}%</td>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{st.duration_p50_ms.toFixed(3)}</td>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{st.duration_p95_ms.toFixed(3)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              {/* Per-scanner performance */}
+              {fams.length > 0 && (
+                <div style={{ marginTop: 16 }} data-testid="decision-analytics-by-scanner">
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase", marginBottom: 6 }}>
+                    Per-scanner performance
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ color: "var(--v2-text-muted)", textAlign: "left", borderBottom: "1px solid var(--v2-border-subtle)" }}>
+                        <th style={{ padding: "4px 8px" }}>Family</th>
+                        <th style={{ padding: "4px 8px" }}>Sampled</th>
+                        <th style={{ padding: "4px 8px" }}>Executable</th>
+                        <th style={{ padding: "4px 8px" }}>Rejected</th>
+                        <th style={{ padding: "4px 8px" }}>Observe-only</th>
+                        <th style={{ padding: "4px 8px" }}>Rate</th>
+                        <th style={{ padding: "4px 8px" }}>Top category</th>
+                        <th style={{ padding: "4px 8px" }}>Avg e2e ms</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fams.map((f) => (
+                        <tr key={f.family} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }} data-testid={`decision-by-scanner-${f.family}`}>
+                          <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{f.family}</td>
+                          <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{f.sampled}</td>
+                          <td style={{ padding: "4px 8px", color: f.executable > 0 ? "var(--v2-verdict-go)" : "var(--v2-text-muted)" }}>{f.executable}</td>
+                          <td style={{ padding: "4px 8px", color: f.rejected > 0 ? "var(--v2-verdict-no-hard)" : "var(--v2-text-muted)" }}>{f.rejected}</td>
+                          <td style={{ padding: "4px 8px", color: "var(--v2-text-muted)" }}>{f.observe_only}</td>
+                          <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{(f.executable_rate * 100).toFixed(2)}%</td>
+                          <td style={{ padding: "4px 8px", color: "var(--v2-text-secondary)" }}>{f.top_category || "—"}</td>
+                          <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{f.avg_e2e_ms.toFixed(3)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>

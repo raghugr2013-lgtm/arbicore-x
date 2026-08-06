@@ -395,6 +395,45 @@ Framework are **complete**.  The platform pivots from *building* to
    Live green stripe.
 7. **P3 · Docker networking discrepancy documentation** (deferred).
 
+### v2.11.10 — Opportunity Decision Analytics (2026-08-06) — ✅ COMPLETE · Shadow Cert graded **PASS**
+
+**Executable rate 54.00% on 20-cycle Shadow Certification** (up from 0.00% in v2.11.9). Three
+canonical opportunity-engine defects surfaced by the analytics layer and fixed:
+
+1. Pipeline mode lookup was case-sensitive — every opp hit the OBSERVE default
+   short-circuit. Fix: `_resolve_mode()` tries raw / lower / upper.
+2. Quote stage required `swap_hops[]` — venue-pair scanner emissions were
+   blanket-rejected as `no_hops`. Fix: `_extract_quote()` synthesises a
+   2-hop route from `(buy_venue, sell_venue, asset)` when hops absent.
+3. Gas heuristic was on-chain-only (0.6% of capital) — CEX opps ate a $60
+   gas charge against a $50 profit. Fix: venue-family-aware rates
+   (CEX 0.20%, DEX/Flash 0.60%, cross-chain 1.00%) + enum stringification
+   guard (`OpportunityType.CEX_ARBITRAGE` .value unwrap).
+
+**Decision Analytics module (`arbicore/analytics/`) shipped**:
+
+- Canonical rejection taxonomy: 12 categories + 2 meta (`EXECUTABLE`,
+  `OBSERVE_ONLY`) + `OTHER` catch-all. Closed enum — a new failure
+  category never lands silently.
+- `DecisionRecord` — frozen projection of an EvidenceBundle carrying
+  category, attributing stage, sub-code, stage failures, stage durations,
+  e2e duration.
+- `DecisionAnalyticsService` — 6 read-only aggregations
+  (summary, rejection_breakdown, by_scanner, bottlenecks, trend, recent_decisions).
+- 6 auth-gated endpoints under `/api/arbicore/analytics/decisions/*`.
+- OpsCenter dashboard `section-decision-analytics`: 4 KPI tiles,
+  rejection-reasons table, stage-bottlenecks table, per-scanner table.
+- 12 pytest unit tests locking the taxonomy + service surface.
+
+**PASS Shadow Certification run**:
+- Run `shadowcert-7832a1b0-ee76-41ad-84ca-8af227b8fa38`
+- 20/20 cycles, all PASS
+- 50 opps processed, 27 EXECUTABLE (54%), 23 UNPROFITABLE
+- worst stage p95: 2.3ms, 0 exceptions, infra_healthy=true
+- Reports: `docs/DECISION_ANALYTICS_v2.11.10_REPORT.md` + `reports/shadow_cert_v2.11.10_PASS.json`
+
+**Base Sepolia promotion now unblocked** per the canonical PASS gate.
+
 ### v2.11.9 — Shadow Certification (2026-08-06) — ✅ FRAMEWORK COMPLETE, LIVE RUN GRADED FAIL
 
 **Live Shadow Certification results**: 2 full 20/20-cycle runs executed against

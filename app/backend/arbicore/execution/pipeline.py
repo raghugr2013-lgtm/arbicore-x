@@ -534,28 +534,99 @@ class OpportunityPipeline:
     # Stage implementations
     # =====================================================================
     async def _resolve_mode(self, strategy: str) -> str:
+        """Look up the analysis mode for a strategy.
+
+        Scanner emissions historically use SCREAMING_SNAKE_CASE strategy
+        names (``CEX_ARBITRAGE``), while ``execution_mode_state`` stores
+        them lower-case (``cex_arbitrage``).  v2.11.10 · normalise both
+        directions so the strategies actually reach analysis stages
+        instead of short-circuiting at OBSERVE — this was the root
+        cause of the 0.00% executable_rate on the first live Shadow
+        Certification run.
+        """
         if self._mode is None:
             return "SHADOW"
+        candidates: List[str] = []
+        if strategy:
+            candidates.append(strategy)
+            candidates.append(strategy.lower())
+            candidates.append(strategy.upper())
+        seen = set()
         try:
-            row = await self._mode.get(strategy)
-            return (row or {}).get("mode") or "OBSERVE"
+            for cand in candidates:
+                if not cand or cand in seen:
+                    continue
+                seen.add(cand)
+                row = await self._mode.get(cand)
+                if row and row.get("mode"):
+                    return row["mode"]
         except Exception as exc:  # noqa: BLE001
             logger.warning("pipeline mode read failed: %s", exc)
             return "OBSERVE"
+        return "OBSERVE"
 
     @staticmethod
     def _extract_quote(opp: Dict[str, Any]) -> StageOutcome:
+        """Resolve a route for the pipeline.
+
+        Accepts three canonical shapes emitted by different scanner
+        families:
+
+        1. ``swap_hops`` — explicit hop list (DEX aggregator / flash loan
+           style).  Preferred.
+        2. ``buy_venue`` + ``sell_venue`` + ``asset`` — CEX / DEX
+           spread scanners emit this pair form.  v2.11.10 synthesises
+           a 2-hop route so the downstream stages have something to
+           reason about instead of the pipeline blanket-rejecting
+           every venue-pair opportunity as ``no swap_hops``.
+        3. Neither — hard ``no route`` failure.
+        """
         hops = opp.get("swap_hops")
-        if not hops:
+        if hops:
             return StageOutcome(
-                stage="quote", ok=False,
-                detail="no swap_hops on opportunity — cannot quote",
-                payload={},
+                stage="quote", ok=True,
+                detail=f"{len(hops)} hop(s) resolved from discovery",
+                payload={"hops": len(hops), "route": [h.get("dex") for h in hops]},
             )
+
+        # Fallback — synthesise a 2-hop route from the venue-pair form
+        # scanners like CEX_ARBITRAGE / DEX_ARBITRAGE emit.
+        buy_venue  = opp.get("buy_venue")
+        sell_venue = opp.get("sell_venue")
+        asset      = opp.get("asset") or opp.get("symbol")
+        if buy_venue and sell_venue and asset:
+            synth_hops = [
+                {
+                    "dex":       str(buy_venue),
+                    "direction": "buy",
+                    "asset":     str(asset),
+                    "price":     opp.get("buy_price"),
+                },
+                {
+                    "dex":       str(sell_venue),
+                    "direction": "sell",
+                    "asset":     str(asset),
+                    "price":     opp.get("sell_price"),
+                },
+            ]
+            return StageOutcome(
+                stage="quote", ok=True,
+                detail=(
+                    f"synthesised 2-hop route from venue pair "
+                    f"({buy_venue} → {sell_venue})"
+                ),
+                payload={
+                    "hops":       2,
+                    "route":      [str(buy_venue), str(sell_venue)],
+                    "synthetic":  True,
+                    "asset":      str(asset),
+                },
+            )
+
         return StageOutcome(
-            stage="quote", ok=True,
-            detail=f"{len(hops)} hop(s) resolved from discovery",
-            payload={"hops": len(hops), "route": [h.get("dex") for h in hops]},
+            stage="quote", ok=False,
+            detail="no swap_hops on opportunity — cannot quote",
+            payload={},
         )
 
     @staticmethod
@@ -569,8 +640,20 @@ class OpportunityPipeline:
 
     @staticmethod
     def _extract_gas(opp: Dict[str, Any]) -> StageOutcome:
-        # Prefer explicit gas fields; else derive a nominal estimate from the
-        # discovery row's borrow amount (best-effort, non-fatal).
+        """Estimate execution cost as a stand-in for gas.
+
+        Returns cost in USD.  Applied by the ``profit`` stage as a
+        deduction from gross profit.  Venue-family aware:
+
+        * CEX↔CEX (``opportunity_type=CEX_ARBITRAGE``, both venues are
+          off-chain exchanges) — cost is aggregate exchange trading
+          fees (~0.20% round-trip nominal).
+        * Cross-chain (``opportunity_type=CROSS_CHAIN_ARBITRAGE``) —
+          bridge fees dominate; use 1.0% nominal.
+        * DEX / Flash-loan (on-chain) — 0.60% nominal gas budget.
+
+        Explicit ``gas_estimate`` on the opportunity always wins.
+        """
         gas = opp.get("gas_estimate")
         if isinstance(gas, dict) and gas:
             return StageOutcome(
@@ -578,13 +661,47 @@ class OpportunityPipeline:
                 detail="gas_estimate present on opportunity",
                 payload=dict(gas),
             )
-        borrow_usd = opp.get("borrow_amount_usd") or opp.get("capital_required_usd") or 0
-        # Conservative nominal: 0.6% of borrow as gas equivalent in preview.
-        nominal = round(float(borrow_usd) * 0.006, 4) if borrow_usd else 0.0
+        borrow_usd = (opp.get("borrow_amount_usd")
+                      or opp.get("capital_required_usd")
+                      or 0)
+        borrow_usd = float(borrow_usd or 0.0)
+        # Enum values (Pydantic model_dump) stringify as "OpportunityType.CEX_ARBITRAGE"
+        # so normalise via ``.value`` / ``.name`` when available.
+        def _norm(v):
+            if v is None:
+                return ""
+            if hasattr(v, "value"):
+                v = v.value
+            return str(v).upper()
+        opp_type = _norm(opp.get("opportunity_type"))
+        strategy = _norm(opp.get("strategy"))
+        family = opp_type or strategy
+        # Nominal fee rate per family — conservative but honest.
+        if family == "CEX_ARBITRAGE":
+            rate = 0.002   # 0.20% round-trip fee (taker × 2)
+            source = "cex_taker_fee_nominal"
+        elif family == "CROSS_CHAIN_ARBITRAGE":
+            rate = 0.010   # 1.00% bridge + gas
+            source = "cross_chain_bridge_nominal"
+        elif family in ("DEX_ARBITRAGE", "DEX_CAPITAL_ARBITRAGE",
+                        "FLASH_LOAN_ARBITRAGE", "LAUNCH_ARBITRAGE",
+                        "FUNDING_ARBITRAGE"):
+            rate = 0.006   # 0.60% on-chain gas
+            source = "onchain_gas_nominal"
+        else:
+            rate = 0.006
+            source = "nominal_default"
+        nominal = round(borrow_usd * rate, 4) if borrow_usd else 0.0
         return StageOutcome(
             stage="gas", ok=True,
-            detail="derived nominal gas estimate",
-            payload={"gwei": None, "units": None, "usd": nominal, "source": "nominal"},
+            detail=f"derived nominal cost ({source} at {rate:.3%})",
+            payload={
+                "gwei":   None,
+                "units":  None,
+                "usd":    nominal,
+                "source": source,
+                "rate":   rate,
+            },
         )
 
     @staticmethod
