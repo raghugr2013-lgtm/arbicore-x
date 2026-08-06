@@ -211,8 +211,19 @@ Merged to main. See earlier entry above.
 
 See `V2.11_DELIVERABLES.md` §8 for the full assessment.
 
-### Slice 5 — Dashboard Summary (P0 — next)
-### Slice 6 — Portfolio activation (P0)
+### Slice 5 — Dashboard Canonicalization (2026-08-05) — ✅ COMPLETE (v2.11.5)
+Commit `36bbe9d` on main.
+
+- ✅ `GET /arbicore/dashboard/pulse` — opportunity_vitals from
+     `_CANONICAL_OPP_REPO`, regime from `get_regime_snapshot_repo().latest()`
+     (empty → UNKNOWN/0.0), route_learning from journal count. Auth-gated.
+- ✅ `GET /arbicore/dashboard/deck` — fresh (created_at desc), pending
+     (FSM=VALIDATED), requires_attention (CANDIDATE > 6h stale). Auth-gated.
+- ✅ Removed all hardcoded arrays (`{total:14, CEX_ARBITRAGE:6,...}`,
+     opp-001..opp-005, 'CALM · 0.82' regime).
+- ✅ Testing: iter10 (161/161 PASS · 145 baseline + 16 Slice 5).
+
+### Slice 6 — Portfolio activation (P0 — next)
 ### Slice 7 — Operations activation (P0)
 
 ---
