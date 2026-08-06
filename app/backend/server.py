@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request, Header, Depends
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Header, Depends, Body
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -281,6 +281,22 @@ from arbicore.paper import (
 )
 _PAPER_EVIDENCE_REPO = PaperEvidenceRepository(db)
 _PAPER_RUNNER: Optional[PaperValidationRunner] = None
+
+# ---------------------------------------------------------------------------
+# v2.11.9 · Shadow Certification — canonical 20-cycle validation gate.
+# Repo/engine are bootstrapped at import; the runner (background tick) is
+# started later in `_shadow_certification_startup`. A run is one-at-a-time.
+# ---------------------------------------------------------------------------
+from arbicore.certification import (
+    MongoShadowCertificationRepository,
+    ShadowCertificationEngine,
+    ShadowCertificationRunner,
+    load_thresholds_from_env as _shadow_cert_load_thresholds,
+    is_shadow_cert_enabled_via_env,
+)
+_SHADOW_CERT_REPO = MongoShadowCertificationRepository(db)
+_SHADOW_CERT_ENGINE: Optional[ShadowCertificationEngine] = None
+_SHADOW_CERT_RUNNER: Optional[ShadowCertificationRunner] = None
 
 # ---------------------------------------------------------------------------
 # P0-B · Learning Ledger — bridges Opportunity Journal into the existing
@@ -604,6 +620,33 @@ async def v2_pulse() -> Dict[str, Any]:
     except Exception:  # noqa: BLE001
         logger.debug("dashboard/pulse: paper validation snapshot unavailable")
 
+    # v2.11.9 — Shadow Certification pulse. Compact snapshot of the
+    # active certification run (if any) so operators can see progress
+    # without hitting /certification/shadow/current.
+    shadow_certification = {
+        "active":           False,
+        "run_id":           None,
+        "status":           None,
+        "cycles_completed": 0,
+        "target_cycles":    0,
+        "executable_rate":  0.0,
+    }
+    try:
+        _cert_run = None
+        if _SHADOW_CERT_ENGINE is not None:
+            _cert_run = await _SHADOW_CERT_ENGINE.current_run()
+        if _cert_run is not None:
+            shadow_certification = {
+                "active":           True,
+                "run_id":           _cert_run.run_id,
+                "status":           _cert_run.status,
+                "cycles_completed": _cert_run.cycles_completed,
+                "target_cycles":    _cert_run.target_cycles,
+                "executable_rate":  _cert_run.cumulative_executable_rate(),
+            }
+    except Exception:  # noqa: BLE001
+        logger.debug("dashboard/pulse: shadow certification snapshot unavailable")
+
     return {
         "regime":              regime,
         "opportunity_vitals":  {
@@ -613,6 +656,7 @@ async def v2_pulse() -> Dict[str, Any]:
         },
         "route_learning":      {"tracked_routes": tracked_routes},
         "paper_validation":    paper_validation,
+        "shadow_certification": shadow_certification,
         # Pointer keys (unchanged; frontend fetches these on demand).
         "scanner_status":      {"endpoint": "/api/arbicore/scanners", "detail": "per-family scanner status"},
         "venue_readiness":     {"endpoint": "/api/venues/status", "detail": "venue readiness registry"},
@@ -2233,6 +2277,139 @@ async def v2_paper_metrics() -> Dict[str, Any]:
         },
         "generated_at":    _iso_now(),
     }
+
+
+# ---------------------------------------------------------------------------
+# v2.11.9 · Shadow Certification — operator surface.
+# All endpoints are session-cookie auth-gated (see _require_operator_dep).
+# ---------------------------------------------------------------------------
+def _shadow_cert_engine_or_503():
+    """Return the live engine or raise 503 if the boot hook failed."""
+    if _SHADOW_CERT_ENGINE is None:
+        raise HTTPException(
+            status_code=503,
+            detail="shadow_certification_engine_unavailable",
+        )
+    return _SHADOW_CERT_ENGINE
+
+
+@api_router.get(
+    "/arbicore/certification/shadow/thresholds",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_shadow_cert_thresholds() -> Dict[str, Any]:
+    """Active certification thresholds (frozen for the next run)."""
+    th = _shadow_cert_load_thresholds()
+    if _SHADOW_CERT_ENGINE is not None:
+        th = _SHADOW_CERT_ENGINE.thresholds
+    return {
+        "thresholds":   th.to_dict(),
+        "generated_at": _iso_now(),
+    }
+
+
+@api_router.get(
+    "/arbicore/certification/shadow/current",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_shadow_cert_current() -> Dict[str, Any]:
+    """Return the currently-active certification run (or `null`)."""
+    engine = _shadow_cert_engine_or_503()
+    run = await engine.current_run()
+    if run is None:
+        return {"current": None, "generated_at": _iso_now()}
+    return {"current": run.to_report(), "generated_at": _iso_now()}
+
+
+@api_router.post(
+    "/arbicore/certification/shadow/start",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_shadow_cert_start(payload: Optional[Dict[str, Any]] = Body(None)) -> Dict[str, Any]:
+    """Start a fresh Shadow Certification run.
+
+    Optional body fields:
+      * ``target_cycles`` — override target for this run only.
+      * ``notes`` — free-form operator note (recorded on the run).
+
+    Refuses if a run is already RUNNING (returns 409).
+    """
+    engine = _shadow_cert_engine_or_503()
+    try:
+        thresholds = engine.thresholds
+        if payload and isinstance(payload, dict):
+            override_cycles = payload.get("target_cycles")
+            if override_cycles is not None:
+                thresholds = type(thresholds).from_dict({
+                    **thresholds.to_dict(),
+                    "target_cycles": int(override_cycles),
+                })
+        run = await engine.start_run(thresholds=thresholds)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return {"run": run.to_report(), "generated_at": _iso_now()}
+
+
+@api_router.post(
+    "/arbicore/certification/shadow/stop",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_shadow_cert_stop(payload: Optional[Dict[str, Any]] = Body(None)) -> Dict[str, Any]:
+    """Abort the currently-running Shadow Certification run."""
+    engine = _shadow_cert_engine_or_503()
+    reason = (payload or {}).get("reason") if isinstance(payload, dict) else None
+    reason = str(reason or "operator_stop")
+    run = await engine.stop_run(reason=reason)
+    if run is None:
+        return {"run": None, "generated_at": _iso_now()}
+    return {"run": run.to_report(), "generated_at": _iso_now()}
+
+
+@api_router.post(
+    "/arbicore/certification/shadow/tick",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_shadow_cert_tick() -> Dict[str, Any]:
+    """Run one certification tick immediately.
+
+    Useful when the background runner is disabled and the operator
+    wants to drive cycles manually (e.g. during pre-Sepolia rehearsal).
+    """
+    engine = _shadow_cert_engine_or_503()
+    run = await engine.tick()
+    if run is None:
+        return {"run": None, "generated_at": _iso_now()}
+    return {"run": run.to_report(), "generated_at": _iso_now()}
+
+
+@api_router.get(
+    "/arbicore/certification/shadow/runs",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_shadow_cert_runs_list(
+    limit: int = 50,
+    status: Optional[str] = None,
+) -> Dict[str, Any]:
+    """History of Shadow Certification runs (newest first)."""
+    limit = max(1, min(int(limit or 50), 200))
+    items = await _SHADOW_CERT_REPO.list_recent(limit=limit, status=status)
+    return {
+        "items":        [r.to_report() for r in items],
+        "count":        len(items),
+        "generated_at": _iso_now(),
+    }
+
+
+@api_router.get(
+    "/arbicore/certification/shadow/runs/{run_id}",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_shadow_cert_runs_get(run_id: str) -> Dict[str, Any]:
+    """Full Shadow Certification run report by id."""
+    run = await _SHADOW_CERT_REPO.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run_not_found")
+    return {"run": run.to_report(), "generated_at": _iso_now()}
 
 
 # ---------------------------------------------------------------------------
@@ -4421,6 +4598,74 @@ async def _paper_validation_shutdown():
         await _PAPER_RUNNER.stop()
     except Exception as exc:  # noqa: BLE001
         logger.warning("PaperValidationRunner shutdown error: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# v2.11.9 · Shadow Certification — engine + runner lifecycle.
+# ---------------------------------------------------------------------------
+@app.on_event("startup")
+async def _shadow_certification_startup():
+    """Ensure certification indexes and (optionally) start the runner.
+
+    The engine is always bootstrapped so operators can drive runs via
+    the HTTP surface.  The background *runner* is only started when
+    ``ARBICORE_SHADOW_CERT_ENABLED=true``.
+    """
+    global _SHADOW_CERT_ENGINE, _SHADOW_CERT_RUNNER
+    try:
+        await _SHADOW_CERT_REPO.ensure_indexes()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("shadow_cert index ensure failed: %s", exc)
+    try:
+        _SHADOW_CERT_ENGINE = ShadowCertificationEngine(
+            cert_repo=_SHADOW_CERT_REPO,
+            evidence_repo=_PAPER_EVIDENCE_REPO,
+            paper_runner=_PAPER_RUNNER,
+            db=db,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("ShadowCertificationEngine init failed: %s", exc)
+        return
+
+    # Auto-start a run if the operator has explicitly opted in and no
+    # run is currently active.
+    if (os.environ.get("ARBICORE_SHADOW_CERT_AUTOSTART_RUN") or "").strip().lower() in (
+        "1", "true", "yes", "on",
+    ):
+        try:
+            current = await _SHADOW_CERT_ENGINE.current_run()
+            if current is None:
+                await _SHADOW_CERT_ENGINE.start_run()
+                logger.info(
+                    "ShadowCertificationEngine: auto-started a new run "
+                    "(ARBICORE_SHADOW_CERT_AUTOSTART_RUN=true)"
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception(
+                "ShadowCertificationEngine auto-start failed: %s", exc
+            )
+
+    if not is_shadow_cert_enabled_via_env():
+        logger.info(
+            "ShadowCertificationRunner disabled "
+            "(ARBICORE_SHADOW_CERT_ENABLED not set)"
+        )
+        return
+    try:
+        _SHADOW_CERT_RUNNER = ShadowCertificationRunner(engine=_SHADOW_CERT_ENGINE)
+        _SHADOW_CERT_RUNNER.start()
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("ShadowCertificationRunner failed to start: %s", exc)
+
+
+@app.on_event("shutdown")
+async def _shadow_certification_shutdown():
+    if _SHADOW_CERT_RUNNER is None:
+        return
+    try:
+        await _SHADOW_CERT_RUNNER.stop()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ShadowCertificationRunner shutdown error: %s", exc)
 
 
 # ---------------------------------------------------------------------------
