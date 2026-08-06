@@ -1780,331 +1780,418 @@ async def v2_entities(
 
 
 # ---------------------------------------------------------------------------
-# UI v2 · Slice 3 preview endpoints — Operations (scanners, cycles, venues,
-# interlock, integrations, queues, alerts). Pod-local stubs.
+# Slice 7 — Operations Canonicalization (2026-08-05).
+#
+# All placeholder arrays (_V2_SCANNERS + cycles/venues/queues/alerts stubs)
+# removed. Every endpoint is now either backed by a canonical repository or
+# returns a graceful empty payload preserving the UI contract. See §TODO
+# comments per endpoint for the future canonical wiring path.
+#
+# Auth: every route uses ``dependencies=[Depends(_require_operator_dep)]``.
+# Anonymous requests receive 401 (not_authenticated) uniformly.
 # ---------------------------------------------------------------------------
 
-_V2_SCANNERS = [
-    {"family": "CEX_ARBITRAGE", "state": "RUNNING", "cadence_s": 5, "last_run": None, "opps_1h": 43, "gates_dropped_1h": 128, "errors_1h": 0},
-    {"family": "DEX_ARBITRAGE", "state": "RUNNING", "cadence_s": 8, "last_run": None, "opps_1h": 27, "gates_dropped_1h": 91, "errors_1h": 1},
-    {"family": "FUNDING_ARBITRAGE", "state": "RUNNING", "cadence_s": 30, "last_run": None, "opps_1h": 12, "gates_dropped_1h": 18, "errors_1h": 0},
-    {"family": "CROSS_CHAIN_ARBITRAGE", "state": "RUNNING", "cadence_s": 20, "last_run": None, "opps_1h": 9, "gates_dropped_1h": 41, "errors_1h": 0},
-    {"family": "FLASH_LOAN_ARBITRAGE", "state": "PAUSED", "cadence_s": 10, "last_run": None, "opps_1h": 0, "gates_dropped_1h": 0, "errors_1h": 0},
-    {"family": "LAUNCH_ARBITRAGE", "state": "RUNNING", "cadence_s": 60, "last_run": None, "opps_1h": 3, "gates_dropped_1h": 12, "errors_1h": 0},
-    {"family": "SPATIAL_ARBITRAGE", "state": "IDLE", "cadence_s": 15, "last_run": None, "opps_1h": 0, "gates_dropped_1h": 0, "errors_1h": 0},
-    {"family": "STATISTICAL_ARBITRAGE", "state": "RUNNING", "cadence_s": 45, "last_run": None, "opps_1h": 6, "gates_dropped_1h": 22, "errors_1h": 0},
-]
+# Canonical scanner-id ↔ UI family vocabulary. Only families with a canonical
+# ScannerConfigRepository/ScannerStateRepository row are surfaced. Additional
+# families (SPATIAL_ARBITRAGE, STATISTICAL_ARBITRAGE) are not part of the
+# canonical scanner substrate today and therefore not returned.
+_SCANNER_FAMILY_TO_ID = {
+    "CEX_ARBITRAGE": "cex_arb",
+    "FUNDING_ARBITRAGE": "funding_arb",
+    "DEX_ARBITRAGE": "dex_arb",
+    "LAUNCH_ARBITRAGE": "launch_arb",
+    "CROSS_CHAIN_ARBITRAGE": "cross_chain_arb",
+    "FLASH_LOAN_ARBITRAGE": "flash_loan_arb",
+}
+_SCANNER_ID_TO_FAMILY = {v: k for k, v in _SCANNER_FAMILY_TO_ID.items()}
 
 
-@api_router.get("/arbicore/operations/scanners")
+@api_router.get(
+    "/arbicore/operations/scanners",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_scanners() -> Dict[str, Any]:
+    """Canonical scanner families from scanner_config_repo + scanner_state_repo.
+
+    - ``state``:      derived from ScannerStateRepository (RUNNING when
+                      enabled=True; IDLE otherwise).
+    - ``cadence_s``:  from the canonical config row's ``interval_s`` (falls
+                      back to 0 when absent).
+    - Live tick counters (opps_1h / gates_dropped_1h / errors_1h) are 0 today;
+      TODO: wire ScannerTelemetryRepo when the runtime aggregator lands.
+    """
     now = _iso_now()
-    for s in _V2_SCANNERS:
-        if s["last_run"] is None:
-            s["last_run"] = now
-    return {"items": _V2_SCANNERS, "generated_at": now}
+    items: List[Dict[str, Any]] = []
+    try:
+        from arbicore.runtime.composition import (
+            get_scanner_config_repo,
+            get_scanner_state_repo,
+        )
+        cfg_repo = get_scanner_config_repo()
+        state_repo = get_scanner_state_repo()
+        for family, scanner_id in _SCANNER_FAMILY_TO_ID.items():
+            try:
+                cfg = await cfg_repo.get(scanner_id) or {}
+                state = await state_repo.get(scanner_id) or {}
+            except Exception:  # noqa: BLE001
+                cfg, state = {}, {}
+            items.append({
+                "family": family,
+                "state": "RUNNING" if state.get("enabled") else "IDLE",
+                "cadence_s": int(cfg.get("interval_s") or 0),
+                "last_run": None,
+                "opps_1h": 0,
+                "gates_dropped_1h": 0,
+                "errors_1h": 0,
+            })
+    except Exception:  # noqa: BLE001
+        items = []
+    return {"items": items, "generated_at": now}
 
 
-@api_router.post("/arbicore/operations/scanners/{family}/action")
+@api_router.post(
+    "/arbicore/operations/scanners/{family}/action",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_scanner_action(family: str, action: str) -> Dict[str, Any]:
-    match = next((s for s in _V2_SCANNERS if s["family"] == family), None)
-    if match:
-        mapping = {"start": "RUNNING", "pause": "PAUSED", "stop": "IDLE"}
-        match["state"] = mapping.get(action.lower(), match["state"])
-    return {"ok": True, "family": family, "state": match["state"] if match else None, "generated_at": _iso_now()}
+    """Canonical scanner start/pause/stop persisted via ScannerStateRepository.
+
+    ``start`` → enabled=True; ``pause``/``stop`` → enabled=False. Unknown
+    families or unknown actions produce ``ok:false`` with ``state:None``.
+    """
+    scanner_id = _SCANNER_FAMILY_TO_ID.get(family)
+    if not scanner_id:
+        return {"ok": False, "family": family, "state": None,
+                "generated_at": _iso_now()}
+    action_norm = (action or "").lower()
+    if action_norm == "start":
+        enabled_target = True
+    elif action_norm in ("pause", "stop"):
+        enabled_target = False
+    else:
+        return {"ok": False, "family": family, "state": None,
+                "generated_at": _iso_now()}
+    try:
+        from arbicore.runtime.composition import get_scanner_state_repo
+        state_repo = get_scanner_state_repo()
+        await state_repo.set_enabled(scanner_id, enabled_target, actor="ui")
+        state_row = await state_repo.get(scanner_id) or {}
+        ui_state = "RUNNING" if state_row.get("enabled") else "IDLE"
+    except Exception:  # noqa: BLE001
+        ui_state = None
+    return {"ok": ui_state is not None, "family": family,
+            "state": ui_state, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/operations/cycles")
-async def v2_cycles(status: Optional[str] = None, limit: int = 50) -> Dict[str, Any]:
-    cycles = [
-        {"id": "cyc-101", "family": "CEX_ARBITRAGE", "route": "binance:ETH-USDT → kucoin:ETH-USDT",
-         "status": "SETTLED", "realized_bps": 21.4, "started_at": _iso_now(), "ended_at": _iso_now(),
-         "size_usd": 24_800},
-        {"id": "cyc-100", "family": "DEX_ARBITRAGE", "route": "uni-v3:WETH/USDC → sushi:WETH/USDC",
-         "status": "SETTLED", "realized_bps": 14.2, "started_at": _iso_now(), "ended_at": _iso_now(),
-         "size_usd": 18_400},
-        {"id": "cyc-099", "family": "FLASH_LOAN_ARBITRAGE", "route": "aave-flash → quickswap → sushiswap",
-         "status": "REVERTED", "realized_bps": 0.0, "started_at": _iso_now(), "ended_at": _iso_now(),
-         "size_usd": 12_000},
-        {"id": "cyc-098", "family": "CEX_ARBITRAGE", "route": "binance:BTC-USDT → okx:BTC-USDT",
-         "status": "RUNNING", "realized_bps": None, "started_at": _iso_now(), "ended_at": None,
-         "size_usd": 50_000},
-        {"id": "cyc-097", "family": "FUNDING_ARBITRAGE", "route": "bybit:SOL-PERP short + spot long",
-         "status": "SETTLED", "realized_bps": 11.7, "started_at": _iso_now(), "ended_at": _iso_now(),
-         "size_usd": 8_500},
-        {"id": "cyc-096", "family": "CROSS_CHAIN_ARBITRAGE", "route": "eth:USDC → arb:USDC (stargate)",
-         "status": "SETTLED", "realized_bps": 4.1, "started_at": _iso_now(), "ended_at": _iso_now(),
-         "size_usd": 30_000},
-    ]
-    out = [c for c in cycles if (not status or status == "ALL" or c["status"] == status)][:limit]
-    return {"items": out, "total": len(out), "generated_at": _iso_now()}
+@api_router.get(
+    "/arbicore/operations/cycles",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_cycles(status: Optional[str] = None,
+                     limit: int = 50) -> Dict[str, Any]:
+    """Execution cycles view.
+
+    TODO: wire ``CycleRepository`` / ``execution.settled_cycles`` collection
+    once the executor contract is deployed (P1 roadmap item — Paper /
+    Shadow Certification). Until then, no cycles have been settled → empty.
+    """
+    _ = status, limit  # noqa: F841 — contract preserved for UI filter chip
+    return {"items": [], "total": 0, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/operations/venues")
+@api_router.get(
+    "/arbicore/operations/venues",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_venues() -> Dict[str, Any]:
-    venues = [
-        {"venue": "binance", "kind": "CEX", "state": "READY", "role": "primary", "latency_ms": 42, "last_seen": _iso_now()},
-        {"venue": "kucoin", "kind": "CEX", "state": "READY", "role": "primary", "latency_ms": 58, "last_seen": _iso_now()},
-        {"venue": "okx", "kind": "CEX", "state": "READY", "role": "primary", "latency_ms": 61, "last_seen": _iso_now()},
-        {"venue": "bybit", "kind": "CEX", "state": "READY", "role": "primary", "latency_ms": 66, "last_seen": _iso_now()},
-        {"venue": "uniswap-v3", "kind": "DEX", "state": "READY", "role": "primary", "latency_ms": 190, "last_seen": _iso_now()},
-        {"venue": "sushiswap", "kind": "DEX", "state": "READY", "role": "secondary", "latency_ms": 210, "last_seen": _iso_now()},
-        {"venue": "raydium", "kind": "DEX", "state": "DEGRADED", "role": "secondary", "latency_ms": 480, "last_seen": _iso_now()},
-        {"venue": "hyperliquid", "kind": "PERP", "state": "READY", "role": "primary", "latency_ms": 88, "last_seen": _iso_now()},
-        {"venue": "gate-io", "kind": "CEX", "state": "OFFLINE", "role": "excluded", "latency_ms": None, "last_seen": _iso_now()},
-    ]
-    return {"items": venues, "generated_at": _iso_now()}
+    """Live venue capability projection from ``VenueCapabilityRepository``.
+
+    Empty when no probe has landed a row in ``arbicore_venue_capability_live``
+    yet. UI contract preserved: {venue, kind, state, role, latency_ms,
+    last_seen}. Unknown fields (``kind``/``role``) default to ``UNKNOWN`` /
+    ``primary`` — the canonical repo does not classify them today.
+    TODO: extend VenueCapabilityRepository with kind/role columns.
+    """
+    items: List[Dict[str, Any]] = []
+    try:
+        from arbicore.runtime.composition import get_venue_capability_repo
+        repo = get_venue_capability_repo()
+        rows = await repo.all_live()
+        for row in rows:
+            status = row.get("venue_status") or (
+                "READY" if row.get("api_healthy") else "OFFLINE"
+            )
+            last_probe_ts = row.get("last_probe_at")
+            last_seen = None
+            if last_probe_ts:
+                try:
+                    last_seen = datetime.utcfromtimestamp(
+                        float(last_probe_ts)
+                    ).isoformat() + "Z"
+                except Exception:  # noqa: BLE001
+                    last_seen = None
+            items.append({
+                "venue": row.get("venue_id"),
+                "kind": row.get("kind") or "UNKNOWN",
+                "state": status,
+                "role": row.get("role") or "primary",
+                "latency_ms": row.get("latency_ms"),
+                "last_seen": last_seen,
+            })
+    except Exception:  # noqa: BLE001
+        items = []
+    return {"items": items, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/operations/interlock")
+@api_router.get(
+    "/arbicore/operations/interlock",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_interlock() -> Dict[str, Any]:
+    """Kill-switch / interlock status.
+
+    Boot posture is intentionally DISARMED — the interlock has no persisted
+    state today. TODO: wire ``OperatorFlags.interlock()`` (part of the P1
+    Kill-switch operator UI wiring listed in V2.11_DELIVERABLES §8.5).
+    """
     return {
-        "armed": True,
-        "state": "ARMED",
+        "armed": False,
+        "state": "DISARMED",
         "reason": None,
-        "gates": [
-            {"gate": "safety_min", "state": "PASS", "value": 0.70, "threshold": 0.60},
-            {"gate": "freshness_max", "state": "PASS", "value": 12, "threshold": 15},
-            {"gate": "depth_min", "state": "PASS", "value": 240_000, "threshold": 100_000},
-            {"gate": "regime_ok", "state": "PASS", "value": "CALM", "threshold": "not HOSTILE"},
-            {"gate": "capital_deployable", "state": "PASS", "value": 380_000, "threshold": 50_000},
-        ],
-        "last_transition_at": _iso_now(),
+        "gates": [],
+        "last_transition_at": None,
         "generated_at": _iso_now(),
     }
 
 
-@api_router.post("/arbicore/operations/interlock/action")
+@api_router.post(
+    "/arbicore/operations/interlock/action",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_interlock_action(action: str) -> Dict[str, Any]:
-    return {"ok": True, "state": "ARMED" if action == "arm" else "DISARMED", "generated_at": _iso_now()}
+    """Interlock arm/disarm.
+
+    TODO: persist via ``OperatorFlags.interlock_arm()/disarm()``. Until the
+    kill-switch UI wiring lands (P1), we echo the requested transition
+    without persistence so the UI action affordance is not blocked.
+    """
+    ui_state = "ARMED" if (action or "").lower() == "arm" else "DISARMED"
+    return {"ok": True, "state": ui_state, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/operations/integrations")
+@api_router.get(
+    "/arbicore/operations/integrations",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_integrations() -> Dict[str, Any]:
-    return {
-        "items": [
-            {"key": "userscript_v2", "label": "Userscript v2 quote portal", "state": "CONNECTED", "detail": "3 tabs live"},
-            {"key": "portal_ws", "label": "Portal WS", "state": "CONNECTED", "detail": "42ms latency"},
-            {"key": "coingecko", "label": "CoinGecko", "state": "CONNECTED", "detail": "OK"},
-            {"key": "telegram", "label": "Telegram alerts", "state": "CONNECTED", "detail": "chat #ops"},
-            {"key": "alchemy", "label": "Alchemy RPC", "state": "DEGRADED", "detail": "ETH mainnet slow"},
-            {"key": "chainlink", "label": "Chainlink price feeds", "state": "CONNECTED", "detail": "5 pairs"},
-        ],
-        "generated_at": _iso_now(),
-    }
+    """Third-party integration health.
+
+    TODO: wire a canonical ``IntegrationHealthRepo`` (or a lightweight
+    liveness probe registry keyed by integration name). No canonical
+    source exists today → empty.
+    """
+    return {"items": [], "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/operations/queues")
+@api_router.get(
+    "/arbicore/operations/queues",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_queues() -> Dict[str, Any]:
-    return {
-        "items": [
-            {"queue": "scanner_ingest", "pending": 12, "in_flight": 3, "failed_1h": 0, "rate_per_min": 41},
-            {"queue": "confidence_scoring", "pending": 4, "in_flight": 2, "failed_1h": 0, "rate_per_min": 39},
-            {"queue": "approval_notify", "pending": 0, "in_flight": 0, "failed_1h": 0, "rate_per_min": 0.5},
-            {"queue": "execution_dispatch", "pending": 1, "in_flight": 1, "failed_1h": 0, "rate_per_min": 0.8},
-            {"queue": "evidence_bundle", "pending": 6, "in_flight": 1, "failed_1h": 2, "rate_per_min": 3.2},
-        ],
-        "generated_at": _iso_now(),
-    }
+    """Runtime queue depth snapshot.
+
+    The canonical ``DiscoveryQueue.queue_status()`` is the only queue with
+    live telemetry today (surfaces as ``discovery`` here). Other logical
+    queues (approval_notify, execution_dispatch, evidence_bundle) will be
+    added as their runtime workers land.
+    TODO: extend to a full QueueTelemetryRepo covering all worker queues.
+    """
+    items: List[Dict[str, Any]] = []
+    try:
+        from arbicore.runtime.composition import get_discovery_queue
+        dq = get_discovery_queue()
+        status = await dq.queue_status()
+        items.append({
+            "queue": "discovery",
+            "pending": int(status.get("unclaimed_eligible") or 0),
+            "in_flight": int(status.get("claimed_in_flight") or 0),
+            "failed_1h": 0,
+            "rate_per_min": 0,
+        })
+    except Exception:  # noqa: BLE001
+        items = []
+    return {"items": items, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/operations/alerts")
-async def v2_alerts(severity: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
-    alerts = [
-        {"id": "alr-9", "severity": "warn", "source": "venue:raydium", "message": "Raydium RPC latency > 400ms for 6m.", "at": _iso_now(), "acked": False},
-        {"id": "alr-8", "severity": "info", "source": "scanner:LAUNCH_ARBITRAGE", "message": "New listing detected on kucoin: MOODENG-USDT.", "at": _iso_now(), "acked": False},
-        {"id": "alr-7", "severity": "warn", "source": "integration:alchemy", "message": "Alchemy ETH mainnet degraded — freshness stretched.", "at": _iso_now(), "acked": False},
-        {"id": "alr-6", "severity": "info", "source": "cycle:cyc-099", "message": "Flash-loan cycle reverted safely; capital returned.", "at": _iso_now(), "acked": True},
-        {"id": "alr-5", "severity": "warn", "source": "venue:gate-io", "message": "gate-io session lost; venue set OFFLINE.", "at": _iso_now(), "acked": True},
-    ]
-    out = [a for a in alerts if (not severity or severity == "ALL" or a["severity"] == severity)][:limit]
-    return {"items": out, "total": len(out), "generated_at": _iso_now()}
+@api_router.get(
+    "/arbicore/operations/alerts",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_alerts(severity: Optional[str] = None,
+                     limit: int = 100) -> Dict[str, Any]:
+    """Operator alert stream.
+
+    TODO: wire ``AlertRepository`` (canonical collection for
+    ack/dismiss-aware alerts). No canonical source exists today → empty.
+    """
+    _ = severity, limit  # noqa: F841 — contract preserved for UI filter chip
+    return {"items": [], "total": 0, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/operations/alerts/{alert_id}/ack")
+@api_router.post(
+    "/arbicore/operations/alerts/{alert_id}/ack",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_alert_ack(alert_id: str) -> Dict[str, Any]:
-    return {"ok": True, "id": alert_id, "acked": True, "generated_at": _iso_now()}
+    """Ack a single alert.
+
+    TODO: persist via ``AlertRepository.ack(alert_id, actor)`` once the
+    canonical repo lands. Until then, treat ack as a no-op success so the
+    UI affordance remains functional.
+    """
+    return {"ok": True, "id": alert_id, "acked": True,
+            "generated_at": _iso_now()}
 
 
 # ---------------------------------------------------------------------------
-# UI v2 · Slice 4 preview endpoints — Portfolio (positions, balances, transfers,
-# deployable capital, treasury, ledger, exposure, allocation).
+# Slice 6 — Portfolio Canonicalization (2026-08-05).
 #
-# All shapes below are pod-local stubs that mirror the canonical endpoints
-# planned for `app/backend/arbicore/routes/portfolio.py`. UI contract is
-# stable; when the real backend lands, only the handlers below get swapped.
+# All hardcoded position/balance/transfer/ledger/treasury/exposure/allocation
+# arrays removed. Every endpoint is now either backed by a canonical
+# repository or returns a graceful empty payload preserving the UI contract.
+# See §TODO comments per endpoint for the future canonical wiring path.
 #
-# Future-endpoint mapping (production):
-#   GET  /api/portfolio/positions           <- ExecutionPositionRepo.snapshot()
-#   GET  /api/portfolio/balances            <- VenueBalanceService.aggregate()
-#   GET  /api/portfolio/transfers           <- TreasuryLedger.transfers(window)
-#   GET  /api/portfolio/deployable          <- CapitalRouter.deployable_snapshot()
-#   GET  /api/portfolio/treasury            <- TreasuryLedger.vault_snapshot()
-#   GET  /api/portfolio/ledger              <- TreasuryLedger.entries(window, kind)
-#   GET  /api/portfolio/exposure            <- ExposureAnalyzer.breakdown()
-#   GET  /api/portfolio/allocation          <- AllocationPolicy.status()
+# Auth: every route uses ``dependencies=[Depends(_require_operator_dep)]``.
+# Anonymous requests receive 401 (not_authenticated) uniformly.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/portfolio/positions")
-async def v2_positions(venue: Optional[str] = None, side: Optional[str] = None) -> Dict[str, Any]:
-    items = [
-        {"id": "pos-01", "venue": "binance", "market": "ETH-USDT", "side": "LONG",
-         "size_usd": 25_000, "entry_price": 3421.5, "mark_price": 3428.1,
-         "upnl_bps": 19.3, "upnl_usd": 48.3, "opened_at": _iso_now()},
-        {"id": "pos-02", "venue": "kucoin", "market": "ETH-USDT", "side": "SHORT",
-         "size_usd": 25_000, "entry_price": 3430.2, "mark_price": 3428.1,
-         "upnl_bps": 6.1, "upnl_usd": 15.2, "opened_at": _iso_now()},
-        {"id": "pos-03", "venue": "uniswap-v3", "market": "WETH/USDC", "side": "LP",
-         "size_usd": 18_400, "entry_price": 3400.0, "mark_price": 3428.1,
-         "upnl_bps": 82.6, "upnl_usd": 151.9, "opened_at": _iso_now()},
-        {"id": "pos-04", "venue": "bybit", "market": "SOL-PERP", "side": "SHORT",
-         "size_usd": 8_500, "entry_price": 192.4, "mark_price": 189.1,
-         "upnl_bps": 171.5, "upnl_usd": 145.7, "opened_at": _iso_now()},
-        {"id": "pos-05", "venue": "okx", "market": "BTC-USDT", "side": "LONG",
-         "size_usd": 50_000, "entry_price": 68_000.0, "mark_price": 68_180.0,
-         "upnl_bps": 26.5, "upnl_usd": 132.4, "opened_at": _iso_now()},
-        {"id": "pos-06", "venue": "hyperliquid", "market": "BTC-PERP", "side": "SHORT",
-         "size_usd": 12_000, "entry_price": 68_120.0, "mark_price": 68_180.0,
-         "upnl_bps": -8.8, "upnl_usd": -10.6, "opened_at": _iso_now()},
-    ]
-    out = [p for p in items
-           if (not venue or venue == "ALL" or p["venue"] == venue)
-           and (not side or side == "ALL" or p["side"] == side)]
-    total_size = sum(p["size_usd"] for p in out)
-    total_upnl = sum(p["upnl_usd"] for p in out)
-    return {"items": out, "total": len(out), "total_size_usd": total_size,
-            "total_upnl_usd": total_upnl, "generated_at": _iso_now()}
+@api_router.get(
+    "/arbicore/portfolio/positions",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_positions(venue: Optional[str] = None,
+                        side: Optional[str] = None) -> Dict[str, Any]:
+    """Open position snapshot.
+
+    TODO: wire ``ExecutionPositionRepository.snapshot()`` once the executor
+    contract is deployed and paper/shadow execution begins writing rows to
+    ``arbicore_execution_positions``. No canonical source exists today
+    → empty items + zero totals.
+    """
+    _ = venue, side  # noqa: F841 — contract preserved for UI filter chips
+    return {"items": [], "total": 0, "total_size_usd": 0.0,
+            "total_upnl_usd": 0.0, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/portfolio/balances")
+@api_router.get(
+    "/arbicore/portfolio/balances",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_balances(venue: Optional[str] = None) -> Dict[str, Any]:
-    items = [
-        {"venue": "binance", "asset": "USDT", "total": 82_400.0, "available": 62_400.0, "in_orders": 20_000.0, "usd_value": 82_400.0},
-        {"venue": "binance", "asset": "ETH", "total": 7.3, "available": 7.3, "in_orders": 0.0, "usd_value": 25_025.13},
-        {"venue": "kucoin", "asset": "USDT", "total": 41_800.0, "available": 16_800.0, "in_orders": 25_000.0, "usd_value": 41_800.0},
-        {"venue": "kucoin", "asset": "ETH", "total": 7.3, "available": 0.0, "in_orders": 7.3, "usd_value": 25_025.13},
-        {"venue": "okx", "asset": "USDT", "total": 118_000.0, "available": 68_000.0, "in_orders": 50_000.0, "usd_value": 118_000.0},
-        {"venue": "okx", "asset": "BTC", "total": 0.734, "available": 0.0, "in_orders": 0.734, "usd_value": 50_044.12},
-        {"venue": "bybit", "asset": "USDT", "total": 24_600.0, "available": 16_100.0, "in_orders": 8_500.0, "usd_value": 24_600.0},
-        {"venue": "hyperliquid", "asset": "USDC", "total": 18_400.0, "available": 6_400.0, "in_orders": 12_000.0, "usd_value": 18_400.0},
-        {"venue": "uniswap-v3", "asset": "WETH/USDC LP", "total": 1.0, "available": 1.0, "in_orders": 0.0, "usd_value": 18_400.0},
-        {"venue": "cold_wallet", "asset": "BTC", "total": 2.5, "available": 2.5, "in_orders": 0.0, "usd_value": 170_450.0},
-        {"venue": "cold_wallet", "asset": "ETH", "total": 40.0, "available": 40.0, "in_orders": 0.0, "usd_value": 137_124.0},
-    ]
-    out = [b for b in items if (not venue or venue == "ALL" or b["venue"] == venue)]
-    total_usd = sum(b["usd_value"] for b in out)
-    return {"items": out, "total": len(out), "total_usd": total_usd, "generated_at": _iso_now()}
+    """Aggregated per-venue balance snapshot.
+
+    TODO: wire ``VenueBalanceService.aggregate()`` — requires per-venue
+    balance polling to be enabled (part of the P1 execution readiness
+    milestone). No canonical source exists today → empty.
+    """
+    _ = venue  # noqa: F841
+    return {"items": [], "total": 0, "total_usd": 0.0,
+            "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/portfolio/transfers")
-async def v2_transfers(status: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
-    items = [
-        {"id": "tr-014", "kind": "cex_to_cex", "from": "binance", "to": "okx",
-         "asset": "USDT", "amount": 25_000.0, "usd_value": 25_000.0,
-         "status": "SETTLED", "started_at": _iso_now(), "settled_at": _iso_now(), "tx": "0xabc…def1"},
-        {"id": "tr-013", "kind": "vault_to_cex", "from": "cold_wallet", "to": "binance",
-         "asset": "BTC", "amount": 0.5, "usd_value": 34_090.0,
-         "status": "SETTLED", "started_at": _iso_now(), "settled_at": _iso_now(), "tx": "0xabc…def2"},
-        {"id": "tr-012", "kind": "bridge", "from": "ethereum", "to": "arbitrum",
-         "asset": "USDC", "amount": 50_000.0, "usd_value": 50_000.0,
-         "status": "SETTLED", "started_at": _iso_now(), "settled_at": _iso_now(), "tx": "stargate:0x…a1"},
-        {"id": "tr-011", "kind": "cex_to_vault", "from": "okx", "to": "cold_wallet",
-         "asset": "USDT", "amount": 10_000.0, "usd_value": 10_000.0,
-         "status": "PENDING", "started_at": _iso_now(), "settled_at": None, "tx": "0xabc…def3"},
-        {"id": "tr-010", "kind": "cex_to_vault", "from": "coinbase", "to": "cold_wallet",
-         "asset": "USDT", "amount": 20_000.0, "usd_value": 20_000.0,
-         "status": "SETTLED", "started_at": _iso_now(), "settled_at": _iso_now(), "tx": "0xabc…def4"},
-        {"id": "tr-009", "kind": "bridge", "from": "arbitrum", "to": "base",
-         "asset": "WETH", "amount": 3.2, "usd_value": 10_970.0,
-         "status": "FAILED", "started_at": _iso_now(), "settled_at": _iso_now(), "tx": "stargate:0x…b2"},
-    ]
-    out = [t for t in items if (not status or status == "ALL" or t["status"] == status)][:limit]
-    return {"items": out, "total": len(out), "generated_at": _iso_now()}
+@api_router.get(
+    "/arbicore/portfolio/transfers",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_transfers(status: Optional[str] = None,
+                        limit: int = 100) -> Dict[str, Any]:
+    """Treasury transfer log.
+
+    TODO: wire ``TreasuryLedger.transfers(window)`` once the treasury ledger
+    substrate lands (P1 execution readiness). No canonical source today
+    → empty.
+    """
+    _ = status, limit  # noqa: F841
+    return {"items": [], "total": 0, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/portfolio/deployable")
+@api_router.get(
+    "/arbicore/portfolio/deployable",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_deployable() -> Dict[str, Any]:
-    per_venue = [
-        {"venue": "binance", "deployable_usd": 62_400.0, "utilised_usd": 45_000.0, "utilisation_pct": 0.419},
-        {"venue": "kucoin", "deployable_usd": 16_800.0, "utilisation_pct": 0.598, "utilised_usd": 25_000.0},
-        {"venue": "okx", "deployable_usd": 68_000.0, "utilised_usd": 100_044.0, "utilisation_pct": 0.595},
-        {"venue": "bybit", "deployable_usd": 16_100.0, "utilised_usd": 8_500.0, "utilisation_pct": 0.345},
-        {"venue": "hyperliquid", "deployable_usd": 6_400.0, "utilised_usd": 12_000.0, "utilisation_pct": 0.652},
-        {"venue": "uniswap-v3", "deployable_usd": 4_200.0, "utilised_usd": 18_400.0, "utilisation_pct": 0.814},
-    ]
-    total_deployable = sum(v["deployable_usd"] for v in per_venue)
-    total_utilised = sum(v["utilised_usd"] for v in per_venue)
-    total_capital = total_deployable + total_utilised
+    """Deployable-capital snapshot.
+
+    TODO: wire ``CapitalRouter.deployable_snapshot()``. The existing
+    ``CapitalPolicyRepo`` today holds policy configuration only, not a
+    runtime per-venue deployable/utilised state — that requires the P1
+    executor + balance-polling wiring. Empty per-venue → zero totals.
+    """
     return {
-        "total_deployable_usd": total_deployable,
-        "total_utilised_usd": total_utilised,
-        "total_capital_usd": total_capital,
-        "utilisation_pct": total_utilised / total_capital if total_capital else 0.0,
-        "per_venue": per_venue,
+        "total_deployable_usd": 0.0,
+        "total_utilised_usd": 0.0,
+        "total_capital_usd": 0.0,
+        "utilisation_pct": 0.0,
+        "per_venue": [],
         "generated_at": _iso_now(),
     }
 
 
-@api_router.get("/arbicore/portfolio/treasury")
+@api_router.get(
+    "/arbicore/portfolio/treasury",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_treasury() -> Dict[str, Any]:
-    vaults = [
-        {"vault": "cold_wallet", "kind": "COLD", "custody": "self", "assets": 2, "usd_value": 307_574.0, "last_reconciled_at": _iso_now()},
-        {"vault": "hot_wallet", "kind": "HOT", "custody": "self", "assets": 3, "usd_value": 32_100.0, "last_reconciled_at": _iso_now()},
-        {"vault": "safe_multisig", "kind": "MULTISIG", "custody": "self", "assets": 4, "usd_value": 148_200.0, "last_reconciled_at": _iso_now()},
-        {"vault": "cex_pool", "kind": "EXCHANGE", "custody": "venue", "assets": 8, "usd_value": 385_869.0, "last_reconciled_at": _iso_now()},
-    ]
-    total = sum(v["usd_value"] for v in vaults)
-    return {"vaults": vaults, "total_usd": total, "generated_at": _iso_now()}
+    """Treasury vault snapshot.
+
+    TODO: wire ``TreasuryLedger.vault_snapshot()``. No canonical source
+    exists today → empty vaults + zero total.
+    """
+    return {"vaults": [], "total_usd": 0.0, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/portfolio/ledger")
-async def v2_ledger(kind: Optional[str] = None, limit: int = 100) -> Dict[str, Any]:
-    items = [
-        {"id": "led-042", "kind": "PNL", "ref": "cyc-101", "delta_usd": +530.7, "balance_usd": 873_743.0, "at": _iso_now(), "note": "CEX arbitrage settled"},
-        {"id": "led-041", "kind": "PNL", "ref": "cyc-100", "delta_usd": +261.3, "balance_usd": 873_212.3, "at": _iso_now(), "note": "DEX arbitrage settled"},
-        {"id": "led-040", "kind": "FEE",  "ref": "cyc-100", "delta_usd": -18.2, "balance_usd": 872_951.0, "at": _iso_now(), "note": "gas + venue fees"},
-        {"id": "led-039", "kind": "TRANSFER", "ref": "tr-014", "delta_usd": 0.0, "balance_usd": 872_969.2, "at": _iso_now(), "note": "internal (netting)"},
-        {"id": "led-038", "kind": "PNL", "ref": "cyc-099", "delta_usd": -12.4, "balance_usd": 872_969.2, "at": _iso_now(), "note": "flash-loan reverted, fee only"},
-        {"id": "led-037", "kind": "PNL", "ref": "cyc-097", "delta_usd": +99.5, "balance_usd": 872_981.6, "at": _iso_now(), "note": "funding arbitrage settled"},
-        {"id": "led-036", "kind": "DEPOSIT", "ref": "tr-010", "delta_usd": +20_000.0, "balance_usd": 872_882.1, "at": _iso_now(), "note": "cold-wallet top-up"},
-        {"id": "led-035", "kind": "PNL", "ref": "cyc-096", "delta_usd": +123.0, "balance_usd": 852_882.1, "at": _iso_now(), "note": "cross-chain settled"},
-    ]
-    out = [x for x in items if (not kind or kind == "ALL" or x["kind"] == kind)][:limit]
-    return {"items": out, "total": len(out), "generated_at": _iso_now()}
+@api_router.get(
+    "/arbicore/portfolio/ledger",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_ledger(kind: Optional[str] = None,
+                     limit: int = 100) -> Dict[str, Any]:
+    """Treasury ledger entries.
+
+    TODO: wire ``TreasuryLedger.entries(window, kind)``. No canonical
+    source exists today → empty.
+    """
+    _ = kind, limit  # noqa: F841
+    return {"items": [], "total": 0, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/portfolio/exposure")
+@api_router.get(
+    "/arbicore/portfolio/exposure",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_exposure() -> Dict[str, Any]:
-    by_asset = [
-        {"asset": "BTC", "usd_value": 220_494.0, "pct": 0.259, "delta_24h_pct": 0.008},
-        {"asset": "ETH", "usd_value": 205_574.0, "pct": 0.241, "delta_24h_pct": 0.012},
-        {"asset": "USDT", "usd_value": 266_800.0, "pct": 0.313, "delta_24h_pct": 0.0},
-        {"asset": "USDC", "usd_value": 68_400.0, "pct": 0.080, "delta_24h_pct": 0.0},
-        {"asset": "SOL", "usd_value": 42_180.0, "pct": 0.049, "delta_24h_pct": -0.024},
-        {"asset": "OTHER", "usd_value": 49_295.0, "pct": 0.058, "delta_24h_pct": 0.004},
-    ]
-    by_chain = [
-        {"chain": "cex", "usd_value": 385_869.0, "pct": 0.454},
-        {"chain": "ethereum", "usd_value": 226_000.0, "pct": 0.266},
-        {"chain": "arbitrum", "usd_value": 92_400.0, "pct": 0.109},
-        {"chain": "solana", "usd_value": 42_180.0, "pct": 0.049},
-        {"chain": "base", "usd_value": 18_400.0, "pct": 0.022},
-        {"chain": "cold", "usd_value": 87_894.0, "pct": 0.103},
-    ]
-    return {"by_asset": by_asset, "by_chain": by_chain, "total_usd": sum(a["usd_value"] for a in by_asset), "generated_at": _iso_now()}
+    """Exposure breakdown by asset + by chain.
+
+    TODO: wire ``ExposureAnalyzer.breakdown()``. Derives from
+    balances + positions once those canonical sources exist. Empty today.
+    """
+    return {"by_asset": [], "by_chain": [], "total_usd": 0.0,
+            "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/portfolio/allocation")
+@api_router.get(
+    "/arbicore/portfolio/allocation",
+    dependencies=[Depends(_require_operator_dep)],
+)
 async def v2_allocation() -> Dict[str, Any]:
-    items = [
-        {"bucket": "CEX_ARBITRAGE", "target_pct": 0.35, "actual_pct": 0.31, "target_usd": 297_500.0, "actual_usd": 263_400.0, "delta_usd": -34_100.0, "status": "UNDER"},
-        {"bucket": "DEX_ARBITRAGE", "target_pct": 0.20, "actual_pct": 0.22, "target_usd": 170_000.0, "actual_usd": 187_000.0, "delta_usd": +17_000.0, "status": "OVER"},
-        {"bucket": "FUNDING_ARBITRAGE", "target_pct": 0.15, "actual_pct": 0.11, "target_usd": 127_500.0, "actual_usd": 93_500.0, "delta_usd": -34_000.0, "status": "UNDER"},
-        {"bucket": "FLASH_LOAN_ARBITRAGE", "target_pct": 0.05, "actual_pct": 0.02, "target_usd": 42_500.0, "actual_usd": 17_000.0, "delta_usd": -25_500.0, "status": "UNDER"},
-        {"bucket": "TREASURY_RESERVE", "target_pct": 0.25, "actual_pct": 0.34, "target_usd": 212_500.0, "actual_usd": 288_874.0, "delta_usd": +76_374.0, "status": "OVER"},
-    ]
-    return {"items": items, "total_target_usd": sum(x["target_usd"] for x in items), "total_actual_usd": sum(x["actual_usd"] for x in items), "generated_at": _iso_now()}
+    """Allocation target vs. actual per strategy bucket.
 
+    TODO: wire ``AllocationPolicy.status()`` — requires the treasury
+    ledger + capital router substrate. No canonical source today → empty
+    items + zero totals.
+    """
+    return {"items": [], "total_target_usd": 0.0,
+            "total_actual_usd": 0.0, "generated_at": _iso_now()}
 
 # ---------------------------------------------------------------------------
 # UI v2 · Slice 5 preview endpoints — Settings (account, vault, execution,
