@@ -57,11 +57,76 @@ class MongoOpportunityRepository(OpportunityRepository):
         return self._db[_CANONICAL_COLLECTION_NAMES["opportunities"]]
 
     async def ensure_indexes(self) -> None:
+        """Idempotent index bootstrap.
+
+        The canonical boot indexer (:mod:`arbicore.data.mongo.arbicore_collections`)
+        already creates the following named indexes on ``arbicore_opportunities``:
+
+            * ``opportunity_id_unique``  (unique on ``opportunity_id``)
+            * ``subject_id_idx``         (on ``subject_id``)
+            * ``type_status_idx``        (on ``opportunity_type`` + ``status``)
+            * ``created_at_desc``        (on ``created_at`` descending)
+
+        Calling ``create_index`` again with the SAME key spec but *different*
+        options (in particular an auto-generated ``name``) triggers
+        ``IndexOptionsConflict`` on the Mongo server — Mongo treats ``name``
+        as a semantically-significant option and refuses to promote a
+        second index for the same key even when every other option matches.
+
+        This method therefore:
+          1. Inspects the live index list.
+          2. Skips creation when a compatible index (same key spec + same
+             ``unique`` posture) already exists — irrespective of name.
+          3. Only creates when no compatible index is present.
+
+        No drop is ever attempted here — the canonical boot indexer is
+        the sole authority for schema migrations on this collection.
+        """
         c = self._col
-        await c.create_index("opportunity_id", unique=True)
-        await c.create_index("subject_id")
-        await c.create_index([("opportunity_type", 1), ("status", 1)])
-        await c.create_index([("created_at", -1)])
+        # Snapshot the live index list once. Each entry looks like:
+        #   {"v":2,"key":{"opportunity_id":1},"name":"opportunity_id_unique",
+        #    "unique":true}
+        existing: list = []
+        try:
+            async for idx in c.list_indexes():
+                existing.append(dict(idx))
+        except Exception:
+            # Fresh collection with no indexes yet — fall through to create.
+            existing = []
+
+        def _has_key(key_spec: list, *, unique: bool = False) -> bool:
+            """Return True iff an existing index already covers ``key_spec``
+            with a matching ``unique`` posture.  ``key_spec`` is a list of
+            (field, direction) tuples in the canonical Mongo shape."""
+            want = list(key_spec)
+            for idx in existing:
+                idx_key = idx.get("key") or {}
+                if list(idx_key.items()) != want:
+                    continue
+                if bool(idx.get("unique")) != bool(unique):
+                    continue
+                return True
+            return False
+
+        # 1. unique(opportunity_id)
+        if not _has_key([("opportunity_id", 1)], unique=True):
+            await c.create_index(
+                "opportunity_id", unique=True, name="opportunity_id_unique",
+            )
+        # 2. subject_id
+        if not _has_key([("subject_id", 1)]):
+            await c.create_index("subject_id", name="subject_id_idx")
+        # 3. compound (opportunity_type, status)
+        if not _has_key([("opportunity_type", 1), ("status", 1)]):
+            await c.create_index(
+                [("opportunity_type", 1), ("status", 1)],
+                name="type_status_idx",
+            )
+        # 4. created_at descending
+        if not _has_key([("created_at", -1)]):
+            await c.create_index(
+                [("created_at", -1)], name="created_at_desc",
+            )
 
     async def upsert(self, opp: CanonicalOpportunity) -> bool:
         validate_for_upsert(opp)
