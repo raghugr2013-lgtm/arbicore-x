@@ -34,6 +34,16 @@ export const v2Api = {
   deck: (limit = 5) => get("/arbicore/dashboard/deck", { limit }),
   opportunitiesSummary: (windowHours = 24) =>
     get("/arbicore/opportunities/summary", { window_hours: windowHours }),
+  // v2.11.9 — Shadow Certification (auth via legacy session cookie; the pulse
+  // endpoint already surfaces a compact snapshot, but these detailed views
+  // are used by the certification card action link).
+  shadowCertCurrent: () => get("/arbicore/certification/shadow/current"),
+  shadowCertRuns: (limit = 20) =>
+    get("/arbicore/certification/shadow/runs", { limit }),
+  shadowCertRun: (runId) =>
+    get(`/arbicore/certification/shadow/runs/${runId}`),
+  shadowCertReadiness: () =>
+    get("/arbicore/certification/shadow/readiness"),
   opportunitiesList: (filters = {}) =>
     get("/arbicore/opportunities", filters),
   opportunityDetail: (id) => get(`/arbicore/opportunities/${id}`),

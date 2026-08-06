@@ -395,7 +395,17 @@ Framework are **complete**.  The platform pivots from *building* to
    Live green stripe.
 7. **P3 · Docker networking discrepancy documentation** (deferred).
 
-### v2.11.9 — Shadow Certification (2026-08-06) — ✅ COMPLETE
+### v2.11.9 — Shadow Certification (2026-08-06) — ✅ FRAMEWORK COMPLETE, LIVE RUN GRADED FAIL
+
+**Live Shadow Certification results**: 2 full 20/20-cycle runs executed against
+the live Wave1B scanner emission chain. Both terminated with status **FAIL**
+(executable_rate=0.00%, 73 opps processed cumulatively, worst stage p95<0.01ms,
+0 runner exceptions, infra_healthy=true across every cycle). **Base Sepolia
+promotion is BLOCKED** — this is the correct outcome; the framework refused
+to green-light on an environment where the trade logic finds nothing
+economically executable. Full report: `docs/SHADOW_CERT_v2.11.9_LIVE_REPORT.md`.
+
+Framework + wiring shipped this iteration:
 
 - Infrastructure Validation gate passed clean: no DNS/refused/index-conflict,
   Paper Validation runner enabled and producing immutable
@@ -435,6 +445,33 @@ Framework are **complete**.  The platform pivots from *building* to
   `ARBICORE_SHADOW_CERT_AUTOSTART_RUN` / 8 threshold overrides
   documented in `arbicore/certification/thresholds.py` +
   `runner.py` module docstrings.
+- **Live Shadow Certification wiring shipped (2026-08-06 v2.11.9)**:
+  * Wave1B scanner autostart (`ARBICORE_RUNTIME_AUTOSTART=on`) — the
+    six individual scanners (CEX / DEX / Flash Loan / Funding /
+    Cross Chain / Launch) now instantiate and emit through
+    `EmissionBus → arbicore_opportunities` at boot.
+  * Idempotent `arbicore_collections.ensure_indexes` — fixes
+    `IndexOptionsConflict` on second boot (mirrors the v2.11.8
+    opportunity-repo hotfix).
+  * `get_opportunity_repo()` composition fix — passes `services.db.db`
+    to `MongoOpportunityRepository(db)` (v2.11.8 signature drift).
+  * `PaperValidationRunner.reprocess_stale_after_s` — re-evaluates
+    scanner emissions when their prior evidence is older than the env
+    threshold, so deterministic route-hash IDs don't become permanent
+    dedup skips.
+  * `/api/arbicore/certification/shadow/readiness` — canonical pre-flight
+    snapshot (scanners_running, canonical_opps, paper_runner state,
+    issues[], is_live_ready).
+  * `/certification/shadow/start` now HTTP 412 refuses if not live-ready
+    unless body carries `infrastructure_only=true`.  Every run embeds
+    the readiness snapshot + operator notes under
+    `summary.start_markers`.
+  * OpsCenter dashboard section `section-shadow-cert`: KPI, live
+    progress bar, last-8-cycles table (status, processed, executable,
+    validation_ids, stage p95, reason), history of 5 latest runs.
+    Auto-polls every 6s.
+- 15 additional pytests locked into
+  `tests/test_v2119_shadow_cert_live.py` (74 total v2118/v2119 PASS).
 
 VPS audit confirmed: **`factory-mongo` is the canonical ArbiCore production
 database.** All four components (backend, frontend, Opportunity Center,

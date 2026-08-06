@@ -2293,6 +2293,114 @@ def _shadow_cert_engine_or_503():
     return _SHADOW_CERT_ENGINE
 
 
+async def _shadow_cert_readiness_snapshot() -> Dict[str, Any]:
+    """v2.11.9 — pre-flight snapshot of the emission chain.
+
+    Enforces the "no accidental infra-only certification" rule: a live
+    certification must confirm that (a) at least one Wave1B scanner is
+    actively running AND (b) the runner has processed non-zero
+    opportunities in the recent past.  If either is false the caller
+    must explicitly opt into ``infrastructure_only=true``.
+
+    Fail-open: any probe error is reported as ``unknown=True`` and
+    treated as "not ready" — the operator has to force with an explicit
+    override flag.
+    """
+    report: Dict[str, Any] = {
+        "generated_at":            _iso_now(),
+        "scanners_running":        [],
+        "scanners_all":            [],
+        "runtime_autostart":       dict(_ARBICORE_RUNTIME_INIT),
+        "paper_runner": {
+            "enabled":               False,
+            "is_running":            False,
+            "opportunities_seen":    0,
+            "opportunities_processed": 0,
+            "cycles_completed":      0,
+        },
+        "canonical_opportunities": {"total": 0},
+        "unknown":                 False,
+        "issues":                  [],
+    }
+    # Scanner state
+    try:
+        from arbicore.runtime import composition as _comp
+        for scan_name, getter in (
+            ("cex_arb",         getattr(_comp, "get_cex_arb_scanner",         None)),
+            ("funding_arb",     getattr(_comp, "get_funding_arb_scanner",     None)),
+            ("dex_arb",         getattr(_comp, "get_dex_arb_scanner",         None)),
+            ("launch_arb",      getattr(_comp, "get_launch_arb_scanner",      None)),
+            ("cross_chain_arb", getattr(_comp, "get_cross_chain_arb_scanner", None)),
+            ("flash_loan_arb",  getattr(_comp, "get_flash_loan_arb_scanner",  None)),
+        ):
+            if getter is None:
+                continue
+            report["scanners_all"].append(scan_name)
+            try:
+                sc = getter()
+                task = getattr(sc, "_task", None)
+                enabled = False
+                try:
+                    enabled = bool(sc.is_enabled())
+                except Exception:  # noqa: BLE001
+                    enabled = False
+                task_alive = task is not None and not task.done()
+                if enabled and task_alive:
+                    report["scanners_running"].append(scan_name)
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        report["unknown"] = True
+        report["issues"].append("scanner_probe_failed")
+
+    # Paper Validation runner state
+    if _PAPER_RUNNER is not None:
+        m = _PAPER_RUNNER.metrics.to_dict()
+        report["paper_runner"] = {
+            "enabled":                 True,
+            "is_running":              _PAPER_RUNNER.is_running(),
+            "opportunities_seen":      int(m.get("opportunities_seen") or 0),
+            "opportunities_processed": int(m.get("opportunities_processed") or 0),
+            "cycles_completed":        int(m.get("cycles_completed") or 0),
+        }
+
+    # Canonical opportunity feed size
+    try:
+        total = await _CANONICAL_OPP_REPO._col.count_documents({})
+        report["canonical_opportunities"]["total"] = int(total)
+    except Exception:  # noqa: BLE001
+        report["unknown"] = True
+        report["issues"].append("canonical_opp_count_failed")
+
+    if not report["scanners_running"]:
+        report["issues"].append("no_scanners_running")
+    if report["paper_runner"]["opportunities_processed"] == 0:
+        report["issues"].append("paper_runner_zero_processed")
+
+    report["is_live_ready"] = (
+        len(report["scanners_running"]) >= 1
+        and report["paper_runner"]["opportunities_processed"] > 0
+        and not report["unknown"]
+    )
+    return report
+
+
+@api_router.get(
+    "/arbicore/certification/shadow/readiness",
+    dependencies=[Depends(_require_operator_dep)],
+)
+async def v2_shadow_cert_readiness() -> Dict[str, Any]:
+    """Pre-flight readiness snapshot used by the /start endpoint.
+
+    ``is_live_ready`` is True only when:
+      * ≥ 1 Wave1B scanner is actively running (task alive + enabled), AND
+      * the Paper Validation runner has processed at least 1 opportunity
+        in its lifetime, AND
+      * no probe errors were encountered.
+    """
+    return await _shadow_cert_readiness_snapshot()
+
+
 @api_router.get(
     "/arbicore/certification/shadow/thresholds",
     dependencies=[Depends(_require_operator_dep)],
@@ -2331,22 +2439,62 @@ async def v2_shadow_cert_start(payload: Optional[Dict[str, Any]] = Body(None)) -
     Optional body fields:
       * ``target_cycles`` — override target for this run only.
       * ``notes`` — free-form operator note (recorded on the run).
+      * ``infrastructure_only`` — set true to acknowledge that live
+        scanner emission is unavailable; the run is then explicitly
+        graded as an Infrastructure-Only Certification (marker
+        recorded on the run summary).
 
-    Refuses if a run is already RUNNING (returns 409).
+    Refuses (409) if a run is already RUNNING.
+    Refuses (412 preconditon_failed) if the emission chain is not
+    live-ready AND ``infrastructure_only`` is not set to true.
     """
     engine = _shadow_cert_engine_or_503()
+    payload = payload if isinstance(payload, dict) else {}
+
+    # v2.11.9 — pre-flight readiness gate
+    infrastructure_only = bool(payload.get("infrastructure_only", False))
+    readiness = await _shadow_cert_readiness_snapshot()
+    if not readiness.get("is_live_ready") and not infrastructure_only:
+        raise HTTPException(
+            status_code=412,
+            detail={
+                "error":     "not_live_ready",
+                "message":   ("emission chain is not producing fresh "
+                              "opportunities; set infrastructure_only=true "
+                              "to run an explicit Infrastructure-Only "
+                              "Certification"),
+                "readiness": readiness,
+            },
+        )
+
     try:
         thresholds = engine.thresholds
-        if payload and isinstance(payload, dict):
-            override_cycles = payload.get("target_cycles")
-            if override_cycles is not None:
-                thresholds = type(thresholds).from_dict({
-                    **thresholds.to_dict(),
-                    "target_cycles": int(override_cycles),
-                })
+        override_cycles = payload.get("target_cycles")
+        if override_cycles is not None:
+            thresholds = type(thresholds).from_dict({
+                **thresholds.to_dict(),
+                "target_cycles": int(override_cycles),
+            })
         run = await engine.start_run(thresholds=thresholds)
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+
+    # Record the readiness snapshot + infrastructure_only marker in the
+    # run's summary so historical reports carry the pre-flight context.
+    marker: Dict[str, Any] = {
+        "infrastructure_only":       infrastructure_only,
+        "readiness_at_start":        readiness,
+    }
+    notes = payload.get("notes")
+    if notes:
+        marker["operator_notes"] = str(notes)
+
+    from dataclasses import replace as _dc_replace
+    from arbicore.certification.models import ShadowCertificationRun as _RunT
+    _new_summary = {**(run.summary or {}), "start_markers": marker}
+    _run2 = _dc_replace(run, summary=_new_summary)  # type: ignore[arg-type]
+    await _SHADOW_CERT_REPO.upsert(_run2)
+    run = _run2
     return {"run": run.to_report(), "generated_at": _iso_now()}
 
 
@@ -5001,6 +5149,128 @@ async def _scanners_activate_startup():
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("scanners: activation failed: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# v2.11.9 · Wave1B individual scanners (CEX / DEX / Flash Loan / Funding /
+# Cross Chain / Launch) — instantiated + started via
+# ``initialise_arbicore_runtime()``.  Each scanner emits through
+# ``EmissionBus`` which upserts into the canonical
+# ``arbicore_opportunities`` collection that the Paper Validation runner
+# reads.  Prior to v2.11.9 the initialiser was only invoked from tests,
+# so the individual scanners never booted and the canonical opportunity
+# feed was seed-only.  Gate: ``ARBICORE_RUNTIME_AUTOSTART=on``.
+# ---------------------------------------------------------------------------
+_ARBICORE_RUNTIME_INIT: Dict[str, Any] = {
+    "attempted":  False,
+    "completed":  False,
+    "started_at": None,
+    "completed_at": None,
+    "error":      None,
+    "scanners_started": [],
+}
+
+
+@app.on_event("startup")
+async def _arbicore_runtime_autostart():
+    """Boot the Wave1B scanners so their EmissionBus emissions reach the
+    canonical opportunity repo used by Paper Validation + Shadow
+    Certification.
+
+    We intentionally do NOT invoke the full ``initialise_arbicore_runtime()``
+    composition entrypoint because it also drives dormant Phase C
+    learners (OutcomeEvaluator, RegimeWorker, adaptive-weights refresh)
+    that carry drift bugs against the current data schema.  For the
+    live-scanner→canonical-opp emission path we only need:
+      1. arbicore_* index bootstrap
+      2. discovery-layer queue / venue caps / scanner state indexes
+      3. per-scanner instantiation + first cache prime + start()
+    """
+    autostart = (os.environ.get("ARBICORE_RUNTIME_AUTOSTART") or "").strip().lower()
+    if autostart not in ("1", "true", "yes", "on"):
+        logger.info(
+            "arbicore_runtime autostart disabled "
+            "(ARBICORE_RUNTIME_AUTOSTART not set)"
+        )
+        return
+
+    _ARBICORE_RUNTIME_INIT["attempted"]  = True
+    _ARBICORE_RUNTIME_INIT["started_at"] = _iso_now()
+    started: List[str] = []
+    errors: Dict[str, str] = {}
+    try:
+        # ── 1. arbicore_* index bootstrap (idempotent) ─────────────
+        from arbicore.data.mongo.arbicore_collections import (
+            ensure_indexes as _ensure_arbicore_indexes,
+        )
+        try:
+            await _ensure_arbicore_indexes()
+        except Exception as exc:  # noqa: BLE001
+            errors["arbicore_indexes"] = f"{type(exc).__name__}: {exc}"
+
+        # ── 2. discovery-layer bootstrapping ───────────────────────
+        from arbicore.runtime import composition as _comp
+        try:
+            await _comp.get_discovery_queue().ensure_indexes()
+            await _comp.get_venue_capability_repo().ensure_indexes()
+            await _comp.get_discovery_source_metrics().ensure_indexes()
+            cfg_repo = _comp.get_scanner_config_repo()
+            await cfg_repo.ensure_indexes()
+            await cfg_repo.seed_defaults()
+            state_repo = _comp.get_scanner_state_repo()
+            await state_repo.ensure_indexes()
+            await state_repo.seed_defaults()
+        except Exception as exc:  # noqa: BLE001
+            errors["discovery_bootstrap"] = f"{type(exc).__name__}: {exc}"
+
+        # ── 3. per-scanner instantiate + prime cache + start ───────
+        scanner_map = (
+            ("cex_arb",         "get_cex_arb_scanner",         "ARBICORE_SCANNER_CEX_ARB"),
+            ("funding_arb",     "get_funding_arb_scanner",     "ARBICORE_SCANNER_FUNDING_ARB"),
+            ("dex_arb",         "get_dex_arb_scanner",         "ARBICORE_SCANNER_DEX_ARB"),
+            ("launch_arb",      "get_launch_arb_scanner",      "ARBICORE_SCANNER_LAUNCH_ARB"),
+            ("cross_chain_arb", "get_cross_chain_arb_scanner", "ARBICORE_SCANNER_CROSS_CHAIN_ARB"),
+            ("flash_loan_arb",  "get_flash_loan_arb_scanner",  "ARBICORE_SCANNER_FLASH_LOAN_ARB"),
+        )
+        for name, getter_name, env_key in scanner_map:
+            env_val = (os.environ.get(env_key) or "off").strip().lower()
+            if env_val not in ("on", "1", "true", "yes"):
+                continue
+            getter = getattr(_comp, getter_name, None)
+            if getter is None:
+                errors[name] = "getter_missing"
+                continue
+            try:
+                # 3a. persist enabled flag so is_enabled() returns True
+                try:
+                    await _comp.get_scanner_state_repo().set_enabled(
+                        name, True, actor="env_boot"
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
+                # 3b. instantiate + prime + start
+                sc = getter()
+                if hasattr(sc, "_refresh_caches_once"):
+                    try:
+                        await sc._refresh_caches_once()  # type: ignore[attr-defined]
+                    except Exception:  # noqa: BLE001
+                        pass
+                await sc.start()
+                started.append(name)
+            except Exception as exc:  # noqa: BLE001
+                errors[name] = f"{type(exc).__name__}: {exc}"
+
+        _ARBICORE_RUNTIME_INIT["completed"]        = True
+        _ARBICORE_RUNTIME_INIT["completed_at"]     = _iso_now()
+        _ARBICORE_RUNTIME_INIT["scanners_started"] = started
+        _ARBICORE_RUNTIME_INIT["errors"]           = errors
+        logger.info(
+            "arbicore_runtime: bootstrap complete (started=%s, errors=%s)",
+            started, list(errors.keys()),
+        )
+    except Exception as exc:  # noqa: BLE001
+        _ARBICORE_RUNTIME_INIT["error"] = f"{type(exc).__name__}: {exc}"
+        logger.exception("arbicore_runtime autostart failed: %s", exc)
 
 
 @app.get("/api/arbicore/scanners/status")

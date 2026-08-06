@@ -115,7 +115,7 @@ export default function OpsCenter() {
   const [tick, setTick] = useState(0);
 
   const load = useCallback(async () => {
-    const [live, prices, opps, providers, cross, memory, safety, validation, mid] =
+    const [live, prices, opps, providers, cross, memory, safety, validation, mid, shadowCert, shadowReadiness, shadowRuns] =
       await Promise.all([
         safeGet("/api/arbicore/live/status"),
         safeGet("/api/arbicore/live/prices"),
@@ -126,8 +126,11 @@ export default function OpsCenter() {
         safeGet("/api/arbicore/safety/status"),
         safeGet("/api/arbicore/validation/summary"),
         safeGet("/api/arbicore/observability"),
+        safeGet("/api/arbicore/certification/shadow/current"),
+        safeGet("/api/arbicore/certification/shadow/readiness"),
+        safeGet("/api/arbicore/certification/shadow/runs?limit=5"),
       ]);
-    setState({ live, prices, opps, providers, cross, memory, safety, validation, mid });
+    setState({ live, prices, opps, providers, cross, memory, safety, validation, mid, shadowCert, shadowReadiness, shadowRuns });
     setTick(t => t + 1);
   }, []);
 
@@ -137,7 +140,7 @@ export default function OpsCenter() {
     return () => clearInterval(id);
   }, [load]);
 
-  const { live, prices, opps, providers, cross, memory, safety, validation } = state;
+  const { live, prices, opps, providers, cross, memory, safety, validation, shadowCert, shadowReadiness, shadowRuns } = state;
   const totalProviders = providers?.provider_count ?? 0;
   const scanners = validation?.scanner_ranking?.scanners || [];
   const totalOpsEmitted = scanners.reduce((s, x) => s + (x.opportunities_emitted || 0), 0);
@@ -169,7 +172,150 @@ export default function OpsCenter() {
              unit="total"
              delta={`${memory?.opportunities?.by_status?.ACTIVE || 0} active`}
              deltaKind="neutral" />
+        {(() => {
+          const cur = shadowCert?.current;
+          const status = cur?.status || "IDLE";
+          const cyc = cur?.cycles_completed || 0;
+          const tgt = cur?.target_cycles || 0;
+          const rate = cur?.cumulative?.executable_rate;
+          const dKind = { PASS: "success", WARNING: "warning", FAIL: "error", ABORTED: "warning", RUNNING: "neutral", IDLE: "neutral" }[status] || "neutral";
+          return (
+            <KPI testId="kpi-shadow-cert" label="Shadow Certification"
+                 value={status}
+                 unit={tgt > 0 ? `${cyc}/${tgt}` : ""}
+                 delta={rate !== undefined ? `exec-rate ${(rate * 100).toFixed(2)}%` : "no active run"}
+                 deltaKind={dKind} />
+          );
+        })()}
       </div>
+
+      {/* SHADOW CERTIFICATION — live progress + cycle stream */}
+      <Section
+        title="Shadow Certification — live"
+        testId="section-shadow-cert"
+        right={(() => {
+          const r = shadowReadiness;
+          if (!r) return "";
+          return r.is_live_ready ? "readiness: LIVE-READY" : `readiness: ${r.issues?.join(",") || "not ready"}`;
+        })()}
+      >
+        {(() => {
+          const cur = shadowCert?.current;
+          const runs = shadowRuns?.items || [];
+          if (!cur && runs.length === 0) {
+            return (
+              <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 12 }} data-testid="shadow-cert-empty">
+                No certification runs yet. POST /api/arbicore/certification/shadow/start
+              </div>
+            );
+          }
+          const active = cur;
+          const done = active?.cycles_completed || 0;
+          const target = active?.target_cycles || 0;
+          const pct = target > 0 ? Math.round((done / target) * 100) : 0;
+          const statusColor = {
+            RUNNING: "var(--v2-text-strong)",
+            PASS:    "var(--v2-verdict-go)",
+            WARNING: "var(--v2-verdict-no-soft)",
+            FAIL:    "var(--v2-verdict-no-hard)",
+            ABORTED: "var(--v2-text-muted)",
+          }[active?.status] || "var(--v2-text-strong)";
+          const outcomeStr = Object.entries(active?.cumulative?.outcome_counts || {})
+            .map(([k, v]) => `${k}:${v}`).join(" · ") || "—";
+          const cycles = (active?.cycles || []).slice().reverse();
+          return (
+            <div>
+              {active ? (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase" }}>Status</div>
+                    <div style={{ color: statusColor, fontSize: 20, fontFamily: "var(--v2-font-mono)", fontWeight: 600 }} data-testid="shadow-cert-status">{active.status}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase" }}>Progress</div>
+                    <div style={{ color: "var(--v2-text-strong)", fontSize: 20, fontFamily: "var(--v2-font-mono)" }} data-testid="shadow-cert-progress">{done}/{target}</div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 2, marginTop: 4, overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", background: statusColor, transition: "width 300ms ease" }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase" }}>Executable rate</div>
+                    <div style={{ color: "var(--v2-text-strong)", fontSize: 20, fontFamily: "var(--v2-font-mono)" }} data-testid="shadow-cert-rate">
+                      {((active?.cumulative?.executable_rate || 0) * 100).toFixed(2)}%
+                    </div>
+                    <div style={{ color: "var(--v2-text-muted)", fontSize: 11, fontFamily: "var(--v2-font-mono)" }} data-testid="shadow-cert-outcomes">{outcomeStr}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase" }}>Run ID</div>
+                    <div style={{ color: "var(--v2-text-strong)", fontSize: 11, fontFamily: "var(--v2-font-mono)", wordBreak: "break-all" }} data-testid="shadow-cert-runid">
+                      {(active.run_id || "").slice(0, 36)}…
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              {cycles.length > 0 && (
+                <div data-testid="shadow-cert-cycles">
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase", marginBottom: 4 }}>
+                    Recent cycles (newest first)
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ color: "var(--v2-text-muted)", textAlign: "left", borderBottom: "1px solid var(--v2-border-subtle)" }}>
+                        <th style={{ padding: "4px 8px" }}>#</th>
+                        <th style={{ padding: "4px 8px" }}>Status</th>
+                        <th style={{ padding: "4px 8px" }}>Processed</th>
+                        <th style={{ padding: "4px 8px" }}>Executable</th>
+                        <th style={{ padding: "4px 8px" }}>Vids</th>
+                        <th style={{ padding: "4px 8px" }}>Stage p95</th>
+                        <th style={{ padding: "4px 8px" }}>Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cycles.slice(0, 8).map((c) => {
+                        const p95 = c.stage_p95_ms || {};
+                        const p95max = Object.values(p95).length ? Math.max(...Object.values(p95)) : 0;
+                        const cs = c.cycle_status || "?";
+                        const csColor = { PASS: "var(--v2-verdict-go)", WARNING: "var(--v2-verdict-no-soft)", FAIL: "var(--v2-verdict-no-hard)" }[cs] || "var(--v2-text-muted)";
+                        const reason = (c.cycle_reasons && c.cycle_reasons[0]) || (c.flags || []).join(",") || "—";
+                        return (
+                          <tr key={c.cycle_id} style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-muted)" }}>{c.cycle_index}</td>
+                            <td style={{ padding: "4px 8px", color: csColor, fontWeight: 600 }}>{cs}</td>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{c.opportunities_processed}</td>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{c.executable_count}</td>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{(c.validation_ids || []).length}</td>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-strong)" }}>{p95max.toFixed(1)} ms</td>
+                            <td style={{ padding: "4px 8px", color: "var(--v2-text-secondary)" }}>{reason.slice(0, 60)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {runs.length > 0 && (
+                <div style={{ marginTop: 12 }} data-testid="shadow-cert-history">
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 10, fontFamily: "var(--v2-font-mono)", textTransform: "uppercase", marginBottom: 4 }}>
+                    History (latest {runs.length})
+                  </div>
+                  {runs.map((r) => {
+                    const c = { PASS: "var(--v2-verdict-go)", WARNING: "var(--v2-verdict-no-soft)", FAIL: "var(--v2-verdict-no-hard)", ABORTED: "var(--v2-text-muted)", RUNNING: "var(--v2-text-strong)" }[r.status] || "var(--v2-text-muted)";
+                    return (
+                      <div key={r.run_id} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontFamily: "var(--v2-font-mono)", fontSize: 11, borderBottom: "1px solid rgba(255,255,255,0.03)" }} data-testid={`shadow-cert-history-${r.run_id.slice(0, 12)}`}>
+                        <span style={{ color: "var(--v2-text-secondary)" }}>{r.run_id.slice(0, 30)}…</span>
+                        <span style={{ color: c, fontWeight: 600 }}>{r.status}</span>
+                        <span style={{ color: "var(--v2-text-muted)" }}>{r.cycles_completed}/{r.target_cycles}</span>
+                        <span style={{ color: "var(--v2-text-muted)" }}>{(r.cumulative?.executable_rate * 100 || 0).toFixed(1)}%</span>
+                        <span style={{ color: "var(--v2-text-muted)" }}>{r.started_at?.slice(11, 19)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </Section>
 
       {/* LIVE PRICES */}
       <Section title="Live Prices — cross-venue snapshot" testId="section-prices"

@@ -214,7 +214,11 @@ def get_wallet_profile_repo() -> WalletProfileRepository:
 def get_opportunity_repo() -> OpportunityRepository:
     global _opportunity_repo
     if _opportunity_repo is None:
-        _opportunity_repo = MongoOpportunityRepository()
+        # v2.11.8+ hotfix: MongoOpportunityRepository now requires an
+        # explicit db handle.  Use the shared canonical handle exposed
+        # by services.db.
+        from services import db as _services_db
+        _opportunity_repo = MongoOpportunityRepository(_services_db.db)
     return _opportunity_repo
 
 
