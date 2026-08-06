@@ -376,16 +376,65 @@ Backend canonicalization + Executor Package + Paper Validation
 Framework are **complete**.  The platform pivots from *building* to
 *proving*.
 
-1. **Shadow Certification** — 20-cycle validation loop against the
-   Paper Validation Framework's outcome vocabulary.  Design lands
-   in v2.11.9.
-2. **Base Sepolia deploy** — first real on-chain broadcast, gated
-   behind Shadow Certification pass.
-3. **Limited Live** — real flash-loan opportunity execution, gated
+1. ✅ **Infrastructure Validation** — Mongo DNS, EvidenceBundle persistence,
+   runner idempotency all green (2026-08-06, v2.11.9,
+   `docs/INFRA_VALIDATION_v2.11.9.md`).
+2. ✅ **Shadow Certification framework** — 20-cycle canonical validation
+   gate with immutable `ShadowCertificationRun`, cycle-linked
+   `EvidenceBundle.validation_id`, PASS/WARNING/FAIL/ABORTED status,
+   operator + history endpoints, pulse hook (2026-08-06, v2.11.9,
+   iter16 28/28 PASS).
+3. **Shadow Certification live 20-cycle run** — operator triggers a
+   real run against a warm scanner pool.  Gate to Base Sepolia
+   promotion.
+4. **Base Sepolia deploy** — first real on-chain broadcast, gated
+   behind a Shadow Certification PASS.
+5. **Limited Live** — real flash-loan opportunity execution, gated
    behind explicit operator approval.
-4. **Base mainnet deploy** — final promotion, gated behind Limited
+6. **Base mainnet deploy** — final promotion, gated behind Limited
    Live green stripe.
-5. **P3 · Docker networking discrepancy documentation** (deferred).
+7. **P3 · Docker networking discrepancy documentation** (deferred).
+
+### v2.11.9 — Shadow Certification (2026-08-06) — ✅ COMPLETE
+
+- Infrastructure Validation gate passed clean: no DNS/refused/index-conflict,
+  Paper Validation runner enabled and producing immutable
+  EvidenceBundles in the `arbicore_paper_evidence` collection,
+  `/dashboard/pulse.paper_validation` reporting live counts, journal
+  integrity confirmed.
+- New canonical module `arbicore/certification/`:
+  * `thresholds.py` — 8 env-tunable canonical thresholds + closed
+    `CycleStatus` / `CertificationStatus` vocabularies.
+  * `models.py` — frozen `ShadowCertificationRun` +
+    `ShadowCertificationCycle`; strict RUNNING → terminal transitions.
+  * `repo.py` — Mongo-backed repository with fail-open reads and 3
+    idempotent indexes (`uniq_run_id`, `status_recent`, `recent`).
+  * `engine.py` — orchestrates one run at a time, computes per-cycle
+    delta metrics (outcomes, executable rate, stage p95, infra
+    health), grades each cycle, auto-finalises at `target_cycles`.
+  * `runner.py` — background tick coroutine gated by
+    `ARBICORE_SHADOW_CERT_ENABLED` env.
+- 7 auth-gated endpoints under `/api/arbicore/certification/shadow/*`:
+  `thresholds`, `current`, `start` (POST), `stop` (POST), `tick`
+  (POST — operator-driven cycle), `runs`, `runs/{run_id}`.
+- `/api/arbicore/dashboard/pulse.shadow_certification` block wired
+  with `{active, run_id, status, cycles_completed, target_cycles,
+  executable_rate}`.
+- 11 pytest unit tests locking model immutability, threshold env
+  overrides, engine grading precedence (infra > p95 > exec_rate),
+  RUNNING/PASS/WARNING/FAIL/ABORTED transitions, repo insert-then-replace
+  idempotency, and validation_id capture per cycle.
+- iter16 live regression: **28/28 PASS** (17 live HTTP + 11 unit)
+  including 401 auth-gating on all 7 endpoints, duplicate-start 409,
+  auto-finalise summary shape, stop→ABORTED idempotency, ?status /
+  ?limit filters, 404 on unknown run_id, Mongo persistence + indexes,
+  Paper Validation regression clean.
+- Environment additions: `ARBICORE_PAPER_VALIDATION_ENABLED=true`
+  now default in `/app/backend/.env` for continuous cycles.
+  `ARBICORE_SHADOW_CERT_ENABLED` / `ARBICORE_SHADOW_CERT_CYCLE_S` /
+  `ARBICORE_SHADOW_CERT_AUTOSTART_RUN` / 8 threshold overrides
+  documented in `arbicore/certification/thresholds.py` +
+  `runner.py` module docstrings.
 
 VPS audit confirmed: **`factory-mongo` is the canonical ArbiCore production
 database.** All four components (backend, frontend, Opportunity Center,
@@ -399,20 +448,24 @@ are the reason connectivity works.
 Full details: `docs/DEPLOYMENT_ARCHITECTURE_FROZEN.md`.
 
 Roadmap ahead: ~~Slice 5 → 6 → 7~~ ✅ **all backend canonicalization complete
-(v2.11.6, iter11 221/221)**. Focus shifts from *building* to *proving* the
-platform:
+(v2.11.6, iter11 221/221)**. ~~Shadow Certification framework~~ ✅
+**complete (v2.11.9, iter16 28/28)**. Focus shifts from *building* to
+*proving* the platform:
 
-1. Deploy executor smart contract on `base`.
-2. Paper Validation run.
-3. Shadow Certification (20-cycle threshold).
-4. Limited Live + real flash-loan opportunity discovery/execution.
-5. Kill-switch operator UI wiring (P1).
-6. Adaptive-weight / calibration fitting scheduler (P1).
+1. Live Shadow Certification 20-cycle run against warm scanner pool.
+2. Deploy executor smart contract on `base`.
+3. Limited Live + real flash-loan opportunity discovery/execution.
+4. Kill-switch operator UI wiring (P1).
+5. Adaptive-weight / calibration fitting scheduler (P1).
 
 ### Deferred documentation task (P3)
 - Docker networking discrepancy (backend on `arbicore-x-net`,
   `factory-mongo` on `vqb-network`) — purely documentation, do not
   investigate further per user directive.
+- Wire `arbicore_opportunity_journal.validation_id` for the
+  Paper-Validation runner path (currently null on runner-driven
+  evaluations; not blocking Shadow Certification since the link key
+  we use is `EvidenceBundle.validation_id`).
 
 ### Slice 4 — Execution Planning / Readiness (P2)
 ### Slice 5 — Dashboard Summary — replace hardcoded pulse/deck (P2)
