@@ -58,6 +58,18 @@ services:
   # ---------------------------------------------------------------------------
   # Backend - FastAPI on :8001. Depends on Mongo healthy.
   # env_file provides secrets at runtime; NEVER baked into the image.
+  #
+  # Networking (v2.11.9 hotfix):
+  #   The backend attaches to TWO networks:
+  #     * arbicore-x-net  — owned by this compose file; used to talk to the
+  #                          local frontend / opportunity_center / nginx.
+  #     * vqb-network     — external; owned by the peer "factory" stack.
+  #                          Required whenever MONGO_URL resolves to
+  #                          `factory-mongo` (the frozen canonical DB per
+  #                          docs/DEPLOYMENT_ARCHITECTURE_FROZEN.md).
+  #   Attaching to `vqb-network` is a NO-OP when MONGO_URL points at the
+  #   local `mongo` service — no DNS lookup happens, and the peer stack
+  #   never notices us.  This makes the fix safe on every host.
   # ---------------------------------------------------------------------------
   backend:
     build:
@@ -75,6 +87,7 @@ services:
     env_file: ../../.env
     networks:
       - arbicore-x-net
+      - vqb-network
     volumes:
       # Curated wallet labels — bind-mount read-only so operators can hot-edit without rebuild.
       - ../../app/backend/arbicore/intel/launch/labels.json:/app/arbicore/intel/launch/labels.json:ro
@@ -254,3 +267,19 @@ networks:
   arbicore-x-net:
     name: arbicore-x-net
     driver: bridge
+  # ---------------------------------------------------------------------------
+  # vqb-network is OWNED by the peer "factory" stack that provides
+  # `factory-mongo` (the frozen canonical Mongo per
+  # docs/DEPLOYMENT_ARCHITECTURE_FROZEN.md).  It is external here —
+  # ArbiCore X never creates it, only attaches so the backend can resolve
+  # `factory-mongo` via Docker DNS.
+  #
+  # If the peer stack is not present on this host, either:
+  #   (a) create an empty placeholder before `up`:
+  #         docker network create --driver bridge vqb-network
+  #   (b) or remove the second `- vqb-network` entry from the backend's
+  #       `networks:` list above (leaves the standalone deploy intact).
+  # ---------------------------------------------------------------------------
+  vqb-network:
+    name: vqb-network
+    external: true
