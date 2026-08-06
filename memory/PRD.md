@@ -211,9 +211,27 @@ Merged to main. See earlier entry above.
 
 See `V2.11_DELIVERABLES.md` §8 for the full assessment.
 
-### Slice 5 — Dashboard Summary (P1 — next)
-### Slice 6 — Portfolio activation (P2)
-### Slice 7 — Operations activation (P3)
+### Slice 5 — Dashboard Summary (P0 — next)
+### Slice 6 — Portfolio activation (P0)
+### Slice 7 — Operations activation (P0)
+
+---
+
+## Deployment architecture — FROZEN (2026-08-05)
+
+VPS audit confirmed: **`factory-mongo` is the canonical ArbiCore production
+database.** All four components (backend, frontend, Opportunity Center,
+Strategy Factory) are healthy against it. Deployment profile of record is
+`deployment/compose/docker-compose.shared.yml` with `.env.shared`.
+
+**Do not** provision `arbicore-x-mongo` as the primary. **Do not** migrate
+data. **Do not** disturb the existing Docker network attachments — they
+are the reason connectivity works.
+
+Full details: `docs/DEPLOYMENT_ARCHITECTURE_FROZEN.md`.
+
+Roadmap ahead: Slice 5 → 6 → 7 → executor contract → Paper Validation →
+Shadow Certification → Limited Live.
 
 ### Slice 4 — Execution Planning / Readiness (P2)
 ### Slice 5 — Dashboard Summary — replace hardcoded pulse/deck (P2)
