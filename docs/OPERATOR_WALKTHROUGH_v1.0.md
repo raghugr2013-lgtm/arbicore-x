@@ -3,7 +3,7 @@
 **Audience:** First-time operator taking a brand-new ArbiCore X install from zero to a successful LIMITED_LIVE Flash Loan transaction on Base mainnet.
 **Scope:** Complete UI-first workflow. Only two tasks require touching the host: (i) *(none — Phase 10.10 closed the last .env requirement)*, (ii) deploying the FlashLoanReceiver contract off-platform (one command via Foundry or a browser click in Remix).
 **Validated against:** Preview build 2026-08-01, backend 460/460 relevant tests green (Phase 10.10 shim + G2/G3/G4 fixes applied).
-**Base URL used in examples:** `https://arbix-router-repair.preview.emergentagent.com`
+**Base URL used in examples:** `https://flashloan-readiness.preview.emergentagent.com`
 
 ---
 

@@ -268,7 +268,7 @@ def test_candidate_id_deterministic():
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://arbix-router-repair.preview.emergentagent.com",
+    "https://flashloan-readiness.preview.emergentagent.com",
 ).rstrip("/")
 
 
