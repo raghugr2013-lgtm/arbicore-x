@@ -116,6 +116,24 @@ services:
   # ---------------------------------------------------------------------------
   # Operator terminal UI - CRA build behind nginx-alpine static server.
   # REACT_APP_BACKEND_URL is BAKED at build time (compiled into the JS bundle).
+  #
+  # Networking (frontend vqb-network hotfix):
+  #   The frontend attaches to TWO networks:
+  #     * arbicore-x-net  — owned by this compose file; the bundled nginx
+  #                          reverse proxy reaches the SPA over this network.
+  #     * vqb-network     — external; owned by the peer "factory" stack whose
+  #                          Caddy reverse proxy fronts production. Caddy runs
+  #                          on vqb-network and resolves `arbicore-x-frontend`
+  #                          by container name over Docker DNS — which only
+  #                          works if the frontend is ALSO on vqb-network.
+  #                          Without it, Caddy returns HTTP 502 (cannot resolve
+  #                          the upstream) and required a manual
+  #                          `docker network connect vqb-network
+  #                          arbicore-x-frontend`. Dual-homing makes the fix
+  #                          permanent — no manual step after `compose up`.
+  #   Attaching to `vqb-network` is a NO-OP on greenfield hosts where the
+  #   bundled nginx is the only proxy — the frontend simply gains an extra,
+  #   unused network attachment. Safe on every host.
   # ---------------------------------------------------------------------------
   frontend:
     build:
@@ -129,6 +147,7 @@ services:
     restart: *restart
     networks:
       - arbicore-x-net
+      - vqb-network
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
@@ -146,6 +165,11 @@ services:
 
   # ---------------------------------------------------------------------------
   # Opportunity Center - Vite build behind nginx-alpine.
+  #
+  # Networking: dual-homed on arbicore-x-net + vqb-network for the SAME reason
+  # as the frontend — the peer Caddy proxy on vqb-network must resolve
+  # `arbicore-x-opportunity-center` by container name to serve the analytics
+  # SPA route. NO-OP on greenfield hosts. See the frontend comment above.
   # ---------------------------------------------------------------------------
   opportunity_center:
     build:
@@ -159,6 +183,7 @@ services:
     restart: *restart
     networks:
       - arbicore-x-net
+      - vqb-network
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s
@@ -270,15 +295,20 @@ networks:
   # ---------------------------------------------------------------------------
   # vqb-network is OWNED by the peer "factory" stack that provides
   # `factory-mongo` (the frozen canonical Mongo per
-  # docs/DEPLOYMENT_ARCHITECTURE_FROZEN.md).  It is external here —
-  # ArbiCore X never creates it, only attaches so the backend can resolve
-  # `factory-mongo` via Docker DNS.
+  # docs/DEPLOYMENT_ARCHITECTURE_FROZEN.md) AND the shared Caddy reverse proxy
+  # that fronts production. It is external here — ArbiCore X never creates it,
+  # only attaches so that:
+  #   * the backend can resolve `factory-mongo` via Docker DNS, and
+  #   * the peer Caddy (on vqb-network) can resolve `arbicore-x-frontend` and
+  #     `arbicore-x-opportunity-center` by container name (else HTTP 502).
+  # Services attached to vqb-network: backend, frontend, opportunity_center.
   #
   # If the peer stack is not present on this host, either:
   #   (a) create an empty placeholder before `up`:
   #         docker network create --driver bridge vqb-network
-  #   (b) or remove the second `- vqb-network` entry from the backend's
-  #       `networks:` list above (leaves the standalone deploy intact).
+  #   (b) or remove EVERY `- vqb-network` entry from the backend, frontend and
+  #       opportunity_center `networks:` lists above (leaves the standalone
+  #       greenfield deploy — fronted by the bundled nginx — fully intact).
   # ---------------------------------------------------------------------------
   vqb-network:
     name: vqb-network

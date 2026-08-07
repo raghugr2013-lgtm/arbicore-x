@@ -672,3 +672,19 @@ ownership to the chosen burner).
   LIMITED_LIVE. SHADOW remains default until operator clears STOP-4.
 - Defaults chosen: RPC dedicated+public fallback; capital placeholders;
   Basescan verify optional; engine auto-selects flash-loan head.
+
+### Frontend vqb-network 502 — permanent fix (2026-06) — 🔧 NETWORKING/DOCS
+
+- Root cause: peer Caddy proxy on `vqb-network` could not DNS-resolve
+  `arbicore-x-frontend` (frontend was only on `arbicore-x-net`) → HTTP 502.
+  Backend was already dual-homed (v2.11.9); frontend was not.
+- Permanent fix in `deployment/compose/docker-compose.yml`: `frontend` AND
+  `opportunity_center` now attach to BOTH `arbicore-x-net` + `vqb-network`
+  (backend unchanged). No more manual `docker network connect` after
+  `docker compose up`.
+- `scripts/healthcheck.sh`: added greenfield Caddy-attachment guard — asserts
+  backend/frontend/opportunity_center are on vqb-network when it exists.
+- Docs: new `docs/HOTFIX_FRONTEND_VQB_NETWORK_ATTACH.md`; TROUBLESHOOTING §16;
+  additive note in DEPLOYMENT_ARCHITECTURE_FROZEN.md (frozen rules unchanged).
+- Scope: networking + docs only. No app code, business logic, or trading mode
+  touched. Governance stays SHADOW. YAML + bash syntax validated.

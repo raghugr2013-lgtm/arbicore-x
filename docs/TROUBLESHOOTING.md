@@ -184,6 +184,41 @@ docker inspect arbicore-x-backend -f '{{json .Config.Healthcheck}}' | jq
 
 Should be `curl -fs http://localhost:8001/api/`. If your build changed the base API path, update the compose healthcheck accordingly.
 
+## 16. Production 502 from the peer Caddy proxy (frontend/OC not on `vqb-network`)
+
+**Symptom:** the site returns HTTP 502 through the public domain, but
+`docker exec arbicore-x-frontend wget -qO- http://127.0.0.1/healthz` inside the
+container works. The peer **Caddy** reverse proxy runs on `vqb-network` and
+resolves upstreams by container name; if `arbicore-x-frontend` (or
+`arbicore-x-opportunity-center`) is only on `arbicore-x-net`, Caddy cannot
+resolve it → 502.
+
+**Permanent fix (already in the canonical compose):** `frontend` and
+`opportunity_center` are dual-homed on `arbicore-x-net` **and** `vqb-network`
+(the backend already was). A fresh `docker compose up -d` needs no manual
+`docker network connect`.
+
+**Diagnose:**
+```bash
+# which networks is each Caddy-fronted service on?
+for c in arbicore-x-backend arbicore-x-frontend arbicore-x-opportunity-center; do
+  echo -n "$c: "; docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$c"
+done
+# expected: each line shows BOTH  arbicore-x-net  vqb-network
+scripts/healthcheck.sh          # now asserts vqb-network attachment automatically
+```
+
+**If a running container is still single-homed (pre-fix deploy):** recreate it
+from the updated compose (preferred, permanent) —
+```bash
+cd /opt/arbicore-x && git pull --ff-only
+docker compose -f deployment/compose/docker-compose.yml up -d \
+  --force-recreate --no-deps frontend opportunity_center
+docker restart caddy          # let Caddy re-resolve upstreams
+```
+The old manual hotfix (`docker network connect vqb-network arbicore-x-frontend`)
+is no longer required. See `docs/HOTFIX_FRONTEND_VQB_NETWORK_ATTACH.md`.
+
 ---
 
 ## Diagnostic bundle for support

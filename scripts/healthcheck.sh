@@ -73,6 +73,28 @@ for c in "${CONTAINERS[@]}"; do
   esac
 done
 
+# --- greenfield: Caddy/proxy network attachment guard ---
+# When the peer stack's vqb-network is present on the host, the services the
+# peer Caddy reverse-proxy must reach (backend, frontend, opportunity_center)
+# MUST be attached to it — otherwise Caddy cannot resolve them by container
+# name and returns HTTP 502. This assertion turns the old manual
+# `docker network connect vqb-network arbicore-x-frontend` step into an
+# automated, fail-loud check. It is skipped on hosts without vqb-network.
+if [ "$PROFILE" = "greenfield" ] && command -v docker >/dev/null; then
+  if docker network inspect vqb-network >/dev/null 2>&1; then
+    for c in arbicore-x-backend arbicore-x-frontend arbicore-x-opportunity-center; do
+      nets=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$c" 2>/dev/null || echo "")
+      if printf '%s' "$nets" | grep -qw vqb-network; then
+        ok "container $c attached to vqb-network (Caddy-reachable)"
+      else
+        ng "container $c NOT on vqb-network — peer Caddy will 502 (fix: canonical compose now dual-homes it; run 'docker compose up -d --force-recreate $c')"
+      fi
+    done
+  else
+    printf "  note  vqb-network absent on host — skipping Caddy attachment check (standalone/greenfield-nginx mode)\n"
+  fi
+fi
+
 # --- shared-profile: verify peer Mongo reachability from the backend ---
 if [ "$PROFILE" = "shared" ] && command -v docker >/dev/null; then
   BACKEND_CID="${BACKEND_CONTAINER_NAME:-arbicore-x-backend}"

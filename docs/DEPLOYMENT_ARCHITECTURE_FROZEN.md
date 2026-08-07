@@ -40,6 +40,16 @@
 | Backend network(s) | as-is (verified reachable — do not disturb) |
 | Backend health signal | `docker logs arbicore-x-backend \| grep 'Application startup complete.'` + `curl -fsS http://127.0.0.1:${BACKEND_HOST_PORT:-8101}/api/` returns 200 |
 
+> **Networking note (additive — no frozen rule changed).** The peer **Caddy**
+> reverse proxy runs on `vqb-network` and resolves upstreams by container name.
+> Any Caddy-fronted ArbiCore service must therefore be attached to
+> `vqb-network`. In the shared profile that is automatic (all services share
+> one network). If the **greenfield** `docker-compose.yml` is in use instead,
+> `backend`, `frontend`, and `opportunity_center` are now all dual-homed on
+> `arbicore-x-net` + `vqb-network` so Caddy never 502s — see
+> `docs/HOTFIX_FRONTEND_VQB_NETWORK_ATTACH.md`. This is documentation of the
+> existing runtime attachments; it does not alter the profile of record.
+
 ---
 
 ## What NOT to do
