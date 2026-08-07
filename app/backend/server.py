@@ -4142,6 +4142,94 @@ async def v2_flash_loan_prereqs(chain: str = "base") -> Dict[str, Any]:
                  "generated_at": _iso_now()}
 
 
+
+@api_router.post("/arbicore/wizard/opportunity-probe")
+async def v2_opportunity_probe(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Operator-triggered LIVE quote probe against the configured RPC.
+
+    READ-ONLY. No broadcast, no signing, no fund movement. Sends real
+    Uniswap V3 QuoterV2 ``eth_call`` reads for a token pair across the
+    common fee tiers and reports which (if any) return a live quote —
+    so the operator can watch a real EXECUTABLE candidate form on Base
+    Sepolia BEFORE any deployment or broadcast.
+
+    Body (all optional):
+        {
+          "chain": "base-sepolia",      # or "base" for mainnet
+          "token_in":  "0x4200...0006", # default WETH (Base Sepolia)
+          "token_out": "0x036C...CF7e", # default USDC (Base Sepolia)
+          "amount_in_wei": 10000000000000000,   # default 0.01 WETH
+          "fees": [500, 3000, 10000]    # UniV3 fee tiers to probe (ppm)
+        }
+    """
+    body = body or {}
+    chain = (body.get("chain") or "base-sepolia").strip()
+    # Base Sepolia canonical test tokens.
+    token_in = body.get("token_in") or "0x4200000000000000000000000000000000000006"   # WETH
+    token_out = body.get("token_out") or "0x036CbD53842c5426634e7929541eC2318f3dCF7e"  # USDC
+    try:
+        amount_in_wei = int(body.get("amount_in_wei") or 10**16)  # 0.01 WETH
+    except (TypeError, ValueError):
+        amount_in_wei = 10**16
+    fees = body.get("fees") or [500, 3000, 10000]
+    rpc_url = (body.get("rpc_url") or os.environ.get("ARBICORE_RPC_URL") or "").strip()
+
+    if not rpc_url:
+        return {"ok": False, "chain": chain,
+                "detail": "ARBICORE_RPC_URL not configured", "generated_at": _iso_now()}
+
+    tiers: List[Dict[str, Any]] = []
+    live_tier: Optional[Dict[str, Any]] = None
+    for fee in fees:
+        try:
+            rq = await _QUOTER_REGISTRY.quote_route(
+                chain=chain,
+                hops=[{
+                    "dex": "uniswap_v3",
+                    "token_in": token_in, "token_out": token_out,
+                    "amount_in_wei": amount_in_wei, "fee": int(fee),
+                }],
+                rpc_url=rpc_url,
+            )
+            hop = rq.hops[0].to_dict() if rq.hops else {}
+            tier_row = {
+                "fee_ppm": int(fee),
+                "status": rq.status,
+                "amount_out_wei": rq.final_amount_out_wei,
+                "block_number": hop.get("block_number"),
+                "quoter_contract": hop.get("quoter_contract"),
+                "hop_status": hop.get("status"),
+                "hop_error": hop.get("error"),
+            }
+        except Exception as exc:  # noqa: BLE001
+            tier_row = {"fee_ppm": int(fee), "status": "error",
+                        "hop_error": f"{type(exc).__name__}: {exc}"}
+        tiers.append(tier_row)
+        if live_tier is None and tier_row.get("hop_status") == "ok":
+            live_tier = tier_row
+
+    any_live = live_tier is not None
+    return {
+        "ok": True,
+        "chain": chain,
+        "rpc_reachable": any(t.get("block_number") for t in tiers) or any_live,
+        "token_in": token_in,
+        "token_out": token_out,
+        "amount_in_wei": amount_in_wei,
+        "any_live_pool": any_live,
+        "live_tier": live_tier,
+        "tiers": tiers,
+        "detail": (f"live UniV3 pool found at fee={live_tier['fee_ppm']}ppm"
+                   if any_live else
+                   "no live UniV3 pool with liquidity for this pair on "
+                   f"chain '{chain}' (expected on a thin testnet)"),
+        "note": ("READ-ONLY probe. No broadcast. Confirms the live-quote "
+                 "path + RPC before any executor deployment or broadcast."),
+        "generated_at": _iso_now(),
+    }
+
+
+
 @api_router.get("/arbicore/wizard/journey")
 async def v2_wizard_journey() -> Dict[str, Any]:
     """14-stage guided operator journey (composed from existing signals)."""

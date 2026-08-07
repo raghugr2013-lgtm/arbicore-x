@@ -68,6 +68,9 @@ logger = logging.getLogger("arbicore.execution.quoter")
 # All addresses checksummed at import so downstream eth_call params are
 # rejected early if a typo slips in.
 BASE_UNIV3_QUOTER_V2       = to_checksum_address("0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a")
+# Base Sepolia (chain_id 84532) — additive; used only by the operator
+# opportunity probe. Does NOT affect mainnet 'base' economics.
+BASE_SEPOLIA_UNIV3_QUOTER_V2 = to_checksum_address("0xC5290058841028F1614F3A6F0F5816cAd0df5E27")
 BASE_AERO_SLIPSTREAM_QUOTER = to_checksum_address("0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0")
 BASE_AERO_CLASSIC_ROUTER    = to_checksum_address("0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43")
 
@@ -213,6 +216,7 @@ class UniV3QuoterV2:
 
     _CONTRACT_BY_CHAIN: Dict[str, str] = {
         "base": BASE_UNIV3_QUOTER_V2,
+        "base-sepolia": BASE_SEPOLIA_UNIV3_QUOTER_V2,
     }
 
     async def quote_hop(
