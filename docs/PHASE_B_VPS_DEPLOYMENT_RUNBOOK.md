@@ -46,12 +46,13 @@ Backend env (VPS `.env`, secrets stay out of git):
 ```
 MONGO_URL=<vps mongo uri>
 DB_NAME=arbicore_x
+JWT_SECRET=<long random secret>                 # REQUIRED — auth 500s without it
 CORS_ORIGINS=https://<your-frontend-domain>     # set explicitly (was '*')
-ARBICORE_RPC_URL=<dedicated Base RPC>           # swap public RPC for a paid provider
-ARBICORE_CHAIN=base
-ARBICORE_EXECUTOR_ADDRESS_BASE=<mainnet executor once deployed>
-# Do NOT set ARBICORE_VALIDATION_SIGNER_KEY in prod — the trading engine
-# signs via the Fernet-wrapped wallet registry, not this env key.
+ARBICORE_RPC_URL=https://sepolia.base.org        # Base Sepolia for Phase B
+ARBICORE_CHAIN=base-sepolia
+ARBICORE_EXECUTOR_ADDRESS_BASE=0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052
+# ARBICORE_VALIDATION_SIGNER_KEY only needed if you run the engine self-test
+# (POST /wizard/technical-validation execute=true) from the VPS.
 ```
 
 Frontend `.env`: `REACT_APP_BACKEND_URL=https://<vps-host>` (no trailing /api).
@@ -79,7 +80,50 @@ curl -s $API/arbicore/auto-executor/status
 curl -s $API/arbicore/journal/summary
 ```
 
-## 4. Run in SHADOW until healthy
+## ⚠️ Base Sepolia reality (critical for Phase B expectations)
+
+Validated live in the workspace (same Sepolia config + executor):
+- Scanner enable works; FLASH_LOAN_ARBITRAGE goes RUNNING.
+- **Continuous discovery works** — the WETH/USDC route is discovered and
+  refreshed (`base-weth-usdc-univ3-aero`, age ~30s).
+- **SHADOW pipeline correctly DECLINES it**: verdict `SOFT_NO`, spread
+  `0 bps`, return `-0.01` → AutoExecutor skips (no execution). Correct.
+
+Consequence: **Base Sepolia has no *profitable* flash-loan opportunities**
+(spreads ≈ 0). Under LIMITED_LIVE the economics gate will (correctly)
+never broadcast — so a *scanner-driven profitable* execution will NOT
+occur on Sepolia. That is a **mainnet** phenomenon.
+
+On Sepolia the engine's on-chain execution is proven via the Phase A
+Technical Validation endpoint (forces a tiny real trade), NOT the scanner.
+Therefore the honest Phase-B-on-Sepolia completion criteria are:
+  1. env configured (incl. JWT_SECRET, CORS_ORIGINS) ✓
+  2. flash-loan scanner RUNNING ✓
+  3. continuous discovery observed ✓
+  4. SHADOW pipeline evaluates + correctly declines unprofitable ✓
+  5. LIMITED_LIVE plumbing armed (wallet + capital + gates) — will sit
+     idle with no profitable opp (expected)
+  6. engine execution proof on-chain = Technical Validation (done)
+Real scanner-driven profitable executions are validated on **mainnet**.
+
+## Proven VPS commands (verified in workspace)
+
+```bash
+# login (cookie jar)
+curl -s -c cj.txt -X POST $API/auth/login -H 'Content-Type: application/json' \
+     -d '{"username":"<admin>","password":"<pw>"}'
+# scanner status
+curl -s -b cj.txt $API/arbicore/operations/scanners
+# ENABLE flash-loan family (verb = start, query param)
+curl -s -b cj.txt -X POST "$API/arbicore/operations/scanners/FLASH_LOAN_ARBITRAGE/action?action=start"
+# discovery feed (candidates)
+curl -s -b cj.txt "$API/arbicore/opportunities?limit=5"
+# SHADOW pipeline health
+curl -s $API/arbicore/auto-executor/status
+curl -s $API/arbicore/journal/summary
+```
+
+
 
 Governance default keeps `flash_loan_arbitrage = SHADOW` — leave it there.
 Health gates to watch (all should be green/among expected) for a sustained
