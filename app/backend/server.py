@@ -4230,6 +4230,62 @@ async def v2_opportunity_probe(body: Optional[Dict[str, Any]] = None) -> Dict[st
 
 
 
+@api_router.post("/arbicore/wizard/technical-validation")
+async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Reusable Flash-Loan engine self-test (Aave V3, smallest practical size).
+
+    Proves borrow → execution → repayment → no revert → EvidenceBundle,
+    end-to-end on-chain. Profitability is NOT the goal. Governance-safe:
+    does NOT touch the strategy mode ladder (trading stays SHADOW); uses a
+    dedicated engineering signer (`ARBICORE_VALIDATION_SIGNER_KEY`).
+
+    Body (all optional):
+        {
+          "execute": false,           # false = safe preflight only (default)
+          "amount_wei": 10000000000000,   # default 0.00001 WETH
+          "asset": "0x4200...0006",   # default WETH (an Aave reserve on Base)
+          "auto_prefund": true        # wrap+send the tiny Aave premium
+        }
+    """
+    from arbicore.execution.technical_validation import (
+        TechnicalValidator, TechnicalValidationError, _WETH,
+    )
+    body = body or {}
+    try:
+        validator = TechnicalValidator(
+            rpc_url=os.environ.get("ARBICORE_RPC_URL", ""),
+            executor_address=os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE", ""),
+            signer_key=os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY") or None,
+            db=db,
+        )
+        trace = await validator.run(
+            asset=body.get("asset") or _WETH,
+            amount_wei=int(body.get("amount_wei") or 10**13),
+            swap_in_wei=int(body.get("swap_in_wei") or 10**12),
+            fee_tier_bps=int(body.get("fee_tier_bps") or 5),
+            auto_prefund=bool(body.get("auto_prefund", True)),
+            execute=bool(body.get("execute", False)),
+        )
+        return {"result": trace, "generated_at": _iso_now()}
+    except TechnicalValidationError as exc:
+        return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": f"{type(exc).__name__}: {exc}",
+                "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/wizard/technical-validation/history")
+async def v2_technical_validation_history(limit: int = 10) -> Dict[str, Any]:
+    """Recent technical-validation runs (immutable evidence records)."""
+    try:
+        cur = db["arbicore_technical_validations"].find(
+            {}, {"_id": 0}).sort("recorded_at", -1).limit(max(1, min(limit, 50)))
+        rows = await cur.to_list(length=limit)
+        return {"count": len(rows), "runs": rows, "generated_at": _iso_now()}
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {exc}", "generated_at": _iso_now()}
+
+
 @api_router.get("/arbicore/wizard/journey")
 async def v2_wizard_journey() -> Dict[str, Any]:
     """14-stage guided operator journey (composed from existing signals)."""
