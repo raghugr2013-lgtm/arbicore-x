@@ -688,3 +688,17 @@ ownership to the chosen burner).
   additive note in DEPLOYMENT_ARCHITECTURE_FROZEN.md (frozen rules unchanged).
 - Scope: networking + docs only. No app code, business logic, or trading mode
   touched. Governance stays SHADOW. YAML + bash syntax validated.
+
+### Shared-profile healthcheck fix (2026-06) — 🔧 SCRIPT/DOCS ONLY
+
+- Bug: `scripts/healthcheck.sh` shared branch probed `127.0.0.1:8101/api/` and
+  always returned 000 — the backend publishes NO host port (design: peer Caddy
+  reaches it over vqb-network by container name; canonical shared compose maps
+  only loopback 8101). Healthcheck bug, not a deploy defect.
+- Fix (shared branch only): (1) authoritative in-container probe
+  `docker exec arbicore-x-backend curl http://127.0.0.1:8001/api/`; (2) optional
+  end-to-end probe via Caddy `https://$DOMAIN/api/` when DOMAIN set; (3) loopback
+  host-port probe ONLY when a port is actually published (never false-fails).
+- Did NOT expose a host port (would change architecture + need VPS change).
+- Docs: `docs/HEALTHCHECK_SHARED_PROFILE.md` records the determination.
+- Read-only probes; SHADOW governance untouched. bash -n + logic validated.

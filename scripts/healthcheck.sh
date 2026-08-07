@@ -113,11 +113,58 @@ if command -v curl >/dev/null; then
     CODE=$(curl -sk -o /dev/null -m 5 -w '%{http_code}' "http://localhost/nginx-health" 2>/dev/null || echo 000)
     [ "$CODE" = "200" ] && ok "nginx /nginx-health -> 200" || ng "nginx /nginx-health -> $CODE"
   else
-    # Shared: probe the backend on its loopback host port (default 8101).
-    BPORT="${BACKEND_HOST_PORT:-8101}"
-    BBIND="${BACKEND_HOST_BIND:-127.0.0.1}"
-    CODE=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://${BBIND}:${BPORT}/api/" 2>/dev/null || echo 000)
-    [ "$CODE" = "200" ] && ok "backend http://${BBIND}:${BPORT}/api/ -> 200" || ng "backend http://${BBIND}:${BPORT}/api/ -> $CODE"
+    # -------------------------------------------------------------------------
+    # Shared profile HTTP probe (audited 2026-06).
+    #
+    # Design fact: in shared/co-tenant mode the backend is fronted by the PEER
+    # Caddy reverse proxy, which reaches it over the shared Docker network BY
+    # CONTAINER NAME. Per docs/DEPLOYMENT_ARCHITECTURE_FROZEN.md the backend does
+    # NOT publish a host port on this VPS (the canonical shared compose maps
+    # only 127.0.0.1:8101, and the production VPS publishes none at all). The
+    # previous probe assumed 127.0.0.1:8101 and therefore always returned 000.
+    #
+    # Correct, architecture-preserving probes (no host port required, no VPS
+    # change, all READ-ONLY — SHADOW governance untouched):
+    #   1. AUTHORITATIVE: curl /api/ from INSIDE the backend container (same
+    #      liveness check the compose healthcheck uses; Docker-network direct).
+    #   2. END-TO-END: probe https://$DOMAIN/api/ THROUGH Caddy when a public
+    #      DOMAIN is configured (validates the real operator/browser path).
+    #   3. OPTIONAL: loopback host-port probe, ONLY if a port is actually
+    #      published — never a failure when it is not (the default here).
+    # See docs/HEALTHCHECK_SHARED_PROFILE.md.
+    # -------------------------------------------------------------------------
+    BACKEND_CID="${BACKEND_CONTAINER_NAME:-arbicore-x-backend}"
+
+    # 1. Authoritative in-container liveness.
+    if command -v docker >/dev/null \
+       && docker exec "$BACKEND_CID" curl -fs -m 5 http://127.0.0.1:8001/api/ >/dev/null 2>&1; then
+      ok "backend /api/ (in-container 127.0.0.1:8001) -> 200"
+    else
+      ng "backend /api/ (in-container 127.0.0.1:8001) unreachable in $BACKEND_CID"
+    fi
+
+    # 2. End-to-end through the peer Caddy proxy (only when DOMAIN is set).
+    if [ -n "${DOMAIN:-}" ]; then
+      DHOST="${DOMAIN#https://}"; DHOST="${DHOST#http://}"; DHOST="${DHOST%/}"
+      CODE=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "https://${DHOST}/api/" 2>/dev/null || echo 000)
+      [ "$CODE" = "200" ] \
+        && ok "backend via Caddy https://${DHOST}/api/ -> 200" \
+        || ng "backend via Caddy https://${DHOST}/api/ -> $CODE"
+    else
+      printf "  note  DOMAIN not set in env — skipping public Caddy end-to-end probe\n"
+    fi
+
+    # 3. Optional loopback host-port probe — ONLY when actually published.
+    if command -v docker >/dev/null \
+       && [ -n "$(docker port "$BACKEND_CID" 8001/tcp 2>/dev/null)" ]; then
+      BPORT="${BACKEND_HOST_PORT:-8101}"; BBIND="${BACKEND_HOST_BIND:-127.0.0.1}"
+      CODE=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://${BBIND}:${BPORT}/api/" 2>/dev/null || echo 000)
+      [ "$CODE" = "200" ] \
+        && ok "backend host-port http://${BBIND}:${BPORT}/api/ -> 200" \
+        || ng "backend host-port http://${BBIND}:${BPORT}/api/ -> $CODE (published but not answering)"
+    else
+      printf "  note  backend publishes no host port (by design on this VPS) — skipping loopback host-port probe\n"
+    fi
   fi
 fi
 
