@@ -653,3 +653,22 @@ ownership to the chosen burner).
   validation includes one real swap; premium self-funded via ETH wrap.
 - Reusable: rerun this exact proof after any contract/backend/chain change.
 
+
+### Base Mainnet Promotion Plan / Production Runbook (2026-06) — 📄 DOC ONLY
+
+- Created `docs/BASE_MAINNET_PROMOTION_PLAN.md` — the complete SHADOW→LIMITED_LIVE
+  mainnet (chain 8453) runbook for the VPS (`git pull + docker compose`).
+- Contents: Production Readiness Checklist (top) + 4 hard STOP gates
+  (burner / deploy / arm / go-live), fresh dedicated mainnet burner via
+  secret registry (scope=evm_sign, algo=eth_privkey — never plaintext .env),
+  `forge script ... --rpc-url base` deploy, mainnet venue map, executor verify,
+  prod .env (JWT_SECRET, CORS_ORIGINS, ARBICORE_RPC_URL dedicated+public
+  fallback, chain=base), capital caps (placeholder per-trade + daily loss),
+  kill-switch test, evidence check, go/no-go, monitoring, rollback.
+- CORRECTED payloads vs old PHASE_B doc: mode transition uses `{"to_mode":...}`
+  (NOT `mode`); scanner action is query param `?action=start`; secret scopes
+  are cex_read/cex_trade/cex_withdraw/evm_sign/custom.
+- NO mainnet action taken: no burner, no deploy, no key, no broadcast, no
+  LIMITED_LIVE. SHADOW remains default until operator clears STOP-4.
+- Defaults chosen: RPC dedicated+public fallback; capital placeholders;
+  Basescan verify optional; engine auto-selects flash-loan head.
