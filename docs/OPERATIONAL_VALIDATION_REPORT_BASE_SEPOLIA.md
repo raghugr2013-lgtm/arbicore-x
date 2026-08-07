@@ -81,7 +81,6 @@ no live trading, autonomous loop halts before broadcast.
 ---
 
 ## The credential gate (where this session stops)
-
 Everything achievable without secrets is DONE and verified. The next
 four items are irreversible / secret-bearing and require the operator:
 

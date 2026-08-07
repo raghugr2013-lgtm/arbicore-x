@@ -611,3 +611,25 @@ deploy executor (needs funded Base Sepolia deployer key) → set
 (Aave V3 head) → flip LIMITED_LIVE. No keys were requested/used; no
 on-chain tx performed. Governance intact: flash_loan_arbitrage=SHADOW.
 
+
+
+### Executor DEPLOYED to Base Sepolia (2026-06) — ✅ VERIFIED (testing_agent 6/6)
+
+- **Executor:** `0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052` (Base Sepolia, chain_id 84532).
+- **Owner:** `0x65afB0a65Fd22F88022915F53eD48DA34fb02003` (throwaway testnet deployer; key in `contracts/.env`, gitignored).
+- Deployed via `contracts/script/Deploy.s.sol` (chain-aware). On-chain venue triplet:
+  balancerVault `0xBA12…F2C8`, uniRouter `0x94cC…2bc4`, aavePool `0x8bAB…aE27`.
+- `ARBICORE_EXECUTOR_ADDRESS_BASE` wired into `backend/.env`.
+- **Fixed genuine defect** in `operator_wizard.verify_executor`: it called
+  non-existent `VAULT()`/`ROUTER()` getters and compared against MAINNET
+  addresses → always BLOCKED. Now calls `balancerVault()/uniRouter()/aavePool()`
+  and picks expected venue addresses by chain_id (adds `aave_pool_matches`).
+- `/executor/verify` → **overall READY** (all 6 checks green). wizard/state:
+  executor + executor_verify READY; only remaining blocker = **wallet**.
+- Governance intact: flash_loan_arbitrage = SHADOW. No broadcast performed.
+
+**STOP POINT:** halted after deploy + verify per operator directive. Next =
+burner wallet + first tiny flash loan, pending explicit operator approval.
+NOTE: executor `execute`/`executeAave` are **onlyOwner** → the broadcasting
+burner wallet must be the executor owner (reuse `0x65afB0…02003`, or transfer
+ownership to the chosen burner).
