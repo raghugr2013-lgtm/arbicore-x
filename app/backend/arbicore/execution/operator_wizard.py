@@ -65,7 +65,14 @@ def _rpc_post(url: str, method: str, params: List[Any], timeout: int = 6) -> Dic
         "jsonrpc": "2.0", "id": 1, "method": method, "params": params,
     }).encode("utf-8")
     req = urllib.request.Request(
-        url, data=payload, headers={"Content-Type": "application/json"},
+        url, data=payload, headers={
+            "Content-Type": "application/json",
+            # Public Base RPC endpoints (Coinbase CDP) 403 the default
+            # Python-urllib User-Agent; send a browser-like UA so the
+            # readiness/verify probes match the httpx runtime path.
+            "User-Agent": "Mozilla/5.0 (ArbiCore-X readiness probe)",
+            "Accept": "application/json",
+        },
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         body = resp.read().decode("utf-8")

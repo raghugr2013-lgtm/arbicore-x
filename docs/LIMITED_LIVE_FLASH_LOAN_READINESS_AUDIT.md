@@ -176,6 +176,26 @@ wallet/key custody, and who deploys the contract.
 
 ---
 
+## 7b. Session progress (Base Sepolia readiness) — UPDATE
+
+Delivered this session (no keys, no on-chain tx — stopped at operator gate):
+
+- **S1 done** — app booted in-workspace; `rpc/check` **READY, chain_id
+  84532 (Base Sepolia)**. Fixed a genuine defect: `_rpc_post` urllib had
+  no `User-Agent`, so public Base RPC 403'd the readiness/verify probes.
+- **S2 done** — Foundry compile OK; **8/8 tests PASS**; `Deploy.s.sol`
+  made chain-aware with verified Base Sepolia venue addresses;
+  **dry-run deploy simulated on Base Sepolia** (no key). Deployment is now
+  a single operator action — see `contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md`.
+- **S3 done** — autonomous pipeline validated end-to-end: runs unattended,
+  journals, and **halts before broadcast** (SHADOW). 10-step wizard
+  correctly reports the two remaining BLOCKED gates: **wallet + executor**.
+
+Revised readiness: off-chain software **~100%**; deployment path
+**de-risked to a single command**; overall value-producing readiness
+**~85%** (remaining 15% = operator-gated: deploy + wallet + broadcast).
+Evidence: `docs/OPERATIONAL_VALIDATION_REPORT_BASE_SEPOLIA.md`.
+
 ## 8. Development rules honored
 
 Canonical code only · no demo/fabricated data · no duplicate modules ·

@@ -548,3 +548,44 @@ Roadmap ahead: ~~Slice 5 → 6 → 7~~ ✅ **all backend canonicalization comple
 ### Slice 6 — Portfolio activation (P2)
 ### Slice 7 — Operations activation (P3)
 
+
+---
+
+## LIMITED_LIVE Flash Loan — Readiness Audit + Base Sepolia prep (2026-06)
+
+**Directive:** shortest safe path to LIMITED_LIVE. No new unrelated
+features. No private keys, no irreversible on-chain tx this session —
+stop at the first operator gate.
+
+**Deliverables produced:**
+- `docs/LIMITED_LIVE_FLASH_LOAN_READINESS_AUDIT.md` (the audit).
+- `docs/OPERATIONAL_VALIDATION_REPORT_BASE_SEPOLIA.md` (S1–S3 evidence).
+- `contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md` (single-action deploy).
+
+**Slices delivered:**
+- **S1 — Workspace bring-up & config wiring.** Created `backend/.env`
+  (`MONGO_URL`, `DB_NAME`, `ARBICORE_RPC_URL=https://sepolia.base.org`) +
+  `frontend/.env`. Backend/frontend/Mongo RUNNING. Fixed genuine defect:
+  `arbicore/execution/operator_wizard.py::_rpc_post` lacked a `User-Agent`,
+  so the public Base RPC (Coinbase CDP) returned 403 to the readiness /
+  executor-verify probes. Added browser-like UA. `rpc/check` → READY,
+  chain_id 84532.
+- **S2 — Executor package.** Foundry 1.7.1 installed; `forge build` OK
+  (runtime 4987 bytes); `forge test` **8/8 PASS**. `contracts/script/Deploy.s.sol`
+  rewritten chain-aware (auto Sepolia vs mainnet venues) with verified
+  Base Sepolia addresses (Aave Pool `0x8bAB…aE27`, UniV3 `0x94cC…2bc4`);
+  `contracts/.env.example` updated. Dry-run deploy simulated on Base
+  Sepolia (no key). ABI exported to `contracts/artifacts/`.
+- **S3 — E2E pipeline validation.** Autonomous AutoExecutor loop runs
+  unattended, journals, halts before broadcast (SHADOW). Wizard reports
+  wallet + executor as the only BLOCKED gates. 26/26 wizard+calldata tests
+  green.
+
+**Governance preserved:** `flash_loan_arbitrage = SHADOW`, kill switch
+disengaged, no live trading, no broadcast.
+
+**Remaining to first flash loan (ALL operator-gated):** fund deployer key
+→ `forge script … --broadcast` (Base Sepolia) → set
+`ARBICORE_EXECUTOR_ADDRESS_BASE` → register/fund burner + wrap key → flip
+mode LIMITED_LIVE → confirm broadcast (Aave V3 head). Then promote the
+same build to Base mainnet.
