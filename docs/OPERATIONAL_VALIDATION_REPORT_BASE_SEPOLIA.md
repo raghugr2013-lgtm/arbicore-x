@@ -80,7 +80,37 @@ no live trading, autonomous loop halts before broadcast.
 
 ---
 
-## The credential gate (where this session stops)
+## Phase A — Technical Validation PASSED ✅ (first real flash loan executed)
+
+**Reusable endpoint:** `POST /api/arbicore/wizard/technical-validation`
+(`execute=false` = safe dry sim via eth_call state-override;
+`execute=true` = real broadcast). History:
+`GET /api/arbicore/wizard/technical-validation/history`.
+
+**First successful on-chain flash loan (Base Sepolia):**
+- tx: `0x7b61cdb6a5bcceb41875398a6b9ba512ff8cc2c15b823cbb9bca65d269185f20`
+- status **1 (success)** · gas **310,530** · block **45,170,478** · 12 logs
+- Path: Aave V3 borrow 0.00001 WETH → real Uniswap V3 WETH→USDC swap →
+  repay amount + 5,000,000,000 premium (5 bps) → **no revert** →
+  `ExecutionCompleted` event emitted (borrowed=1e13, premium=5e9,
+  residual forwarded to owner).
+- EvidenceBundle generated + persisted (`arbicore_technical_validations`).
+- Verified by testing_agent (6/6 PASS). Governance intact:
+  flash_loan_arbitrage = SHADOW (validation uses a dedicated engineering
+  signer, independent of the trading mode ladder).
+
+Discoveries this phase:
+- Balancer V2 Vault has **zero code on Base Sepolia** → Balancer can only
+  be validated on mainnet; Aave V3 is the testnet path.
+- The executor rejects a zero-hop flash (`EmptyHops()` = `0x199bb70b`), so
+  a faithful validation includes one real swap leg (better proof).
+- Aave premium self-funded by wrapping the signer's own ETH → no faucet.
+
+**The execution engine is TECHNICALLY READY.**
+
+---
+
+## The credential gate (historical — pre Phase A)
 Everything achievable without secrets is DONE and verified. The next
 four items are irreversible / secret-bearing and require the operator:
 

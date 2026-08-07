@@ -633,3 +633,23 @@ burner wallet + first tiny flash loan, pending explicit operator approval.
 NOTE: executor `execute`/`executeAave` are **onlyOwner** → the broadcasting
 burner wallet must be the executor owner (reuse `0x65afB0…02003`, or transfer
 ownership to the chosen burner).
+
+### Phase A — Technical Validation PASSED (2026-06) — ✅ first real flash loan
+
+- **Reusable endpoint** `POST /api/arbicore/wizard/technical-validation`
+  (`execute=false` dry sim via eth_call state-override; `execute=true`
+  real broadcast) + `GET .../technical-validation/history`. Module:
+  `arbicore/execution/technical_validation.py`. Records in Mongo
+  `arbicore_technical_validations`. Verified by testing_agent (6/6).
+- **First successful on-chain flash loan (Base Sepolia):** tx
+  `0x7b61cdb6a5bcceb41875398a6b9ba512ff8cc2c15b823cbb9bca65d269185f20`,
+  status 1, gas 310,530, block 45,170,478. Aave V3 borrow 0.00001 WETH →
+  real Uniswap V3 WETH→USDC swap → repay + 5bps premium → no revert →
+  ExecutionCompleted event. Engine TECHNICALLY READY.
+- Governance intact: flash_loan_arbitrage=SHADOW (dedicated engineering
+  signer `ARBICORE_VALIDATION_SIGNER_KEY`, independent of trading ladder).
+- Findings: Balancer V2 Vault not deployed on Base Sepolia (Aave-only on
+  testnet); executor rejects zero-hop flash (`EmptyHops()`=0x199bb70b) so
+  validation includes one real swap; premium self-funded via ETH wrap.
+- Reusable: rerun this exact proof after any contract/backend/chain change.
+
