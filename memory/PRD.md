@@ -589,3 +589,25 @@ disengaged, no live trading, no broadcast.
 `ARBICORE_EXECUTOR_ADDRESS_BASE` → register/fund burner + wrap key → flip
 mode LIMITED_LIVE → confirm broadcast (Aave V3 head). Then promote the
 same build to Base mainnet.
+
+### Slice 4 — Operator Opportunity Probe (2026-06) — ✅ COMPLETE (testing_agent 7/7)
+
+- New READ-ONLY endpoint `POST /api/arbicore/wizard/opportunity-probe`
+  (integrates existing `QuoterRegistry`; no new engine). Live UniV3
+  `eth_call` quotes across fee tiers 500/3000/10000. No broadcast/signing.
+- Additive Base Sepolia UniV3 QuoterV2
+  `0xC5290058841028F1614F3A6F0F5816cAd0df5E27` under chain `base-sepolia`
+  in `arbicore/execution/quoter.py` — mainnet `base` unchanged.
+- Verified: Base Sepolia HAS live WETH/USDC pools (0.01 WETH → ~2 USDC),
+  visible cross-tier spread. Test: `tests/test_arbicore_opportunity_probe.py`.
+- urllib-403 UA defect swept: only `operator_wizard._rpc_post` affected
+  (fixed S1); all other execution RPC paths use httpx / urllib.parse only.
+
+### STOP POINT — credential gate
+
+Session halted (per directive) at the first operator gate. Remaining =
+deploy executor (needs funded Base Sepolia deployer key) → set
+`ARBICORE_EXECUTOR_ADDRESS_BASE` → burner wallet + first tiny flash loan
+(Aave V3 head) → flip LIMITED_LIVE. No keys were requested/used; no
+on-chain tx performed. Governance intact: flash_loan_arbitrage=SHADOW.
+

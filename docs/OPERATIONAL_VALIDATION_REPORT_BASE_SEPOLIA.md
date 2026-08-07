@@ -46,8 +46,7 @@ no live trading, autonomous loop halts before broadcast.
 - Git kept clean (`out/`, `cache/`, `broadcast/` gitignored; dry-run
   artifacts removed).
 
-### Slice 3 — End-to-end pipeline validation (up to, not incl. broadcast)  ✅
-- Autonomous loop running unattended: AutoExecutor 30s ticks, opportunities
+### Slice 3 — End-to-end pipeline validation (up to, not incl. broadcast)  ✅- Autonomous loop running unattended: AutoExecutor 30s ticks, opportunities
   evaluated and journalled, all terminal in SHADOW → `REJECTED/NEUTRAL`
   (e.g. −$1.51 unprofitable). **Zero broadcasts. Zero operator intervention.**
 - 10-step wizard (`/wizard/state`) reports honestly: kill_switch READY;
@@ -58,7 +57,42 @@ no live trading, autonomous loop halts before broadcast.
 
 ---
 
-## Remaining path to LIMITED_LIVE (all operator-gated)
+## Slice 4 — Operator Opportunity Probe (live quotes on Base Sepolia)  ✅
+
+- New READ-ONLY endpoint `POST /api/arbicore/wizard/opportunity-probe`
+  (integrates the existing `QuoterRegistry` + live `eth_call` path; no new
+  engine). Probes UniV3 fee tiers 500/3000/10000 for a pair and reports
+  which return a live quote. **No broadcast, no signing.**
+- Additive: registered the Base Sepolia UniV3 QuoterV2
+  (`0xC5290058841028F1614F3A6F0F5816cAd0df5E27`) under chain key
+  `base-sepolia` in `quoter.py` — mainnet `base` routing unchanged.
+- **Result: Base Sepolia has LIVE WETH/USDC pools on all 3 tiers** at
+  block 45,167,561 — 0.01 WETH → {1.986168 (5bps), 2.079572 (30bps),
+  2.067428 (100bps)} USDC. A real cross-tier spread is visible — exactly
+  the EXECUTABLE candidate an operator can watch pre-broadcast.
+- Verified by testing_agent: **7/7 backend tests PASS, 0 issues**
+  (`/app/backend/tests/test_arbicore_opportunity_probe.py`). Confirmed
+  mainnet routing intact and governance (SHADOW) preserved.
+- Also swept the urllib-403 class of defect across execution modules:
+  only `operator_wizard._rpc_post` was affected (fixed); `simulation.py`
+  + `wallet_balance.py` use httpx / only `urllib.parse`; broadcast + gas
+  use httpx. No further UA changes needed.
+
+---
+
+## The credential gate (where this session stops)
+
+Everything achievable without secrets is DONE and verified. The next
+four items are irreversible / secret-bearing and require the operator:
+
+| # | Action | Blocking input |
+|---|---|---|
+| 1 | Deploy `FlashLoanReceiver` to Base Sepolia (`forge script … --broadcast`) | **funded Base Sepolia deployer private key** (~0.00002 ETH) |
+| 2 | Set `ARBICORE_EXECUTOR_ADDRESS_BASE`, `/executor/verify` → READY | (agent, once #1 done) |
+| 3 | First tiny flash loan (Aave V3 head), tiny notional | **burner wallet key** + broadcast approval |
+| 4 | Flip `flash_loan_arbitrage` → LIMITED_LIVE (after green stripe) | operator mode approval |
+
+
 
 | Step | Owner | Gate |
 |---|---|---|
