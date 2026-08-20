@@ -118,3 +118,18 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Tests: NEW `tests/test_p0_aerodrome_settlement.py` (7): real calldata, multi-hop, allowlist + arbitrary-target rejection, self_test. testing_agent iteration_9 backend 100%, no critical/high. Kill switch DISENGAGED, mode SHADOW, scanner RUNNING, LIMITED_LIVE locked, overall RED.
 - NOT done this turn (honest, blocked/needs infra): SIMULATION_ONCHAIN state-override (needs anvil/tenderly), FORK_VALIDATION (needs archive/anvil fork RPC), HISTORICAL_REPLAY (needs archive RPC), dedicated RPC (awaiting USER). Reported YELLOW/RED — not faked.
 
+## Done — 2026-08-20 (Settlement simulation + verified RPC capabilities + historical replay)
+- VERIFIED (not assumed) public-RPC capabilities via probe: state_override=TRUE, archive_state=TRUE, trace=FALSE. Endpoint GET /engine/rpc-capabilities.
+- NEW `arbicore/execution/settlement_simulator.py`: read-only E2E Aerodrome settlement simulation (borrow → swap(s) → repayment → net profit) via router `getAmountsOut` real eth_call, reusing the allowlisted encoder. Block-pinned `replay(block_number=…)` (archive verified). Failed sim = absolute rejection. signed/broadcast=false. Endpoint POST /engine/simulate-settlement (+ block_number for replay). Verified live: WETH→USDC→WETH at block 50218031 correctly REJECTED (loses to fees).
+- Readiness upgrades (verified): SETTLEMENT_SIMULATION GREEN, RPC_STATE_OVERRIDE GREEN, HISTORICAL_REPLAY GREEN. FORK_VALIDATION now YELLOW (archive verified, but no controllable fork — needs anvil/dedicated). SIMULATION_ONCHAIN YELLOW (atomic executor sim needs executor contract). Overall YELLOW; LIMITED_LIVE.can_activate=false.
+- Tests: NEW test_p0_settlement_simulator.py (5) + test_p0_aerodrome_settlement.py (7). testing_agent iteration_10 backend 100% (10/10 integration + 12/12 unit). Kill switch DISENGAGED, mode SHADOW, scanner RUNNING.
+
+## LIMITED_LIVE readiness snapshot (2026-08-20) — overall YELLOW, can_activate=false
+GREEN (evidence): CONFIGURATION_RPC, FLASH_PROVIDERS, DEX_ADAPTERS_QUOTE, DEX_ADAPTERS_SETTLE (encoder self-test), DISCOVERY_ENGINE, ROUTE_ENGINE, OPP_TYPES, QUOTES_LIVE, PROFITABILITY, CONFIDENCE_V2, EXPECTED_VALUE, SIZE_OPTIMIZER, LIQUIDITY_DEPTH, SCANNER, SIMULATION_GATE, SETTLEMENT_SIMULATION (real getAmountsOut), RPC_STATE_OVERRIDE (verified), HISTORICAL_REPLAY (archive verified), DECISION_HISTORY.
+Remaining blockers:
+- WALLET_GAS (USER): fund+register Base gas wallet.
+- SIGNER (USER): isolated KMS signer.
+- EXECUTOR_CONTRACT (USER): deploy+allowlist executor, set ARBICORE_EXECUTOR_ADDRESS_BASE.
+- SIMULATION_ONCHAIN (ENGINEERING): atomic executor sim via state-override code injection — unblocks once EXECUTOR_CONTRACT set (state-override already verified supported).
+- FORK_VALIDATION (USER): local anvil --fork-url <archive rpc> for a controllable fork (public RPC lacks trace/fork).
+

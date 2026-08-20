@@ -334,6 +334,13 @@ _CONTINUOUS_SCANNER = ContinuousScanner(
     recurrence_repo=_ROUTE_RECURRENCE_REPO, alert_repo=_PROFIT_ALERT_REPO,
     interval_s=90.0, routes_per_scan=12)
 
+from arbicore.execution.settlement_simulator import SettlementSimulator
+_SETTLEMENT_SIM = SettlementSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
+# Cached, VERIFIED (not assumed) RPC capabilities + simulator self-test,
+# refreshed at startup so the readiness matrix costs no RPC per request.
+_RPC_CAPS: Dict[str, Any] = {}
+_SETTLEMENT_SELFTEST: Dict[str, Any] = {}
+
 
 # ---------------------------------------------------------------------------
 # P0-B · Learning Ledger — bridges Opportunity Journal into the existing
@@ -4684,6 +4691,49 @@ async def v2_engine_onboarding() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
+@api_router.get("/arbicore/engine/rpc-capabilities",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_rpc_capabilities(refresh: bool = False) -> Dict[str, Any]:
+    """VERIFIED (not assumed) RPC capabilities: state-override, archive, trace."""
+    if refresh or not _RPC_CAPS:
+        try:
+            _RPC_CAPS.update(await _SETTLEMENT_SIM.probe_capabilities())
+        except Exception as exc:  # noqa: BLE001
+            _RPC_CAPS["error"] = str(exc)
+    return {"rpc_configured": bool(os.environ.get("ARBICORE_RPC_URL")),
+            "capabilities": _RPC_CAPS, "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/engine/simulate-settlement",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_simulate_settlement(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Read-only end-to-end Aerodrome settlement simulation against REAL Base
+    state: borrow → swap(s) → repayment → net profit. Optionally block-pinned
+    (historical replay). NEVER signs or broadcasts. A failed simulation is an
+    absolute rejection."""
+    from arbicore.economics.opportunity_engine import TOKEN_ALLOWLIST as _TA
+    if not os.environ.get("ARBICORE_RPC_URL"):
+        raise HTTPException(status_code=503, detail="ARBICORE_RPC_URL not configured")
+    if not isinstance(body, dict) or not isinstance(body.get("hops"), list) or not body["hops"]:
+        raise HTTPException(status_code=422, detail="'hops' array is required")
+    try:
+        amount_in_wei = int(body["amount_in_wei"])
+        token_decimals = int(body.get("token_decimals", 18))
+        token_usd = float(body.get("token_usd", 0.0))
+        gas_cost_usd = float(body.get("gas_cost_usd", 0.0))
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="amount_in_wei/token_usd invalid")
+    recipient = body.get("recipient") or "0x0000000000000000000000000000000000000001"
+    kwargs = dict(hops=body["hops"], amount_in_wei=amount_in_wei,
+                  token_decimals=token_decimals, token_usd=token_usd,
+                  gas_cost_usd=gas_cost_usd, token_allowlist=_TA, recipient=recipient)
+    block = body.get("block_number")
+    result = (await _SETTLEMENT_SIM.replay(block_number=int(block), **kwargs)
+              if block is not None else await _SETTLEMENT_SIM.simulate(**kwargs))
+    return {"execution_performed": False, "shadow_safe": True,
+            "simulation": result, "generated_at": _iso_now()}
+
+
 @api_router.get("/arbicore/engine/scanner/status",
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_scanner_status() -> Dict[str, Any]:
@@ -4814,6 +4864,19 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
     except Exception:  # noqa: BLE001
         _aero_settle_ok = False
 
+    # Lazily verify RPC capabilities + settlement simulator once (cached).
+    if os.environ.get("ARBICORE_RPC_URL"):
+        if not _RPC_CAPS:
+            try:
+                _RPC_CAPS.update(await _SETTLEMENT_SIM.probe_capabilities())
+            except Exception:  # noqa: BLE001
+                pass
+        if not _SETTLEMENT_SELFTEST.get("ran"):
+            try:
+                _SETTLEMENT_SELFTEST.update(await _SETTLEMENT_SIM.self_test())
+            except Exception:  # noqa: BLE001
+                pass
+
     rpc_set = bool(os.environ.get("ARBICORE_RPC_URL"))
     executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
     signer_set = bool(os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY")
@@ -4873,18 +4936,31 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
             else "POST /api/arbicore/engine/scanner/start (auto-starts on boot)",
             "" if _CONTINUOUS_SCANNER.running else "ENGINEERING"),
         row("SIMULATION_GATE", G, "", "hard gate: quote-fresh, allowlists, min-out, slippage, gas, repayment, calldata", ""),
+        row("SETTLEMENT_SIMULATION", G if _SETTLEMENT_SELFTEST.get("ran") else Y,
+            "" if _SETTLEMENT_SELFTEST.get("ran") else "Settlement simulator has not validated a real route",
+            "Read-only E2E Aerodrome route sim (getAmountsOut → repayment → net profit) operational"
+            if _SETTLEMENT_SELFTEST.get("ran") else "Ensure RPC reachable; run /engine/simulate-settlement",
+            "" if _SETTLEMENT_SELFTEST.get("ran") else "ENGINEERING"),
+        row("RPC_STATE_OVERRIDE", G if _RPC_CAPS.get("state_override") else Y,
+            "" if _RPC_CAPS.get("state_override") else "State-override eth_call not verified on this RPC",
+            "VERIFIED: eth_call state-override supported (enables realistic pre-trade sim)"
+            if _RPC_CAPS.get("state_override") else "Provide an RPC supporting eth_call state overrides",
+            "" if _RPC_CAPS.get("state_override") else "USER"),
         row("SIMULATION_ONCHAIN", Y,
-            "eth_call preflight available; full state-override sim not wired",
-            "Add tenderly/anvil state-override simulation for exact revert modelling",
+            "Atomic flash-loan-executor simulation needs the executor contract (deploy or state-override code injection)",
+            "Read-only route+repayment sim is live; wire executor-bytecode state-override once EXECUTOR_CONTRACT is set",
             "ENGINEERING"),
-        row("FORK_VALIDATION", R,
-            "Public RPC cannot host a controllable fork harness",
-            "Provision an archive/trace RPC or local anvil --fork-url for Base",
+        row("FORK_VALIDATION", Y if _RPC_CAPS.get("archive_state") else R,
+            ("Archive state reads VERIFIED, but no controllable fork harness (trace unsupported: %s)"
+             % (not _RPC_CAPS.get("trace"))) if _RPC_CAPS.get("archive_state")
+            else "No archive/trace RPC and no local fork",
+            "Run local anvil --fork-url <archive rpc> for a controllable fork (trace/override on the fork)",
             "USER"),
-        row("HISTORICAL_REPLAY", Y,
-            f"Evidence dataset building ({hist['total']} records); replay harness not built",
-            "Add block-pinned replay over Decision History once archive RPC exists",
-            "ENGINEERING"),
+        row("HISTORICAL_REPLAY", G if _RPC_CAPS.get("archive_state") else Y,
+            "" if _RPC_CAPS.get("archive_state") else "Archive state not available on this RPC",
+            "VERIFIED archive reads → block-pinned replay via /engine/simulate-settlement {block_number}"
+            if _RPC_CAPS.get("archive_state") else "Provide an archive/trace RPC for block-pinned replay",
+            "" if _RPC_CAPS.get("archive_state") else "USER"),
         row("DECISION_HISTORY", G if hist["total"] >= 0 else Y, "",
             f"persisting evidence: total={hist['total']} executable={hist['executable']} real={hist['real_quotes']}", ""),
     ]
@@ -5519,6 +5595,16 @@ async def _autostart_opportunity_scanner():
             await _CONTINUOUS_SCANNER.start()
         except Exception as exc:  # noqa: BLE001
             logger.warning("scanner autostart failed: %r", exc)
+    # Verify RPC capabilities + settlement simulator once (cached for matrix).
+    if os.environ.get("ARBICORE_RPC_URL"):
+        try:
+            _RPC_CAPS.update(await _SETTLEMENT_SIM.probe_capabilities())
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("rpc capability probe failed: %r", exc)
+        try:
+            _SETTLEMENT_SELFTEST.update(await _SETTLEMENT_SIM.self_test())
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("settlement self-test failed: %r", exc)
 
 
 app.add_middleware(
