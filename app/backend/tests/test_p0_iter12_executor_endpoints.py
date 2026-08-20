@@ -80,7 +80,9 @@ def test_atomic_sim_status_shape(auth_session):
     rd = body["readiness"]
     assert rd["executor_address_set"] is True
     assert rd["executor_bytecode_available"] is False
-    assert body["atomic_sim_ready"] is False
+    # Signer is now in the vault → atomic sim is ready against the deployed
+    # executor (local bytecode not required for a deployed contract).
+    assert body["atomic_sim_ready"] is True
     _no_leaks(body)
 
 
@@ -143,9 +145,12 @@ def test_readiness_matrix_evidence_based(auth_session):
     assert modes["FULL_AUTOMATION"]["can_activate"] is False
     rows = {c["capability"].lower(): c for c in body["capabilities"]}
     for green in ("settlement_simulation", "rpc_state_override",
-                  "historical_replay", "dex_adapters_settle"):
+                  "historical_replay", "dex_adapters_settle",
+                  "atomic_executor_sim", "signer", "wallet_gas"):
         assert rows[green]["status"].lower() == "green", (green, rows[green])
-    for yellow in ("atomic_executor_sim", "simulation_onchain", "fork_validation"):
+    # Signer present → ATOMIC_EXECUTOR_SIM is GREEN; the remaining honest
+    # YELLOWs are the on-chain sim (executed but route reverts) + fork validation.
+    for yellow in ("simulation_onchain", "fork_validation"):
         assert rows[yellow]["status"].lower() == "yellow", (yellow, rows[yellow])
         assert rows[yellow].get("blocker"), rows[yellow]
     _no_leaks(body)

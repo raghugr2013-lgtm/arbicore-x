@@ -45,9 +45,10 @@ def test_atomic_sim_status_shape(session):
     # bytecode + signer still absent so atomic_sim stays gated (no fake GREEN).
     assert readiness.get("executor_address_set") is True
     assert readiness.get("executor_bytecode_available") is False
-    assert data.get("atomic_sim_ready") is False
+    # Signer now in vault → atomic sim ready against the deployed executor.
+    assert data.get("atomic_sim_ready") is True
     note = (data.get("note") or "").lower()
-    assert "executor" in note and ("address" in note or "bytecode" in note), data
+    assert "executor" in note or "signer" in note, data
 
 
 def test_atomic_sim_status_requires_auth():
@@ -74,16 +75,15 @@ def test_readiness_matrix_rows_and_activation(session):
     assert _status("RPC_STATE_OVERRIDE") == "GREEN"
     assert _status("HISTORICAL_REPLAY") == "GREEN"
     assert _status("DEX_ADAPTERS_SETTLE") == "GREEN"
-    assert _status("ATOMIC_EXECUTOR_SIM") == "YELLOW"
+    # Signer present in vault → ATOMIC_EXECUTOR_SIM GREEN; on-chain sim +
+    # fork validation remain honest YELLOWs.
+    assert _status("ATOMIC_EXECUTOR_SIM") == "GREEN"
     assert _status("SIMULATION_ONCHAIN") == "YELLOW"
     assert _status("FORK_VALIDATION") == "YELLOW"
 
-    ae = rows["ATOMIC_EXECUTOR_SIM"]
+    ae = rows["SIMULATION_ONCHAIN"]
     blocker = json.dumps(ae).lower()
-    assert "executor" in blocker
-    # executor is now deployed → remaining blocker is the vault signer + entrypoint calldata
-    assert ("signer" in blocker) or ("entrypoint" in blocker) \
-        or ("address" in blocker) or ("bytecode" in blocker)
+    assert "executor" in blocker or "sim" in blocker
 
     overall = (data.get("overall_status") or data.get("overall") or "").upper()
     assert overall == "YELLOW", data

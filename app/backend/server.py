@@ -397,6 +397,7 @@ _CAPITAL_ENGINE = WalletIntelligenceEngine(
 _RPC_CAPS: Dict[str, Any] = {}
 _SETTLEMENT_SELFTEST: Dict[str, Any] = {}
 _ATOMIC_SELFTEST: Dict[str, Any] = {}
+_ATOMIC_LIVE_RUN: Dict[str, Any] = {}   # last live atomic sim vs deployed executor
 
 
 # ---------------------------------------------------------------------------
@@ -4805,13 +4806,30 @@ async def v2_engine_atomic_sim_status(refresh: bool = False) -> Dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             _ATOMIC_SELFTEST["error"] = str(exc)
     rd = _ATOMIC_SIM.readiness()
+    from arbicore.execution.signer_vault import signer_status
+    sig = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+    signer_ok = bool(sig.get("present") and sig.get("matches_expected") is not False)
+    # The executor is DEPLOYED on-chain, so its bytecode is live — the atomic
+    # sim runs against the real contract via eth_call (local bytecode override
+    # is only needed for not-yet-deployed contracts). Ready = capability +
+    # deployed executor + a matching vault signer.
+    if refresh and signer_ok and rd["executor_address_set"]:
+        try:
+            await _run_live_atomic_sim()
+        except Exception as exc:  # noqa: BLE001
+            _ATOMIC_LIVE_RUN.clear()
+            _ATOMIC_LIVE_RUN.update({"available": False, "reason": str(exc)})
+    live = dict(_ATOMIC_LIVE_RUN)
     ready = bool(_ATOMIC_SELFTEST.get("code_injection")
-                 and rd["executor_address_set"] and rd["executor_bytecode_available"])
+                 and rd["executor_address_set"] and signer_ok)
+    note = ("Atomic state-override simulation runs against the DEPLOYED executor "
+            "with the vault signer." if ready else
+            "Code-injection verified. Full atomic simulation activates once the "
+            "executor is deployed and a matching signer is in the vault.")
     return {"code_injection_verified": bool(_ATOMIC_SELFTEST.get("code_injection")),
-            "readiness": rd, "atomic_sim_ready": ready,
-            "note": ("Code-injection mechanism verified. Full atomic simulation activates "
-                     "once ARBICORE_EXECUTOR_ADDRESS_BASE + executor bytecode are provided."),
-            "generated_at": _iso_now()}
+            "readiness": {**rd, "signer_present": signer_ok},
+            "atomic_sim_ready": ready, "live_run": live or None,
+            "note": note, "generated_at": _iso_now()}
 
 
 @api_router.get("/arbicore/engine/fork-status",
@@ -4864,7 +4882,10 @@ async def v2_engine_build_executor_calldata(body: Dict[str, Any]) -> Dict[str, A
 @api_router.get("/arbicore/engine/settings/signer",
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_signer_status() -> Dict[str, Any]:
-    from arbicore.execution.signer_vault import signer_status
+    from arbicore.execution.signer_vault import signer_status, ensure_signer_address
+    # Self-heal a missing derived-address annotation (never exposes the key).
+    await ensure_signer_address(_SECRET_REGISTRY, db,
+                                expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
     st = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
     return {**st, "vault_available": _SECRET_BACKEND.is_available(),
             "generated_at": _iso_now()}
@@ -4918,6 +4939,37 @@ async def v2_engine_run_fork_validation(body: Dict[str, Any] = None) -> Dict[str
     result = await AnvilForkHarness().run_fork_validation(
         block_number=int(block) if block is not None else None)
     return {"fork_validation": result, "generated_at": _iso_now()}
+
+
+async def _run_live_atomic_sim() -> Dict[str, Any]:
+    """Run the atomic executor state-override simulation against the DEPLOYED
+    executor using a representative allowlisted Aerodrome route + the vault
+    signer. Pure eth_call — never signs/broadcasts. A revert is a deterministic
+    on-chain simulation result (the specific route is not executable), NOT a
+    failure of the simulation capability."""
+    hops = [
+        {"token_in": "0x4200000000000000000000000000000000000006",   # WETH
+         "token_out": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  # USDC
+         "stable": False},
+        {"token_in": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",   # USDC
+         "token_out": "0x4200000000000000000000000000000000000006",  # WETH
+         "stable": False},
+    ]
+    res = await _atomic_sim_runner(route=None, hops=hops,
+                                   borrow_token="WETH", amount_wei=10**16)
+    _ATOMIC_LIVE_RUN.clear()
+    _ATOMIC_LIVE_RUN.update({**res, "ran_at": _iso_now(),
+                             "route": "WETH→USDC→WETH (representative)"})
+    return _ATOMIC_LIVE_RUN
+
+
+@api_router.post("/arbicore/engine/run-atomic-sim",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_run_atomic_sim() -> Dict[str, Any]:
+    """Execute ATOMIC_EXECUTOR_SIM + SIMULATION_ONCHAIN against the deployed
+    executor with the vault signer. Returns the deterministic eth_call result."""
+    result = await _run_live_atomic_sim()
+    return {"atomic_sim": result, "generated_at": _iso_now()}
 
 
 # ---------------------------------------------------------------------------
@@ -5171,6 +5223,18 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
     signer_mismatch = bool(_signer.get("present") and _gas_env_for_signer
                            and _signer.get("matches_expected") is False)
     gas_env_addr = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
+
+    # Lazily run the live atomic executor sim ONCE against the deployed executor
+    # when a matching vault signer is present (cached; refresh via
+    # POST /engine/run-atomic-sim). available=True means the state-override
+    # eth_call round-tripped deterministically against the real contract.
+    if executor_set and signer_set and not _ATOMIC_LIVE_RUN:
+        try:
+            await _run_live_atomic_sim()
+        except Exception:  # noqa: BLE001
+            pass
+    _atomic_ran = bool(_ATOMIC_LIVE_RUN.get("available"))
+    _atomic_passed = bool(_ATOMIC_LIVE_RUN.get("passed"))
     _gas_registered = await _WALLET_REGISTRY.list_all(execution_role="gas") \
         if hasattr(_WALLET_REGISTRY, "list_all") else []
     gas_wallets = bool(_gas_registered) or bool(gas_env_addr)
@@ -5249,10 +5313,21 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
             ("Atomic state-override simulation ready" if (executor_set and signer_set)
              else "Inject signer into vault; then wire executor entrypoint flash-loan calldata for the full atomic sim"),
             "" if (executor_set and signer_set) else "USER"),
-        row("SIMULATION_ONCHAIN", Y,
-            "Full atomic executor sim gated on execution signer (vault) + executor entrypoint calldata; executor deployed + state-override verified",
-            "Provide signer via vault → wire executor entrypoint → atomic state-override sim turns on (no fake GREEN)",
-            "USER"),
+        row("SIMULATION_ONCHAIN",
+            G if _atomic_passed else Y,
+            ("" if _atomic_passed else
+             ("On-chain atomic sim EXECUTED against the deployed executor but reverted "
+              "(representative route unprofitable and/or executor entrypoint ABI unconfirmed)"
+              if _atomic_ran else
+              ("Executor deployed + signer in vault; run POST /engine/run-atomic-sim to execute the state-override sim"
+               if (executor_set and signer_set)
+               else "Full atomic executor sim gated on execution signer (vault) + deployed executor"))),
+            ("Passing on-chain atomic state-override simulation against the deployed executor"
+             if _atomic_passed else
+             ("Confirm executor entrypoint ABI and/or supply a profitable route; the sim mechanism is verified"
+              if _atomic_ran else
+              "Provide signer via vault → on-chain atomic state-override sim turns on (no fake GREEN)")),
+            "" if _atomic_passed else ("ENGINEERING" if _atomic_ran else "USER")),
         row("FORK_VALIDATION", Y if _RPC_CAPS.get("archive_state") else R,
             ("Archive state reads VERIFIED, but no controllable fork harness (trace unsupported: %s)"
              % (not _RPC_CAPS.get("trace"))) if _RPC_CAPS.get("archive_state")
@@ -5880,7 +5955,22 @@ app.include_router(api_router)
 
 
 @app.on_event("startup")
-async def _register_env_gas_wallet():
+async def _ensure_signer_address_backfill():
+    """Self-heal any externally-stored execution signer: derive + annotate its
+    public address (never exposing the key) so readiness can verify the match."""
+    try:
+        from arbicore.execution.signer_vault import ensure_signer_address
+        out = await ensure_signer_address(
+            _SECRET_REGISTRY, db,
+            expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+        if out.get("backfilled"):
+            logger.info("signer_vault: backfilled derived address (matches_gas=%s)",
+                        out.get("matches_expected"))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("signer_vault: address backfill skipped: %s", exc)
+
+
+
     """Idempotently register the configured Base gas/execution wallet with the
     'gas' execution role in the WalletRegistry (public ADDRESS only — never a
     private key). This makes the registry the single source of truth for the

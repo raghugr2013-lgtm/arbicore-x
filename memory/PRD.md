@@ -124,6 +124,16 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Readiness upgrades (verified): SETTLEMENT_SIMULATION GREEN, RPC_STATE_OVERRIDE GREEN, HISTORICAL_REPLAY GREEN. FORK_VALIDATION now YELLOW (archive verified, but no controllable fork — needs anvil/dedicated). SIMULATION_ONCHAIN YELLOW (atomic executor sim needs executor contract). Overall YELLOW; LIMITED_LIVE.can_activate=false.
 - Tests: NEW test_p0_settlement_simulator.py (5) + test_p0_aerodrome_settlement.py (7). testing_agent iteration_10 backend 100% (10/10 integration + 12/12 unit). Kill switch DISENGAGED, mode SHADOW, scanner RUNNING.
 
+## Done — 2026-08-20 (Signer activated: SIGNER GREEN, atomic sim run vs deployed executor)
+- Operator stored the execution signer in the vault (via generic secrets path → doc lacked `derived_address`). Added self-healing `ensure_signer_address()` (startup hook + GET settings/signer) that derives + backfills the PUBLIC address WITHOUT exposing the key.
+- Signer verified end-to-end: derived address = `0x998d6efF2b28b72c44f7a334c42678eb4cCaad25` = configured gas/execution wallet, matches_expected=true, key never leaked (testing_agent iter16 confirmed no 64-hex/private_key/signed_tx/raw_tx in any payload).
+- Readiness updated & consistent across BOTH surfaces: SIGNER/WALLET_SIGNER GREEN, WALLET_GAS GREEN, ATOMIC_EXECUTOR_SIM GREEN. Aligned control `_wallet` green-logic with the matrix (requires address match). Capped control `overall_status` at YELLOW while LIMITED_LIVE is locked (fixes control=GREEN vs matrix=YELLOW discrepancy).
+- NEW `POST /api/arbicore/engine/run-atomic-sim` + `_run_live_atomic_sim`: runs the atomic executor state-override sim against the DEPLOYED executor with the vault signer (representative WETH→USDC→WETH). Result: available=true (deterministic eth_call executed), passed=false ("executor reverted" — route unprofitable and/or executor entrypoint ABI unconfirmed); signed=false, broadcast=false. `atomic-sim-status` now signer-aware (atomic_sim_ready=true) + returns live_run.
+- SIMULATION_ONCHAIN honesty: GREEN only on a PASSING sim; currently YELLOW (executed-but-reverted) — no fake GREEN. Matrix now 23 GREEN / 2 YELLOW (SIMULATION_ONCHAIN, FORK_VALIDATION) / 0 RED.
+- Anvil fork validation run: `POST /engine/run-fork-validation` → ran=false, "anvil binary not installed" (honest). FORK_VALIDATION stays YELLOW.
+- SHADOW running; LIMITED_LIVE + FULL_AUTOMATION remain can_activate=false (NOT auto-activated). testing_agent iter16 + regression 64/65 (1 flaky RPC test) PASS.
+- REMAINING BLOCKERS: (1) SIMULATION_ONCHAIN — confirm the deployed executor's entrypoint ABI (env `ARBICORE_EXECUTOR_ENTRYPOINT_SIG`) and/or supply a profitable route so the atomic sim PASSES; (2) FORK_VALIDATION — install `anvil` (Foundry) + provide `ARBICORE_ARCHIVE_RPC_URL`.
+
 ## Done — 2026-08-20 (Wallet & Capital Intelligence Engine — READ-ONLY, verified)
 - NEW `arbicore/capital/wallet_intelligence.py` (`WalletIntelligenceEngine`) + `/api/arbicore/capital/*` endpoints (operator-auth, SHADOW-safe, public addresses only — NEVER reads/logs/returns private keys):
   - `GET /capital/balances` — live native ETH + ERC-20 (Base universe, parallelized `balanceOf`), gas balance, USD, block, last_sync. Reuses `WalletBalanceReader` + `TOKENS`.

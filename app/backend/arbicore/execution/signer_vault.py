@@ -169,5 +169,39 @@ async def resolve_signer_account(registry, db):
         return None
 
 
+async def ensure_signer_address(registry, db, *,
+                                expected_address: Optional[str] = None) -> Dict[str, Any]:
+    """Self-heal: if an evm_sign handle exists but lacks the public
+    ``derived_address`` annotation (e.g. stored via the generic secrets path),
+    resolve the key INTERNALLY once, derive the address, and backfill the doc.
+
+    The raw key is never logged or returned — only the public address."""
+    docs = await _list_signer_handles(db)
+    if not docs:
+        return {"present": False, "backfilled": False}
+    doc = docs[0]
+    if doc.get("derived_address"):
+        return {"present": True, "backfilled": False,
+                "derived_address": doc.get("derived_address")}
+    account = await resolve_signer_account(registry, db)
+    if account is None:
+        return {"present": True, "backfilled": False,
+                "reason": "unable to resolve signer key from vault"}
+    address = account.address  # checksummed public address
+    account = None  # drop key-bearing ref
+    await db[_SECRETS_COLLECTION].update_one(
+        {"handle_id": doc["handle_id"]},
+        {"$set": {"derived_address": address, "execution_role": "signer"}})
+    matches = None
+    if expected_address:
+        try:
+            matches = (to_checksum_address(address) == to_checksum_address(expected_address))
+        except (ValueError, TypeError):
+            matches = None
+    return {"present": True, "backfilled": True,
+            "derived_address": address, "matches_expected": matches}
+
+
 __all__ = ["ingest_signer", "signer_status", "delete_signer",
-           "resolve_signer_account", "EVM_SIGN_SCOPE", "EVM_SIGN_ALGO"]
+           "resolve_signer_account", "ensure_signer_address",
+           "EVM_SIGN_SCOPE", "EVM_SIGN_ALGO"]

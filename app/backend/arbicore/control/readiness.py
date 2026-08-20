@@ -223,7 +223,8 @@ class ExecutionReadinessEngine:
             warnings.append("execution signer not yet ingested into the encrypted vault")
             reqs.append("POST /api/arbicore/engine/settings/signer to store the signer (VAULT_KEY ready)")
 
-        green = bool(gas_present and signer_present and signer_matches is not False)
+        green = bool(gas_present and signer_present
+                     and ((not env_gas) or signer_matches is True))
         return _check("WALLET_SIGNER", GREEN if green else YELLOW,
                       score=90 if green else 50,
                       passed=passed, warnings=warnings, requirements=reqs)
@@ -372,8 +373,14 @@ class ExecutionReadinessEngine:
             await self._paper_validation(),
         ]
         by_name = {c["name"]: c for c in checks}
-        overall = _worst([c["status"] for c in checks])
         modes = self._mode_matrix(by_name)
+        overall = _worst([c["status"] for c in checks])
+        # Never report a fully-GREEN readiness while live execution stays locked.
+        # Outstanding hard blockers (on-chain atomic sim, fork validation,
+        # operator activation) mean the system is not end-to-end ready — keep
+        # this consistent with the engine readiness-matrix (no fake GREEN).
+        if overall == GREEN and not modes.get("LIMITED_LIVE", {}).get("can_activate"):
+            overall = YELLOW
         return {
             "overall_status": overall,
             "components": checks,
