@@ -4912,10 +4912,16 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
     _atomic_rd = _ATOMIC_SIM.readiness()
     rpc_set = bool(os.environ.get("ARBICORE_RPC_URL"))
     executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
-    signer_set = bool(os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY")
-                      or os.environ.get("ARBICORE_SIGNER_KEY"))
-    gas_wallets = await _WALLET_REGISTRY.list_all(execution_role="gas") \
+    # Execution signer must live in the encrypted vault, NOT env — count handles.
+    try:
+        _vault_handles = await db["arbicore_secrets"].count_documents({})
+    except Exception:  # noqa: BLE001
+        _vault_handles = 0
+    signer_set = _vault_handles > 0
+    gas_env_addr = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
+    _gas_registered = await _WALLET_REGISTRY.list_all(execution_role="gas") \
         if hasattr(_WALLET_REGISTRY, "list_all") else []
+    gas_wallets = bool(_gas_registered) or bool(gas_env_addr)
     hist = await _DECISION_HISTORY_REPO.stats()
 
     G, Y, R = "GREEN", "YELLOW", "RED"
@@ -4931,11 +4937,12 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
             "" if rpc_set else "USER"),
         row("WALLET_GAS", G if gas_wallets else Y,
             "" if gas_wallets else "No gas/execution wallet registered",
-            "" if gas_wallets else "Register a funded Base gas wallet (operator wizard)",
+            "Base gas wallet address configured" if gas_wallets else "Register a funded Base gas wallet (operator wizard)",
             "" if gas_wallets else "USER"),
         row("SIGNER", G if signer_set else Y,
-            "" if signer_set else "No dedicated execution signer configured",
-            "" if signer_set else "Provision an isolated signer key (LIMITED_LIVE only)",
+            "" if signer_set else "No execution signer in encrypted vault (0 handles)",
+            "Execution signer handle present in vault" if signer_set
+            else "Inject signer key into the encrypted vault (VAULT_KEY ready) — Emergent secret manager",
             "" if signer_set else "USER"),
         row("EXECUTOR_CONTRACT", G if executor_set else Y,
             "" if executor_set else "ARBICORE_EXECUTOR_ADDRESS_BASE not set",
@@ -4980,18 +4987,16 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
             if _RPC_CAPS.get("state_override") else "Provide an RPC supporting eth_call state overrides",
             "" if _RPC_CAPS.get("state_override") else "USER"),
         row("ATOMIC_EXECUTOR_SIM",
-            G if (_ATOMIC_SELFTEST.get("code_injection") and _atomic_rd.get("executor_address_set")
-                  and _atomic_rd.get("executor_bytecode_available")) else Y,
-            ("" if (_atomic_rd.get("executor_address_set") and _atomic_rd.get("executor_bytecode_available"))
-             else "Executor address/bytecode not set (code-injection mechanism VERIFIED=%s)"
-                  % bool(_ATOMIC_SELFTEST.get("code_injection"))),
-            ("State-override atomic executor simulation ready"
-             if (_atomic_rd.get("executor_address_set") and _atomic_rd.get("executor_bytecode_available"))
-             else "Set ARBICORE_EXECUTOR_ADDRESS_BASE + executor bytecode to enable atomic sim (mechanism already proven)"),
-            "" if (_atomic_rd.get("executor_address_set") and _atomic_rd.get("executor_bytecode_available")) else "USER"),
+            G if (_ATOMIC_SELFTEST.get("code_injection") and executor_set and signer_set) else Y,
+            ("" if (executor_set and signer_set)
+             else ("executor deployed=%s, state-override verified=%s; needs execution signer in vault + executor entrypoint calldata"
+                    % (bool(executor_set), bool(_ATOMIC_SELFTEST.get("code_injection"))))),
+            ("Atomic state-override simulation ready" if (executor_set and signer_set)
+             else "Inject signer into vault; then wire executor entrypoint flash-loan calldata for the full atomic sim"),
+            "" if (executor_set and signer_set) else "USER"),
         row("SIMULATION_ONCHAIN", Y,
-            "Atomic flash-loan-executor simulation gated on executor contract; code-injection mechanism verified",
-            "Provide executor address+bytecode → atomic state-override sim turns on (no fake GREEN)",
+            "Full atomic executor sim gated on execution signer (vault) + executor entrypoint calldata; executor deployed + state-override verified",
+            "Provide signer via vault → wire executor entrypoint → atomic state-override sim turns on (no fake GREEN)",
             "USER"),
         row("FORK_VALIDATION", Y if _RPC_CAPS.get("archive_state") else R,
             ("Archive state reads VERIFIED, but no controllable fork harness (trace unsupported: %s)"

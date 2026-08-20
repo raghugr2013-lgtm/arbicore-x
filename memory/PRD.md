@@ -133,3 +133,10 @@ Remaining blockers:
 - SIMULATION_ONCHAIN (ENGINEERING): atomic executor sim via state-override code injection — unblocks once EXECUTOR_CONTRACT set (state-override already verified supported).
 - FORK_VALIDATION (USER): local anvil --fork-url <archive rpc> for a controllable fork (public RPC lacks trace/fork).
 
+## Done — 2026-08-20 (Executor + gas wallet configured; readiness 21/25 GREEN)
+- Configured PUBLIC values in backend .env: ARBICORE_GAS_WALLET_ADDRESS=0x998d…ad25 (verified on-chain balance 0.00418 ETH) and ARBICORE_EXECUTOR_ADDRESS_BASE=0x91c0…3DE3 (verified on-chain: 6664 bytes of deployed code). WALLET_GAS + EXECUTOR_CONTRACT now GREEN.
+- Matrix logic hardened: WALLET_GAS accepts env gas address; SIGNER now keyed off encrypted-vault handle count (arbicore_secrets) NOT env; ATOMIC/SIMULATION_ONCHAIN blocker text corrected (executor deployed + state-override verified; remaining = signer + entrypoint calldata).
+- Verified live capabilities (dedicated-RPC still pending): state_override=true, archive_state=true, trace=false.
+- Readiness: 21/25 GREEN, overall YELLOW, LIMITED_LIVE.can_activate=false, mode SHADOW, scanner running.
+- Remaining 4 YELLOW trace to TWO secret injections only Emergent/USER can do: (1) execution signer key → encrypted vault (arbicore_secrets currently 0 handles) — unblocks SIGNER + ATOMIC_EXECUTOR_SIM + SIMULATION_ONCHAIN; (2) Alchemy archive RPC URL → ARBICORE_RPC_URL_BASE/ARBICORE_ARCHIVE_RPC_URL — unblocks FORK_VALIDATION + removes rate-limit fragility. These values are NOT in runtime; cannot be invented.
+
