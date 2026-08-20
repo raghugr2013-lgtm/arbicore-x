@@ -82,34 +82,30 @@ class AtomicExecutorSimulator:
 
     async def simulate_atomic(self, *, entry_calldata: str,
                               state_overrides: Optional[Dict[str, Any]] = None,
-                              value_wei: int = 0) -> Dict[str, Any]:
-        """Full atomic simulation of the executor entrypoint (gated).
+                              value_wei: int = 0, signer_present: bool = False) -> Dict[str, Any]:
+        """Full atomic simulation of the executor entrypoint.
 
-        Requires an executor address + runtime bytecode. When present, injects
-        the executor code (+ any approvals/balances via ``state_overrides``)
-        and eth_calls the entrypoint, treating any revert as an absolute
-        rejection."""
-        rd = self.readiness()
-        if not rd["rpc_configured"]:
+        The executor is a DEPLOYED contract, so we eth_call it live (no code
+        injection needed); state_overrides inject the signer's approvals/
+        balances. Gated on a signer being present in the vault."""
+        if not self._rpc:
             return {"available": False, "passed": False, "reason": "ARBICORE_RPC_URL not configured"}
         if not self._executor:
             return {"available": False, "passed": False,
                     "reason": "ARBICORE_EXECUTOR_ADDRESS_BASE not set (operator prerequisite)"}
-        if not self._bytecode:
+        if not signer_present:
             return {"available": False, "passed": False,
-                    "reason": "executor runtime bytecode unavailable (deploy/allowlist executor first)"}
-        overrides: Dict[str, Any] = {self._executor: {"code": self._bytecode}}
-        if state_overrides:
-            for addr, ov in state_overrides.items():
-                overrides.setdefault(addr, {}).update(ov)
+                    "reason": "execution signer not present in vault (inject signer to enable atomic sim)"}
+        overrides: Dict[str, Any] = dict(state_overrides or {})
+        if self._bytecode:                       # optional: override code (else use live contract)
+            overrides.setdefault(self._executor, {})["code"] = self._bytecode
         try:
             body = await self._raw_eth_call([
                 {"to": self._executor, "data": entry_calldata,
-                 "value": hex(int(value_wei))}, "latest", overrides])
+                 "value": hex(int(value_wei))}, "latest", overrides or {}])
         except Exception as exc:  # noqa: BLE001
             return {"available": True, "passed": False, "reason": f"rpc error: {exc}"}
         if "error" in body:
-            # a revert here is an absolute rejection (bad calldata / no repay)
             return {"available": True, "passed": False, "stage": "atomic_call",
                     "reason": f"executor reverted: {body['error'].get('message')}",
                     "signed": False, "broadcast": False}

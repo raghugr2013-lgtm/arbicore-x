@@ -41,7 +41,9 @@ def test_atomic_sim_status_shape(session):
     data = r.json()
     assert data.get("code_injection_verified") is True, data
     readiness = data.get("readiness") or {}
-    assert readiness.get("executor_address_set") is False
+    # env now provides ARBICORE_EXECUTOR_ADDRESS_BASE → executor_address_set=true;
+    # bytecode + signer still absent so atomic_sim stays gated (no fake GREEN).
+    assert readiness.get("executor_address_set") is True
     assert readiness.get("executor_bytecode_available") is False
     assert data.get("atomic_sim_ready") is False
     note = (data.get("note") or "").lower()
@@ -79,7 +81,9 @@ def test_readiness_matrix_rows_and_activation(session):
     ae = rows["ATOMIC_EXECUTOR_SIM"]
     blocker = json.dumps(ae).lower()
     assert "executor" in blocker
-    assert ("address" in blocker) or ("bytecode" in blocker)
+    # executor is now deployed → remaining blocker is the vault signer + entrypoint calldata
+    assert ("signer" in blocker) or ("entrypoint" in blocker) \
+        or ("address" in blocker) or ("bytecode" in blocker)
 
     overall = (data.get("overall_status") or data.get("overall") or "").upper()
     assert overall == "YELLOW", data

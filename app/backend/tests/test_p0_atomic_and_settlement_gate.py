@@ -32,7 +32,8 @@ def test_atomic_sim_gated_without_bytecode():
                                 executor_bytecode=None)
     out = _run(s.simulate_atomic(entry_calldata="0x1234"))
     assert out["available"] is False
-    assert "bytecode" in out["reason"].lower()
+    # with an executor address set, the sim short-circuits on the signer gate first
+    assert "signer" in out["reason"].lower()
 
 
 def test_atomic_sim_no_rpc():

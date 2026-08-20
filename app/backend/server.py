@@ -4761,6 +4761,47 @@ async def v2_engine_atomic_sim_status(refresh: bool = False) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
+@api_router.get("/arbicore/engine/fork-status",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_fork_status() -> Dict[str, Any]:
+    """Anvil fork-validation harness readiness (ready-to-run, no fake GREEN)."""
+    from arbicore.execution.executor_entrypoint import AnvilForkHarness
+    return {"fork_harness": AnvilForkHarness().readiness(), "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/engine/build-executor-calldata",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_build_executor_calldata(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Build (unsigned) executor entrypoint calldata that wraps the allowlisted
+    Aerodrome settlement calldata: flash borrow → swaps → repay. No broadcast."""
+    from arbicore.execution.executor_entrypoint import build_executor_entrypoint_calldata
+    from arbicore.execution.aerodrome_settlement import AerodromeSettlementAdapter, AERODROME_ROUTER
+    from arbicore.economics.opportunity_engine import TOKEN_ALLOWLIST as _TA
+    if not isinstance(body, dict) or not isinstance(body.get("hops"), list) or not body["hops"]:
+        raise HTTPException(status_code=422, detail="'hops' array required")
+    try:
+        borrow_token = body["borrow_token"]
+        borrow_amount_wei = int(body["borrow_amount_wei"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="borrow_token/borrow_amount_wei required")
+    adapter = AerodromeSettlementAdapter(token_allowlist=_TA, router_allowlist=[AERODROME_ROUTER])
+    try:
+        settlement = adapter.encode_settlement(
+            hops=body["hops"], amount_in_wei=borrow_amount_wei,
+            min_amount_out_wei=int(body.get("min_amount_out_wei", 1)),
+            recipient=os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
+            or "0x0000000000000000000000000000000000000001",
+            deadline=9_999_999_999)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=422, detail=f"settlement encode rejected: {exc}")
+    entry = build_executor_entrypoint_calldata(
+        borrow_token=borrow_token, borrow_amount_wei=borrow_amount_wei,
+        settlement_target=settlement["to"], settlement_calldata_hex=settlement["data"])
+    return {"executor_entrypoint": entry, "settlement": {"to": settlement["to"],
+            "selector": settlement["data"][:10]},
+            "signed": False, "broadcast": False, "generated_at": _iso_now()}
+
+
 @api_router.get("/arbicore/engine/scanner/status",
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_scanner_status() -> Dict[str, Any]:
