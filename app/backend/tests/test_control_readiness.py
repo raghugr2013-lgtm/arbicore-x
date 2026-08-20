@@ -98,7 +98,44 @@ def test_security_reflects_engaged_kill_switch():
     assert any("ENGAGED" in w for w in sec["warnings"])
 
 
-def test_wallet_signer_green_when_gas_wallet_present():
-    rep = _run(_engine(wallets=_FakeWallets(gas=1)).evaluate())
+class _FakeSecretsColl:
+    def __init__(self, signer_addr=None):
+        self._addr = signer_addr
+
+    async def find_one(self, query, projection=None):
+        if query.get("scope") == "evm_sign" and self._addr is not None:
+            return {"derived_address": self._addr}
+        return None
+
+
+class _FakeDB:
+    def __init__(self, signer_addr=None):
+        self._coll = _FakeSecretsColl(signer_addr)
+
+    def __getitem__(self, name):
+        return self._coll
+
+    async def command(self, *a, **k):
+        return {"ok": 1}
+
+
+def test_wallet_signer_yellow_with_gas_only_no_signer():
+    # Gas wallet present but NO signer in vault → YELLOW, requirement names signer.
+    eng = ExecutionReadinessEngine(db=_FakeDB(signer_addr=None),
+                                   kill_switch=_FakeKS(),
+                                   wallet_registry=_FakeWallets(gas=1))
+    rep = _run(eng.evaluate())
+    w = next(c for c in rep["components"] if c["name"] == "WALLET_SIGNER")
+    assert w["status"] == YELLOW
+    assert any("signer" in r.lower() for r in w["requirements"])
+    assert any("gas" in p.lower() for p in w["passed"])
+
+
+def test_wallet_signer_green_when_gas_and_signer_present():
+    # Gas wallet + matching signer in vault → GREEN.
+    eng = ExecutionReadinessEngine(
+        db=_FakeDB(signer_addr="0x00000000000000000000000000000000000000aa"),
+        kill_switch=_FakeKS(), wallet_registry=_FakeWallets(gas=1))
+    rep = _run(eng.evaluate())
     w = next(c for c in rep["components"] if c["name"] == "WALLET_SIGNER")
     assert w["status"] == GREEN

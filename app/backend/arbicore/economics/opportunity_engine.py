@@ -89,9 +89,13 @@ class OpportunityEngine:
     """Autonomous discovery + evaluation over the read-only Base quote layer."""
 
     def __init__(self, *, quoter_registry, config: Optional[Dict[str, Any]] = None,
-                 settlement_simulator=None):
+                 settlement_simulator=None, atomic_runner=None):
         self._quoter = quoter_registry
         self._settlement_sim = settlement_simulator
+        # Optional async callable: (route, hops, borrow_token, amount_wei) -> dict.
+        # Runs the full atomic executor state-override sim; MANDATORY gate before
+        # any candidate can be labelled executable when configured.
+        self._atomic_runner = atomic_runner
         cfg = config or {}
         self._pools, self._specs = build_pool_graph()
         self._route_engine = RouteSearchEngine(
@@ -280,6 +284,7 @@ class OpportunityEngine:
         # executable after a successful end-to-end settlement simulation using
         # the real allowlisted settlement calldata. No sim → not executable.
         settlement_result: Optional[Dict[str, Any]] = None
+        atomic_result: Optional[Dict[str, Any]] = None
         would_execute = bool(d["would_execute"])
         if would_execute:
             settlement_result = await self._run_settlement(route, eth_usd, gas_usd)
@@ -288,6 +293,23 @@ class OpportunityEngine:
                 d["would_execute"] = False
                 reason = (settlement_result or {}).get("reason", "settlement simulation unavailable")
                 d["reason"] = f"settlement simulation failed: {reason}"
+
+        # MANDATORY atomic executor simulation: even after settlement passes, a
+        # candidate is NOT executable until the full atomic executor entrypoint
+        # (flash borrow → settlement swaps → repay) simulates successfully via
+        # state-override against the deployed executor. Gated on the vault
+        # signer; unavailable signer → not executable (honest, no fake GREEN).
+        if would_execute and self._atomic_runner is not None:
+            amt = PROBE_AMOUNT.get(route.borrow_token, 10**16)
+            hops_a = self._aerodrome_hops(route)
+            atomic_result = await self._atomic_runner(
+                route=route, hops=hops_a, borrow_token=route.borrow_token,
+                amount_wei=amt)
+            if not (atomic_result and atomic_result.get("passed")):
+                would_execute = False
+                d["would_execute"] = False
+                reason = (atomic_result or {}).get("reason", "atomic simulation unavailable")
+                d["reason"] = f"atomic executor simulation failed: {reason}"
 
         return {
             "route_id": route.route_id,
@@ -305,6 +327,7 @@ class OpportunityEngine:
             "gas_cost_usd": round(gas_usd, 6),
             "would_execute": would_execute,
             "settlement_simulation": settlement_result,
+            "atomic_simulation": atomic_result,
             "reason": d["reason"],
             "gross_spread_bps": opp["gross_spread_bps"],
             "net_profit_usd": d["net_profit_usd"],
@@ -316,6 +339,18 @@ class OpportunityEngine:
             "evaluated_at": _now_iso(),
         }
 
+    def _aerodrome_hops(self, route: RouteCycle) -> Optional[List[Dict[str, Any]]]:
+        """Return classic-Aerodrome settlement hops for a route, or None if the
+        route is not fully settleable by the allowlisted Aerodrome adapter."""
+        specs = [self._specs.get(p.pool_address, {}) for p in route.pools]
+        if not all(s.get("dex") == "aerodrome" for s in specs):
+            return None
+        path = route.token_path
+        return [{"token_in": token_address(path[i]),
+                 "token_out": token_address(path[i + 1]),
+                 "stable": bool(spec.get("stable", False))}
+                for i, spec in enumerate(specs)]
+
     async def _run_settlement(self, route: RouteCycle, eth_usd: Optional[float],
                               gas_usd: float) -> Optional[Dict[str, Any]]:
         """Run the real settlement simulator for an all-classic-Aerodrome route.
@@ -326,16 +361,10 @@ class OpportunityEngine:
         they are (honestly) not marked executable."""
         if self._settlement_sim is None:
             return {"passed": False, "reason": "no settlement simulator configured"}
-        specs = [self._specs.get(p.pool_address, {}) for p in route.pools]
-        if not all(s.get("dex") == "aerodrome" for s in specs):
+        hops = self._aerodrome_hops(route)
+        if hops is None:
             return {"passed": False, "applicable": False,
                     "reason": "settlement adapter supports classic Aerodrome routes only"}
-        hops = []
-        path = route.token_path
-        for i, spec in enumerate(specs):
-            hops.append({"token_in": token_address(path[i]),
-                         "token_out": token_address(path[i + 1]),
-                         "stable": bool(spec.get("stable", False))})
         dec = TOKENS[route.borrow_token]["decimals"]
         token_usd = eth_usd if route.borrow_token in ("WETH", "cbETH") else 1.0
         try:

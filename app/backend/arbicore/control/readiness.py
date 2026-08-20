@@ -171,20 +171,62 @@ class ExecutionReadinessEngine:
                       warnings=["dynamic size optimizer not yet implemented"])
 
     async def _wallet(self) -> Dict[str, Any]:
-        if self._wallets is None:
-            return _check("WALLET_SIGNER", YELLOW, score=40,
-                          warnings=["wallet registry not wired"],
-                          requirements=["register a 'gas' role wallet with secret_handle_id"])
-        try:
-            gas_wallets = await self._wallets.list_all(execution_role="gas")
-        except Exception:  # noqa: BLE001
-            gas_wallets = []
+        # Gas wallet evidence: a registered gas-role wallet OR the env-configured
+        # execution wallet address (kept consistent with the engine matrix).
+        gas_wallets: List[Dict[str, Any]] = []
+        if self._wallets is not None:
+            try:
+                gas_wallets = await self._wallets.list_all(execution_role="gas")
+            except Exception:  # noqa: BLE001
+                gas_wallets = []
+        env_gas = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
+        gas_present = bool(gas_wallets or env_gas)
+
+        # Signer evidence: an evm_sign handle in the encrypted vault whose derived
+        # public address matches the gas wallet (verified WITHOUT decrypting).
+        signer_present = False
+        signer_addr: Optional[str] = None
+        if self._db is not None:
+            try:
+                doc = await self._db["arbicore_secrets"].find_one(
+                    {"scope": "evm_sign"}, {"_id": 0, "derived_address": 1})
+                if doc:
+                    signer_present = True
+                    signer_addr = doc.get("derived_address")
+            except Exception:  # noqa: BLE001
+                pass
+        signer_matches: Optional[bool] = None
+        if signer_present and signer_addr and env_gas:
+            try:
+                from eth_utils import to_checksum_address
+                signer_matches = (to_checksum_address(signer_addr)
+                                  == to_checksum_address(env_gas))
+            except Exception:  # noqa: BLE001
+                signer_matches = None
+
+        passed, warnings, reqs = [], [], []
         if gas_wallets:
-            return _check("WALLET_SIGNER", GREEN, score=90,
-                          passed=[f"{len(gas_wallets)} gas wallet(s) registered"])
-        return _check("WALLET_SIGNER", YELLOW, score=40,
-                      warnings=["no 'gas' role wallet registered"],
-                      requirements=["register a 'gas' wallet + secret handle"])
+            passed.append(f"{len(gas_wallets)} gas-role wallet(s) registered")
+        elif env_gas:
+            passed.append("gas wallet configured (ARBICORE_GAS_WALLET_ADDRESS)")
+        else:
+            warnings.append("no gas-role wallet registered or configured")
+            reqs.append("register a 'gas' role wallet")
+
+        if signer_present and signer_matches is not False:
+            passed.append("execution signer present in encrypted vault (address matches gas wallet)"
+                          if signer_matches else "execution signer present in encrypted vault")
+        elif signer_present and signer_matches is False:
+            warnings.append("execution signer address does NOT match the gas wallet")
+            reqs.append("re-ingest the signer whose derived address matches the gas wallet")
+        else:
+            warnings.append("execution signer not yet ingested into the encrypted vault")
+            reqs.append("POST /api/arbicore/engine/settings/signer to store the signer (VAULT_KEY ready)")
+
+        green = bool(gas_present and signer_present and signer_matches is not False)
+        return _check("WALLET_SIGNER", GREEN if green else YELLOW,
+                      score=90 if green else 50,
+                      passed=passed, warnings=warnings, requirements=reqs)
 
     async def _security(self) -> Dict[str, Any]:
         passed = ["S2 kill-switch authoritative", "S3 auto_confirm default-off",
@@ -203,18 +245,62 @@ class ExecutionReadinessEngine:
         return _check("SECURITY", GREEN, score=100, passed=passed)
 
     async def _shadow_validation(self) -> Dict[str, Any]:
-        n = 0
-        if self._shadow is not None:
+        if self._shadow is None:
+            return _check("SHADOW_VALIDATION", YELLOW, score=30,
+                          warnings=["shadow certification repo not wired"],
+                          requirements=["run shadow certification"])
+        running = latest = None
+        try:
+            if hasattr(self._shadow, "current_running"):
+                running = await self._shadow.current_running()
+            if hasattr(self._shadow, "list_recent"):
+                recent = await self._shadow.list_recent(limit=1)
+                latest = recent[0] if recent else None
+        except Exception:  # noqa: BLE001
+            pass
+
+        def _cyc(run) -> int:
             try:
-                n = await self._shadow.count() if hasattr(self._shadow, "count") else 0
+                return len(getattr(run, "cycles", []) or [])
             except Exception:  # noqa: BLE001
-                n = 0
-        if n > 0:
-            return _check("SHADOW_VALIDATION", GREEN, score=100,
-                          passed=[f"{n} shadow certification record(s)"])
+                return 0
+
+        def _target(run) -> int:
+            try:
+                return int(getattr(run, "target_cycles", 20) or 20)
+            except Exception:  # noqa: BLE001
+                return 20
+
+        def _status_str(run) -> str:
+            raw = getattr(run, "status", "")
+            raw = getattr(raw, "value", raw)
+            return str(raw).split(".")[-1].upper()
+
+        if running is not None:
+            return _check("SHADOW_VALIDATION", YELLOW, score=60,
+                          warnings=[f"certification RUNNING ({_cyc(running)}/{_target(running)} cycles)"],
+                          requirements=["let the run reach target cycles and grade PASS"])
+        if latest is not None:
+            st = _status_str(latest)
+            infra_only = False
+            try:
+                infra_only = bool(((getattr(latest, "summary", {}) or {})
+                                   .get("start_markers", {}) or {}).get("infrastructure_only"))
+            except Exception:  # noqa: BLE001
+                infra_only = False
+            if st == "PASS":
+                label = " (infrastructure-only)" if infra_only else ""
+                return _check("SHADOW_VALIDATION", GREEN, score=100,
+                              passed=[f"shadow certification PASS{label} "
+                                      f"({_cyc(latest)}/{_target(latest)} cycles)"])
+            return _check("SHADOW_VALIDATION", YELLOW, score=50,
+                          warnings=[f"latest certification graded {st or 'UNKNOWN'}"],
+                          requirements=["re-run certification to a PASS grade "
+                                        "(needs sustained executable evidence)"])
         return _check("SHADOW_VALIDATION", YELLOW, score=30,
-                      warnings=["no shadow-certification evidence yet"],
-                      requirements=["run shadow certification"])
+                      warnings=["no shadow-certification run recorded yet"],
+                      requirements=["POST /api/arbicore/certification/shadow/start "
+                                    "(infrastructure_only=true while no live arbitrage)"])
 
     async def _paper_validation(self) -> Dict[str, Any]:
         n = 0
@@ -239,13 +325,28 @@ class ExecutionReadinessEngine:
                       requirements=["ARBICORE_RPC_URL for eth_call simulation"])
 
     def _contracts(self) -> Dict[str, Any]:
-        if os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"):
-            return _check("CONTRACTS", GREEN, score=90,
-                          passed=["executor address configured"],
-                          warnings=["Aerodrome on-chain adapter not yet implemented"])
-        return _check("CONTRACTS", YELLOW, score=40,
-                      warnings=["no deployed executor address configured"],
-                      requirements=["deploy + configure FlashLoanReceiver, set ARBICORE_EXECUTOR_ADDRESS_BASE"])
+        executor = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
+        adapter_ok = False
+        try:
+            from arbicore.execution.aerodrome_settlement import AerodromeSettlementAdapter
+            adapter_ok = bool(AerodromeSettlementAdapter().self_test().get("passed"))
+        except Exception:  # noqa: BLE001
+            adapter_ok = False
+        passed, warnings, reqs = [], [], []
+        if executor:
+            passed.append("executor address configured")
+        else:
+            warnings.append("no deployed executor address configured")
+            reqs.append("deploy + configure FlashLoanReceiver, set ARBICORE_EXECUTOR_ADDRESS_BASE")
+        if adapter_ok:
+            passed.append("Aerodrome on-chain settlement encoder validated "
+                          "(allowlisted swapExactTokensForTokens; no arbitrary target)")
+        else:
+            warnings.append("Aerodrome settlement encoder self-test failed")
+            reqs.append("investigate AerodromeSettlementAdapter.self_test()")
+        status = GREEN if (executor and adapter_ok) else YELLOW
+        return _check("CONTRACTS", status, score=90 if status == GREEN else 40,
+                      passed=passed, warnings=warnings, requirements=reqs)
 
     # ------------------------------------------------------------------
     # Full evaluation
@@ -327,8 +428,10 @@ class ExecutionReadinessEngine:
             "CONFIDENCE_ENGINE": st("CONFIDENCE_ENGINE"),
         }
         ll_blockers = [k for k, v in mandatory.items() if v != GREEN]
-        # Additional hard blockers that are true for this build regardless.
-        ll_blockers.append("Aerodrome adapter + EV(max_loss) + fork validation not complete")
+        # Additional genuine hard blockers not fully covered by the component
+        # checks above (Aerodrome settlement adapter IS complete; do not claim
+        # otherwise). Fork validation + operator-confirmed certification remain.
+        ll_blockers.append("fork validation (anvil) + operator-confirmed shadow/paper certification not yet complete")
         limited = self._mode_entry(
             "LIMITED_LIVE",
             status=RED,

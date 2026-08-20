@@ -339,6 +339,59 @@ _SETTLEMENT_SIM = SettlementSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL",
 _OPPORTUNITY_ENGINE._settlement_sim = _SETTLEMENT_SIM   # mandatory settlement gate
 from arbicore.execution.atomic_executor_sim import AtomicExecutorSimulator
 _ATOMIC_SIM = AtomicExecutorSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
+
+
+async def _atomic_sim_runner(*, route, hops, borrow_token, amount_wei):
+    """MANDATORY atomic-executor gate for the opportunity chain.
+
+    Resolves the vault signer, encodes the allowlisted Aerodrome settlement
+    calldata, wraps it in the executor entrypoint calldata, and runs the full
+    atomic state-override simulation against the deployed executor. Pure
+    eth_call — never signs or broadcasts. Unavailable signer → not executable."""
+    from arbicore.execution.signer_vault import signer_status
+    from arbicore.execution.aerodrome_settlement import AerodromeSettlementAdapter, AERODROME_ROUTER
+    from arbicore.execution.executor_entrypoint import build_executor_entrypoint_calldata
+    from arbicore.economics.opportunity_engine import TOKEN_ALLOWLIST as _TA
+    from arbicore.discovery.base_venues import token_address as _taddr
+
+    if hops is None:
+        return {"available": False, "passed": False,
+                "reason": "route not settleable by allowlisted Aerodrome adapter"}
+    st = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+    if not st.get("present"):
+        return {"available": False, "passed": False,
+                "reason": "execution signer not present in vault"}
+    executor = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
+    if not executor:
+        return {"available": False, "passed": False,
+                "reason": "ARBICORE_EXECUTOR_ADDRESS_BASE not set"}
+    try:
+        adapter = AerodromeSettlementAdapter(token_allowlist=_TA, router_allowlist=[AERODROME_ROUTER])
+        settlement = adapter.encode_settlement(
+            hops=hops, amount_in_wei=int(amount_wei), min_amount_out_wei=1,
+            recipient=executor, deadline=9_999_999_999)
+        entry = build_executor_entrypoint_calldata(
+            borrow_token=_taddr(borrow_token), borrow_amount_wei=int(amount_wei),
+            settlement_target=settlement["to"], settlement_calldata_hex=settlement["data"])
+    except Exception as exc:  # noqa: BLE001
+        return {"available": True, "passed": False, "reason": f"calldata encode failed: {exc}"}
+    return await _ATOMIC_SIM.simulate_atomic(
+        entry_calldata=entry["calldata"], signer_present=True,
+        from_address=st.get("derived_address"))
+
+
+_OPPORTUNITY_ENGINE._atomic_runner = _atomic_sim_runner   # mandatory atomic gate
+
+# ---------------------------------------------------------------------------
+# Wallet & Capital Intelligence Engine (READ-ONLY, SHADOW-safe). Reuses the
+# WalletBalanceReader + Base token universe + live ETH price from the
+# opportunity engine. Never reads/logs/returns private keys.
+# ---------------------------------------------------------------------------
+from arbicore.capital import WalletIntelligenceEngine
+_CAPITAL_ENGINE = WalletIntelligenceEngine(
+    rpc_url=os.environ.get("ARBICORE_RPC_URL", ""),
+    balance_reader=_WALLET_BALANCE_READER,
+    eth_price_provider=_OPPORTUNITY_ENGINE._eth_price_usd)
 # Cached, VERIFIED (not assumed) RPC capabilities + simulator self-test,
 # refreshed at startup so the readiness matrix costs no RPC per request.
 _RPC_CAPS: Dict[str, Any] = {}
@@ -4802,6 +4855,157 @@ async def v2_engine_build_executor_calldata(body: Dict[str, Any]) -> Dict[str, A
             "signed": False, "broadcast": False, "generated_at": _iso_now()}
 
 
+# ---------------------------------------------------------------------------
+# Execution signer — secure one-time ingestion into the encrypted vault.
+# Derives the address (eth_account), verifies against the gas wallet, stores
+# ONLY the Fernet ciphertext + handle. The raw key is never logged/echoed/
+# persisted outside the vault. No signing/broadcast anywhere here.
+# ---------------------------------------------------------------------------
+@api_router.get("/arbicore/engine/settings/signer",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_signer_status() -> Dict[str, Any]:
+    from arbicore.execution.signer_vault import signer_status
+    st = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+    return {**st, "vault_available": _SECRET_BACKEND.is_available(),
+            "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/engine/settings/signer",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_signer_ingest(body: Dict[str, Any]) -> Dict[str, Any]:
+    """One-time secure ingestion of the execution signer private key.
+
+    Body: {"private_key": "<64-hex or 0x…>", "label": "optional"}. Response
+    returns ONLY the handle + derived checksummed address + mask — never the
+    key. Verifies the derived address matches ARBICORE_GAS_WALLET_ADDRESS."""
+    from arbicore.execution.signer_vault import ingest_signer
+    if not _SECRET_BACKEND.is_available():
+        raise HTTPException(status_code=503, detail="vault unavailable (VAULT_KEY missing)")
+    pk = (body or {}).get("private_key")
+    if not pk or not isinstance(pk, str):
+        raise HTTPException(status_code=422, detail="private_key required")
+    try:
+        out = await ingest_signer(
+            _SECRET_REGISTRY, db, private_key=pk,
+            expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"),
+            label=(body.get("label") or "execution-signer"))
+    except ValueError as exc:
+        # Message is key-free by construction in signer_vault.
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception:  # noqa: BLE001 — never leak details that could echo material
+        raise HTTPException(status_code=503, detail="unable to store signer")
+    del pk
+    return {"ok": True, **out, "signed": False, "broadcast": False,
+            "generated_at": _iso_now()}
+
+
+@api_router.delete("/arbicore/engine/settings/signer",
+                   dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_signer_delete() -> Dict[str, Any]:
+    from arbicore.execution.signer_vault import delete_signer
+    out = await delete_signer(_SECRET_REGISTRY, db)
+    return {"ok": True, **out, "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/engine/run-fork-validation",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_run_fork_validation(body: Dict[str, Any] = None) -> Dict[str, Any]:
+    """Run a REAL Anvil fork validation (spawns anvil --fork-url, runs read-only
+    checks against the fork, tears it down). Returns ran/passed with evidence.
+    Never fakes GREEN — ran=false when anvil/archive-RPC are absent."""
+    from arbicore.execution.executor_entrypoint import AnvilForkHarness
+    block = (body or {}).get("block_number")
+    result = await AnvilForkHarness().run_fork_validation(
+        block_number=int(block) if block is not None else None)
+    return {"fork_validation": result, "generated_at": _iso_now()}
+
+
+# ---------------------------------------------------------------------------
+# Wallet & Capital Intelligence — READ-ONLY on-chain monitoring for the
+# configured Base gas/execution wallet(s). SHADOW-safe; public addresses only.
+# ---------------------------------------------------------------------------
+async def _capital_monitored_wallets() -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    seen = set()
+    try:
+        for w in await _WALLET_REGISTRY.list_all(chain="base", execution_role="gas"):
+            a = (w.get("address") or "").lower()
+            if a and a not in seen:
+                seen.add(a)
+                out.append({"address": w.get("address"), "wallet_id": w.get("wallet_id"),
+                            "role": "gas", "label": w.get("label")})
+    except Exception:  # noqa: BLE001
+        pass
+    env_gas = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
+    if env_gas and env_gas.lower() not in seen:
+        out.append({"address": env_gas, "wallet_id": "env-gas", "role": "gas",
+                    "label": "env-configured gas wallet"})
+    return out
+
+
+def _capital_default_address(address: Optional[str]) -> str:
+    addr = (address or os.environ.get("ARBICORE_GAS_WALLET_ADDRESS") or "").strip()
+    if not (addr.startswith("0x") and len(addr) == 42):
+        raise HTTPException(status_code=422, detail="valid 0x address required (or configure ARBICORE_GAS_WALLET_ADDRESS)")
+    return addr
+
+
+@api_router.get("/arbicore/capital/wallets", dependencies=[Depends(_require_operator_dep)])
+async def v2_capital_wallets() -> Dict[str, Any]:
+    return {"wallets": await _capital_monitored_wallets(), "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/capital/balances", dependencies=[Depends(_require_operator_dep)])
+async def v2_capital_balances(address: Optional[str] = None) -> Dict[str, Any]:
+    return await _CAPITAL_ENGINE.live_balances(_capital_default_address(address))
+
+
+@api_router.get("/arbicore/capital/statement", dependencies=[Depends(_require_operator_dep)])
+async def v2_capital_statement(address: Optional[str] = None, limit: int = 100,
+                               tx_type: Optional[str] = None, venue: Optional[str] = None,
+                               status: Optional[str] = None,
+                               start_ts: Optional[int] = None,
+                               end_ts: Optional[int] = None) -> Dict[str, Any]:
+    return await _CAPITAL_ENGINE.transaction_statement(
+        _capital_default_address(address), limit=min(int(limit), 500),
+        tx_type=tx_type, venue=venue, status=status,
+        start_ts=start_ts, end_ts=end_ts)
+
+
+@api_router.get("/arbicore/capital/money-trail", dependencies=[Depends(_require_operator_dep)])
+async def v2_capital_money_trail(tx_hash: str, address: Optional[str] = None) -> Dict[str, Any]:
+    return await _CAPITAL_ENGINE.money_trail(_capital_default_address(address), tx_hash)
+
+
+@api_router.get("/arbicore/capital/reconciliation", dependencies=[Depends(_require_operator_dep)])
+async def v2_capital_reconciliation(address: Optional[str] = None, limit: int = 200) -> Dict[str, Any]:
+    return await _CAPITAL_ENGINE.capital_reconciliation(
+        _capital_default_address(address), limit=min(int(limit), 500))
+
+
+@api_router.get("/arbicore/capital/venue-stats", dependencies=[Depends(_require_operator_dep)])
+async def v2_capital_venue_stats(address: Optional[str] = None, limit: int = 200) -> Dict[str, Any]:
+    return await _CAPITAL_ENGINE.venue_pair_stats(
+        _capital_default_address(address), limit=min(int(limit), 500))
+
+
+@api_router.get("/arbicore/capital/overview", dependencies=[Depends(_require_operator_dep)])
+async def v2_capital_overview(address: Optional[str] = None) -> Dict[str, Any]:
+    """One-call composite for the Capital Intelligence screen: live balances,
+    recent statement, reconciliation and venue stats."""
+    addr = _capital_default_address(address)
+    balances = await _CAPITAL_ENGINE.live_balances(addr)
+    statement = await _CAPITAL_ENGINE.transaction_statement(addr, limit=50)
+    reconciliation = await _CAPITAL_ENGINE.capital_reconciliation(addr, limit=200)
+    venue_stats = await _CAPITAL_ENGINE.venue_pair_stats(addr, limit=200)
+    return {"address": addr, "balances": balances, "statement": statement,
+            "reconciliation": reconciliation, "venue_stats": venue_stats,
+            "monitored_wallets": await _capital_monitored_wallets(),
+            "generated_at": _iso_now()}
+
+
+
+
 @api_router.get("/arbicore/engine/scanner/status",
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_scanner_status() -> Dict[str, Any]:
@@ -4953,12 +5157,19 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
     _atomic_rd = _ATOMIC_SIM.readiness()
     rpc_set = bool(os.environ.get("ARBICORE_RPC_URL"))
     executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
-    # Execution signer must live in the encrypted vault, NOT env — count handles.
+    # Execution signer must live in the encrypted vault (scope=evm_sign), NOT
+    # env — and its derived address must match the gas/execution wallet.
+    from arbicore.execution.signer_vault import signer_status as _signer_status
     try:
-        _vault_handles = await db["arbicore_secrets"].count_documents({})
+        _signer = await _signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
     except Exception:  # noqa: BLE001
-        _vault_handles = 0
-    signer_set = _vault_handles > 0
+        _signer = {"present": False, "matches_expected": None, "derived_address": None}
+    _gas_env_for_signer = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
+    # GREEN only when present AND (no gas wallet to match OR address matches).
+    signer_set = bool(_signer.get("present") and (
+        (not _gas_env_for_signer) or _signer.get("matches_expected") is True))
+    signer_mismatch = bool(_signer.get("present") and _gas_env_for_signer
+                           and _signer.get("matches_expected") is False)
     gas_env_addr = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
     _gas_registered = await _WALLET_REGISTRY.list_all(execution_role="gas") \
         if hasattr(_WALLET_REGISTRY, "list_all") else []
@@ -4981,9 +5192,12 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
             "Base gas wallet address configured" if gas_wallets else "Register a funded Base gas wallet (operator wizard)",
             "" if gas_wallets else "USER"),
         row("SIGNER", G if signer_set else Y,
-            "" if signer_set else "No execution signer in encrypted vault (0 handles)",
-            "Execution signer handle present in vault" if signer_set
-            else "Inject signer key into the encrypted vault (VAULT_KEY ready) — Emergent secret manager",
+            ("" if signer_set else
+             ("Signer address does not match gas wallet (ARBICORE_GAS_WALLET_ADDRESS)"
+              if signer_mismatch else "No execution signer in encrypted vault (0 handles)")),
+            "Execution signer handle present in vault; derived address matches gas wallet" if signer_set
+            else ("Re-ingest the signer whose address matches the gas wallet" if signer_mismatch
+                  else "Inject signer key via POST /api/arbicore/engine/settings/signer (encrypted vault; VAULT_KEY ready)"),
             "" if signer_set else "USER"),
         row("EXECUTOR_CONTRACT", G if executor_set else Y,
             "" if executor_set else "ARBICORE_EXECUTOR_ADDRESS_BASE not set",
@@ -5663,6 +5877,30 @@ async def v2_autoexec_tick() -> Dict[str, Any]:
 
 # Include the router in the main app
 app.include_router(api_router)
+
+
+@app.on_event("startup")
+async def _register_env_gas_wallet():
+    """Idempotently register the configured Base gas/execution wallet with the
+    'gas' execution role in the WalletRegistry (public ADDRESS only — never a
+    private key). This makes the registry the single source of truth for the
+    gas wallet so both readiness surfaces agree. SHADOW-safe."""
+    addr = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
+    if not addr:
+        return
+    try:
+        await _WALLET_REGISTRY.ensure_indexes()
+        existing = await _WALLET_REGISTRY.list_all(chain="base", execution_role="gas")
+        if any((w.get("address") or "").lower() == addr.lower() for w in existing):
+            return
+        await _WALLET_REGISTRY.register(
+            wallet_id="base-gas-primary", address=addr, chain="base",
+            execution_role="gas", label="Base gas/execution wallet (env-configured)",
+            actor="system", reason="auto-register ARBICORE_GAS_WALLET_ADDRESS")
+        logger.info("wallet_registry: registered env gas wallet %s (gas role)", addr)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("wallet_registry: env gas wallet auto-register skipped: %s", exc)
+
 
 
 @app.on_event("startup")

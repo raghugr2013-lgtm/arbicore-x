@@ -82,12 +82,14 @@ class AtomicExecutorSimulator:
 
     async def simulate_atomic(self, *, entry_calldata: str,
                               state_overrides: Optional[Dict[str, Any]] = None,
-                              value_wei: int = 0, signer_present: bool = False) -> Dict[str, Any]:
+                              value_wei: int = 0, signer_present: bool = False,
+                              from_address: Optional[str] = None) -> Dict[str, Any]:
         """Full atomic simulation of the executor entrypoint.
 
         The executor is a DEPLOYED contract, so we eth_call it live (no code
-        injection needed); state_overrides inject the signer's approvals/
-        balances. Gated on a signer being present in the vault."""
+        injection needed); ``from_address`` is the vault signer's public address
+        and ``state_overrides`` inject its approvals/balances. Gated on a signer
+        being present in the vault. Never signs or broadcasts — pure eth_call."""
         if not self._rpc:
             return {"available": False, "passed": False, "reason": "ARBICORE_RPC_URL not configured"}
         if not self._executor:
@@ -99,10 +101,16 @@ class AtomicExecutorSimulator:
         overrides: Dict[str, Any] = dict(state_overrides or {})
         if self._bytecode:                       # optional: override code (else use live contract)
             overrides.setdefault(self._executor, {})["code"] = self._bytecode
+        # Ensure the caller can pay for the eth_call gas within the sim.
+        if from_address:
+            overrides.setdefault(from_address, {}).setdefault(
+                "balance", "0x21e19e0c9bab2400000")  # 10,000 ETH (sim-only)
+        call_obj: Dict[str, Any] = {"to": self._executor, "data": entry_calldata,
+                                    "value": hex(int(value_wei))}
+        if from_address:
+            call_obj["from"] = from_address
         try:
-            body = await self._raw_eth_call([
-                {"to": self._executor, "data": entry_calldata,
-                 "value": hex(int(value_wei))}, "latest", overrides or {}])
+            body = await self._raw_eth_call([call_obj, "latest", overrides or {}])
         except Exception as exc:  # noqa: BLE001
             return {"available": True, "passed": False, "reason": f"rpc error: {exc}"}
         if "error" in body:

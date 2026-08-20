@@ -21,6 +21,7 @@ import {
   Radar,
   Route as RouteIcon,
   ShieldCheck,
+  Coins,
 } from "lucide-react";
 
 export const NAV_SECTIONS = [
@@ -39,6 +40,14 @@ export const NAV_SECTIONS = [
     Icon: Radar,
     shortcut: "L",
     lede: "Autonomous opportunity engine — scanner, funnel, alerts, readiness.",
+  },
+  {
+    key: "capital",
+    label: "Capital",
+    path: "/dashboard/capital",
+    Icon: Coins,
+    shortcut: "K",
+    lede: "Wallet & Capital Intelligence — live balances, statement, money trail.",
   },
   {
     key: "home",

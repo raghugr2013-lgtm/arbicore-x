@@ -124,6 +124,32 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Readiness upgrades (verified): SETTLEMENT_SIMULATION GREEN, RPC_STATE_OVERRIDE GREEN, HISTORICAL_REPLAY GREEN. FORK_VALIDATION now YELLOW (archive verified, but no controllable fork — needs anvil/dedicated). SIMULATION_ONCHAIN YELLOW (atomic executor sim needs executor contract). Overall YELLOW; LIMITED_LIVE.can_activate=false.
 - Tests: NEW test_p0_settlement_simulator.py (5) + test_p0_aerodrome_settlement.py (7). testing_agent iteration_10 backend 100% (10/10 integration + 12/12 unit). Kill switch DISENGAGED, mode SHADOW, scanner RUNNING.
 
+## Done — 2026-08-20 (Wallet & Capital Intelligence Engine — READ-ONLY, verified)
+- NEW `arbicore/capital/wallet_intelligence.py` (`WalletIntelligenceEngine`) + `/api/arbicore/capital/*` endpoints (operator-auth, SHADOW-safe, public addresses only — NEVER reads/logs/returns private keys):
+  - `GET /capital/balances` — live native ETH + ERC-20 (Base universe, parallelized `balanceOf`), gas balance, USD, block, last_sync. Reuses `WalletBalanceReader` + `TOKENS`.
+  - `GET /capital/statement` — transaction statement (ts, block, hash, direction, token, amount, gas, fee, P/L, status) with DEX venue/method classification (router allowlist + flash-loan providers). Source = Etherscan V2 (Base chainid 8453) via optional `ARBICORE_ETHERSCAN_API_KEY`; degrades gracefully (honest `source_ok=false` + note) when key absent.
+  - `GET /capital/money-trail?tx_hash=` — reconstructs borrow→swaps→repay from ERC-20 legs; net-by-token + realized P/L.
+  - `GET /capital/reconciliation` — start + inflows − outflows − fees = end (native ETH identity); reports `residual` + `reconciled` + `statement_complete`.
+  - `GET /capital/venue-stats`, `GET /capital/wallets`, `GET /capital/overview` (composite).
+  - Perf: 45s TTL cache (`_cached`) + concurrent ERC-20 reads → overview ~6s, balances ~11s (was ~46s).
+- NEW frontend `v2/pages/CapitalIntelligencePage.jsx` at `/dashboard/capital` (+ nav 'Capital' entry, AppShell route). Panels: live balances, capital reconciliation, transaction statement (filters: type/venue/status), flash-loan money trail, per-venue/pair stats. Parallel `Promise.allSettled` fetches, 90s timeouts, independent panel state, full data-testid coverage.
+- Tests: `tests/test_p0_capital_intelligence.py` (5 — reconciliation identity, classification, money-trail net) PASS. testing_agent iter14 (backend + UI) + iter15 (frontend retest) → 100% frontend, no leaks, balance 0.00417963 ETH ($10.45) reconciled residual 0.
+- OPERATOR ACTION (optional, improves coverage): set `ARBICORE_ETHERSCAN_API_KEY` (free Etherscan V2 key, Base chainid 8453) to populate the full transaction statement + money trail. Balances + reconciliation work without it.
+
+## Done — 2026-08-20 (Readiness reconciliation — two surfaces now agree, evidence-based)
+- Root cause: Control Center (`/arbicore/control/readiness`, `ExecutionReadinessEngine`) and Live Ops (`/engine/readiness-matrix`) were independent; Control had stale/divergent checks.
+- `control/readiness.py` fixes: `_wallet` (WALLET_SIGNER) now requires gas wallet (registry OR env) AND vault signer (evm_sign handle + address match) → honest YELLOW with exact missing requirement; `_contracts` (CONTRACTS) now checks the real Aerodrome adapter `self_test` (stale "not implemented" warning removed → GREEN); `_shadow_validation` is status-aware from the cert repo (RUNNING→YELLOW progress, PASS→GREEN, infra-only labeled); LIMITED_LIVE blocker text corrected.
+- Gas wallet `0x998d6efF2b28b72c44f7a334c42678eb4cCaad25` (funded 0.00418 ETH, verified on-chain) auto-registered in WalletRegistry with `gas` role (`_register_env_gas_wallet` startup hook, wallet_id `base-gas-primary`).
+- `VAULT_KEY` rotated to a VALID Fernet key (was an invalid dev placeholder that would have broken signer ingestion; `arbicore_secrets` was empty so no orphaned ciphertext).
+- Shadow-cert runner ENABLED (`ARBICORE_SHADOW_CERT_ENABLED=true`, 15s cycle); a canonical 20-cycle infrastructure-only certification completed PASS → SHADOW_VALIDATION GREEN with genuine evidence.
+- **WALLET_SIGNER remains YELLOW** — exact missing requirement = the execution signer key in the vault (gas wallet IS registered ✓). Both surfaces now consistent: WALLET_GAS/DEX_ADAPTERS_SETTLE/CONTRACTS GREEN, SIGNER/WALLET_SIGNER YELLOW, overall YELLOW, LIMITED_LIVE + FULL_AUTOMATION locked. testing_agent iter13: 71/71 PASS.
+
+## Done — 2026-08-20 (Secure signer ingestion + mandatory atomic gate + real Anvil fork body)
+- NEW `arbicore/execution/signer_vault.py`: operator-only signer ingestion — derives address (eth_account), verifies vs gas wallet, stores Fernet ciphertext + handle ONLY (never echoes/logs the key). Endpoints `POST/GET/DELETE /api/arbicore/engine/settings/signer`. Single active signer.
+- Opportunity chain now MANDATORY end-to-end: discovery → quote → economics → confidence → EV → size → settlement calldata → settlement sim → **atomic executor sim** → net profit → decision (`_atomic_sim_runner` wired as `_OPPORTUNITY_ENGINE._atomic_runner`; unavailable signer → not executable, honest).
+- `AnvilForkHarness.run_fork_validation` = real anvil subprocess orchestration (spawn `--fork-url`, poll, run read-only checks, teardown); `ran=false` when anvil/archive-RPC absent (no fake GREEN). Endpoint `POST /api/arbicore/engine/run-fork-validation`.
+- testing_agent iter12: 13/13; full P0 regression 39/39.
+
 ## Done — 2026-08-20 (Executor entrypoint calldata + atomic sim + Anvil fork harness — verified)
 - NEW `arbicore/execution/executor_entrypoint.py`: `build_executor_entrypoint_calldata()` encodes UNSIGNED `executeArbitrage(address,uint256,address,bytes)` entrypoint wrapping the allowlisted Aerodrome settlement calldata (flash borrow→swaps→repay); selector = keccak(sig)[:4]; signed/broadcast always false. `AnvilForkHarness` = ready-to-run fork validator, gated on `anvil` binary + `ARBICORE_ARCHIVE_RPC_URL`; NEVER returns passed=True without a real run (no fake GREEN).
 - `atomic_executor_sim.AtomicExecutorSimulator.simulate_atomic` triple-gated (rpc→executor address→signer_present) BEFORE any eth_call → stays available=false while signer absent, regardless of bytecode. code-injection self-test verified true on public Base RPC.
