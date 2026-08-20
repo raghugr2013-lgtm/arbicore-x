@@ -9,7 +9,7 @@ import time
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://flashloan-readiness.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://defi-exec-audit.preview.emergentagent.com").rstrip("/")
 ADMIN_USER = "admin"
 ADMIN_PASS = "ArbiCore2026!"
 

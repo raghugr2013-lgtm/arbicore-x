@@ -22,7 +22,7 @@
   // ─── Configure once, then forget ────────────────────────────────────
   // 1. Paste your ArbiCore preview URL:
   const ARBICORE_BASE = GM_getValue('arbicore_base',
-    'https://flashloan-readiness.preview.emergentagent.com');
+    'https://defi-exec-audit.preview.emergentagent.com');
   // 2. Paste the Quote Capture key from ArbiCore Settings (one-time):
   const QUOTE_KEY = GM_getValue('arbicore_key', '');
 
