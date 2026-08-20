@@ -4808,6 +4808,12 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
     FULL_AUTOMATION remain hard-blocked in this build)."""
     from arbicore.discovery.base_venues import VENUES, BORROW_TOKENS
 
+    try:
+        from arbicore.execution.aerodrome_settlement import AerodromeSettlementAdapter
+        _aero_settle_ok = bool(AerodromeSettlementAdapter().self_test().get("passed"))
+    except Exception:  # noqa: BLE001
+        _aero_settle_ok = False
+
     rpc_set = bool(os.environ.get("ARBICORE_RPC_URL"))
     executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
     signer_set = bool(os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY")
@@ -4842,10 +4848,11 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
         row("FLASH_PROVIDERS", G, "", "Aave V3 + Balancer V2 adapters present (quoting/economics)", ""),
         row("DEX_ADAPTERS_QUOTE", G, "",
             "UniV3 + Aerodrome SlipStream + classic live quoting active", ""),
-        row("DEX_ADAPTERS_SETTLE", Y,
-            "Aerodrome on-chain settlement adapter is scaffolded, not certified",
-            "Complete allowlisted Aerodrome settlement adapter + tests (no arbitrary calls)",
-            "ENGINEERING"),
+        row("DEX_ADAPTERS_SETTLE", G if _aero_settle_ok else Y,
+            "" if _aero_settle_ok else "Aerodrome settlement encoder self-test failed",
+            "Allowlisted Aerodrome swapExactTokensForTokens encoder validated (no arbitrary target, no signing)"
+            if _aero_settle_ok else "Investigate aerodrome_settlement.self_test()",
+            "" if _aero_settle_ok else "ENGINEERING"),
         row("DISCOVERY_ENGINE", G, "",
             f"{len(VENUES)} venues, borrow tokens {BORROW_TOKENS}; cycle DFS active", ""),
         row("ROUTE_ENGINE", G, "", "RouteSearchEngine enumerating closed cycles", ""),

@@ -111,3 +111,10 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - HISTORICAL_REPLAY: YELLOW — ENGINEERING: block-pinned replay (needs archive RPC first).
 - RPC_THROUGHPUT: YELLOW — USER: dedicated RPC (Alchemy/QuickNode) to eliminate rate_limited failures and lift REAL coverage.
 
+## Done — 2026-08-20 (Aerodrome on-chain settlement adapter — DEX_ADAPTERS_SETTLE GREEN)
+- NEW `arbicore/execution/aerodrome_settlement.py`: `AerodromeSettlementAdapter` produces REAL ABI-encoded `swapExactTokensForTokens(uint256,uint256,(address,address,bool,address)[],address,uint256)` calldata for later simulation. Verified constants: AERODROME_ROUTER 0xcF77…4E43 + AERODROME_POOL_FACTORY 0x420D…40Da (both confirmed to carry on-chain bytecode).
+- STRICT allowlisting: only the allowlisted Aerodrome router is a permitted target (no arbitrary contract execution); every hop token must be allowlisted; multi-hop chaining enforced; stable/volatile per hop. Returns signed=false/broadcast=false — NEVER signs or broadcasts.
+- Readiness: DEX_ADAPTERS_SETTLE now keyed off `AerodromeSettlementAdapter().self_test()` — flips GREEN only after the encoder genuinely produces well-formed calldata (selector + payload validated). Verified GREEN live.
+- Tests: NEW `tests/test_p0_aerodrome_settlement.py` (7): real calldata, multi-hop, allowlist + arbitrary-target rejection, self_test. testing_agent iteration_9 backend 100%, no critical/high. Kill switch DISENGAGED, mode SHADOW, scanner RUNNING, LIMITED_LIVE locked, overall RED.
+- NOT done this turn (honest, blocked/needs infra): SIMULATION_ONCHAIN state-override (needs anvil/tenderly), FORK_VALIDATION (needs archive/anvil fork RPC), HISTORICAL_REPLAY (needs archive RPC), dedicated RPC (awaiting USER). Reported YELLOW/RED — not faked.
+
