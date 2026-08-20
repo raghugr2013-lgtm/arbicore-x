@@ -25,6 +25,92 @@ def _selector(sig: str) -> bytes:
     return keccak(text=sig)[:4]
 
 
+# Signatures we can recognise inside the deployed executor's dispatcher.
+_KNOWN_SELECTORS: Dict[str, str] = {
+    "5c38449e": "flashLoan(address,address[],uint256[],bytes)",   # operator entrypoint
+    "f04f2707": "receiveFlashLoan(address[],uint256[],uint256[],bytes)",  # Balancer callback
+    "04e45aaf": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",  # UniV3
+    "32fe7b26": "ROUTER()", "411557d1": "VAULT()", "8da5cb5b": "owner()",
+    "62c06767": "sweep(address,address,uint256)",
+    "095ea7b3": "approve(address,uint256)", "70a08231": "balanceOf(address)",
+    "a9059cbb": "transfer(address,uint256)",
+}
+
+
+def _extract_selectors(bytecode_hex: str) -> List[str]:
+    b = bytes.fromhex(bytecode_hex[2:]) if bytecode_hex and len(bytecode_hex) > 2 else b""
+    sels, i = set(), 0
+    while i < len(b):
+        op = b[i]
+        if op == 0x63 and i + 5 <= len(b):        # PUSH4 <selector>
+            sels.add(b[i + 1:i + 5].hex()); i += 5; continue
+        if 0x60 <= op <= 0x7f:                    # skip other PUSHn operands
+            i += 1 + (op - 0x5f); continue
+        i += 1
+    return sorted(sels)
+
+
+async def inspect_executor(rpc_url: str, executor: str) -> Dict[str, Any]:
+    """READ-ONLY on-chain inspection of the deployed executor: extract its
+    function selectors from bytecode and read its owner()/ROUTER()/VAULT()
+    getters. Determines the real entrypoint signature instead of guessing.
+
+    Never signs/broadcasts — only eth_getCode + eth_call getters."""
+    import asyncio
+    import httpx
+    H = {"Content-Type": "application/json", "User-Agent": "arbicore/1.0"}
+
+    async def _rpc(method: str, params: List[Any]):
+        last = {}
+        for attempt in range(4):
+            try:
+                async with httpx.AsyncClient(timeout=25) as c:
+                    r = await c.post(rpc_url, json={"jsonrpc": "2.0", "id": 1,
+                                                    "method": method, "params": params}, headers=H)
+                body = r.json()
+            except Exception:  # noqa: BLE001
+                await asyncio.sleep(0.4 * (2 ** attempt)); continue
+            err = body.get("error") or {}
+            if isinstance(err, dict) and err.get("code") in (-32016, -32005, 429):
+                await asyncio.sleep(0.4 * (2 ** attempt)); last = body; continue
+            return body
+        return last
+
+    if not (rpc_url and executor):
+        return {"ok": False, "reason": "rpc/executor not configured"}
+    code = (await _rpc("eth_getCode", [executor, "latest"])).get("result") or "0x"
+    if len(code) <= 2:
+        return {"ok": False, "reason": "no bytecode at executor address"}
+    sels = _extract_selectors(code)
+    recognised = {s: _KNOWN_SELECTORS[s] for s in sels if s in _KNOWN_SELECTORS}
+    unknown = [s for s in sels if s not in _KNOWN_SELECTORS]
+
+    async def _getter(sig: str):
+        await asyncio.sleep(0.25)  # spacing to respect public-RPC rate limits
+        j = await _rpc("eth_call", [{"to": executor, "data": "0x" + _selector(sig).hex()}, "latest"])
+        res = j.get("result")
+        return to_checksum_address("0x" + res[-40:]) if (res and len(res) >= 42) else None
+
+    owner = await _getter("owner()")
+    router = await _getter("ROUTER()")
+    vault = await _getter("VAULT()")
+
+    entry_present = "5c38449e" in sels
+    return {
+        "ok": True, "executor": executor,
+        "bytecode_size_bytes": (len(code) - 2) // 2,
+        "selectors": sels,
+        "recognised": recognised, "unknown_selectors": unknown,
+        "entrypoint_signature": "flashLoan(address,address[],uint256[],bytes)" if entry_present else None,
+        "entrypoint_selector_present": entry_present,
+        "flash_provider": "balancer_v2" if "f04f2707" in sels else None,
+        "swap_venue": "uniswap_v3" if "04e45aaf" in sels else None,
+        "owner": owner, "router": router, "vault": vault,
+        "userdata_schema_recoverable": False,  # decoded internally; needs source/ABI
+        "signed": False, "broadcast": False,
+    }
+
+
 def build_executor_entrypoint_calldata(
     *, borrow_token: str, borrow_amount_wei: int, settlement_target: str,
     settlement_calldata_hex: str, entry_sig: str = _DEFAULT_ENTRY_SIG,

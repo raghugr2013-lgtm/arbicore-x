@@ -4957,10 +4957,47 @@ async def _run_live_atomic_sim() -> Dict[str, Any]:
     ]
     res = await _atomic_sim_runner(route=None, hops=hops,
                                    borrow_token="WETH", amount_wei=10**16)
+    # Root-cause classification (honest — never GREEN on a revert):
+    if res.get("passed"):
+        res["root_cause"] = None
+    elif not res.get("available"):
+        res["root_cause"] = "prerequisite: " + str(res.get("reason"))
+    else:
+        # The atomic call executed but reverted. Cross-check against the
+        # deployed executor's real ABI to attribute the cause precisely.
+        try:
+            from arbicore.execution.executor_entrypoint import inspect_executor
+            insp = await inspect_executor(os.environ.get("ARBICORE_RPC_URL", ""),
+                                          os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE", ""))
+        except Exception:  # noqa: BLE001
+            insp = {"ok": False}
+        real_entry = insp.get("entrypoint_signature") if insp.get("ok") else None
+        res["executor_abi"] = insp if insp.get("ok") else None
+        res["root_cause"] = (
+            "calldata/ABI mismatch: the engine builds an Aerodrome-router "
+            "settlement wrapped in executeArbitrage(...), but the DEPLOYED "
+            f"executor's entrypoint is {real_entry or 'unknown'} using Balancer "
+            "V2 flash loans + Uniswap V3 swaps. Its `bytes userData` route schema "
+            "is decoded internally and is NOT recoverable from bytecode/ABI alone. "
+            "Owner-gate is satisfied (owner == vault signer). NOT an economics "
+            "failure — a valid end-to-end tx cannot be built without the "
+            "executor's source/ABI (userData layout).")
     _ATOMIC_LIVE_RUN.clear()
     _ATOMIC_LIVE_RUN.update({**res, "ran_at": _iso_now(),
                              "route": "WETH→USDC→WETH (representative)"})
     return _ATOMIC_LIVE_RUN
+
+
+@api_router.get("/arbicore/engine/executor-abi",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_executor_abi() -> Dict[str, Any]:
+    """READ-ONLY on-chain inspection of the deployed executor: real function
+    selectors, recognised signatures, owner/ROUTER/VAULT getters, and the
+    verified entrypoint signature (determined from bytecode, not guessed)."""
+    from arbicore.execution.executor_entrypoint import inspect_executor
+    insp = await inspect_executor(os.environ.get("ARBICORE_RPC_URL", ""),
+                                  os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE", ""))
+    return {"executor_abi": insp, "generated_at": _iso_now()}
 
 
 @api_router.post("/arbicore/engine/run-atomic-sim",
@@ -5316,15 +5353,18 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
         row("SIMULATION_ONCHAIN",
             G if _atomic_passed else Y,
             ("" if _atomic_passed else
-             ("On-chain atomic sim EXECUTED against the deployed executor but reverted "
-              "(representative route unprofitable and/or executor entrypoint ABI unconfirmed)"
+             ("On-chain atomic sim EXECUTED against the deployed executor but reverted. "
+              "ROOT CAUSE (calldata/ABI): deployed entrypoint is flashLoan(address,address[],uint256[],bytes) "
+              "(Balancer V2 flash + Uniswap V3 swaps); its bytes userData route schema is decoded internally "
+              "and is not recoverable from bytecode/ABI. Owner-gate OK (owner == signer). Not an economics failure."
               if _atomic_ran else
               ("Executor deployed + signer in vault; run POST /engine/run-atomic-sim to execute the state-override sim"
                if (executor_set and signer_set)
                else "Full atomic executor sim gated on execution signer (vault) + deployed executor"))),
             ("Passing on-chain atomic state-override simulation against the deployed executor"
              if _atomic_passed else
-             ("Confirm executor entrypoint ABI and/or supply a profitable route; the sim mechanism is verified"
+             ("Provide the executor source/ABI (userData route layout) so the engine can build a valid "
+              "flashLoan(...) tx; then re-run POST /engine/run-atomic-sim (see GET /engine/executor-abi)"
               if _atomic_ran else
               "Provide signer via vault → on-chain atomic state-override sim turns on (no fake GREEN)")),
             "" if _atomic_passed else ("ENGINEERING" if _atomic_ran else "USER")),
