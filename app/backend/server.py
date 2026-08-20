@@ -323,10 +323,14 @@ _READINESS_ENGINE = ExecutionReadinessEngine(
 # Reuses RouteSearchEngine + QuoterRegistry + the P0 decision chain. Pure
 # analysis + evidence persistence; SHADOW/PAPER-safe (no signer/broadcast).
 # ---------------------------------------------------------------------------
-from arbicore.economics.opportunity_engine import OpportunityEngine, TOKEN_ALLOWLIST as _ENGINE_TOKEN_ALLOWLIST
-from arbicore.data.decision_history import DecisionHistoryRepo
+from arbicore.economics.opportunity_engine import OpportunityEngine, ContinuousScanner, TOKEN_ALLOWLIST as _ENGINE_TOKEN_ALLOWLIST
+from arbicore.data.decision_history import DecisionHistoryRepo, RouteRecurrenceRepo
 _OPPORTUNITY_ENGINE = OpportunityEngine(quoter_registry=_QUOTER_REGISTRY)
 _DECISION_HISTORY_REPO = DecisionHistoryRepo(db)
+_ROUTE_RECURRENCE_REPO = RouteRecurrenceRepo(db)
+_CONTINUOUS_SCANNER = ContinuousScanner(
+    engine=_OPPORTUNITY_ENGINE, history_repo=_DECISION_HISTORY_REPO,
+    recurrence_repo=_ROUTE_RECURRENCE_REPO, interval_s=90.0, routes_per_scan=12)
 
 
 # ---------------------------------------------------------------------------
@@ -4616,11 +4620,103 @@ async def v2_engine_scan_once(body: Dict[str, Any] = Body(default={})) -> Dict[s
     scan = await _OPPORTUNITY_ENGINE.scan_once(limit=limit)
     try:
         await _DECISION_HISTORY_REPO.record_many(scan["scan_id"], scan["opportunities"])
+        await _ROUTE_RECURRENCE_REPO.record_many(scan["opportunities"])
     except Exception as exc:  # noqa: BLE001
         scan["history_persist_error"] = f"{type(exc).__name__}: {exc}"
     scan["execution_performed"] = False
     scan["shadow_safe"] = True
     return scan
+
+
+@api_router.get("/arbicore/engine/scanner/status",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_scanner_status() -> Dict[str, Any]:
+    return _CONTINUOUS_SCANNER.status()
+
+
+@api_router.post("/arbicore/engine/scanner/start",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_scanner_start() -> Dict[str, Any]:
+    """Start the always-on read-only Base opportunity scanner (SHADOW-safe)."""
+    return await _CONTINUOUS_SCANNER.start()
+
+
+@api_router.post("/arbicore/engine/scanner/stop",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_scanner_stop() -> Dict[str, Any]:
+    return await _CONTINUOUS_SCANNER.stop()
+
+
+@api_router.get("/arbicore/engine/recurring",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_recurring(limit: int = 25, min_seen: int = 2) -> Dict[str, Any]:
+    """Routes that recur across scans (recurring-route opportunity signal)."""
+    rows = await _ROUTE_RECURRENCE_REPO.recurring(limit=limit, min_seen=min_seen)
+    return {"count": len(rows), "recurring_routes": rows, "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/engine/checkpoint",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_checkpoint() -> Dict[str, Any]:
+    """Consolidated operator checkpoint: scan totals, opportunities discovered,
+    positive-after-costs, top opportunities, rejection reasons, dynamic-sizing
+    + simulation results, decision-history stats, recurring routes, the full
+    RED/YELLOW/GREEN matrix, and the exact remaining LIMITED_LIVE blockers."""
+    cp = await _DECISION_HISTORY_REPO.checkpoint(top_n=5)
+    recurring = await _ROUTE_RECURRENCE_REPO.recurring(limit=10, min_seen=2)
+    matrix = await v2_engine_readiness_matrix()
+    scanner = _CONTINUOUS_SCANNER.status()
+
+    limited_live_blockers = [
+        {"capability": c["capability"], "blocker": c["blocker"],
+         "action": c["action"], "owner": c["owner"]}
+        for c in matrix["capabilities"]
+        if c["status"] in ("RED", "YELLOW")
+        and c["capability"] in ("WALLET_GAS", "SIGNER", "EXECUTOR_CONTRACT",
+                                "DEX_ADAPTERS_SETTLE", "SIMULATION_ONCHAIN",
+                                "FORK_VALIDATION", "HISTORICAL_REPLAY")]
+
+    # Dynamic-sizing + simulation snapshot from the latest scan.
+    last = scanner.get("last_scan_summary") or {}
+    dynamic_sizing = []
+    sim_results = {"passed": 0, "failed": 0}
+    top = cp.get("top_opportunities", [])
+    for o in top:
+        dynamic_sizing.append({
+            "route_id": o.get("route_id"),
+            "opportunity_type": o.get("opportunity_type"),
+            "optimal_notional_usd": o.get("optimal_notional_usd"),
+            "expected_value_usd": o.get("expected_value_usd"),
+            "net_profit_usd": o.get("net_profit_usd"),
+        })
+        if o.get("simulation_passed"):
+            sim_results["passed"] += 1
+        else:
+            sim_results["failed"] += 1
+
+    return {
+        "routes_scanned_records": cp["records"],
+        "real_quotes": cp["real_quotes"],
+        "opportunities_discovered": cp["records"],
+        "positive_after_costs": cp["positive_after_costs"],
+        "executable": cp["executable"],
+        "opportunity_type_coverage": cp["opportunity_type_coverage"],
+        "top_opportunities": top,
+        "rejection_reasons": cp["rejection_histogram"],
+        "dynamic_sizing_results": dynamic_sizing,
+        "simulation_results": sim_results,
+        "recurring_routes": recurring,
+        "decision_history": await _DECISION_HISTORY_REPO.stats(),
+        "scanner": scanner,
+        "last_scan_summary": last,
+        "readiness_matrix": {"overall_status": matrix["overall_status"],
+                             "capabilities": matrix["capabilities"],
+                             "modes": matrix["modes"]},
+        "limited_live_blockers": limited_live_blockers,
+        "generated_at": _iso_now(),
+    }
+
+
 
 
 @api_router.get("/arbicore/engine/opportunities",
@@ -4702,10 +4798,13 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
         row("CONFIDENCE_V2", G, "", "12-factor explainable score (advisory)", ""),
         row("EXPECTED_VALUE", G, "", "EV = P(s)*net − P(f)*max_loss with evidence penalty", ""),
         row("SIZE_OPTIMIZER", G, "", "adaptive max-risk-adjusted-EV size search", ""),
-        row("LIQUIDITY_DEPTH", Y,
-            "Real per-pool TVL/depth not yet read on-chain (uses conservative default)",
-            "Add pool-state reader to feed true depth into the size optimizer",
-            "ENGINEERING"),
+        row("LIQUIDITY_DEPTH", G, "",
+            "dynamic: effective depth measured live from the multi-size quote curve; conservative default only for clearly-unprofitable routes", ""),
+        row("SCANNER", G if _CONTINUOUS_SCANNER.running else Y,
+            "" if _CONTINUOUS_SCANNER.running else "Continuous scanner not running",
+            "Autonomous Base scan loop active" if _CONTINUOUS_SCANNER.running
+            else "POST /api/arbicore/engine/scanner/start (auto-starts on boot)",
+            "" if _CONTINUOUS_SCANNER.running else "ENGINEERING"),
         row("SIMULATION_GATE", G, "", "hard gate: quote-fresh, allowlists, min-out, slippage, gas, repayment, calldata", ""),
         row("SIMULATION_ONCHAIN", Y,
             "eth_call preflight available; full state-override sim not wired",
@@ -5332,6 +5431,27 @@ async def v2_autoexec_tick() -> Dict[str, Any]:
 
 # Include the router in the main app
 app.include_router(api_router)
+
+
+@app.on_event("startup")
+async def _autostart_opportunity_scanner():
+    """Auto-start the read-only Base opportunity scanner (SHADOW-safe).
+
+    The engine continuously discovers candidate flash-loan opportunities and
+    runs them through the full economic/safety chain; it never signs or
+    broadcasts. Operator can stop it via /api/arbicore/engine/scanner/stop."""
+    try:
+        await _DECISION_HISTORY_REPO.ensure_indexes()
+        await _ROUTE_RECURRENCE_REPO.ensure_indexes()
+    except Exception:  # noqa: BLE001
+        pass
+    if os.environ.get("ARBICORE_RPC_URL") and \
+            os.environ.get("ARBICORE_SCANNER_AUTOSTART", "1") != "0":
+        try:
+            await _CONTINUOUS_SCANNER.start()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("scanner autostart failed: %r", exc)
+
 
 app.add_middleware(
     CORSMiddleware,

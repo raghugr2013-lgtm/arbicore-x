@@ -148,3 +148,95 @@ def test_readiness_matrix_authoritative(session):
     assert modes["FULL_AUTOMATION"]["can_activate"] is False
     # RPC is configured so live quote/analysis modes are activatable
     assert modes["SHADOW"]["can_activate"] is True
+
+
+# ------------------------------------------------- dynamic liquidity probe
+class _DegradingQuoter:
+    """Fake quoter: realized ratio worsens as notional grows (depth model)."""
+    def _rpc_url(self):
+        return "x"
+
+    async def quote_route(self, *, chain, hops, rpc_url=None):
+        from datetime import datetime, timezone
+        ain = int(hops[0]["amount_in_wei"])
+        base = 5 * 10**16
+        slip = 0.0008 * (ain / base)          # 8 bps per probe-unit
+        out = int(ain * (1.001 - slip))
+
+        class RQ:
+            status = "ok"
+            final_amount_out_wei = out
+
+            def to_dict(self):
+                return {"status": "ok", "final_amount_out_wei": out,
+                        "aggregate_price_impact_bps": None,
+                        "generated_at": datetime.now(timezone.utc).isoformat(),
+                        "hops": [{"amount_in_wei": ain, "amount_out_wei": out,
+                                  "block_number": 1, "rpc_host": "h", "status": "ok"}]}
+        return RQ()
+
+
+def test_measure_liquidity_uses_live_quote_curve():
+    import asyncio
+    eng = OpportunityEngine(quoter_registry=_DegradingQuoter(),
+                            config={"depth_probe_threshold_bps": -1000.0})
+    hops = [{"dex": "uniswap_v3", "token_in": TOKENS["WETH"]["address"],
+             "token_out": TOKENS["WETH"]["address"],
+             "amount_in_wei": 5 * 10**16, "fee": 500}]
+    liq, src = asyncio.get_event_loop().run_until_complete(
+        eng._measure_liquidity(hops, borrow_token="WETH", eth_usd=2300.0,
+                               marginal_spread_bps=10.0))
+    assert src == "live_probe"
+    assert liq > 0
+
+
+def test_measure_liquidity_skips_deeply_unprofitable():
+    import asyncio
+    eng = OpportunityEngine(quoter_registry=_DegradingQuoter(),
+                            config={"depth_probe_threshold_bps": -25.0})
+    hops = [{"dex": "uniswap_v3", "token_in": TOKENS["WETH"]["address"],
+             "token_out": TOKENS["WETH"]["address"],
+             "amount_in_wei": 5 * 10**16, "fee": 500}]
+    liq, src = asyncio.get_event_loop().run_until_complete(
+        eng._measure_liquidity(hops, borrow_token="WETH", eth_usd=2300.0,
+                               marginal_spread_bps=-500.0))
+    assert src == "default:below_threshold"
+
+
+# ------------------------------------------------------- scanner + checkpoint HTTP
+def test_scanner_status_and_toggle(session):
+    st = session.get(f"{API}/arbicore/engine/scanner/status", timeout=30).json()
+    assert "running" in st and "cumulative" in st
+    # stop then start (idempotent-safe); leave it running for autonomous mode
+    stopped = session.post(f"{API}/arbicore/engine/scanner/stop", timeout=30).json()
+    assert stopped["running"] is False
+    started = session.post(f"{API}/arbicore/engine/scanner/start", timeout=30).json()
+    assert started["running"] is True
+
+
+def test_checkpoint_report_complete(session):
+    session.post(f"{API}/arbicore/engine/scan-once", json={"limit": 4}, timeout=90)
+    r = session.get(f"{API}/arbicore/engine/checkpoint", timeout=60)
+    assert r.status_code == 200
+    c = r.json()
+    for k in ("routes_scanned_records", "positive_after_costs", "executable",
+              "opportunity_type_coverage", "top_opportunities", "rejection_reasons",
+              "dynamic_sizing_results", "simulation_results", "recurring_routes",
+              "decision_history", "scanner", "readiness_matrix", "limited_live_blockers"):
+        assert k in c, f"checkpoint missing {k}"
+    assert c["readiness_matrix"]["overall_status"] in ("RED", "YELLOW", "GREEN")
+    # LIMITED_LIVE blockers must be actionable
+    for b in c["limited_live_blockers"]:
+        assert b["blocker"] and b["action"] and b["owner"] in ("USER", "ENGINEERING")
+
+
+def test_recurring_endpoint(session):
+    # two scans so some routes recur
+    session.post(f"{API}/arbicore/engine/scan-once", json={"limit": 4}, timeout=90)
+    session.post(f"{API}/arbicore/engine/scan-once", json={"limit": 4}, timeout=90)
+    r = session.get(f"{API}/arbicore/engine/recurring?min_seen=2&limit=10", timeout=30)
+    assert r.status_code == 200
+    body = r.json()
+    assert "recurring_routes" in body
+    for row in body["recurring_routes"]:
+        assert row["times_seen"] >= 2

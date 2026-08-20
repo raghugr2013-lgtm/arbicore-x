@@ -64,3 +64,22 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Tests: NEW `tests/test_p0_decide_opportunity.py` (19) + `tests/test_p0_live_quote_provider.py` (12). Combined P0/control regression 67/67. testing_agent iteration_3 (19/19) + iteration_4 (31/31) — 100%, no critical/high. Kill switch left DISENGAGED, mode SHADOW.
 - Aerodrome on-chain SOLIDITY adapter (P0-3) + fork tests (P0-11): still BLOCKED — public RPC insufficient for fork harness; no signing/deploy permitted this build. Off-chain Aerodrome QUOTING already works via QuoterRegistry.
 
+## Done — 2026-08-20 (Autonomous Opportunity Engine + dynamic sizing + continuous scanner)
+- NEW `arbicore/discovery/base_venues.py`: verified Base token universe (WETH,USDC,cbETH,DAI,USDbC,cbBTC,AERO — all on-chain `symbol()`-checked) + venue graph feeding the existing `RouteSearchEngine`.
+- NEW `arbicore/economics/opportunity_engine.py`: `OpportunityEngine` (discovery→live quote→full decision chain, REUSING RouteSearchEngine + QuoterRegistry + decision engines) covering cross-DEX, same-DEX fee-tier, triangular, stablecoin-triangular, multi-hop cycles. `ContinuousScanner` = always-on read-only loop (auto-starts on boot, 90s interval), operator can stop/start.
+- DYNAMIC size optimizer: `_measure_liquidity` derives EFFECTIVE pool depth LIVE from the multi-size quote curve (slope→liquidity), fed to the size optimizer. Depth probe runs only for competitive routes (marginal spread ≥ threshold); conservative default otherwise. LIQUIDITY_DEPTH matrix row now GREEN.
+- NEW `arbicore/data/decision_history.py`: `DecisionHistoryRepo` (evidence: quote/freshness/route/liquidity/provider/size/gross-net/costs/confidence/EV/sim/decision/reason + `checkpoint()` aggregation) + `RouteRecurrenceRepo` (recurring-route signal).
+- NEW endpoints (all operator-auth): POST `/engine/scan-once`, GET `/engine/opportunities`, GET `/engine/history`, GET `/engine/recurring`, GET `/engine/checkpoint`, POST `/engine/scanner/start|stop`, GET `/engine/scanner/status`, GET `/engine/readiness-matrix`. Startup hook `_autostart_opportunity_scanner` (gated on ARBICORE_RPC_URL + ARBICORE_SCANNER_AUTOSTART!=0).
+- Modes backend-authoritative (NOT hardcoded): SHADOW/PAPER/PROFIT_ENGINE can_activate=true; LIMITED_LIVE/FULL_AUTOMATION can_activate=false. Overall RED due to genuine LIMITED_LIVE prerequisites.
+- Honest state: NO profitable arbitrage on Base at this time → every route correctly rejected (`positive_after_costs`=0); engine never fabricates. Evidence accumulating (270+ records, 37 REAL quotes across 3 auto-scans).
+- Tests: NEW `tests/test_p0_opportunity_engine.py` (12). Combined P0/control regression 79/79. testing_agent iteration_6 100% (22/22), no critical/high. Kill switch DISENGAGED, mode SHADOW, scanner RUNNING.
+
+## Remaining exact blockers for LIMITED_LIVE (from readiness matrix)
+- WALLET_GAS (USER): register a funded Base gas/execution wallet (operator wizard).
+- SIGNER (USER): provision an isolated execution signer key (never hardcoded).
+- EXECUTOR_CONTRACT (USER): deploy/allowlist FlashLoanReceiver, set ARBICORE_EXECUTOR_ADDRESS_BASE.
+- DEX_ADAPTERS_SETTLE (ENGINEERING): complete allowlisted Aerodrome on-chain settlement adapter + tests.
+- SIMULATION_ONCHAIN (ENGINEERING): add state-override sim (tenderly/anvil) for exact revert modelling.
+- FORK_VALIDATION (USER): provision archive/trace RPC or local anvil --fork-url (public RPC cannot host a fork).
+- HISTORICAL_REPLAY (ENGINEERING): block-pinned replay over Decision History once archive RPC exists.
+

@@ -75,5 +75,75 @@ class DecisionHistoryRepo:
         return {"total": total, "executable": executable,
                 "real_quotes": real_quotes, "generated_at": _now_iso()}
 
+    async def checkpoint(self, top_n: int = 5) -> Dict[str, Any]:
+        """Aggregated evidence snapshot for the operator checkpoint report."""
+        total = await self._coll.count_documents({})
+        real_quotes = await self._coll.count_documents({"quote_status": "REAL"})
+        positive = await self._coll.count_documents({"expected_value_usd": {"$gt": 0}})
+        executable = await self._coll.count_documents({"would_execute": True})
 
-__all__ = ["DecisionHistoryRepo"]
+        # Rejection-reason histogram (short prefix before ':').
+        rej_cur = self._coll.aggregate([
+            {"$match": {"would_execute": False}},
+            {"$group": {"_id": {"$arrayElemAt": [{"$split": ["$reason", ":"]}, 0]},
+                        "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}, {"$limit": 15}])
+        rejection_histogram = {r["_id"]: r["count"] async for r in rej_cur}
+
+        # Opportunity-type coverage.
+        type_cur = self._coll.aggregate([
+            {"$group": {"_id": "$opportunity_type", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}}])
+        type_coverage = {r["_id"]: r["count"] async for r in type_cur}
+
+        top_cur = self._coll.find({}, {"_id": 0}).sort(
+            [("expected_value_usd", -1)]).limit(max(1, min(int(top_n), 25)))
+        top = await top_cur.to_list(length=top_n)
+        return {
+            "records": total, "real_quotes": real_quotes,
+            "positive_after_costs": positive, "executable": executable,
+            "rejection_histogram": rejection_histogram,
+            "opportunity_type_coverage": type_coverage,
+            "top_opportunities": top,
+            "generated_at": _now_iso(),
+        }
+
+
+__all__ = ["DecisionHistoryRepo", "RouteRecurrenceRepo"]
+
+
+class RouteRecurrenceRepo:
+    """Tracks how often each route recurs across scans (recurring-route signal)."""
+
+    def __init__(self, db, collection: str = "route_recurrence"):
+        self._coll = db[collection]
+
+    async def ensure_indexes(self) -> None:
+        await self._coll.create_index("route_id", unique=True)
+        await self._coll.create_index("times_positive")
+
+    async def record_many(self, results: List[Dict[str, Any]]) -> None:
+        now = _now_iso()
+        for r in results:
+            rid = r.get("route_id")
+            if not rid:
+                continue
+            spread = float(r.get("gross_spread_bps") or 0.0)
+            positive_inc = 1 if float(r.get("expected_value_usd") or 0.0) > 0 else 0
+            await self._coll.update_one(
+                {"route_id": rid},
+                {"$set": {"opportunity_type": r.get("opportunity_type"),
+                          "token_path": r.get("token_path"),
+                          "dex_path": r.get("dex_path"),
+                          "last_spread_bps": spread,
+                          "last_seen": now},
+                 "$max": {"best_spread_bps": spread},
+                 "$inc": {"times_seen": 1, "times_positive": positive_inc},
+                 "$setOnInsert": {"route_id": rid, "first_seen": now}},
+                upsert=True)
+
+    async def recurring(self, limit: int = 25, min_seen: int = 2) -> List[Dict[str, Any]]:
+        cur = self._coll.find({"times_seen": {"$gte": min_seen}}, {"_id": 0}) \
+            .sort([("times_positive", -1), ("best_spread_bps", -1)]).limit(
+                max(1, min(int(limit), 100)))
+        return await cur.to_list(length=limit)
