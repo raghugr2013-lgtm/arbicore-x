@@ -62,6 +62,29 @@ def classify_route(route: RouteCycle) -> str:
     return "multi_hop"
 
 
+def categorize_quote_failure(route_quote: Dict[str, Any]) -> Optional[str]:
+    """Bucket the reason a route did not produce a usable REAL quote.
+
+    Returns None for a fully-ok route. Categories:
+    rate_limited · revert_no_pool · no_adapter · rpc_error · other."""
+    hops = route_quote.get("hops") or []
+    for h in hops:
+        st = str(h.get("status") or "")
+        if st == "ok":
+            continue
+        err = str(h.get("error") or "").lower()
+        if "rate limit" in err or "-32016" in err or "429" in err or st == "fallback:rate_limited":
+            return "rate_limited"
+        if st == "fallback:revert" or "revert" in err or "spl" in err:
+            return "revert_no_pool"
+        if st == "fallback:no_adapter":
+            return "no_adapter"
+        if st == "fallback:rpc_error":
+            return "rpc_error"
+        return "other"
+    return None
+
+
 class OpportunityEngine:
     """Autonomous discovery + evaluation over the read-only Base quote layer."""
 
@@ -259,6 +282,7 @@ class OpportunityEngine:
             "dex_path": [p.dex_protocol for p in route.pools],
             "hop_count": route.hop_count,
             "quote_provenance": built["quote_provenance"],
+            "quote_failure_category": categorize_quote_failure(rqd),
             "liquidity_usd": round(pool_liq_usd, 2),
             "liquidity_source": liq_source,
             "marginal_spread_bps": round(marginal_spread_bps, 4),
@@ -304,11 +328,18 @@ class OpportunityEngine:
         def _qs(x):
             return (x.get("quote_provenance") or {}).get("quote_status")
         real = [r for r in results if _qs(r) == "REAL"]
+        # categorize why non-REAL routes failed to quote
+        failure_reasons: Dict[str, int] = {}
+        for r in results:
+            cat = r.get("quote_failure_category")
+            if cat:
+                failure_reasons[cat] = failure_reasons.get(cat, 0) + 1
         funnel = {
             "candidate_universe": len(all_routes),
             "routes_quoted": len(results),
             "real_quotes": len(real),
             "quote_failures": sum(1 for r in results if _qs(r) == "UNAVAILABLE"),
+            "quote_failure_reasons": failure_reasons,
             "stale_quotes": sum(1 for r in results if _qs(r) == "STALE"),
             "liquidity_measured": sum(1 for r in results
                                       if str(r.get("liquidity_source", "")).startswith("live_probe")),
@@ -367,7 +398,8 @@ class ContinuousScanner:
             "candidate_universe": 0, "routes_quoted": 0, "real_quotes": 0,
             "quote_failures": 0, "stale_quotes": 0, "liquidity_measured": 0,
             "negative_economics": 0, "positive_net": 0, "positive_ev": 0,
-            "simulation_candidates": 0, "simulation_passes": 0, "executable": 0}
+            "simulation_candidates": 0, "simulation_passes": 0, "executable": 0,
+            "quote_failure_reasons": {}}
 
     @property
     def running(self) -> bool:
@@ -419,6 +451,10 @@ class ContinuousScanner:
         for k in self._funnel_cumulative:
             if k == "candidate_universe":
                 self._funnel_cumulative[k] = fn.get(k, self._funnel_cumulative[k])
+            elif k == "quote_failure_reasons":
+                for cat, cnt in (fn.get(k) or {}).items():
+                    self._funnel_cumulative[k][cat] = \
+                        self._funnel_cumulative[k].get(cat, 0) + int(cnt)
             else:
                 self._funnel_cumulative[k] += int(fn.get(k) or 0)
         # advance the rotating window so successive scans cover the universe

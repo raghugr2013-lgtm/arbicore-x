@@ -92,3 +92,22 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Tests: test_p0_opportunity_engine.py now 16. testing_agent iteration_7: backend 100% (10/10), frontend 100% (all testids + Scan-Now flow). Only OPTIONAL cosmetic note (funnel key naming). Scanner RUNNING, kill switch DISENGAGED, mode SHADOW.
 - Live checkpoint: universe 134; 642 evidence records, 123 REAL quotes; positive=0/executable=0/alerts=0 (NO real arb currently — honest). Overall readiness RED (genuine LIMITED_LIVE prerequisites outstanding).
 
+## Done — 2026-08-20 (Quote-failure categorization + RPC throttle/retry — coverage fix)
+- ROOT-CAUSE of low REAL-quote coverage identified: the FREE public RPC (mainnet.base.org) returns `-32016 over rate limit` for the majority of hops — NOT missing pools. Corrected the market-coverage narrative accordingly (we only prove "no profitable opp among REAL-quoted routes", never a universal "no arbitrage").
+- FIX: `quoter._eth_call` now has a global client-side throttle (min-interval, env ARBICORE_RPC_MIN_INTERVAL_MS=140) + retry-with-exponential-backoff on rate-limit (-32016 / HTTP 429). Dropped the wasteful per-hop extra round-trip risk; `getattr(r,'status_code',200)` keeps test stubs working.
+- CATEGORIZATION: `categorize_quote_failure()` buckets every non-REAL route into rate_limited / revert_no_pool / no_adapter / rpc_error / other. Surfaced in `scan_once` funnel `quote_failure_reasons` and cumulatively in scanner `funnel_cumulative.quote_failure_reasons`. Per-opportunity `quote_failure_category` added.
+- Verified: testing_agent iteration_8 backend 100% (11/11), no critical/high. Quoter unit tests 18/18. Kill switch DISENGAGED, mode SHADOW, scanner RUNNING.
+- HONEST LIMITED_LIVE readiness (still RED): rate_limited dominates failures → real fix is a dedicated RPC (USER). weETH/500 = genuine revert_no_pool.
+
+## LIMITED_LIVE blocker matrix (2026-08-20, authoritative)
+- LIQUIDITY_DEPTH: GREEN (live quote-curve-derived effective depth into size optimizer).
+- QUOTE_FAILURE_CATEGORIZATION: GREEN (rate_limited/revert_no_pool/rpc_error buckets live).
+- WALLET_GAS: RED/YELLOW — USER: register+fund Base gas wallet.
+- SIGNER: YELLOW — USER: provision isolated signer/KMS (never pasted/stored in app).
+- EXECUTOR_CONTRACT: YELLOW — USER: deploy+allowlist FlashLoanReceiver, set ARBICORE_EXECUTOR_ADDRESS_BASE.
+- DEX_ADAPTERS_SETTLE (Aerodrome on-chain settlement): YELLOW — ENGINEERING: build allowlisted settlement encoder (not started; honestly not claimed).
+- SIMULATION_ONCHAIN (state-override sim): YELLOW — ENGINEERING: add tenderly/anvil state-override (public RPC lacks reliable override support).
+- FORK_VALIDATION: RED — USER: archive/trace RPC or local anvil --fork-url (public RPC cannot host a fork).
+- HISTORICAL_REPLAY: YELLOW — ENGINEERING: block-pinned replay (needs archive RPC first).
+- RPC_THROUGHPUT: YELLOW — USER: dedicated RPC (Alchemy/QuickNode) to eliminate rate_limited failures and lift REAL coverage.
+

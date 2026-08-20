@@ -49,6 +49,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+import asyncio
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Protocol, Tuple
@@ -181,29 +182,84 @@ def _redact_host(url: Optional[str]) -> str:
 # JSON-RPC helper — used by every backend                                     #
 # --------------------------------------------------------------------------- #
 
+# Global client-side throttle + retry so the free public Base RPC does not
+# trip `-32016 over rate limit`. Shared across all quoter backends.
+_RPC_MIN_INTERVAL_S = float(os.environ.get("ARBICORE_RPC_MIN_INTERVAL_MS", "140")) / 1000.0
+_RPC_MAX_RETRIES = int(os.environ.get("ARBICORE_RPC_MAX_RETRIES", "4"))
+_RPC_LOCK = asyncio.Lock()
+_RPC_LAST_TS = {"t": 0.0}
+
+
+def _is_rate_limited(err: Optional[Dict[str, Any]]) -> bool:
+    if not err:
+        return False
+    code = err.get("code")
+    msg = str(err.get("message", "")).lower()
+    return code == -32016 or "rate limit" in msg or "too many requests" in msg
+
+
+async def _throttle() -> None:
+    """Serialise RPC calls with a minimum inter-request interval."""
+    async with _RPC_LOCK:
+        now = asyncio.get_event_loop().time()
+        wait = _RPC_MIN_INTERVAL_S - (now - _RPC_LAST_TS["t"])
+        if wait > 0:
+            await asyncio.sleep(wait)
+        _RPC_LAST_TS["t"] = asyncio.get_event_loop().time()
+
+
 async def _eth_call(
     rpc_url: str, *, to: str, data: str, block: str = "latest", timeout: float = 12.0,
+    with_block_number: bool = True,
 ) -> Tuple[Optional[str], Optional[int], Optional[Dict[str, Any]]]:
-    """One-shot read-only ``eth_call`` — returns (result_hex, block_number, error_dict)."""
-    async with httpx.AsyncClient(timeout=timeout) as c:
-        # Batch eth_call + eth_blockNumber for provenance
+    """One-shot read-only ``eth_call`` — returns (result_hex, block_number, error_dict).
+
+    Applies a global throttle and retries on RPC rate-limit (-32016 / HTTP 429)
+    with exponential backoff. ``block_number`` provenance is batched in the same
+    request (no extra round-trip)."""
+    if with_block_number:
         payload = [
             {"jsonrpc": "2.0", "id": 1, "method": "eth_call",
              "params": [{"to": to, "data": data}, block]},
             {"jsonrpc": "2.0", "id": 2, "method": "eth_blockNumber", "params": []},
         ]
-        r = await c.post(rpc_url, json=payload)
-        r.raise_for_status()
-        body = r.json()
-    if not isinstance(body, list):
-        body = [body]
-    call_resp  = next((b for b in body if b.get("id") == 1), None) or {}
-    block_resp = next((b for b in body if b.get("id") == 2), None) or {}
-    if "error" in call_resp:
-        return None, None, call_resp["error"]
-    bn_hex = (block_resp or {}).get("result")
-    block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
-    return call_resp.get("result"), block_number, None
+    else:
+        payload = [{"jsonrpc": "2.0", "id": 1, "method": "eth_call",
+                    "params": [{"to": to, "data": data}, block]}]
+
+    last_err: Optional[Dict[str, Any]] = None
+    for attempt in range(_RPC_MAX_RETRIES + 1):
+        await _throttle()
+        try:
+            async with httpx.AsyncClient(timeout=timeout) as c:
+                r = await c.post(rpc_url, json=payload)
+            if getattr(r, "status_code", 200) == 429:
+                last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
+                await asyncio.sleep(0.3 * (2 ** attempt))
+                continue
+            r.raise_for_status()
+            body = r.json()
+        except httpx.HTTPStatusError as exc:
+            if exc.response is not None and exc.response.status_code == 429:
+                last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
+                await asyncio.sleep(0.3 * (2 ** attempt))
+                continue
+            raise
+        if not isinstance(body, list):
+            body = [body]
+        call_resp = next((b for b in body if b.get("id") == 1), None) or {}
+        block_resp = next((b for b in body if b.get("id") == 2), None) or {}
+        if "error" in call_resp:
+            err = call_resp["error"]
+            if _is_rate_limited(err) and attempt < _RPC_MAX_RETRIES:
+                last_err = err
+                await asyncio.sleep(0.3 * (2 ** attempt))
+                continue
+            return None, None, err
+        bn_hex = (block_resp or {}).get("result")
+        block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
+        return call_resp.get("result"), block_number, None
+    return None, None, (last_err or {"code": -32016, "message": "rate limited (retries exhausted)"})
 
 
 # --------------------------------------------------------------------------- #
