@@ -88,8 +88,10 @@ def categorize_quote_failure(route_quote: Dict[str, Any]) -> Optional[str]:
 class OpportunityEngine:
     """Autonomous discovery + evaluation over the read-only Base quote layer."""
 
-    def __init__(self, *, quoter_registry, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, *, quoter_registry, config: Optional[Dict[str, Any]] = None,
+                 settlement_simulator=None):
         self._quoter = quoter_registry
+        self._settlement_sim = settlement_simulator
         cfg = config or {}
         self._pools, self._specs = build_pool_graph()
         self._route_engine = RouteSearchEngine(
@@ -273,6 +275,20 @@ class OpportunityEngine:
             opp, router_allowlist=ROUTER_ALLOWLIST, token_allowlist=TOKEN_ALLOWLIST,
             max_slippage_bps=self._max_slippage_bps, max_gas_usd=self._max_gas_usd)
         d = decision.to_dict()
+
+        # MANDATORY settlement simulation: a candidate can only be labelled
+        # executable after a successful end-to-end settlement simulation using
+        # the real allowlisted settlement calldata. No sim → not executable.
+        settlement_result: Optional[Dict[str, Any]] = None
+        would_execute = bool(d["would_execute"])
+        if would_execute:
+            settlement_result = await self._run_settlement(route, eth_usd, gas_usd)
+            if not (settlement_result and settlement_result.get("passed")):
+                would_execute = False
+                d["would_execute"] = False
+                reason = (settlement_result or {}).get("reason", "settlement simulation unavailable")
+                d["reason"] = f"settlement simulation failed: {reason}"
+
         return {
             "route_id": route.route_id,
             "opportunity_type": classify_route(route),
@@ -287,7 +303,8 @@ class OpportunityEngine:
             "liquidity_source": liq_source,
             "marginal_spread_bps": round(marginal_spread_bps, 4),
             "gas_cost_usd": round(gas_usd, 6),
-            "would_execute": d["would_execute"],
+            "would_execute": would_execute,
+            "settlement_simulation": settlement_result,
             "reason": d["reason"],
             "gross_spread_bps": opp["gross_spread_bps"],
             "net_profit_usd": d["net_profit_usd"],
@@ -298,6 +315,37 @@ class OpportunityEngine:
             "decision": d,
             "evaluated_at": _now_iso(),
         }
+
+    async def _run_settlement(self, route: RouteCycle, eth_usd: Optional[float],
+                              gas_usd: float) -> Optional[Dict[str, Any]]:
+        """Run the real settlement simulator for an all-classic-Aerodrome route.
+
+        Returns the simulation dict (passed/reason/...) or a not-applicable
+        marker. Only classic Aerodrome routes are settleable by the current
+        allowlisted adapter; other routes cannot yet be settlement-verified so
+        they are (honestly) not marked executable."""
+        if self._settlement_sim is None:
+            return {"passed": False, "reason": "no settlement simulator configured"}
+        specs = [self._specs.get(p.pool_address, {}) for p in route.pools]
+        if not all(s.get("dex") == "aerodrome" for s in specs):
+            return {"passed": False, "applicable": False,
+                    "reason": "settlement adapter supports classic Aerodrome routes only"}
+        hops = []
+        path = route.token_path
+        for i, spec in enumerate(specs):
+            hops.append({"token_in": token_address(path[i]),
+                         "token_out": token_address(path[i + 1]),
+                         "stable": bool(spec.get("stable", False))})
+        dec = TOKENS[route.borrow_token]["decimals"]
+        token_usd = eth_usd if route.borrow_token in ("WETH", "cbETH") else 1.0
+        try:
+            return await self._settlement_sim.simulate(
+                hops=hops, amount_in_wei=PROBE_AMOUNT.get(route.borrow_token, 10**16),
+                token_decimals=dec, token_usd=token_usd or 0.0, gas_cost_usd=gas_usd,
+                token_allowlist=TOKEN_ALLOWLIST,
+                recipient="0x0000000000000000000000000000000000000001")
+        except Exception as exc:  # noqa: BLE001
+            return {"passed": False, "reason": f"settlement sim error: {exc}"}
 
     def candidate_universe_size(self) -> int:
         return len(self.enumerate_routes())

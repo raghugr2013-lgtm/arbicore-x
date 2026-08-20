@@ -336,10 +336,14 @@ _CONTINUOUS_SCANNER = ContinuousScanner(
 
 from arbicore.execution.settlement_simulator import SettlementSimulator
 _SETTLEMENT_SIM = SettlementSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
+_OPPORTUNITY_ENGINE._settlement_sim = _SETTLEMENT_SIM   # mandatory settlement gate
+from arbicore.execution.atomic_executor_sim import AtomicExecutorSimulator
+_ATOMIC_SIM = AtomicExecutorSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
 # Cached, VERIFIED (not assumed) RPC capabilities + simulator self-test,
 # refreshed at startup so the readiness matrix costs no RPC per request.
 _RPC_CAPS: Dict[str, Any] = {}
 _SETTLEMENT_SELFTEST: Dict[str, Any] = {}
+_ATOMIC_SELFTEST: Dict[str, Any] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -4734,6 +4738,29 @@ async def v2_engine_simulate_settlement(body: Dict[str, Any]) -> Dict[str, Any]:
             "simulation": result, "generated_at": _iso_now()}
 
 
+@api_router.get("/arbicore/engine/atomic-sim-status",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_atomic_sim_status(refresh: bool = False) -> Dict[str, Any]:
+    """Atomic executor state-override simulation readiness.
+
+    Reports the VERIFIED code-injection capability + whether the operator
+    executor prerequisites are in place. Full atomic simulation stays gated
+    until an executor address + bytecode are provided (no fake GREEN)."""
+    if refresh or "code_injection" not in _ATOMIC_SELFTEST:
+        try:
+            _ATOMIC_SELFTEST.update(await _ATOMIC_SIM.capability_self_test())
+        except Exception as exc:  # noqa: BLE001
+            _ATOMIC_SELFTEST["error"] = str(exc)
+    rd = _ATOMIC_SIM.readiness()
+    ready = bool(_ATOMIC_SELFTEST.get("code_injection")
+                 and rd["executor_address_set"] and rd["executor_bytecode_available"])
+    return {"code_injection_verified": bool(_ATOMIC_SELFTEST.get("code_injection")),
+            "readiness": rd, "atomic_sim_ready": ready,
+            "note": ("Code-injection mechanism verified. Full atomic simulation activates "
+                     "once ARBICORE_EXECUTOR_ADDRESS_BASE + executor bytecode are provided."),
+            "generated_at": _iso_now()}
+
+
 @api_router.get("/arbicore/engine/scanner/status",
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_scanner_status() -> Dict[str, Any]:
@@ -4876,7 +4903,13 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
                 _SETTLEMENT_SELFTEST.update(await _SETTLEMENT_SIM.self_test())
             except Exception:  # noqa: BLE001
                 pass
+        if "code_injection" not in _ATOMIC_SELFTEST:
+            try:
+                _ATOMIC_SELFTEST.update(await _ATOMIC_SIM.capability_self_test())
+            except Exception:  # noqa: BLE001
+                pass
 
+    _atomic_rd = _ATOMIC_SIM.readiness()
     rpc_set = bool(os.environ.get("ARBICORE_RPC_URL"))
     executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
     signer_set = bool(os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY")
@@ -4938,7 +4971,7 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
         row("SIMULATION_GATE", G, "", "hard gate: quote-fresh, allowlists, min-out, slippage, gas, repayment, calldata", ""),
         row("SETTLEMENT_SIMULATION", G if _SETTLEMENT_SELFTEST.get("ran") else Y,
             "" if _SETTLEMENT_SELFTEST.get("ran") else "Settlement simulator has not validated a real route",
-            "Read-only E2E Aerodrome route sim (getAmountsOut → repayment → net profit) operational"
+            "Read-only E2E Aerodrome route sim (getAmountsOut → repayment → net profit) is MANDATORY before any candidate is executable"
             if _SETTLEMENT_SELFTEST.get("ran") else "Ensure RPC reachable; run /engine/simulate-settlement",
             "" if _SETTLEMENT_SELFTEST.get("ran") else "ENGINEERING"),
         row("RPC_STATE_OVERRIDE", G if _RPC_CAPS.get("state_override") else Y,
@@ -4946,10 +4979,20 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
             "VERIFIED: eth_call state-override supported (enables realistic pre-trade sim)"
             if _RPC_CAPS.get("state_override") else "Provide an RPC supporting eth_call state overrides",
             "" if _RPC_CAPS.get("state_override") else "USER"),
+        row("ATOMIC_EXECUTOR_SIM",
+            G if (_ATOMIC_SELFTEST.get("code_injection") and _atomic_rd.get("executor_address_set")
+                  and _atomic_rd.get("executor_bytecode_available")) else Y,
+            ("" if (_atomic_rd.get("executor_address_set") and _atomic_rd.get("executor_bytecode_available"))
+             else "Executor address/bytecode not set (code-injection mechanism VERIFIED=%s)"
+                  % bool(_ATOMIC_SELFTEST.get("code_injection"))),
+            ("State-override atomic executor simulation ready"
+             if (_atomic_rd.get("executor_address_set") and _atomic_rd.get("executor_bytecode_available"))
+             else "Set ARBICORE_EXECUTOR_ADDRESS_BASE + executor bytecode to enable atomic sim (mechanism already proven)"),
+            "" if (_atomic_rd.get("executor_address_set") and _atomic_rd.get("executor_bytecode_available")) else "USER"),
         row("SIMULATION_ONCHAIN", Y,
-            "Atomic flash-loan-executor simulation needs the executor contract (deploy or state-override code injection)",
-            "Read-only route+repayment sim is live; wire executor-bytecode state-override once EXECUTOR_CONTRACT is set",
-            "ENGINEERING"),
+            "Atomic flash-loan-executor simulation gated on executor contract; code-injection mechanism verified",
+            "Provide executor address+bytecode → atomic state-override sim turns on (no fake GREEN)",
+            "USER"),
         row("FORK_VALIDATION", Y if _RPC_CAPS.get("archive_state") else R,
             ("Archive state reads VERIFIED, but no controllable fork harness (trace unsupported: %s)"
              % (not _RPC_CAPS.get("trace"))) if _RPC_CAPS.get("archive_state")
@@ -5589,13 +5632,8 @@ async def _autostart_opportunity_scanner():
         await _PROFIT_ALERT_REPO.ensure_indexes()
     except Exception:  # noqa: BLE001
         pass
-    if os.environ.get("ARBICORE_RPC_URL") and \
-            os.environ.get("ARBICORE_SCANNER_AUTOSTART", "1") != "0":
-        try:
-            await _CONTINUOUS_SCANNER.start()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("scanner autostart failed: %r", exc)
-    # Verify RPC capabilities + settlement simulator once (cached for matrix).
+    # Verify RPC capabilities + simulators FIRST (before the scanner starts,
+    # to avoid throttle contention), then start continuous SHADOW scanning.
     if os.environ.get("ARBICORE_RPC_URL"):
         try:
             _RPC_CAPS.update(await _SETTLEMENT_SIM.probe_capabilities())
@@ -5605,6 +5643,16 @@ async def _autostart_opportunity_scanner():
             _SETTLEMENT_SELFTEST.update(await _SETTLEMENT_SIM.self_test())
         except Exception as exc:  # noqa: BLE001
             logger.warning("settlement self-test failed: %r", exc)
+        try:
+            _ATOMIC_SELFTEST.update(await _ATOMIC_SIM.capability_self_test())
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("atomic capability self-test failed: %r", exc)
+    if os.environ.get("ARBICORE_RPC_URL") and \
+            os.environ.get("ARBICORE_SCANNER_AUTOSTART", "1") != "0":
+        try:
+            await _CONTINUOUS_SCANNER.start()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("scanner autostart failed: %r", exc)
 
 
 app.add_middleware(
