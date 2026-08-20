@@ -319,6 +319,17 @@ _READINESS_ENGINE = ExecutionReadinessEngine(
 )
 
 # ---------------------------------------------------------------------------
+# P0 · Autonomous Flash-Loan Opportunity Engine + Decision History.
+# Reuses RouteSearchEngine + QuoterRegistry + the P0 decision chain. Pure
+# analysis + evidence persistence; SHADOW/PAPER-safe (no signer/broadcast).
+# ---------------------------------------------------------------------------
+from arbicore.economics.opportunity_engine import OpportunityEngine, TOKEN_ALLOWLIST as _ENGINE_TOKEN_ALLOWLIST
+from arbicore.data.decision_history import DecisionHistoryRepo
+_OPPORTUNITY_ENGINE = OpportunityEngine(quoter_registry=_QUOTER_REGISTRY)
+_DECISION_HISTORY_REPO = DecisionHistoryRepo(db)
+
+
+# ---------------------------------------------------------------------------
 # P0-B · Learning Ledger — bridges Opportunity Journal into the existing
 # CalibrationWorker + AdaptiveWeightsWorker. Writes to `db.calibration_log`
 # and `db.arbicore_signal_metrics` which the two workers already consume.
@@ -4585,6 +4596,151 @@ async def v2_control_decide_opportunity(body: Dict[str, Any]) -> Dict[str, Any]:
     if quote_provenance is not None:
         resp["quote_provenance"] = quote_provenance
     return resp
+
+
+@api_router.post("/arbicore/engine/scan-once",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_scan_once(body: Dict[str, Any] = Body(default={})) -> Dict[str, Any]:
+    """Run ONE autonomous discovery→quote→decision scan over real Base venues.
+
+    Enumerates cycles (same-DEX fee tiers, cross-DEX, triangular, stablecoin
+    triangular, multi-hop), live-quotes each via read-only eth_call, runs the
+    full decision chain, ranks by EV, and persists every evaluation as
+    Decision History evidence. SHADOW/PAPER-safe: never signs or broadcasts."""
+    limit = None
+    try:
+        if isinstance(body, dict) and body.get("limit") is not None:
+            limit = int(body.get("limit"))
+    except (TypeError, ValueError):
+        limit = None
+    scan = await _OPPORTUNITY_ENGINE.scan_once(limit=limit)
+    try:
+        await _DECISION_HISTORY_REPO.record_many(scan["scan_id"], scan["opportunities"])
+    except Exception as exc:  # noqa: BLE001
+        scan["history_persist_error"] = f"{type(exc).__name__}: {exc}"
+    scan["execution_performed"] = False
+    scan["shadow_safe"] = True
+    return scan
+
+
+@api_router.get("/arbicore/engine/opportunities",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_opportunities(limit: int = 25,
+                                  only_executable: bool = False) -> Dict[str, Any]:
+    """Latest ranked opportunities from the Decision-History evidence store."""
+    rows = await _DECISION_HISTORY_REPO.recent(limit=limit, only_executable=only_executable)
+    return {"count": len(rows), "opportunities": rows,
+            "stats": await _DECISION_HISTORY_REPO.stats(), "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/engine/history",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_history(limit: int = 50) -> Dict[str, Any]:
+    rows = await _DECISION_HISTORY_REPO.recent(limit=limit)
+    return {"count": len(rows), "history": rows,
+            "stats": await _DECISION_HISTORY_REPO.stats(), "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/engine/readiness-matrix",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_readiness_matrix() -> Dict[str, Any]:
+    """Single authoritative readiness matrix across every capability + mode.
+
+    Each row: status (GREEN/YELLOW/RED), blocker, action, and whether the gap
+    needs USER (credentials/config) or ENGINEERING work. The five operator
+    modes reflect the backend-authoritative readiness engine (LIMITED_LIVE /
+    FULL_AUTOMATION remain hard-blocked in this build)."""
+    from arbicore.discovery.base_venues import VENUES, BORROW_TOKENS
+
+    rpc_set = bool(os.environ.get("ARBICORE_RPC_URL"))
+    executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
+    signer_set = bool(os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY")
+                      or os.environ.get("ARBICORE_SIGNER_KEY"))
+    gas_wallets = await _WALLET_REGISTRY.list_all(execution_role="gas") \
+        if hasattr(_WALLET_REGISTRY, "list_all") else []
+    hist = await _DECISION_HISTORY_REPO.stats()
+
+    G, Y, R = "GREEN", "YELLOW", "RED"
+
+    def row(name, status, blocker="", action="", owner=""):
+        return {"capability": name, "status": status, "blocker": blocker,
+                "action": action, "owner": owner}
+
+    matrix = [
+        row("CONFIGURATION_RPC", G if rpc_set else R,
+            "" if rpc_set else "ARBICORE_RPC_URL missing",
+            "" if rpc_set else "Set a Base RPC URL in backend/.env",
+            "" if rpc_set else "USER"),
+        row("WALLET_GAS", G if gas_wallets else Y,
+            "" if gas_wallets else "No gas/execution wallet registered",
+            "" if gas_wallets else "Register a funded Base gas wallet (operator wizard)",
+            "" if gas_wallets else "USER"),
+        row("SIGNER", G if signer_set else Y,
+            "" if signer_set else "No dedicated execution signer configured",
+            "" if signer_set else "Provision an isolated signer key (LIMITED_LIVE only)",
+            "" if signer_set else "USER"),
+        row("EXECUTOR_CONTRACT", G if executor_set else Y,
+            "" if executor_set else "ARBICORE_EXECUTOR_ADDRESS_BASE not set",
+            "" if executor_set else "Deploy/allowlist FlashLoanReceiver, set address (LIMITED_LIVE only)",
+            "" if executor_set else "USER"),
+        row("FLASH_PROVIDERS", G, "", "Aave V3 + Balancer V2 adapters present (quoting/economics)", ""),
+        row("DEX_ADAPTERS_QUOTE", G, "",
+            "UniV3 + Aerodrome SlipStream + classic live quoting active", ""),
+        row("DEX_ADAPTERS_SETTLE", Y,
+            "Aerodrome on-chain settlement adapter is scaffolded, not certified",
+            "Complete allowlisted Aerodrome settlement adapter + tests (no arbitrary calls)",
+            "ENGINEERING"),
+        row("DISCOVERY_ENGINE", G, "",
+            f"{len(VENUES)} venues, borrow tokens {BORROW_TOKENS}; cycle DFS active", ""),
+        row("ROUTE_ENGINE", G, "", "RouteSearchEngine enumerating closed cycles", ""),
+        row("OPP_TYPES", G, "",
+            "same-DEX fee-tier, cross-DEX, triangular, stablecoin-triangular, multi-hop", ""),
+        row("QUOTES_LIVE", G if rpc_set else R,
+            "" if rpc_set else "RPC required",
+            "REAL/STALE/UNAVAILABLE freshness enforced", ""),
+        row("PROFITABILITY", G, "", "net_profit engine wired (realized spread net of DEX fees)", ""),
+        row("CONFIDENCE_V2", G, "", "12-factor explainable score (advisory)", ""),
+        row("EXPECTED_VALUE", G, "", "EV = P(s)*net − P(f)*max_loss with evidence penalty", ""),
+        row("SIZE_OPTIMIZER", G, "", "adaptive max-risk-adjusted-EV size search", ""),
+        row("LIQUIDITY_DEPTH", Y,
+            "Real per-pool TVL/depth not yet read on-chain (uses conservative default)",
+            "Add pool-state reader to feed true depth into the size optimizer",
+            "ENGINEERING"),
+        row("SIMULATION_GATE", G, "", "hard gate: quote-fresh, allowlists, min-out, slippage, gas, repayment, calldata", ""),
+        row("SIMULATION_ONCHAIN", Y,
+            "eth_call preflight available; full state-override sim not wired",
+            "Add tenderly/anvil state-override simulation for exact revert modelling",
+            "ENGINEERING"),
+        row("FORK_VALIDATION", R,
+            "Public RPC cannot host a controllable fork harness",
+            "Provision an archive/trace RPC or local anvil --fork-url for Base",
+            "USER"),
+        row("HISTORICAL_REPLAY", Y,
+            f"Evidence dataset building ({hist['total']} records); replay harness not built",
+            "Add block-pinned replay over Decision History once archive RPC exists",
+            "ENGINEERING"),
+        row("DECISION_HISTORY", G if hist["total"] >= 0 else Y, "",
+            f"persisting evidence: total={hist['total']} executable={hist['executable']} real={hist['real_quotes']}", ""),
+    ]
+
+    readiness = await _READINESS_ENGINE.evaluate()
+    modes = {m: {"status": v["status"], "can_activate": v["can_activate"],
+                 "blockers": v.get("blockers", []), "warnings": v.get("warnings", [])}
+             for m, v in readiness["modes"].items()}
+
+    overall = R if any(r["status"] == R for r in matrix) else (
+        Y if any(r["status"] == Y for r in matrix) else G)
+    return {
+        "overall_status": overall,
+        "current_mode": await _CONTROL_STATE_REPO.get_mode(),
+        "capabilities": matrix,
+        "modes": modes,
+        "notes": ("SHADOW/PAPER/PROFIT_ENGINE analysis is fully live on read-only "
+                  "Base quotes. LIMITED_LIVE/FULL_AUTOMATION stay hard-blocked "
+                  "until executor+signer+wallet+fork-validation are satisfied."),
+        "generated_at": _iso_now(),
+    }
+
 
 
 

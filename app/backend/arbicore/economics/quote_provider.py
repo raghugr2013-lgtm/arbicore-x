@@ -58,10 +58,10 @@ def classify_quote_status(route_quote: Dict[str, Any], *,
     age = quote_age_seconds(route_quote.get("generated_at"))
     if status == "ok" and age is not None and age <= max_age_sec:
         qs = "REAL"
-    elif status in ("ok", "partial"):
-        qs = "STALE"
+    elif status == "ok":
+        qs = "STALE"                      # fully quoted but older than max-age
     else:
-        qs = "UNAVAILABLE"
+        qs = "UNAVAILABLE"                # 'partial' (a leg reverted) or fallback
     return {"quote_status": qs, "quote_age_sec": age}
 
 
