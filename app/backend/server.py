@@ -300,6 +300,25 @@ _SHADOW_CERT_ENGINE: Optional[ShadowCertificationEngine] = None
 _SHADOW_CERT_RUNNER: Optional[ShadowCertificationRunner] = None
 
 # ---------------------------------------------------------------------------
+# Operator Control / Readiness layer — backend-authoritative GREEN/YELLOW/RED.
+# The frontend may only REQUEST a mode; this layer decides if it's permitted.
+# Reuses existing repos/engines; never weakens Phase-0 safety gates.
+# ---------------------------------------------------------------------------
+from arbicore.control import ExecutionReadinessEngine, ControlStateRepo, OPERATOR_MODES
+_CONTROL_STATE_REPO = ControlStateRepo(db)
+_READINESS_ENGINE = ExecutionReadinessEngine(
+    db=db,
+    kill_switch=_KILL_SWITCH_REPO,
+    mode_repo=_EXECUTION_MODE_REPO,
+    wallet_registry=_WALLET_REGISTRY,
+    secret_registry=_SECRET_REGISTRY,
+    capital_allocator=_CAPITAL_ALLOCATOR,
+    balance_reader=_WALLET_BALANCE_READER,
+    shadow_cert_repo=_SHADOW_CERT_REPO,
+    paper_evidence_repo=_PAPER_EVIDENCE_REPO,
+)
+
+# ---------------------------------------------------------------------------
 # P0-B · Learning Ledger — bridges Opportunity Journal into the existing
 # CalibrationWorker + AdaptiveWeightsWorker. Writes to `db.calibration_log`
 # and `db.arbicore_signal_metrics` which the two workers already consume.
@@ -4344,6 +4363,45 @@ async def v2_technical_validation_history(limit: int = 10) -> Dict[str, Any]:
         return {"count": len(rows), "runs": rows, "generated_at": _iso_now()}
     except Exception as exc:  # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}", "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/control/readiness", dependencies=[Depends(_require_operator_dep)])
+async def v2_control_readiness() -> Dict[str, Any]:
+    """Backend-authoritative Control Center readiness (GREEN/YELLOW/RED).
+
+    Returns per-component checks + per-mode activation eligibility. This is
+    the SINGLE source of truth for operator readiness — the frontend renders
+    it but can never bypass it."""
+    report = await _READINESS_ENGINE.evaluate()
+    report["current_mode"] = await _CONTROL_STATE_REPO.get_mode()
+    return report
+
+
+@api_router.get("/arbicore/control/mode", dependencies=[Depends(_require_operator_dep)])
+async def v2_control_get_mode() -> Dict[str, Any]:
+    return {"current_mode": await _CONTROL_STATE_REPO.get_mode(),
+            "available_modes": list(OPERATOR_MODES), "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/control/mode", dependencies=[Depends(_require_operator_dep)])
+async def v2_control_set_mode(body: Dict[str, Any],
+                              ctx: Dict[str, Any] = Depends(_require_operator_dep)
+                              ) -> Dict[str, Any]:
+    """Operator REQUESTS a mode change. The backend decides.
+
+    SHADOW/PAPER/PROFIT_ENGINE are non-broadcast and permitted when the
+    system is healthy. LIMITED_LIVE / FULL_AUTOMATION are hard-gated and
+    ALWAYS refused in this build — no frontend path can enable them."""
+    target = str((body or {}).get("mode") or "").strip().upper()
+    decision = await _READINESS_ENGINE.can_transition(target)
+    if not decision.get("allowed"):
+        return {"applied": False, "current_mode": await _CONTROL_STATE_REPO.get_mode(),
+                "decision": decision, "generated_at": _iso_now()}
+    actor = (ctx or {}).get("username") or "operator"
+    await _CONTROL_STATE_REPO.set_mode(target, actor=actor,
+                                        reason=str((body or {}).get("reason") or ""))
+    return {"applied": True, "current_mode": target, "decision": decision,
+            "generated_at": _iso_now()}
 
 
 @api_router.get("/arbicore/wizard/journey")

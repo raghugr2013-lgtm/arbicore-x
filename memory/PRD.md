@@ -37,5 +37,15 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Discovery layer (research-only): broad Base venue/token/opportunity indexing (parallel workers, bounded concurrency).
 - P1: UniV4, UniV2, Curve, Balancer-swap, safe 0x adapters. P2: cross-chain, CEX/DEX, liquidations, MEV.
 
-## Credentials
-See /app/memory/test_credentials.md (operator / ShadowOperator!2026).
+## Done — 2026-08-20 (Control/Readiness layer — Phases B, C, F)
+- NEW `arbicore/control/readiness.py`: `ExecutionReadinessEngine` (16 component checks → GREEN/YELLOW/RED + per-mode `can_activate`), `ControlStateRepo` (operator mode persistence), operator modes SHADOW/PAPER/PROFIT_ENGINE/LIMITED_LIVE/FULL_AUTOMATION.
+- Backend-authoritative mode guard: SHADOW/PAPER/PROFIT_ENGINE allowed (non-broadcast); LIMITED_LIVE + FULL_AUTOMATION HARD-BLOCKED (always refused this build).
+- API (all `Depends(_require_operator_dep)`): GET `/api/arbicore/control/readiness`, GET/POST `/api/arbicore/control/mode`. Frontend can only REQUEST; backend decides.
+- Tests: NEW `tests/test_control_readiness.py` (9) + `test_phase0_s2_s6_security.py` (15) + wave7 (17) = 41/41. Live curl verified: 401 unauth, LIMITED_LIVE refused, SHADOW applied, overall YELLOW.
+- Phase 0 (S2–S6) preserved — no regression.
+
+## Control layer backlog (NOT built this milestone — scoped for next passes)
+- Phase D frontend Control Center UI (render readiness/modes; emergency-stop button → kill switch).
+- Phases G/H/I: Aerodrome on-chain adapter, live Base liquidity/quote wiring, 3-hop graph default.
+- Phases J/K/L: EV engine (max_loss), confidence v2, adaptive flash sizing.
+- Phases N/O/P: Base fork tests, historical replay, shadow certification run.
