@@ -247,6 +247,7 @@ _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     secret_registry=_SECRET_REGISTRY,
     capital_allocator=_CAPITAL_ALLOCATOR,
     evidence_signer=_EVIDENCE_SIGNER,
+    balance_reader=_WALLET_BALANCE_READER,
 )
 
 # ---------------------------------------------------------------------------
@@ -4230,7 +4231,7 @@ async def v2_opportunity_probe(body: Optional[Dict[str, Any]] = None) -> Dict[st
 
 
 
-@api_router.post("/arbicore/wizard/technical-validation")
+@api_router.post("/arbicore/wizard/technical-validation", dependencies=[Depends(_require_operator_dep)])
 async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Reusable Flash-Loan engine self-test (Aave V3, smallest practical size).
 
@@ -4238,6 +4239,14 @@ async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict
     end-to-end on-chain. Profitability is NOT the goal. Governance-safe:
     does NOT touch the strategy mode ladder (trading stays SHADOW); uses a
     dedicated engineering signer (`ARBICORE_VALIDATION_SIGNER_KEY`).
+
+    S4 hardening — the ``execute=true`` path is NOT an alternate route
+    around the normal safety architecture. It requires an authenticated
+    operator (route dependency) AND enforces: kill-switch disengaged,
+    approved executor configured, dedicated signer configured, chain-id in
+    the tech-validation allowlist (Base Sepolia 84532 by default; NEVER a
+    mainnet chain unless explicitly allowlisted), and asset/swap-out tokens
+    on the tech-validation token allowlist.
 
     Body (all optional):
         {
@@ -4248,9 +4257,60 @@ async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict
         }
     """
     from arbicore.execution.technical_validation import (
-        TechnicalValidator, TechnicalValidationError, _WETH,
+        TechnicalValidator, TechnicalValidationError, _WETH, _USDC_BASE_SEPOLIA,
     )
     body = body or {}
+    execute = bool(body.get("execute", False))
+
+    # ---- S4 hard safety gates for the execute path -----------------------
+    if execute:
+        try:
+            await _KILL_SWITCH_REPO.guard()
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": f"kill_switch: {exc}",
+                    "generated_at": _iso_now()}
+        executor_addr = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE") or ""
+        if not executor_addr:
+            return {"ok": False,
+                    "error": "no approved executor configured (ARBICORE_EXECUTOR_ADDRESS_BASE)",
+                    "generated_at": _iso_now()}
+        if not (os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY") or "").strip():
+            return {"ok": False,
+                    "error": "no dedicated validation signer configured",
+                    "generated_at": _iso_now()}
+        allowed_chain_ids = {
+            int(x) for x in (os.environ.get(
+                "ARBICORE_TECH_VALIDATION_ALLOWED_CHAIN_IDS") or "84532"
+            ).split(",") if x.strip().isdigit()
+        }
+        try:
+            _probe = TechnicalValidator(
+                rpc_url=os.environ.get("ARBICORE_RPC_URL", ""),
+                executor_address=executor_addr, signer_key=None, db=db)
+            observed_chain_id = await _probe._chain_id()  # noqa: SLF001
+        except Exception as exc:  # noqa: BLE001
+            return {"ok": False, "error": f"chain preflight failed: {exc}",
+                    "generated_at": _iso_now()}
+        if observed_chain_id not in allowed_chain_ids:
+            return {"ok": False,
+                    "error": (f"chain {observed_chain_id} is not in the "
+                              f"tech-validation allowlist {sorted(allowed_chain_ids)} "
+                              f"— execute refused (mainnet self-test is blocked)"),
+                    "generated_at": _iso_now()}
+        token_allowlist = {t.lower() for t in (
+            [_WETH, _USDC_BASE_SEPOLIA] + [
+                x for x in (os.environ.get(
+                    "ARBICORE_TECH_VALIDATION_TOKEN_ALLOWLIST") or "").split(",")
+                if x.strip()
+            ]
+        )}
+        asset = (body.get("asset") or _WETH).lower()
+        swap_out = (body.get("swap_out_token") or _USDC_BASE_SEPOLIA).lower()
+        if asset not in token_allowlist or swap_out not in token_allowlist:
+            return {"ok": False,
+                    "error": "asset/swap_out_token not on tech-validation token allowlist",
+                    "generated_at": _iso_now()}
+
     try:
         validator = TechnicalValidator(
             rpc_url=os.environ.get("ARBICORE_RPC_URL", ""),
@@ -4264,7 +4324,7 @@ async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict
             swap_in_wei=int(body.get("swap_in_wei") or 10**12),
             fee_tier_bps=int(body.get("fee_tier_bps") or 5),
             auto_prefund=bool(body.get("auto_prefund", True)),
-            execute=bool(body.get("execute", False)),
+            execute=execute,
         )
         return {"result": trace, "generated_at": _iso_now()}
     except TechnicalValidationError as exc:

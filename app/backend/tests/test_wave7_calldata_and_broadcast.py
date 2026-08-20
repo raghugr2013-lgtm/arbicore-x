@@ -209,6 +209,13 @@ def _sample_plan():
         "borrow_token": TOKEN_WETH_BASE, "borrow_amount_wei": 10 ** 17,
         "borrow_amount_usd": 250.0, "recipient": RECIPIENT,
         "signer_wallet_id": "wallet-gas-1",
+        # S6: a LIMITED_LIVE-capable plan MUST carry non-zero min-output on
+        # every hop, otherwise the broadcaster's slippage_guard denies it.
+        "hops": [{
+            "token_in": TOKEN_WETH_BASE, "token_out": TOKEN_USDC_BASE,
+            "fee_tier_bps": 5, "amount_in_wei": 10 ** 17,
+            "amount_out_min_wei": 1, "sqrt_price_limit_x96": 0,
+        }],
         "steps": [{"kind": "borrow", "token": TOKEN_WETH_BASE,
                    "amount_wei": 10 ** 17, "recipient": RECIPIENT}],
     }

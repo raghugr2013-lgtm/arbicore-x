@@ -121,6 +121,7 @@ class OpportunityPipeline:
         plans_repo=None,
         evidence_repo=None,
         simulator=None,
+        auto_confirm: bool = False,
     ):
         self._journal = journal
         self._mode = mode_repo
@@ -129,6 +130,12 @@ class OpportunityPipeline:
         self._certifier = certifier
         self._broadcaster = broadcaster
         self._plans = plans_repo
+        # S3 · autonomous per-transaction confirmation is DEFAULT-OFF.
+        # Even when a strategy is promoted to LIMITED_LIVE/FULL_LIVE, the
+        # auto-executor path will run the full gate ladder + preflight but
+        # HOLD at the operator-confirm gate unless an operator explicitly
+        # enables auto_confirm. SHADOW/PAPER never reach broadcast.
+        self._auto_confirm = bool(auto_confirm)
         # v2.11.8 Paper Validation Framework — optional. When None, the
         # pipeline still classifies + returns the outcome on PipelineResult
         # but nothing is persisted.
@@ -739,10 +746,20 @@ class OpportunityPipeline:
     ) -> StageOutcome:
         reasons: List[str] = []
         # Kill switch
+        # Kill switch — use the authoritative KillSwitchRepo.state() API.
+        # (S2: the previous ``.get()`` call did not exist on the repo, so
+        # the exception was swallowed and the gate never actually denied.)
         if self._kill is not None:
             try:
-                state = await self._kill.get()
-                if state and (state.get("engaged") or state.get("state") == "engaged"):
+                engaged = False
+                if hasattr(self._kill, "state"):
+                    st = await self._kill.state()
+                    engaged = bool(getattr(st, "engaged", False))
+                elif hasattr(self._kill, "get"):
+                    st = await self._kill.get()
+                    engaged = bool(st and (st.get("engaged")
+                                           or st.get("state") == "engaged"))
+                if engaged:
                     return StageOutcome(
                         stage="policy", ok=False,
                         detail="kill switch engaged",
@@ -852,7 +869,7 @@ class OpportunityPipeline:
             receipt = await self._broadcaster.broadcast_plan(
                 plan_doc,
                 actor="auto_executor",
-                confirm=True,
+                confirm=self._auto_confirm,
                 expected_net_profit_usd=opp.get("net_profit_usd"),
             )
             r = receipt.to_dict() if hasattr(receipt, "to_dict") else dict(receipt)

@@ -39,6 +39,25 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _extract_plan_hops(plan_doc: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Collect swap hops from a plan for min-output (slippage) validation.
+
+    Reads the top-level ``hops`` array first, then falls back to
+    ``steps[kind=swap]`` where each swap step carries a Uniswap V3
+    ExactInputSingle tuple in ``args[0]`` (``amountOutMinimum``)."""
+    hops = plan_doc.get("hops") or []
+    if hops:
+        return list(hops)
+    out: List[Dict[str, Any]] = []
+    for s in plan_doc.get("steps") or []:
+        if (s or {}).get("kind") != "swap":
+            continue
+        args = (s or {}).get("args") or []
+        if args and isinstance(args[0], dict):
+            out.append({"amount_out_min_wei": args[0].get("amountOutMinimum")})
+    return out
+
+
 CHAIN_IDS: Dict[str, int] = {
     "ethereum": 1, "base": 8453, "arbitrum": 42_161,
     "optimism": 10, "polygon": 137,
@@ -209,6 +228,7 @@ class LimitedLiveBroadcaster:
                  secret_registry,
                  capital_allocator,
                  evidence_signer=None,
+                 balance_reader=None,
                  rpc_url_env: str = "ARBICORE_RPC_URL",
                  preflight_only_default: bool = True):
         self._kill = kill_switch
@@ -217,6 +237,9 @@ class LimitedLiveBroadcaster:
         self._secrets = secret_registry
         self._alloc = capital_allocator
         self._evidence = evidence_signer
+        # S5 · read-only authoritative wallet balance source used to bind
+        # capital sizing to the real gas-wallet state (not a hardcoded ref).
+        self._balance_reader = balance_reader
         self._rpc_url_env = rpc_url_env
         self._preflight_only_default = bool(preflight_only_default)
 
@@ -435,11 +458,31 @@ class LimitedLiveBroadcaster:
             denied.append(f"mode_gate: strategy '{strategy}' is '{mode}'")
 
         # ----------------- Gate 3: capital policy ------------------------
-        alloc = await self._alloc.evaluate(
+        # S5 · bind capital sizing to the *actual* gas-wallet balance
+        # (authoritative on-chain state) instead of a hardcoded reference.
+        reference_capital_usd: Optional[float] = None
+        if self._balance_reader is not None and signer_wallet_id:
+            try:
+                _wdoc = await self._wallets.get(signer_wallet_id)
+                _waddr = (_wdoc or {}).get("address")
+                _wchain = (_wdoc or {}).get("chain") or chain
+                if _waddr:
+                    _bal = await self._balance_reader.read(chain=_wchain, address=_waddr)
+                    if getattr(_bal, "ok", False) and _bal.balance_usd is not None:
+                        reference_capital_usd = float(_bal.balance_usd)
+            except Exception:  # noqa: BLE001
+                reference_capital_usd = None
+        _alloc_kwargs: Dict[str, Any] = dict(
             strategy=strategy,
             proposed_usd=float(plan_doc.get("borrow_amount_usd") or 0),
             expected_net_profit_usd=expected_net_profit_usd,
         )
+        if reference_capital_usd is not None:
+            _alloc_kwargs["reference_capital_usd"] = reference_capital_usd
+        if plan_doc.get("available_liquidity_usd") is not None:
+            _alloc_kwargs["available_liquidity_usd"] = float(
+                plan_doc["available_liquidity_usd"])
+        alloc = await self._alloc.evaluate(**_alloc_kwargs)
         if alloc.approved:
             gate_ladder["capital_policy"] = "PASS"
         else:
@@ -498,6 +541,40 @@ class LimitedLiveBroadcaster:
             denied.append(f"calldata_encoding: {type(exc).__name__}: {exc}")
         else:
             gate_ladder["calldata"] = "PASS"
+
+        # ----------------- Gate 4a: slippage / min-output guard (S6) -----
+        # A LIMITED_LIVE-capable broadcast MUST carry non-zero min-output
+        # on every swap hop. A zero/absent amountOutMinimum = unbounded
+        # slippage and is refused. Opaque operator-supplied userData (bytes
+        # we cannot introspect) is allowed only when it is non-empty.
+        _plan_hops = _extract_plan_hops(plan_doc)
+        _user_data_hex = plan_doc.get("user_data_hex")
+        if _plan_hops:
+            _bad_hop: Optional[int] = None
+            for _i, _h in enumerate(_plan_hops):
+                try:
+                    _m = int(_h.get("amount_out_min_wei") or 0)
+                except (TypeError, ValueError):
+                    _m = 0
+                if _m <= 0:
+                    _bad_hop = _i
+                    break
+            if _bad_hop is None:
+                gate_ladder["slippage_guard"] = "PASS"
+            else:
+                gate_ladder["slippage_guard"] = "DENIED"
+                denied.append(
+                    f"slippage_guard: hop[{_bad_hop}] amountOutMinimum is zero — "
+                    f"refusing unbounded-slippage broadcast"
+                )
+        elif _user_data_hex and _user_data_hex != "0x":
+            gate_ladder["slippage_guard"] = "PASS_OPAQUE"
+        else:
+            gate_ladder["slippage_guard"] = "DENIED"
+            denied.append(
+                "slippage_guard: no swap hops / empty userData — "
+                "refusing zero-swap flash on a live-capable path"
+            )
 
         # Short-circuit if any of the first four gates + calldata fail.
         if denied:
