@@ -54,3 +54,13 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 
 ## Still NOT built (need live Base RPC / Solidity toolchain — honest backlog)
 - P0-3 Aerodrome on-chain adapter; P0-4 real Base liquidity/quote wiring (verifier still noop-capable); P0-5 live route-graph data; P0-10 full on-chain sim gate; P0-11 fork tests + historical replay; shadow certification RUN.
+
+## Done — 2026-08-20 (P0 decision layer + read-only Base live quotes)
+- NEW endpoint `POST /api/arbicore/control/decide-opportunity` (auth, SHADOW/PAPER-safe): composes net_profit → confidence v2 → expected value → adaptive size optimizer behind a HARD simulation gate; returns advisory decision only (execution_performed=false). Kill switch engaged OR non-shadow-safe mode force would_execute=false (safety overrides can only make a decision LESS executable). Confidence/EV can NEVER bypass a failed gate.
+- NEW `economics/opportunity_decision.py` wiring finalized + exposed. Accepts operator `opportunity` OR live `route`+`economics`.
+- P0-4 read-only Base quotes WIRED via public RPC `ARBICORE_RPC_URL=https://mainnet.base.org` (read-only eth_call only; no signer/broadcast). NEW `POST /api/arbicore/control/live-quote` wraps existing `QuoterRegistry` (UniV3 + Aerodrome SlipStream/classic) with authoritative freshness: REAL/STALE/UNAVAILABLE.
+- NEW pure seam `economics/quote_provider.py`: turns a live cyclic RouteQuote into the decision opportunity (realized on-chain gross-spread only when quote REAL + cyclic — never fabricated), maps dex→router, builds genuine UNSIGNED userData via existing calldata encoder so the sim-gate calldata check is real. Verified live: WETH→USDC→WETH round-trip = -9 bps (no arb right now) → correctly rejected.
+- Readiness now: CONFIGURATION 'ARBICORE_RPC_URL set' (YELLOW: no executor addr — correct), SIMULATION GREEN (eth_call preflight). LIMITED_LIVE/FULL_AUTOMATION STILL can_activate=false (RPC alone does NOT unlock live modes); overall YELLOW.
+- Tests: NEW `tests/test_p0_decide_opportunity.py` (19) + `tests/test_p0_live_quote_provider.py` (12). Combined P0/control regression 67/67. testing_agent iteration_3 (19/19) + iteration_4 (31/31) — 100%, no critical/high. Kill switch left DISENGAGED, mode SHADOW.
+- Aerodrome on-chain SOLIDITY adapter (P0-3) + fork tests (P0-11): still BLOCKED — public RPC insufficient for fork harness; no signing/deploy permitted this build. Off-chain Aerodrome QUOTING already works via QuoterRegistry.
+

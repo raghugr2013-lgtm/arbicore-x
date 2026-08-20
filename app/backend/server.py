@@ -304,7 +304,7 @@ _SHADOW_CERT_RUNNER: Optional[ShadowCertificationRunner] = None
 # The frontend may only REQUEST a mode; this layer decides if it's permitted.
 # Reuses existing repos/engines; never weakens Phase-0 safety gates.
 # ---------------------------------------------------------------------------
-from arbicore.control import ExecutionReadinessEngine, ControlStateRepo, OPERATOR_MODES
+from arbicore.control import ExecutionReadinessEngine, ControlStateRepo, OPERATOR_MODES, NON_BROADCAST_MODES
 _CONTROL_STATE_REPO = ControlStateRepo(db)
 _READINESS_ENGINE = ExecutionReadinessEngine(
     db=db,
@@ -4441,6 +4441,151 @@ async def v2_control_set_mode(body: Dict[str, Any],
                                         reason=str((body or {}).get("reason") or ""))
     return {"applied": True, "current_mode": target, "decision": decision,
             "generated_at": _iso_now()}
+
+
+# Default Base allowlists (operator-locked). Sourced from the canonical
+# ADDRESS_BOOK + verified token registry. Operator may narrow (never widen
+# beyond safety) via request body overrides.
+def _default_base_router_allowlist() -> List[str]:
+    from arbicore.execution.adapters import ADDRESS_BOOK
+    base = ADDRESS_BOOK.get("base", {})
+    return [base.get("uniswap_v3_router", ""), base.get("aerodrome_router", "")]
+
+
+def _default_base_token_allowlist() -> List[str]:
+    # Base WETH + USDC (verified). Extend as adapters are certified.
+    return ["0x4200000000000000000000000000000000000006",
+            "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"]
+
+
+@api_router.post("/arbicore/control/live-quote",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_control_live_quote(body: Dict[str, Any]) -> Dict[str, Any]:
+    """Read-only live Base route quote via the existing QuoterRegistry.
+
+    Uses ``eth_call`` against ARBICORE_RPC_URL only — never a signer path.
+    Surfaces freshness/provenance (block, rpc host, age) and a normalised
+    ``quote_status`` (REAL/STALE/UNAVAILABLE). When RPC is unset or every hop
+    reverts, the route degrades to fallback and quote_status=UNAVAILABLE
+    (no fabricated numbers)."""
+    from arbicore.economics.quote_provider import classify_quote_status
+
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=422, detail="request body must be a JSON object")
+    chain = str(body.get("chain") or "base").strip()
+    hops = body.get("hops")
+    if not isinstance(hops, list) or not hops:
+        raise HTTPException(status_code=422, detail="'hops' array is required")
+    try:
+        max_age_sec = float(body.get("max_age_sec", 12.0))
+    except (TypeError, ValueError):
+        max_age_sec = 12.0
+
+    rq = await _QUOTER_REGISTRY.quote_route(chain=chain, hops=hops)
+    rq_dict = rq.to_dict()
+    freshness = classify_quote_status(rq_dict, max_age_sec=max_age_sec)
+    return {
+        "rpc_configured": bool(os.environ.get("ARBICORE_RPC_URL")),
+        "quote_status": freshness["quote_status"],
+        "quote_age_sec": freshness["quote_age_sec"],
+        "route_quote": rq_dict,
+        "generated_at": _iso_now(),
+    }
+
+
+@api_router.post("/arbicore/control/decide-opportunity",
+                 dependencies=[Depends(_require_operator_dep)])
+async def v2_control_decide_opportunity(body: Dict[str, Any]) -> Dict[str, Any]:
+    """SHADOW/PAPER-safe opportunity decision path (P0 integrator).
+
+    Composes the pure engines — net_profit → confidence v2 → expected value →
+    adaptive size optimizer — behind a HARD simulation gate, and returns an
+    ADVISORY decision object. This endpoint NEVER signs, broadcasts, deploys,
+    or executes: it is pure analysis regardless of the requested notional.
+
+    Two input modes:
+      * ``opportunity`` — operator supplies the full opportunity dict.
+      * ``route`` (+ ``economics``) — the backend fetches a REAL Base quote
+        via the existing QuoterRegistry (read-only eth_call), derives the
+        realized cyclic spread + freshness, and builds the opportunity. A
+        stale/fallback quote is never executable.
+
+    The kill switch and live-capable-mode blocks are enforced here: when the
+    kill switch is engaged, or the operator mode is LIMITED_LIVE/FULL_AUTOMATION
+    (both permanently hard-blocked in this build), ``would_execute`` is forced
+    False with an explicit safety reason.
+    """
+    from arbicore.economics.opportunity_decision import decide_opportunity
+
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=422, detail="request body must be a JSON object")
+
+    quote_provenance: Optional[Dict[str, Any]] = None
+    opp = body.get("opportunity")
+    route = body.get("route")
+    if (not isinstance(opp, dict) or not opp) and isinstance(route, dict):
+        # Live-quote-backed path: quote the route, then build the opportunity.
+        from arbicore.economics.quote_provider import build_opportunity_from_route
+        chain = str(route.get("chain") or "base").strip()
+        hops = route.get("hops")
+        if not isinstance(hops, list) or not hops:
+            raise HTTPException(status_code=422,
+                                detail="route.hops array is required")
+        try:
+            max_age_sec = float(route.get("max_age_sec", 12.0))
+        except (TypeError, ValueError):
+            max_age_sec = 12.0
+        rq = await _QUOTER_REGISTRY.quote_route(chain=chain, hops=hops)
+        built = build_opportunity_from_route(
+            rq.to_dict(), input_hops=hops,
+            economics=body.get("economics") or {}, max_age_sec=max_age_sec)
+        opp = built["opportunity"]
+        quote_provenance = built["quote_provenance"]
+    elif not isinstance(opp, dict) or not opp:
+        raise HTTPException(status_code=422,
+                            detail="'opportunity' object or 'route' is required")
+
+    router_allowlist = body.get("router_allowlist") or _default_base_router_allowlist()
+    token_allowlist = body.get("token_allowlist") or _default_base_token_allowlist()
+    try:
+        max_slippage_bps = float(body.get("max_slippage_bps", 150.0))
+        max_gas_usd = float(body.get("max_gas_usd", 50.0))
+        wallet_reserve_usd = float(body.get("wallet_reserve_usd", 0.0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="numeric caps must be numbers")
+
+    decision = decide_opportunity(
+        opp, router_allowlist=router_allowlist, token_allowlist=token_allowlist,
+        max_slippage_bps=max_slippage_bps, max_gas_usd=max_gas_usd,
+        wallet_reserve_usd=wallet_reserve_usd)
+    result = decision.to_dict()
+
+    # Authoritative safety overrides — these can only make a decision LESS
+    # executable, never more. Confidence/EV can never bypass them.
+    ks = await _KILL_SWITCH_REPO.state()
+    mode = await _CONTROL_STATE_REPO.get_mode()
+    safety_blocks: List[str] = []
+    if ks.engaged:
+        safety_blocks.append("kill switch engaged")
+    if mode not in NON_BROADCAST_MODES:
+        safety_blocks.append(f"mode '{mode}' is not a shadow-safe mode")
+    if safety_blocks:
+        result["would_execute"] = False
+        result["reason"] = "; ".join(safety_blocks) + " (advisory blocked)"
+
+    resp = {
+        "mode": mode,
+        "kill_switch_engaged": bool(ks.engaged),
+        "execution_performed": False,
+        "shadow_safe": True,
+        "data_source": "LIVE_QUOTE" if quote_provenance else "OPERATOR_SUPPLIED",
+        "decision": result,
+        "generated_at": _iso_now(),
+    }
+    if quote_provenance is not None:
+        resp["quote_provenance"] = quote_provenance
+    return resp
+
 
 
 @api_router.get("/arbicore/wizard/journey")

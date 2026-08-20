@@ -7,11 +7,12 @@ transition is permitted. Never weakens or bypasses Phase-0 safety gates.
 from .readiness import (
     ExecutionReadinessEngine,
     OPERATOR_MODES,
+    NON_BROADCAST_MODES,
     ControlStateRepo,
     RED, YELLOW, GREEN,
 )
 
 __all__ = [
-    "ExecutionReadinessEngine", "OPERATOR_MODES", "ControlStateRepo",
-    "RED", "YELLOW", "GREEN",
+    "ExecutionReadinessEngine", "OPERATOR_MODES", "NON_BROADCAST_MODES",
+    "ControlStateRepo", "RED", "YELLOW", "GREEN",
 ]
