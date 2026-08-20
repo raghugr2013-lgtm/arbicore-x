@@ -44,8 +44,13 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Tests: NEW `tests/test_control_readiness.py` (9) + `test_phase0_s2_s6_security.py` (15) + wave7 (17) = 41/41. Live curl verified: 401 unauth, LIMITED_LIVE refused, SHADOW applied, overall YELLOW.
 - Phase 0 (S2–S6) preserved — no regression.
 
-## Control layer backlog (NOT built this milestone — scoped for next passes)
-- Phase D frontend Control Center UI (render readiness/modes; emergency-stop button → kill switch).
-- Phases G/H/I: Aerodrome on-chain adapter, live Base liquidity/quote wiring, 3-hop graph default.
-- Phases J/K/L: EV engine (max_loss), confidence v2, adaptive flash sizing.
-- Phases N/O/P: Base fork tests, historical replay, shadow certification run.
+## Done — 2026-08-20 (P0 profit engines + Control Center UI + Emergency Stop)
+- NEW pure engines (deterministic, no RPC): `economics/expected_value.py` (EV=P(s)*net−P(f)*max_loss, evidence-based prob, penalizes missing evidence, caps failed-sim ≤0.10), `economics/size_optimizer.py` (adaptive size grid+refine → max risk-adjusted EV, depth-aware slippage, hard caps), `intelligence/confidence_v2.py` (12-factor explainable 0-100, advisory only — never a gate).
+- Readiness integration: CONFIDENCE_ENGINE/EV_ENGINE/SIZE_OPTIMIZER now GREEN components; LIMITED_LIVE/FULL_AUTOMATION stay hard-RED.
+- NEW endpoint `GET /api/arbicore/control/profit-preview` (data_source=SAMPLE_PARAMETERS, shadow-safe). Mode POST now returns 400 for unknown mode.
+- NEW frontend `v2/pages/ControlCenterPage.jsx` (+route `control/*`, nav 'CONTROL'): overall + per-component GREEN/YELLOW/RED, mode cards with blockers/warnings/requirements, LIMITED_LIVE/FULL_AUTOMATION visibly LOCKED, persistent Emergency Stop wired to authoritative kill switch. Frontend cannot bypass backend.
+- Fixed stale `REACT_APP_BACKEND_URL` (undefined/api 404s) via frontend restart.
+- Tests: NEW `tests/test_p0_profit_engines.py` (12). testing_agent iteration_2: 53/53 backend, frontend 100%, no critical/high; kill-switch broadcast Gate-1 denial verified; Phase-0 preserved. Left kill switch DISENGAGED.
+
+## Still NOT built (need live Base RPC / Solidity toolchain — honest backlog)
+- P0-3 Aerodrome on-chain adapter; P0-4 real Base liquidity/quote wiring (verifier still noop-capable); P0-5 live route-graph data; P0-10 full on-chain sim gate; P0-11 fork tests + historical replay; shadow certification RUN.

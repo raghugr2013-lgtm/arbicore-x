@@ -4365,6 +4365,43 @@ async def v2_technical_validation_history(limit: int = 10) -> Dict[str, Any]:
         return {"error": f"{type(exc).__name__}: {exc}", "generated_at": _iso_now()}
 
 
+@api_router.get("/arbicore/control/profit-preview", dependencies=[Depends(_require_operator_dep)])
+async def v2_control_profit_preview(
+    gross_spread_bps: float = 30.0,
+    pool_liquidity_usd: float = 2_000_000.0,
+    gas_cost_usd: float = 3.0,
+) -> Dict[str, Any]:
+    """Worked profit → confidence → EV → optimal-size example.
+
+    SHADOW-safe and PURE: runs the P0 engines on the supplied (or sample)
+    parameters. `data_source` is SAMPLE_PARAMETERS until live Base liquidity
+    + quotes are wired (P0-4) — the UI must not treat this as executable."""
+    from arbicore.economics.size_optimizer import optimize_size
+    from arbicore.intelligence.confidence_v2 import confidence_from_signals
+    prob_kwargs = dict(simulation_passed=None, quote_age_sec=None,
+                       gas_certainty=0.9, mev_risk=0.15, historical_success_rate=None)
+    opt = optimize_size(
+        gross_spread_bps=gross_spread_bps, pool_liquidity_usd=pool_liquidity_usd,
+        gas_cost_usd=gas_cost_usd, buy_venue_fee_bps=5.0, sell_venue_fee_bps=5.0,
+        native_price_usd=3000.0, prob_kwargs=prob_kwargs)
+    chosen = opt.get("chosen") or {}
+    conf = confidence_from_signals(
+        quote_age_sec=None, liquidity_ratio=(chosen.get("notional_usd", 0) / pool_liquidity_usd)
+        if pool_liquidity_usd else None,
+        slippage_bps=chosen.get("slippage_bps"), max_slippage_bps=150.0,
+        gas_certainty=0.9, flash_available=True, simulation_passed=None,
+        mev_risk=0.15, net_profit_bps=chosen.get("roi_bps"))
+    return {
+        "data_source": "SAMPLE_PARAMETERS",
+        "note": "Illustrative; not executable until live Base liquidity/quotes are wired (P0-4).",
+        "inputs": {"gross_spread_bps": gross_spread_bps,
+                   "pool_liquidity_usd": pool_liquidity_usd, "gas_cost_usd": gas_cost_usd},
+        "size_optimization": opt,
+        "confidence": conf.to_dict(),
+        "generated_at": _iso_now(),
+    }
+
+
 @api_router.get("/arbicore/control/readiness", dependencies=[Depends(_require_operator_dep)])
 async def v2_control_readiness() -> Dict[str, Any]:
     """Backend-authoritative Control Center readiness (GREEN/YELLOW/RED).
@@ -4393,6 +4430,8 @@ async def v2_control_set_mode(body: Dict[str, Any],
     system is healthy. LIMITED_LIVE / FULL_AUTOMATION are hard-gated and
     ALWAYS refused in this build — no frontend path can enable them."""
     target = str((body or {}).get("mode") or "").strip().upper()
+    if target not in OPERATOR_MODES:
+        raise HTTPException(status_code=400, detail=f"unknown mode '{target}'")
     decision = await _READINESS_ENGINE.can_transition(target)
     if not decision.get("allowed"):
         return {"applied": False, "current_mode": await _CONTROL_STATE_REPO.get_mode(),

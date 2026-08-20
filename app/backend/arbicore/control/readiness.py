@@ -136,10 +136,34 @@ class ExecutionReadinessEngine:
         return _check(name, GREEN, score=100, passed=[note])
 
     def _confidence(self) -> Dict[str, Any]:
-        return _check("CONFIDENCE_ENGINE", YELLOW, score=60,
-                      passed=["persistence-based confidence present"],
-                      warnings=["multi-factor confidence v2 not yet implemented"],
-                      requirements=["confidence v2 (quote-freshness, depth, gas, MEV, sim)"])
+        # confidence_v2 engine is implemented + tested; but a LIVE confidence
+        # score still needs real quote/liquidity inputs (RPC), so execution
+        # readiness stays gated on CONFIGURATION/SIMULATION elsewhere.
+        try:
+            import arbicore.intelligence.confidence_v2  # noqa: F401
+            return _check("CONFIDENCE_ENGINE", GREEN, score=90,
+                          passed=["confidence v2 (12-factor, explainable) implemented"],
+                          warnings=["live inputs (quote freshness/liquidity) require RPC wiring"])
+        except Exception:  # noqa: BLE001
+            return _check("CONFIDENCE_ENGINE", YELLOW, score=50,
+                          warnings=["confidence v2 not importable"])
+
+    def _ev_engine(self) -> Dict[str, Any]:
+        try:
+            import arbicore.economics.expected_value  # noqa: F401
+            return _check("EV_ENGINE", GREEN, score=90,
+                          passed=["EV = P(success)*net - P(failure)*max_loss; evidence-based"])
+        except Exception:  # noqa: BLE001
+            return _check("EV_ENGINE", RED, score=0, blockers=["EV engine missing"])
+
+    def _size_optimizer(self) -> Dict[str, Any]:
+        try:
+            import arbicore.economics.size_optimizer  # noqa: F401
+            return _check("SIZE_OPTIMIZER", GREEN, score=90,
+                          passed=["adaptive size search → max risk-adjusted EV"],
+                          warnings=["live pool-liquidity inputs require RPC wiring"])
+        except Exception:  # noqa: BLE001
+            return _check("SIZE_OPTIMIZER", RED, score=0, blockers=["size optimizer missing"])
 
     def _flash(self) -> Dict[str, Any]:
         return _check("FLASH_LOAN_ENGINE", GREEN, score=90,
@@ -235,6 +259,8 @@ class ExecutionReadinessEngine:
             self._static_green("ROUTE_ENGINE", "route_search cycle enumerator present"),
             self._static_green("PROFIT_ENGINE", "net_profit engine present"),
             self._confidence(),
+            self._ev_engine(),
+            self._size_optimizer(),
             self._flash(),
             self._simulation(),
             await self._wallet(),

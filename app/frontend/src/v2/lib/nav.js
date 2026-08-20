@@ -19,9 +19,18 @@ import {
   Cog,
   Zap,
   Route as RouteIcon,
+  ShieldCheck,
 } from "lucide-react";
 
 export const NAV_SECTIONS = [
+  {
+    key: "control",
+    label: "Control",
+    path: "/dashboard/control",
+    Icon: ShieldCheck,
+    shortcut: "C",
+    lede: "Operator Control Center — readiness, modes, emergency stop.",
+  },
   {
     key: "home",
     label: "Home",
