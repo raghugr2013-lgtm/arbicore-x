@@ -240,3 +240,45 @@ def test_recurring_endpoint(session):
     assert "recurring_routes" in body
     for row in body["recurring_routes"]:
         assert row["times_seen"] >= 2
+
+
+def test_scan_once_emits_market_coverage_funnel(session):
+    r = session.post(f"{API}/arbicore/engine/scan-once", json={"limit": 6}, timeout=90)
+    assert r.status_code == 200
+    fn = r.json().get("funnel")
+    assert fn is not None
+    for k in ("candidate_universe", "routes_quoted", "real_quotes", "quote_failures",
+              "negative_economics", "positive_net", "positive_ev",
+              "simulation_candidates", "simulation_passes", "executable"):
+        assert k in fn
+    assert fn["candidate_universe"] >= fn["routes_quoted"]
+
+
+def test_profit_alerts_endpoint(session):
+    r = session.get(f"{API}/arbicore/engine/alerts", timeout=30)
+    assert r.status_code == 200
+    body = r.json()
+    assert "alerts" in body and "total" in body
+    assert "real_quote" in body["criteria"] and "simulation" in body["criteria"]
+
+
+def test_onboarding_checklist_reports_presence_only(session):
+    r = session.get(f"{API}/arbicore/engine/onboarding", timeout=30)
+    assert r.status_code == 200
+    body = r.json()
+    keys = {c["key"] for c in body["checklist"]}
+    assert {"read_rpc", "gas_wallet", "signer", "executor", "archive_rpc"} <= keys
+    # read_rpc should be DONE (RPC configured); secret items flagged
+    by = {c["key"]: c for c in body["checklist"]}
+    assert by["read_rpc"]["status"] == "DONE"
+    assert by["signer"]["handles_secret"] is True
+    # security: never leaks secret values
+    import json as _json
+    blob = _json.dumps(body)
+    assert "private_key" not in blob and "ShadowOperator" not in blob
+
+
+def test_engine_endpoints_require_auth():
+    for path in ("engine/alerts", "engine/onboarding", "engine/scanner/status"):
+        r = requests.get(f"{API}/arbicore/{path}", timeout=20)
+        assert r.status_code == 401

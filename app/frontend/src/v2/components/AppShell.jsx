@@ -24,6 +24,7 @@ import FlashLoanJourneyPage from "@/v2/pages/FlashLoanJourneyPage";
 import ExecutorVerifyPage from "@/v2/pages/ExecutorVerifyPage";
 import PostTradeDashboardPage from "@/v2/pages/PostTradeDashboardPage";
 import ControlCenterPage from "@/v2/pages/ControlCenterPage";
+import LiveOpsPage from "@/v2/pages/LiveOpsPage";
 
 import "@/v2/theme/tokens.css";
 
@@ -46,6 +47,7 @@ export function AppShell() {
           <Routes>
             <Route index element={<OpsCenter />} />
             <Route path="control/*" element={<ControlCenterPage />} />
+            <Route path="live-ops/*" element={<LiveOpsPage />} />
             <Route path="ops" element={<OpsCenter />} />
             <Route path="home" element={<HomePage />} />
             <Route path="discovery/*" element={<DiscoveryPage />} />

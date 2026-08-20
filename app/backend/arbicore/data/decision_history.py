@@ -147,3 +147,51 @@ class RouteRecurrenceRepo:
             .sort([("times_positive", -1), ("best_spread_bps", -1)]).limit(
                 max(1, min(int(limit), 100)))
         return await cur.to_list(length=limit)
+
+
+class ProfitAlertRepo:
+    """Fires ONLY for opportunities that pass the complete economic chain
+    (real quote → net profit → confidence → EV → optimal size → simulation →
+    would_execute). Never fires on raw price spread alone."""
+
+    def __init__(self, db, collection: str = "profit_alerts"):
+        self._coll = db[collection]
+
+    async def ensure_indexes(self) -> None:
+        await self._coll.create_index("created_at")
+        await self._coll.create_index("route_id")
+
+    async def record_qualified(self, scan_id: str,
+                               results: List[Dict[str, Any]]) -> int:
+        now = _now_iso()
+        docs = []
+        for r in results:
+            if not r.get("would_execute"):
+                continue
+            docs.append({
+                "scan_id": scan_id, "route_id": r.get("route_id"),
+                "opportunity_type": r.get("opportunity_type"),
+                "token_path": r.get("token_path"), "dex_path": r.get("dex_path"),
+                "net_profit_usd": r.get("net_profit_usd"),
+                "expected_value_usd": r.get("expected_value_usd"),
+                "confidence": r.get("confidence"),
+                "optimal_notional_usd": r.get("optimal_notional_usd"),
+                "gross_spread_bps": r.get("gross_spread_bps"),
+                "quote_status": (r.get("quote_provenance") or {}).get("quote_status"),
+                "created_at": now,
+            })
+        if not docs:
+            return 0
+        res = await self._coll.insert_many(docs)
+        return len(res.inserted_ids)
+
+    async def recent(self, limit: int = 50) -> List[Dict[str, Any]]:
+        cur = self._coll.find({}, {"_id": 0}).sort("created_at", -1).limit(
+            max(1, min(int(limit), 200)))
+        return await cur.to_list(length=limit)
+
+    async def count(self) -> int:
+        return await self._coll.count_documents({})
+
+
+__all__ = ["DecisionHistoryRepo", "RouteRecurrenceRepo", "ProfitAlertRepo"]

@@ -324,13 +324,15 @@ _READINESS_ENGINE = ExecutionReadinessEngine(
 # analysis + evidence persistence; SHADOW/PAPER-safe (no signer/broadcast).
 # ---------------------------------------------------------------------------
 from arbicore.economics.opportunity_engine import OpportunityEngine, ContinuousScanner, TOKEN_ALLOWLIST as _ENGINE_TOKEN_ALLOWLIST
-from arbicore.data.decision_history import DecisionHistoryRepo, RouteRecurrenceRepo
+from arbicore.data.decision_history import DecisionHistoryRepo, RouteRecurrenceRepo, ProfitAlertRepo
 _OPPORTUNITY_ENGINE = OpportunityEngine(quoter_registry=_QUOTER_REGISTRY)
 _DECISION_HISTORY_REPO = DecisionHistoryRepo(db)
 _ROUTE_RECURRENCE_REPO = RouteRecurrenceRepo(db)
+_PROFIT_ALERT_REPO = ProfitAlertRepo(db)
 _CONTINUOUS_SCANNER = ContinuousScanner(
     engine=_OPPORTUNITY_ENGINE, history_repo=_DECISION_HISTORY_REPO,
-    recurrence_repo=_ROUTE_RECURRENCE_REPO, interval_s=90.0, routes_per_scan=12)
+    recurrence_repo=_ROUTE_RECURRENCE_REPO, alert_repo=_PROFIT_ALERT_REPO,
+    interval_s=90.0, routes_per_scan=12)
 
 
 # ---------------------------------------------------------------------------
@@ -4621,11 +4623,65 @@ async def v2_engine_scan_once(body: Dict[str, Any] = Body(default={})) -> Dict[s
     try:
         await _DECISION_HISTORY_REPO.record_many(scan["scan_id"], scan["opportunities"])
         await _ROUTE_RECURRENCE_REPO.record_many(scan["opportunities"])
+        await _PROFIT_ALERT_REPO.record_qualified(scan["scan_id"], scan["opportunities"])
     except Exception as exc:  # noqa: BLE001
         scan["history_persist_error"] = f"{type(exc).__name__}: {exc}"
     scan["execution_performed"] = False
     scan["shadow_safe"] = True
     return scan
+
+
+@api_router.get("/arbicore/engine/alerts",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_alerts(limit: int = 50) -> Dict[str, Any]:
+    """Profit alerts — only opportunities that passed the COMPLETE economic
+    chain (real quote → net profit → confidence → EV → optimal size →
+    simulation). Never fired on raw price spread."""
+    rows = await _PROFIT_ALERT_REPO.recent(limit=limit)
+    return {"count": len(rows), "total": await _PROFIT_ALERT_REPO.count(),
+            "criteria": "real_quote AND net_profit>0 AND EV>0 AND simulation_pass AND would_execute",
+            "alerts": rows, "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/engine/onboarding",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_engine_onboarding() -> Dict[str, Any]:
+    """Secure operator onboarding checklist for the remaining LIMITED_LIVE
+    prerequisites. Reports presence/absence ONLY — never returns secret
+    values. Private keys are never accepted or echoed by this endpoint."""
+    rpc_set = bool(os.environ.get("ARBICORE_RPC_URL"))
+    archive_set = bool(os.environ.get("ARBICORE_ARCHIVE_RPC_URL")
+                       or os.environ.get("ARBICORE_FORK_RPC_URL"))
+    executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
+    signer_set = bool(os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY")
+                      or os.environ.get("ARBICORE_SIGNER_KEY"))
+    try:
+        gas_wallets = await _WALLET_REGISTRY.list_all(execution_role="gas")
+    except Exception:  # noqa: BLE001
+        gas_wallets = []
+
+    def item(key, title, done, how, secret=False):
+        return {"key": key, "title": title, "status": "DONE" if done else "PENDING",
+                "how_to": how, "handles_secret": secret}
+
+    checklist = [
+        item("read_rpc", "Read-only Base RPC", rpc_set,
+             "Set ARBICORE_RPC_URL in backend/.env (public https://mainnet.base.org works)."),
+        item("gas_wallet", "Funded Base gas wallet", bool(gas_wallets),
+             "Register a gas/execution wallet via the operator wizard; fund it with a small ETH reserve. Address only — no private key stored here.", True),
+        item("signer", "Isolated execution signer", signer_set,
+             "Provision a dedicated signer held in the secure secret store / KMS. The key is NEVER pasted into the app or committed.", True),
+        item("executor", "Executor contract deployed & allowlisted", executor_set,
+             "Deploy FlashLoanReceiver on Base, allowlist it, then set ARBICORE_EXECUTOR_ADDRESS_BASE (address only).", True),
+        item("archive_rpc", "Fork/archive RPC for validation", archive_set,
+             "Provide an archive/trace RPC (Alchemy/QuickNode) or run local anvil --fork-url; set ARBICORE_ARCHIVE_RPC_URL."),
+    ]
+    pending = [c for c in checklist if c["status"] == "PENDING"]
+    return {"complete": len(pending) == 0, "pending_count": len(pending),
+            "checklist": checklist,
+            "security_note": ("This endpoint reports presence only and never accepts, "
+                              "stores, or returns private keys/secrets."),
+            "generated_at": _iso_now()}
 
 
 @api_router.get("/arbicore/engine/scanner/status",
@@ -4666,6 +4722,7 @@ async def v2_engine_checkpoint() -> Dict[str, Any]:
     recurring = await _ROUTE_RECURRENCE_REPO.recurring(limit=10, min_seen=2)
     matrix = await v2_engine_readiness_matrix()
     scanner = _CONTINUOUS_SCANNER.status()
+    alerts_total = await _PROFIT_ALERT_REPO.count()
 
     limited_live_blockers = [
         {"capability": c["capability"], "blocker": c["blocker"],
@@ -4695,11 +4752,14 @@ async def v2_engine_checkpoint() -> Dict[str, Any]:
             sim_results["failed"] += 1
 
     return {
+        "market_coverage_funnel": scanner.get("funnel_cumulative"),
+        "candidate_universe": scanner.get("candidate_universe"),
         "routes_scanned_records": cp["records"],
         "real_quotes": cp["real_quotes"],
         "opportunities_discovered": cp["records"],
         "positive_after_costs": cp["positive_after_costs"],
         "executable": cp["executable"],
+        "profit_alerts_total": alerts_total,
         "opportunity_type_coverage": cp["opportunity_type_coverage"],
         "top_opportunities": top,
         "rejection_reasons": cp["rejection_histogram"],
@@ -5443,6 +5503,7 @@ async def _autostart_opportunity_scanner():
     try:
         await _DECISION_HISTORY_REPO.ensure_indexes()
         await _ROUTE_RECURRENCE_REPO.ensure_indexes()
+        await _PROFIT_ALERT_REPO.ensure_indexes()
     except Exception:  # noqa: BLE001
         pass
     if os.environ.get("ARBICORE_RPC_URL") and \

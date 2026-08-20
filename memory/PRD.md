@@ -83,3 +83,12 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - FORK_VALIDATION (USER): provision archive/trace RPC or local anvil --fork-url (public RPC cannot host a fork).
 - HISTORICAL_REPLAY (ENGINEERING): block-pinned replay over Decision History once archive RPC exists.
 
+## Done — 2026-08-20 (Opportunity Factory: widened coverage + funnel + Live Ops UI + alerts)
+- WIDENED universe: 12 verified Base tokens (WETH,USDC,cbETH,DAI,USDbC,cbBTC,AERO,USDT,rETH,wstETH,weETH,DEGEN — all on-chain checked), 31 venues (UniV3 fee tiers, Aerodrome SlipStream+classic), ~134-route candidate universe; borrow tokens WETH/USDC/cbETH/USDbC.
+- MARKET-COVERAGE FUNNEL on every scan + cumulative: candidate_universe → routes_quoted → real_quotes → quote_failures/stale → liquidity_measured(live) → negative_economics → positive_net → positive_ev → simulation_candidates → simulation_passes → executable. ContinuousScanner rotates the scan window across the universe.
+- PROFIT ALERTS (`ProfitAlertRepo`, GET /engine/alerts): fire ONLY on full-chain pass (real quote→net→confidence→EV→size→simulation→would_execute), never on raw spread.
+- SECURE ONBOARDING (GET /engine/onboarding): checklist for gas wallet / signer / executor / archive RPC — reports PRESENCE only, never accepts or echoes secrets.
+- NEW Live Ops Control Center UI `/dashboard/live-ops` (`v2/pages/LiveOpsPage.jsx`, nav 'Live Ops'): scanner status, funnel, top opportunities, rejection reasons, alerts, RED/YELLOW/GREEN matrix, LIMITED_LIVE blockers, onboarding; Scan-Now / Start / Stop controls. Backend-authoritative; SHADOW-safe.
+- Tests: test_p0_opportunity_engine.py now 16. testing_agent iteration_7: backend 100% (10/10), frontend 100% (all testids + Scan-Now flow). Only OPTIONAL cosmetic note (funnel key naming). Scanner RUNNING, kill switch DISENGAGED, mode SHADOW.
+- Live checkpoint: universe 134; 642 evidence records, 123 REAL quotes; positive=0/executable=0/alerts=0 (NO real arb currently — honest). Overall readiness RED (genuine LIMITED_LIVE prerequisites outstanding).
+

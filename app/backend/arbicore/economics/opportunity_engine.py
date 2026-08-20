@@ -275,11 +275,20 @@ class OpportunityEngine:
             "evaluated_at": _now_iso(),
         }
 
-    async def scan_once(self, *, limit: Optional[int] = None) -> Dict[str, Any]:
+    def candidate_universe_size(self) -> int:
+        return len(self.enumerate_routes())
+
+    async def scan_once(self, *, limit: Optional[int] = None,
+                        offset: int = 0) -> Dict[str, Any]:
         t0 = time.time()
-        routes = self.enumerate_routes()
+        all_routes = self.enumerate_routes()
         cap = int(limit or self._max_routes)
-        routes = routes[:cap]
+        n = len(all_routes)
+        if n and offset:
+            off = offset % n
+            routes = (all_routes + all_routes)[off:off + cap]
+        else:
+            routes = all_routes[:cap]
         eth_usd = await self._eth_price_usd()
         results: List[Dict[str, Any]] = []
         for r in routes:
@@ -290,13 +299,34 @@ class OpportunityEngine:
         # Rank: executable first, then by EV desc.
         results.sort(key=lambda x: (x["would_execute"], x["expected_value_usd"]),
                      reverse=True)
-        executable = [r for r in results if r["would_execute"]]
+
+        # ---- market-coverage funnel -------------------------------------
+        def _qs(x):
+            return (x.get("quote_provenance") or {}).get("quote_status")
+        real = [r for r in results if _qs(r) == "REAL"]
+        funnel = {
+            "candidate_universe": len(all_routes),
+            "routes_quoted": len(results),
+            "real_quotes": len(real),
+            "quote_failures": sum(1 for r in results if _qs(r) == "UNAVAILABLE"),
+            "stale_quotes": sum(1 for r in results if _qs(r) == "STALE"),
+            "liquidity_measured": sum(1 for r in results
+                                      if str(r.get("liquidity_source", "")).startswith("live_probe")),
+            "negative_economics": sum(1 for r in real if float(r.get("net_profit_usd") or 0) <= 0),
+            "positive_net": sum(1 for r in real if float(r.get("net_profit_usd") or 0) > 0),
+            "positive_ev": sum(1 for r in results if float(r.get("expected_value_usd") or 0) > 0),
+            "simulation_candidates": len(real),
+            "simulation_passes": sum(1 for r in results
+                                     if (r.get("simulation") or {}).get("passed")),
+            "executable": sum(1 for r in results if r.get("would_execute")),
+        }
         return {
-            "scan_id": f"scan-{int(t0)}",
+            "scan_id": f"scan-{int(t0*1000)}",
             "eth_price_usd": eth_usd,
-            "routes_enumerated": len(self.enumerate_routes()),
+            "routes_enumerated": len(all_routes),
             "routes_evaluated": len(results),
-            "executable_count": len(executable),
+            "executable_count": funnel["executable"],
+            "funnel": funnel,
             "opportunities": results,
             "scan_ms": int((time.time() - t0) * 1000),
             "generated_at": _now_iso(),
@@ -315,22 +345,29 @@ class ContinuousScanner:
     """
 
     def __init__(self, *, engine: "OpportunityEngine", history_repo,
-                 recurrence_repo, interval_s: float = 90.0,
+                 recurrence_repo, alert_repo=None, interval_s: float = 90.0,
                  routes_per_scan: int = 12):
         import asyncio
         self._engine = engine
         self._history = history_repo
         self._recurrence = recurrence_repo
+        self._alerts = alert_repo
         self._interval = float(interval_s)
         self._routes_per_scan = int(routes_per_scan)
         self._task: Optional["asyncio.Task"] = None
         self._stop = asyncio.Event()
         self._running = False
+        self._offset = 0
         self._last_scan: Optional[Dict[str, Any]] = None
         self._cumulative = {"scans": 0, "routes_evaluated": 0,
                             "executable_found": 0, "errors": 0,
                             "started_at": None, "last_scan_at": None,
                             "last_error": None}
+        self._funnel_cumulative = {
+            "candidate_universe": 0, "routes_quoted": 0, "real_quotes": 0,
+            "quote_failures": 0, "stale_quotes": 0, "liquidity_measured": 0,
+            "negative_economics": 0, "positive_net": 0, "positive_ev": 0,
+            "simulation_candidates": 0, "simulation_passes": 0, "executable": 0}
 
     @property
     def running(self) -> bool:
@@ -342,16 +379,20 @@ class ContinuousScanner:
             "running": self._running,
             "interval_s": self._interval,
             "routes_per_scan": self._routes_per_scan,
+            "candidate_universe": self._engine.candidate_universe_size(),
             "cumulative": dict(self._cumulative),
+            "funnel_cumulative": dict(self._funnel_cumulative),
             "last_scan_summary": {
                 "scan_id": last.get("scan_id"),
                 "eth_price_usd": last.get("eth_price_usd"),
                 "routes_enumerated": last.get("routes_enumerated"),
                 "routes_evaluated": last.get("routes_evaluated"),
                 "executable_count": last.get("executable_count"),
+                "funnel": last.get("funnel"),
                 "scan_ms": last.get("scan_ms"),
                 "generated_at": last.get("generated_at"),
             } if last else None,
+            "next_scan_in_s": (self._interval if self._running else None),
             "generated_at": _now_iso(),
         }
 
@@ -360,17 +401,30 @@ class ContinuousScanner:
         try:
             await self._history.record_many(scan["scan_id"], opps)
             await self._recurrence.record_many(opps)
+            if self._alerts is not None:
+                await self._alerts.record_qualified(scan["scan_id"], opps)
         except Exception as exc:  # noqa: BLE001
             self._cumulative["last_error"] = f"persist: {exc!r}"
 
     async def scan_and_persist(self, *, limit: Optional[int] = None) -> Dict[str, Any]:
-        scan = await self._engine.scan_once(limit=limit or self._routes_per_scan)
+        scan = await self._engine.scan_once(limit=limit or self._routes_per_scan,
+                                            offset=self._offset)
         await self._persist(scan)
         self._last_scan = scan
         self._cumulative["scans"] += 1
         self._cumulative["routes_evaluated"] += int(scan.get("routes_evaluated") or 0)
         self._cumulative["executable_found"] += int(scan.get("executable_count") or 0)
         self._cumulative["last_scan_at"] = _now_iso()
+        fn = scan.get("funnel") or {}
+        for k in self._funnel_cumulative:
+            if k == "candidate_universe":
+                self._funnel_cumulative[k] = fn.get(k, self._funnel_cumulative[k])
+            else:
+                self._funnel_cumulative[k] += int(fn.get(k) or 0)
+        # advance the rotating window so successive scans cover the universe
+        universe = int(fn.get("candidate_universe") or 0)
+        if universe:
+            self._offset = (self._offset + (limit or self._routes_per_scan)) % universe
         return scan
 
     async def _run(self) -> None:

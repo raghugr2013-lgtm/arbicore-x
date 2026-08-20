@@ -18,6 +18,7 @@ import {
   Settings2,
   Cog,
   Zap,
+  Radar,
   Route as RouteIcon,
   ShieldCheck,
 } from "lucide-react";
@@ -30,6 +31,14 @@ export const NAV_SECTIONS = [
     Icon: ShieldCheck,
     shortcut: "C",
     lede: "Operator Control Center — readiness, modes, emergency stop.",
+  },
+  {
+    key: "live-ops",
+    label: "Live Ops",
+    path: "/dashboard/live-ops",
+    Icon: Radar,
+    shortcut: "L",
+    lede: "Autonomous opportunity engine — scanner, funnel, alerts, readiness.",
   },
   {
     key: "home",
