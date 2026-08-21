@@ -202,6 +202,13 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Remaining USER secrets (NOT chat): (1) execution signer key → encrypted vault → unblocks SIGNER+ATOMIC_EXECUTOR_SIM+SIMULATION_ONCHAIN; (2) dedicated Alchemy Base RPC → removes rate-limit fragility, lifts REAL quote coverage; (3) archive/fork RPC + anvil → unblocks FORK_VALIDATION.
 - Remaining ENGINEERING (post-secrets): wire real fork exec in `AnvilForkHarness.run_fork_validation` once anvil+archive RPC land; run full `simulate_atomic` through deployed executor once signer present.
 
+## Done — 2026-06 (VPS non-destructive deployment runbook — operator-confirmed facts)
+- Operator confirmed authoritative prod DB: `factory-mongo` (Mongo 7.0.39) → `arbicore_x`, volume `factory-mongo_factory_mongo_data`, target `factory-mongo:27017`. `arbicore-x-mongo` (Mongo 4.4) is NON-authoritative — never switch/migrate to it.
+- Preserve exactly (no rotation/change): `VAULT_KEY`, `MONGO_URL`, `DB_NAME=arbicore_x`. Untouched: factory-mongo, its volume, Caddy, backups.
+- Additive deploy ONLY: `docker compose build backend frontend opportunity-center` then `up -d --no-deps backend frontend opportunity-center`. Forbidden: `down -v`, volume/DB delete, drop/truncate, factory-mongo recreation.
+- Continuity baseline to defend (post ≥ pre): mid_opportunities 416, mid_decisions 208, mid_opportunity_lifetime 208, mid_routes 20, arbicore_paper_evidence 214, calibration_models 2, adaptive_weight_recommendations 2, evidence_bundles 2 (+ all others present).
+- Produced `/app/deploy/VPS_CONTINUITY_RUNBOOK.md`: read-only pre/post inventory + SHA256, pre/post diff script, additive deploy commands, app read/write/signer/safety/leak checks, 17-rule GO/NO-GO checklist, non-destructive rollback. No app/feature changes; SHADOW preserved; LIMITED_LIVE + FULL_AUTOMATION locked. AWAITING operator GO + inventory output.
+
 ## LIMITED_LIVE readiness snapshot (2026-08-20) — overall YELLOW, can_activate=false
 GREEN (evidence): CONFIGURATION_RPC, FLASH_PROVIDERS, DEX_ADAPTERS_QUOTE, DEX_ADAPTERS_SETTLE (encoder self-test), DISCOVERY_ENGINE, ROUTE_ENGINE, OPP_TYPES, QUOTES_LIVE, PROFITABILITY, CONFIDENCE_V2, EXPECTED_VALUE, SIZE_OPTIMIZER, LIQUIDITY_DEPTH, SCANNER, SIMULATION_GATE, SETTLEMENT_SIMULATION (real getAmountsOut), RPC_STATE_OVERRIDE (verified), HISTORICAL_REPLAY (archive verified), DECISION_HISTORY.
 Remaining blockers:
