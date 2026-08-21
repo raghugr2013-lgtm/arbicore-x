@@ -1,0 +1,17 @@
+[Unit]
+Description=ArbiCore X Frontend (static build via `serve`)
+After=network-online.target
+
+[Service]
+Type=simple
+User=arbicore
+Group=arbicore
+WorkingDirectory=/app/app/frontend
+# Serve the production build (built with `yarn build`). Port 3000 internal.
+ExecStart=/usr/bin/npx serve -s build -l 3000
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

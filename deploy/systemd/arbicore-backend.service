@@ -1,0 +1,26 @@
+[Unit]
+Description=ArbiCore X Backend (FastAPI, SHADOW-safe)
+After=network-online.target mongod.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=arbicore
+Group=arbicore
+WorkingDirectory=/app/app/backend
+# Load env from the populated .env (systemd reads KEY=VALUE lines).
+EnvironmentFile=/app/app/backend/.env
+# Ensure Foundry/anvil is on PATH for FORK_VALIDATION.
+Environment=PATH=/home/arbicore/.foundry/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/app/app/backend/venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --workers 2
+Restart=always
+RestartSec=5
+# Harden: no new privileges, private tmp.
+NoNewPrivileges=true
+PrivateTmp=true
+# Do NOT log secrets; keep default journald.
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
