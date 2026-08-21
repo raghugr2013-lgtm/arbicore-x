@@ -341,22 +341,20 @@ from arbicore.execution.atomic_executor_sim import AtomicExecutorSimulator
 _ATOMIC_SIM = AtomicExecutorSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
 
 
-async def _atomic_sim_runner(*, route, hops, borrow_token, amount_wei):
-    """MANDATORY atomic-executor gate for the opportunity chain.
+async def _atomic_sim_runner(*, route, univ3_hops, borrow_token, amount_wei):
+    """MANDATORY atomic-executor gate for EXECUTABLE_UNIV3 routes.
 
-    Resolves the vault signer, encodes the allowlisted Aerodrome settlement
-    calldata, wraps it in the executor entrypoint calldata, and runs the full
-    atomic state-override simulation against the deployed executor. Pure
-    eth_call — never signs or broadcasts. Unavailable signer → not executable."""
+    Encodes the executor's REAL entrypoint execute(address[],uint256[],bytes)
+    with userData=abi.encode(SwapHop[],profitRecipient) over Uniswap V3 hops and
+    runs the full atomic state-override sim (Balancer flash → UniV3 swaps →
+    repay) against the DEPLOYED executor. Pure eth_call — never signs/broadcasts."""
     from arbicore.execution.signer_vault import signer_status
-    from arbicore.execution.aerodrome_settlement import AerodromeSettlementAdapter, AERODROME_ROUTER
-    from arbicore.execution.executor_entrypoint import build_executor_entrypoint_calldata
-    from arbicore.economics.opportunity_engine import TOKEN_ALLOWLIST as _TA
+    from arbicore.execution.calldata import encode_executor_execute, build_user_data_from_hops
     from arbicore.discovery.base_venues import token_address as _taddr
 
-    if hops is None:
+    if not univ3_hops:
         return {"available": False, "passed": False,
-                "reason": "route not settleable by allowlisted Aerodrome adapter"}
+                "reason": "route not representable as Uniswap V3 SwapHop[] (executor supports UniV3 only)"}
     st = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
     if not st.get("present"):
         return {"available": False, "passed": False,
@@ -366,17 +364,15 @@ async def _atomic_sim_runner(*, route, hops, borrow_token, amount_wei):
         return {"available": False, "passed": False,
                 "reason": "ARBICORE_EXECUTOR_ADDRESS_BASE not set"}
     try:
-        adapter = AerodromeSettlementAdapter(token_allowlist=_TA, router_allowlist=[AERODROME_ROUTER])
-        settlement = adapter.encode_settlement(
-            hops=hops, amount_in_wei=int(amount_wei), min_amount_out_wei=1,
-            recipient=executor, deadline=9_999_999_999)
-        entry = build_executor_entrypoint_calldata(
-            borrow_token=_taddr(borrow_token), borrow_amount_wei=int(amount_wei),
-            settlement_target=settlement["to"], settlement_calldata_hex=settlement["data"])
+        user_data = build_user_data_from_hops(hops=univ3_hops,
+                                              profit_recipient=st.get("derived_address"))
+        call = encode_executor_execute(executor_address=executor,
+                                       tokens=[_taddr(borrow_token)], amounts=[int(amount_wei)],
+                                       user_data_hex=user_data)
     except Exception as exc:  # noqa: BLE001
         return {"available": True, "passed": False, "reason": f"calldata encode failed: {exc}"}
     return await _ATOMIC_SIM.simulate_atomic(
-        entry_calldata=entry["calldata"], signer_present=True,
+        entry_calldata=call.calldata_hex, signer_present=True,
         from_address=st.get("derived_address"))
 
 
@@ -5015,6 +5011,9 @@ async def _run_live_atomic_sim() -> Dict[str, Any]:
     return _ATOMIC_LIVE_RUN
 
 
+_EXECUTOR_ABI_CACHE: Dict[str, Any] = {}   # last-good executor ABI inspection
+
+
 @api_router.get("/arbicore/engine/executor-abi",
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_executor_abi() -> Dict[str, Any]:
@@ -5024,6 +5023,14 @@ async def v2_engine_executor_abi() -> Dict[str, Any]:
     from arbicore.execution.executor_entrypoint import inspect_executor
     insp = await inspect_executor(os.environ.get("ARBICORE_RPC_URL", ""),
                                   os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE", ""))
+    # Public-RPC getters can flake (rate limits) on a cold call — merge the last
+    # successful owner/router/vault so the inspection is stable across retries.
+    if insp.get("ok"):
+        for k in ("owner", "router", "vault"):
+            if insp.get(k):
+                _EXECUTOR_ABI_CACHE[k] = insp[k]
+            elif _EXECUTOR_ABI_CACHE.get(k):
+                insp[k] = _EXECUTOR_ABI_CACHE[k]
     return {"executor_abi": insp, "generated_at": _iso_now()}
 
 

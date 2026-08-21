@@ -124,6 +124,15 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Readiness upgrades (verified): SETTLEMENT_SIMULATION GREEN, RPC_STATE_OVERRIDE GREEN, HISTORICAL_REPLAY GREEN. FORK_VALIDATION now YELLOW (archive verified, but no controllable fork — needs anvil/dedicated). SIMULATION_ONCHAIN YELLOW (atomic executor sim needs executor contract). Overall YELLOW; LIMITED_LIVE.can_activate=false.
 - Tests: NEW test_p0_settlement_simulator.py (5) + test_p0_aerodrome_settlement.py (7). testing_agent iteration_10 backend 100% (10/10 integration + 12/12 unit). Kill switch DISENGAGED, mode SHADOW, scanner RUNNING.
 
+## RESOLVED — 2026-08-21 (Execution alignment: engine route model ↔ deployed executor)
+- Every opportunity now carries `execution_capability`: **EXECUTABLE_UNIV3** (all-Uniswap-V3 routes the deployed executor can run) or **NON_EXECUTABLE_BY_CURRENT_EXECUTOR** (any Aerodrome/slipstream/mixed route — discoverable for intelligence, NEVER marked executable). `_execution_capability()` + `_univ3_swaphops()` in opportunity_engine; evaluate_route hard-gates non-UniV3 routes to would_execute=False before the atomic gate.
+- Atomic gate rewired: `_atomic_sim_runner` now encodes the executor's REAL `execute(address[],uint256[],bytes)` + `userData=abi.encode(SwapHop[],profitRecipient)` (Balancer flash → UniV3 swaps → repay) via `calldata.py` (was Aerodrome). Only EXECUTABLE_UNIV3 routes that pass all gates + a passing atomic sim can be would_execute=true.
+- Live scan-once (current market): 7 EXECUTABLE_UNIV3 / 3 NON_EXECUTABLE; would_execute=0 (honest — no profitable route; decision/simulation gate fails on repayment). No fabricated profit.
+- Controlled-fork validation (distinct from live profit): anvil forks Base, verifies chainId + executor-code + state-override → FORK_VALIDATION GREEN. Live atomic sim vs deployed executor executes end-to-end and reverts (economics; no arbitrage) → SIMULATION_ONCHAIN stays YELLOW.
+- Executor-abi endpoint hardened with last-good getter cache (public-RPC cold-call flakiness). testing_agent iter18: **106/106 (99 regression + 7 endpoint) PASS**, no critical.
+- FINAL matrix: **24 GREEN / 1 YELLOW (SIMULATION_ONCHAIN) / 0 RED**; overall YELLOW; SHADOW; scanner RUNNING; LIMITED_LIVE + FULL_AUTOMATION locked.
+- REMAINING before LIMITED_LIVE (manual, operator-gated): a genuinely profitable EXECUTABLE_UNIV3 route must pass the full pipeline + atomic sim (needs real market spread ≥ costs, or a dedicated low-latency RPC to catch fleeting spreads). Everything else is verified GREEN.
+
 ## RESOLVED — 2026-08-21 (Executor ↔ ArbiCore integration: real ABI recovered from source)
 - Found the deployed executor SOURCE in-repo: `contracts/contracts/core/FlashLoanReceiver.sol` (+ `adapters/UniswapV3Adapter.sol`). Recovered the EXACT schema (not guessed):
   - **Entrypoint = `execute(address[] tokens, uint256[] amounts, bytes userData)`** selector `0x64ba4bc1` (Balancer V2 flash). Alt: `executeAave(address,uint256,bytes)`. `onlyOwner`; owner = `0x998d…ad25` = our vault signer.

@@ -281,29 +281,35 @@ class OpportunityEngine:
         d = decision.to_dict()
 
         # MANDATORY settlement simulation: a candidate can only be labelled
-        # executable after a successful end-to-end settlement simulation using
-        # the real allowlisted settlement calldata. No sim → not executable.
+        # EXECUTION CAPABILITY: the deployed executor supports ONLY Uniswap V3
+        # swaps (Balancer V2 flash). Aerodrome/mixed routes stay discoverable for
+        # intelligence but can NEVER be marked executable by this executor.
+        exec_capability = self._execution_capability(route)
         settlement_result: Optional[Dict[str, Any]] = None
         atomic_result: Optional[Dict[str, Any]] = None
         would_execute = bool(d["would_execute"])
-        if would_execute:
-            settlement_result = await self._run_settlement(route, eth_usd, gas_usd)
-            if not (settlement_result and settlement_result.get("passed")):
-                would_execute = False
-                d["would_execute"] = False
-                reason = (settlement_result or {}).get("reason", "settlement simulation unavailable")
-                d["reason"] = f"settlement simulation failed: {reason}"
 
-        # MANDATORY atomic executor simulation: even after settlement passes, a
-        # candidate is NOT executable until the full atomic executor entrypoint
-        # (flash borrow → settlement swaps → repay) simulates successfully via
-        # state-override against the deployed executor. Gated on the vault
-        # signer; unavailable signer → not executable (honest, no fake GREEN).
+        if would_execute and exec_capability != "EXECUTABLE_UNIV3":
+            would_execute = False
+            d["would_execute"] = False
+            d["reason"] = ("route not executable by current executor "
+                           "(deployed executor is Uniswap-V3-only; this route uses "
+                           + "/".join(sorted({(self._specs.get(p.pool_address, {}) or {}).get('dex')
+                                              for p in route.pools})) + ")")
+
+        # MANDATORY settlement simulation (intelligence-grade) for Aerodrome-
+        # settleable routes — informative only; does not grant executability.
+        if self._settlement_sim is not None:
+            settlement_result = await self._run_settlement(route, eth_usd, gas_usd)
+
+        # MANDATORY atomic executor simulation for EXECUTABLE_UNIV3 routes: build
+        # the real SwapHop[] and run flash→UniV3 swaps→repay against the deployed
+        # executor via execute(). Gated on the vault signer + a passing sim.
         if would_execute and self._atomic_runner is not None:
             amt = PROBE_AMOUNT.get(route.borrow_token, 10**16)
-            hops_a = self._aerodrome_hops(route)
+            univ3_hops = self._univ3_swaphops(route)
             atomic_result = await self._atomic_runner(
-                route=route, hops=hops_a, borrow_token=route.borrow_token,
+                route=route, univ3_hops=univ3_hops, borrow_token=route.borrow_token,
                 amount_wei=amt)
             if not (atomic_result and atomic_result.get("passed")):
                 would_execute = False
@@ -314,6 +320,8 @@ class OpportunityEngine:
         return {
             "route_id": route.route_id,
             "opportunity_type": classify_route(route),
+            "execution_capability": exec_capability,
+            "executor_venue": "balancer_v2_flash + uniswap_v3_swaps",
             "chain": CHAIN,
             "borrow_token": route.borrow_token,
             "token_path": route.token_path,
@@ -338,6 +346,36 @@ class OpportunityEngine:
             "decision": d,
             "evaluated_at": _now_iso(),
         }
+
+    def _execution_capability(self, route: RouteCycle) -> str:
+        """Classify whether the DEPLOYED executor can run this route.
+
+        The deployed FlashLoanReceiver supports ONLY Uniswap V3 swaps (Balancer
+        V2 flash). Any Aerodrome (or mixed) route is discoverable for
+        intelligence but NOT executable by the current executor."""
+        dexes = {(self._specs.get(p.pool_address, {}) or {}).get("dex") for p in route.pools}
+        if dexes == {"uniswap_v3"}:
+            return "EXECUTABLE_UNIV3"
+        return "NON_EXECUTABLE_BY_CURRENT_EXECUTOR"
+
+    def _univ3_swaphops(self, route: RouteCycle) -> Optional[List[Dict[str, Any]]]:
+        """SwapHop[] for the executor's execute()/userData, or None if the route
+        is not all-Uniswap-V3. amount_in_wei=0 after hop 0 ⇒ forward output."""
+        specs = [self._specs.get(p.pool_address, {}) or {} for p in route.pools]
+        if not all(s.get("dex") == "uniswap_v3" for s in specs):
+            return None
+        path = route.token_path
+        amt0 = PROBE_AMOUNT.get(route.borrow_token, 10**16)
+        hops = []
+        for i, spec in enumerate(specs):
+            hops.append({
+                "token_in": token_address(path[i]),
+                "token_out": token_address(path[i + 1]),
+                "fee_tier_bps": int(spec.get("fee", 500)) // 100,   # 500 ppm → 5 bps
+                "amount_in_wei": amt0 if i == 0 else 0,
+                "amount_out_min_wei": 0,   # simulation only; real sizing sets this
+            })
+        return hops
 
     def _aerodrome_hops(self, route: RouteCycle) -> Optional[List[Dict[str, Any]]]:
         """Return classic-Aerodrome settlement hops for a route, or None if the
