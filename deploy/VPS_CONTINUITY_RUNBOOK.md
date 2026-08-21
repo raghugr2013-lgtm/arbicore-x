@@ -42,6 +42,50 @@ Mandatory continuity set: `mid_opportunities`, `mid_decisions`, `mid_opportunity
 
 ---
 
+## 1a. PRE-DEPLOY — AUTHORITATIVE BACKUP (mongodump of factory-mongo → arbicore_x)
+
+> The previous 361-byte backup was from the NON-authoritative `arbicore-x-mongo` (Mongo 4.4)
+> and is INVALID. Take a real backup of the authoritative DB before rebuilding any container.
+> `mongodump` is READ-ONLY against the source — it does not modify Mongo.
+
+```
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+BK=/root/arbicore_backups/arbicore_x_$TS
+mkdir -p "$BK"
+
+# Dump ONLY arbicore_x from the authoritative container. Directory format = per-collection
+# .bson + .metadata.json, and the log reports document counts we verify against live counts.
+docker exec factory-mongo sh -c "mongodump --db arbicore_x --out /tmp/dump_$TS" 2>&1 | tee "$BK/mongodump.log"
+#   If Mongo has auth: add  -u \"\$MONGO_USER\" -p \"\$MONGO_PASS\" --authenticationDatabase admin
+#   (use shell vars only — never inline literal credentials)
+
+# Copy the dump out of the container and fingerprint it.
+docker cp "factory-mongo:/tmp/dump_$TS/arbicore_x" "$BK/arbicore_x"
+docker exec factory-mongo rm -rf "/tmp/dump_$TS"          # clean the temp copy inside the container only
+tar -C "$BK" -czf "$BK.tar.gz" arbicore_x
+sha256sum "$BK.tar.gz" | tee "$BK.tar.gz.sha256"
+du -sh "$BK.tar.gz"                                        # sanity: must be >> 361 bytes (expect MBs)
+```
+
+**VERIFY the backup (READ-ONLY, does NOT restore to production):**
+```
+# (a) Every mandatory collection has a .bson file in the dump
+for c in mid_opportunities mid_decisions mid_opportunity_lifetime mid_routes \
+         arbicore_paper_evidence calibration_models adaptive_weight_recommendations evidence_bundles; do
+  [ -f "$BK/arbicore_x/$c.bson" ] && echo "$c  backed-up" || echo "$c  MISSING IN BACKUP  <-- STOP"
+done
+
+# (b) Per-collection document counts inside the dump (bsondump, no DB writes)
+for f in "$BK"/arbicore_x/*.bson; do
+  printf "%-34s %s\n" "$(basename "$f" .bson)" "$(bsondump --quiet "$f" 2>/dev/null | wc -l)"
+done | tee "$BK/backup_counts.txt"
+```
+**GATE:** archive size is MBs (not bytes), every mandatory collection present, and
+`backup_counts.txt` matches the live baseline (Section 1). Only then proceed. This backup is the
+restore point; if anything goes wrong during deploy → STOP (never auto-repair).
+
+---
+
 ## 1. PRE-DEPLOY — capture inventory (READ-ONLY, no writes, no secret exposure)
 
 Run inside the Mongo container. This performs ZERO writes.
