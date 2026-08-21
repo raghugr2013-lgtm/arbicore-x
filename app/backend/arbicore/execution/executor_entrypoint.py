@@ -27,8 +27,9 @@ def _selector(sig: str) -> bytes:
 
 # Signatures we can recognise inside the deployed executor's dispatcher.
 _KNOWN_SELECTORS: Dict[str, str] = {
-    "5c38449e": "flashLoan(address,address[],uint256[],bytes)",   # operator entrypoint
+    "64ba4bc1": "execute(address[],uint256[],bytes)",             # operator entrypoint (Balancer flash)
     "f04f2707": "receiveFlashLoan(address[],uint256[],uint256[],bytes)",  # Balancer callback
+    "5c38449e": "flashLoan(address,address[],uint256[],bytes)",   # internal call TO Balancer Vault
     "04e45aaf": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",  # UniV3
     "32fe7b26": "ROUTER()", "411557d1": "VAULT()", "8da5cb5b": "owner()",
     "62c06767": "sweep(address,address,uint256)",
@@ -95,18 +96,23 @@ async def inspect_executor(rpc_url: str, executor: str) -> Dict[str, Any]:
     router = await _getter("ROUTER()")
     vault = await _getter("VAULT()")
 
-    entry_present = "5c38449e" in sels
+    entry_present = "64ba4bc1" in sels   # execute(address[],uint256[],bytes)
     return {
         "ok": True, "executor": executor,
         "bytecode_size_bytes": (len(code) - 2) // 2,
         "selectors": sels,
         "recognised": recognised, "unknown_selectors": unknown,
-        "entrypoint_signature": "flashLoan(address,address[],uint256[],bytes)" if entry_present else None,
+        "entrypoint_signature": "execute(address[],uint256[],bytes)" if entry_present else None,
+        "entrypoint_selector": "0x64ba4bc1" if entry_present else None,
         "entrypoint_selector_present": entry_present,
+        "userdata_schema": "abi.encode(SwapHop[] hops, address profitRecipient) "
+                           "where SwapHop=(address tokenIn,address tokenOut,uint24 feePpm,"
+                           "uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)",
         "flash_provider": "balancer_v2" if "f04f2707" in sels else None,
         "swap_venue": "uniswap_v3" if "04e45aaf" in sels else None,
         "owner": owner, "router": router, "vault": vault,
-        "userdata_schema_recoverable": False,  # decoded internally; needs source/ABI
+        "userdata_schema_recoverable": True,  # recovered from contract source
+        "source": "contracts/contracts/core/FlashLoanReceiver.sol",
         "signed": False, "broadcast": False,
     }
 

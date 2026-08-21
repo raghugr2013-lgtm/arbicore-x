@@ -57,10 +57,12 @@ def test_fork_status_no_fake_green(auth_session):
     assert r.status_code == 200
     body = r.json()
     fh = body["fork_harness"]
-    assert fh["anvil_installed"] is False
-    assert fh["fork_rpc_configured"] is False
-    assert fh["ready_to_run"] is False
-    assert fh["reason"]  # non-empty
+    # anvil is now installed + archive RPC configured → ready_to_run True.
+    # The no-fake-green invariant now lives in the RUN result (ran/passed only
+    # after a genuine fork run), validated via run-fork-validation elsewhere.
+    assert fh["anvil_installed"] is True
+    assert fh["fork_rpc_configured"] is True
+    assert fh["ready_to_run"] is True
     _no_leaks(body)
 
 
@@ -150,7 +152,11 @@ def test_readiness_matrix_evidence_based(auth_session):
         assert rows[green]["status"].lower() == "green", (green, rows[green])
     # Signer present → ATOMIC_EXECUTOR_SIM is GREEN; the remaining honest
     # YELLOWs are the on-chain sim (executed but route reverts) + fork validation.
-    for yellow in ("simulation_onchain", "fork_validation"):
+    # FORK_VALIDATION now GREEN (genuine anvil fork run); SIMULATION_ONCHAIN
+    # stays YELLOW (executes but reverts — no live arbitrage, honest).
+    for green2 in ("fork_validation",):
+        assert rows[green2]["status"].lower() == "green", (green2, rows[green2])
+    for yellow in ("simulation_onchain",):
         assert rows[yellow]["status"].lower() == "yellow", (yellow, rows[yellow])
         assert rows[yellow].get("blocker"), rows[yellow]
     _no_leaks(body)
