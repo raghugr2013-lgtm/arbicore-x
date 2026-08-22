@@ -95,6 +95,15 @@ validate_mongo_container(){
   return 0
 }
 
+# env_kv KEY VALUE — emit a shell-safe `KEY='value'` line for a sourced env
+# file. Single-quote wrapping makes semicolons, spaces, '->' and paths inert
+# when the file is `source`d; embedded single quotes are escaped ('\'').
+env_kv(){
+  local k="$1" v="${2-}"
+  v=${v//\'/\'\\\'\'}
+  printf "%s='%s'\n" "$k" "$v"
+}
+
 # mongo_url_host <mongo_url> — echo the host (no creds/port/path). Pure.
 mongo_url_host(){
   local rest="${1#*://}"; rest="${rest#*@}"; local auth="${rest%%[/?]*}"
