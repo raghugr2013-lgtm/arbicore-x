@@ -117,11 +117,25 @@ def test_execution_mode_flash_loan_shadow():
 
 
 def test_executor_verify_clean_blocked():
+    # With an executor configured (ARBICORE_EXECUTOR_ADDRESS_BASE set), the
+    # reconciled canonical verification (VAULT()/ROUTER(), no aavePool()
+    # requirement) must NOT block on the old drift. It is READY on a healthy
+    # RPC; only the getter checks may be honestly not-green when the public RPC
+    # is rate-limited. It must NEVER block because of an Aave/naming mismatch.
     r = requests.get(f"{API}/executor/verify", timeout=TIMEOUT)
     assert r.status_code == 200, r.text
     data = r.json()
-    assert data.get("overall_status") == "BLOCKED", data
-    assert data.get("ready") is False
-    assert data.get("address") in (None, "", "0x0000000000000000000000000000000000000000")
     checks = data.get("checks") or {}
-    assert checks.get("address_configured", {}).get("status") == "BLOCKED"
+    # aavePool() is not applicable to the Balancer V2 + UniV3 head → INFO only.
+    assert checks.get("aave_pool_matches", {}).get("status") == "INFO", checks
+    assert "aave_pool" not in (data.get("expected") or {})
+    if data.get("address"):
+        # executor configured → address check passes; drift no longer blocks
+        assert checks.get("address_configured", {}).get("status") == "READY", checks
+        for k in ("vault_matches", "router_matches"):
+            det = checks.get(k, {}).get("detail", "").lower()
+            assert "balancervault" not in det and "unirouter" not in det, checks[k]
+    else:
+        # no executor configured → correctly BLOCKED
+        assert data.get("overall_status") == "BLOCKED", data
+        assert checks.get("address_configured", {}).get("status") == "BLOCKED"

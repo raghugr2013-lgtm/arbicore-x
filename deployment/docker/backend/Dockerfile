@@ -12,11 +12,19 @@ FROM python:3.11-slim AS runtime
 
 ARG GITSHA=unknown
 ARG SCHEMA=v1
+ARG GITTAG=unknown
+ARG BUILD_TIME=unset
+ARG APP_VERSION=unset
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    ARBICORE_GIT_SHA=${GITSHA} \
+    ARBICORE_GIT_TAG=${GITTAG} \
+    ARBICORE_BUILD_TIME=${BUILD_TIME} \
+    ARBICORE_VERSION=${APP_VERSION} \
+    ARBICORE_ENV=production
 
 # Minimal OS deps: curl for the compose healthcheck; build-essential purged after pip install.
 RUN apt-get update \

@@ -5119,6 +5119,54 @@ async def v2_engine_executor_abi() -> Dict[str, Any]:
     return {"executor_abi": insp, "generated_at": _iso_now()}
 
 
+_BUILD_IDENTITY: Dict[str, Any] = {}
+
+
+def _resolve_build_identity() -> Dict[str, Any]:
+    """Non-secret build/runtime identity for the deployment-identity chain
+    (Emergent→Git→Docker→VPS). Prefers baked build args/env (set by the Docker
+    build via --build-arg/labels); falls back to a live `git` read in dev.
+    NEVER returns secrets."""
+    global _BUILD_IDENTITY
+    if _BUILD_IDENTITY:
+        return _BUILD_IDENTITY
+    import subprocess
+
+    def _git(args: List[str]) -> Optional[str]:
+        try:
+            out = subprocess.run(["git", *args], cwd=os.path.dirname(__file__),
+                                  capture_output=True, text=True, timeout=4)
+            v = (out.stdout or "").strip()
+            return v or None
+        except Exception:  # noqa: BLE001
+            return None
+
+    git_sha = (os.environ.get("ARBICORE_GIT_SHA") or _git(["rev-parse", "HEAD"]) or "unknown")
+    git_tag = (os.environ.get("ARBICORE_GIT_TAG")
+               or _git(["describe", "--tags", "--always", "--dirty"]) or "unknown")
+    _BUILD_IDENTITY = {
+        "application": "arbicore-x",
+        "app_version": os.environ.get("ARBICORE_VERSION") or git_tag,
+        "git_sha": git_sha,
+        "git_sha_short": git_sha[:12] if git_sha and git_sha != "unknown" else "unknown",
+        "git_tag": git_tag,
+        "image_digest": os.environ.get("ARBICORE_IMAGE_DIGEST") or "unset",
+        "image_ref": os.environ.get("ARBICORE_IMAGE_REF") or "unset",
+        "build_time": os.environ.get("ARBICORE_BUILD_TIME") or "unset",
+        "runtime_env": os.environ.get("ARBICORE_ENV") or "unset",
+        "dirty": git_tag.endswith("-dirty") if git_tag else False,
+    }
+    return _BUILD_IDENTITY
+
+
+@api_router.get("/arbicore/version")
+async def v2_arbicore_version() -> Dict[str, Any]:
+    """Deployment identity — commit sha, tag, image digest, build time, runtime
+    env. Safe (no secrets). Used to prove Git == Docker == VPS == running code."""
+    ident = _resolve_build_identity()
+    return {**ident, "generated_at": _iso_now()}
+
+
 @api_router.post("/arbicore/engine/run-atomic-sim",
                  dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_run_atomic_sim(body: Dict[str, Any] = None) -> Dict[str, Any]:

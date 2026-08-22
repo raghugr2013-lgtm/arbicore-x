@@ -78,6 +78,9 @@ services:
       args:
         GITSHA: ${GITSHA:-unknown}
         SCHEMA: v1
+        GITTAG: ${GITTAG:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-unset}
+        APP_VERSION: ${APP_VERSION:-unset}
     image: ${BACKEND_IMAGE_TAG:-arbicore-x-backend:2.0.3}
     container_name: arbicore-x-backend
     restart: *restart

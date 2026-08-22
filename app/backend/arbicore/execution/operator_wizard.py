@@ -32,6 +32,12 @@ from arbicore.execution.calldata import (
     BALANCER_V2_VAULT_BY_CHAIN,
     UNISWAP_V3_ROUTER_BY_CHAIN,
 )
+from arbicore.execution.executor_interface import (
+    SEL_VAULT, SEL_ROUTER, SEL_OWNER,
+    GETTER_VAULT_SIG, GETTER_ROUTER_SIG,
+    EXPECTED_VAULT_BY_ID, EXPECTED_ROUTER_BY_ID,
+    BASE_MAINNET_ID, BASE_SEPOLIA_ID,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -110,28 +116,20 @@ class WizardStep:
 # Executor verification
 # --------------------------------------------------------------------------- #
 
-_SEL_VAULT  = _selector("balancerVault()")
-_SEL_ROUTER = _selector("uniRouter()")
-_SEL_AAVE   = _selector("aavePool()")
-_SEL_OWNER  = _selector("owner()")
+# Canonical executor getters — sourced from arbicore.execution.executor_interface
+# (the deployed contract exposes VAULT()/ROUTER()/owner(); NOT balancerVault()/
+# uniRouter()/aavePool()). This reconciles the historical verification drift.
+_SEL_VAULT  = SEL_VAULT
+_SEL_ROUTER = SEL_ROUTER
+_SEL_OWNER  = SEL_OWNER
 
 # The runtime uses chain="base" for BOTH Base mainnet and Base Sepolia;
 # they are distinguished only by the RPC's reported chain id. Expected
 # venue addresses are therefore keyed by numeric chain id.
-_BASE_MAINNET_ID = 8453
-_BASE_SEPOLIA_ID = 84532
-_EXPECTED_VAULT_BY_ID = {
-    _BASE_MAINNET_ID: "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-    _BASE_SEPOLIA_ID: "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-}
-_EXPECTED_ROUTER_BY_ID = {
-    _BASE_MAINNET_ID: "0x2626664c2603336E57B271c5C0b26F421741e481",
-    _BASE_SEPOLIA_ID: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",
-}
-_EXPECTED_AAVE_BY_ID = {
-    _BASE_MAINNET_ID: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
-    _BASE_SEPOLIA_ID: "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27",
-}
+_BASE_MAINNET_ID = BASE_MAINNET_ID
+_BASE_SEPOLIA_ID = BASE_SEPOLIA_ID
+_EXPECTED_VAULT_BY_ID = EXPECTED_VAULT_BY_ID
+_EXPECTED_ROUTER_BY_ID = EXPECTED_ROUTER_BY_ID
 
 
 async def verify_executor(*, address: Optional[str] = None,
@@ -160,7 +158,7 @@ async def verify_executor(*, address: Optional[str] = None,
             "contract_deployed":      {"status": _STATUS_BLOCKED, "detail": ""},
             "vault_matches":          {"status": _STATUS_BLOCKED, "detail": ""},
             "router_matches":         {"status": _STATUS_BLOCKED, "detail": ""},
-            "aave_pool_matches":      {"status": _STATUS_BLOCKED, "detail": ""},
+            "aave_pool_matches":      {"status": _STATUS_INFO,    "detail": "not applicable — Balancer V2 + UniV3 head"},
             "owner_matches":          {"status": _STATUS_INFO,    "detail": "not checked"},
         },
         "expected": {},
@@ -211,7 +209,6 @@ async def verify_executor(*, address: Optional[str] = None,
             "chain_id": chain_id,
             "vault":     _EXPECTED_VAULT_BY_ID.get(chain_id, ""),
             "router":    _EXPECTED_ROUTER_BY_ID.get(chain_id, ""),
-            "aave_pool": _EXPECTED_AAVE_BY_ID.get(chain_id, ""),
         }
     except Exception as exc:
         result["checks"]["rpc_available"] = {
@@ -262,48 +259,40 @@ async def verify_executor(*, address: Optional[str] = None,
     exp = result.get("expected", {})
     exp_vault  = (exp.get("vault") or "")
     exp_router = (exp.get("router") or "")
-    exp_aave   = (exp.get("aave_pool") or "")
 
     vault = _call_returns_address(_SEL_VAULT)
     if vault and exp_vault and vault.lower() == exp_vault.lower():
         result["checks"]["vault_matches"] = {
             "status": _STATUS_READY,
-            "detail": f"balancerVault() = {vault}",
+            "detail": f"VAULT() = {vault}",
         }
     else:
         result["checks"]["vault_matches"] = {
             "status": _STATUS_BLOCKED,
-            "detail": (f"balancerVault() = {vault} (expected {exp_vault})"
-                       if vault else "balancerVault() call reverted or returned empty"),
+            "detail": (f"VAULT() = {vault} (expected {exp_vault})"
+                       if vault else "VAULT() call reverted or returned empty"),
         }
 
-    # (5) eth_call uniRouter()
+    # (5) eth_call ROUTER()
     router = _call_returns_address(_SEL_ROUTER)
     if router and exp_router and router.lower() == exp_router.lower():
         result["checks"]["router_matches"] = {
             "status": _STATUS_READY,
-            "detail": f"uniRouter() = {router}",
+            "detail": f"ROUTER() = {router}",
         }
     else:
         result["checks"]["router_matches"] = {
             "status": _STATUS_BLOCKED,
-            "detail": (f"uniRouter() = {router} (expected {exp_router})"
-                       if router else "uniRouter() call reverted or returned empty"),
+            "detail": (f"ROUTER() = {router} (expected {exp_router})"
+                       if router else "ROUTER() call reverted or returned empty"),
         }
 
-    # (5b) eth_call aavePool() — the first LIMITED_LIVE head is Aave V3.
-    aave = _call_returns_address(_SEL_AAVE)
-    if aave and exp_aave and aave.lower() == exp_aave.lower():
-        result["checks"]["aave_pool_matches"] = {
-            "status": _STATUS_READY,
-            "detail": f"aavePool() = {aave}",
-        }
-    else:
-        result["checks"]["aave_pool_matches"] = {
-            "status": _STATUS_BLOCKED,
-            "detail": (f"aavePool() = {aave} (expected {exp_aave})"
-                       if aave else "aavePool() call reverted or returned empty"),
-        }
+    # (5b) Aave pool — the deployed head is Balancer V2 + UniV3, which has NO
+    #      aavePool() getter. This is informational only and NEVER blocks.
+    result["checks"]["aave_pool_matches"] = {
+        "status": _STATUS_INFO,
+        "detail": "not applicable — executor head is Balancer V2 + Uniswap V3",
+    }
 
     # (6) owner()
     owner = _call_returns_address(_SEL_OWNER)
@@ -323,7 +312,7 @@ async def verify_executor(*, address: Optional[str] = None,
     # Aggregate
     critical = [result["checks"][k]["status"]
                 for k in ("address_configured", "contract_deployed",
-                          "vault_matches", "router_matches", "aave_pool_matches")]
+                          "vault_matches", "router_matches")]
     if all(s == _STATUS_READY for s in critical):
         overall = _STATUS_READY
     elif _STATUS_BLOCKED in critical:
