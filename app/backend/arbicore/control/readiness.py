@@ -444,7 +444,7 @@ class ExecutionReadinessEngine:
             status=RED,
             can_activate=False,
             blockers=ll_blockers,
-            requirements=["all mandatory readiness GREEN", "operator manual per-tx confirm",
+            requirements=["all mandatory readiness GREEN", "operator regime authorization (auto_confirm) — not per-opportunity approval",
                           "fork + shadow + paper evidence", "explicit operator approval"],
         )
         # FULL_AUTOMATION — future-gated, always RED in this build.
