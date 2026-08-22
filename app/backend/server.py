@@ -6312,6 +6312,26 @@ except Exception:  # noqa: BLE001
         "/api/auth/{status,setup,change-password,logout-all,refresh} will be 404"
     )
 
+
+@app.on_event("startup")
+async def _canonical_auth_provision_startup():
+    """v2.9.4 — deterministic, idempotent provisioning of admin/operator into
+    the CANONICAL ``users`` collection (the same one /api/auth/login reads),
+    from environment credentials. Fixes the auth source-of-truth drift where a
+    fresh production DB had zero users → login 401. Insert-only (never
+    overwrites an existing user); skips gracefully when creds are absent."""
+    try:
+        from services.auth import ensure_provisioned_users
+        summary = await ensure_provisioned_users()
+        logger.info(
+            "v2.9.4: canonical auth provisioned — coll=%s created=%s existed=%s skipped=%s jwt_secret=%s",
+            summary.get("collection"), summary.get("created"),
+            summary.get("existed"), summary.get("skipped"),
+            summary.get("jwt_secret_present"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("v2.9.4: canonical auth provisioning failed: %s", exc)
+
 @app.on_event("startup")
 async def _start_calibration_worker():
     try:

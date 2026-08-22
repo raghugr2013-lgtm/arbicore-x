@@ -128,3 +128,79 @@ async def register_failure(identifier: str):
 
 async def clear_failures(identifier: str):
     await db.login_attempts.delete_one({"identifier": identifier})
+
+
+# ---------- canonical startup provisioning ----------
+# v2.9.4 — deterministic, idempotent seeding of admin/operator into the SAME
+# `users` collection that login reads. Resolves the auth source-of-truth drift
+# (legacy `auth_users` seed was gated off, leaving a fresh DB with zero users →
+# /api/auth/login 401). Insert-ONLY: an existing user is never overwritten, so
+# operator-changed passwords are preserved. Skips gracefully (no crash, no weak
+# default) when a credential env is absent. Never logs secret values.
+
+import logging as _logging
+
+_seed_logger = _logging.getLogger("arbicore.auth.provision")
+
+# role → (username env, password env candidates)
+_PROVISION_SPECS = (
+    ("admin",    "ARBICORE_ADMIN_USER",    ("ARBICORE_ADMIN_PASS", "ARBICORE_ADMIN_PASSWORD")),
+    ("operator", "ARBICORE_OPERATOR_USER", ("ARBICORE_OPERATOR_PASS", "ARBICORE_OPERATOR_PASSWORD")),
+)
+
+
+def _first_env(*keys: str) -> str:
+    for k in keys:
+        v = (os.environ.get(k) or "").strip()
+        if v:
+            return v
+    return ""
+
+
+async def ensure_provisioned_users() -> dict:
+    """Idempotently provision admin (+ operator) from environment credentials
+    into the canonical ``users`` collection. Safe to run on every boot and
+    under concurrent workers (unique index on username + DuplicateKeyError
+    guard). Returns a non-secret summary for the boot log."""
+    from core.models import new_id, now_iso
+    from pymongo.errors import DuplicateKeyError
+
+    summary: dict = {"collection": db.users_col.name, "created": [], "existed": [],
+                     "skipped": [], "jwt_secret_present": bool(os.environ.get("JWT_SECRET"))}
+
+    # Ensure the uniqueness guard exists before we insert (idempotent).
+    try:
+        await db.users_col.create_index("username", unique=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+    for role, user_env, pass_envs in _PROVISION_SPECS:
+        username = (_first_env(user_env) or role).strip().lower()
+        password = _first_env(*pass_envs)
+        if not password:
+            summary["skipped"].append({"role": role, "username": username,
+                                        "reason": f"no password env set ({' / '.join(pass_envs)})"})
+            continue
+        existing = await db.users_col.find_one({"username": username}, {"_id": 0, "password_hash": 0})
+        if existing:
+            # Preserve existing record — never blindly overwrite the password.
+            summary["existed"].append({"username": username, "role": existing.get("role")})
+            continue
+        doc = {"id": new_id(), "username": username,
+               "password_hash": hash_password(password),
+               "role": role, "session_version": 1,
+               "created_at": now_iso(), "updated_at": now_iso()}
+        try:
+            await db.users_col.insert_one(dict(doc))
+            summary["created"].append({"username": username, "role": role})
+        except DuplicateKeyError:
+            summary["existed"].append({"username": username, "role": role})
+
+    if not summary["jwt_secret_present"]:
+        _seed_logger.warning("auth provision: JWT_SECRET is not set — login cannot "
+                             "issue tokens until it is configured in the environment")
+    _seed_logger.info("auth provision (canonical `users`): created=%s existed=%s skipped=%s",
+                      [c["username"] for c in summary["created"]],
+                      [e["username"] for e in summary["existed"]],
+                      [s["role"] for s in summary["skipped"]])
+    return summary
