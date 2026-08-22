@@ -13,6 +13,11 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
+      args:
+        GITSHA: ${GITSHA:-unknown}
+        GITTAG: ${GITTAG:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-unset}
+        APP_VERSION: ${APP_VERSION:-unset}
       labels:
         - "arbicore.gitsha=${GITSHA}"
         - "arbicore.schema=v1"
