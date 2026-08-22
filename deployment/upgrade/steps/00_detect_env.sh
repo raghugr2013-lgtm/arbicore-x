@@ -16,10 +16,31 @@ ok "backend container: $BACKEND_OLD"
 log "Detecting production Mongo container..."
 MONGO_CANDIDATES="$(detect_one 'mongo')"
 MONGO_COUNT="$(printf '%s\n' "$MONGO_CANDIDATES" | grep -c . || true)"
-[ "$MONGO_COUNT" = "1" ] || die "expected exactly 1 mongo container, found [$MONGO_COUNT]: $MONGO_CANDIDATES
-  -> set MONGO_CONTAINER=<name> in deploy.env manually and re-run preflight."
-MONGO_CONTAINER="$(printf '%s' "$MONGO_CANDIDATES" | tr -d '[:space:]')"
-ok "mongo container: $MONGO_CONTAINER"
+[ "$MONGO_COUNT" -ge 1 ] || die "no Mongo container found — is the production Mongo running?"
+
+# Deterministic selection (does NOT require exactly one Mongo on the host):
+#   1. explicit MONGO_CONTAINER (env), else preserved from an existing deploy.env
+#   2. the single candidate when only one exists
+#   3. the authoritative default ($ARBICORE_DEFAULT_MONGO, e.g. arbicore-x-mongo)
+EXPLICIT_MONGO="${MONGO_CONTAINER:-}"
+if [ -z "$EXPLICIT_MONGO" ] && [ -f "$DEPLOY_ENV" ]; then
+  EXPLICIT_MONGO="$(grep -E '^MONGO_CONTAINER=' "$DEPLOY_ENV" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+fi
+set +e
+MONGO_CONTAINER="$(choose_mongo_container "$MONGO_CANDIDATES" "$EXPLICIT_MONGO" "$ARBICORE_DEFAULT_MONGO")"
+_sel_rc=$?
+set -e
+CAND_ONE_LINE="$(printf '%s' "$MONGO_CANDIDATES" | tr '\n' ' ')"
+case "$_sel_rc" in
+  0) : ;;
+  2) die "configured MONGO_CONTAINER='$EXPLICIT_MONGO' not found among Mongo containers: [$CAND_ONE_LINE]
+  -> correct MONGO_CONTAINER (env or deploy.env) and re-run." ;;
+  *) die "multiple Mongo containers found and none match the authoritative default '$ARBICORE_DEFAULT_MONGO': [$CAND_ONE_LINE]
+  -> set MONGO_CONTAINER=<name> (env or deploy.env), or export ARBICORE_DEFAULT_MONGO=<name>, and re-run." ;;
+esac
+validate_mongo_container "$MONGO_CONTAINER" \
+  || die "selected Mongo container '$MONGO_CONTAINER' is not running or is unhealthy — refusing to proceed."
+ok "mongo container: $MONGO_CONTAINER (selected from [$CAND_ONE_LINE])"
 
 log "Detecting Docker network (shared with Mongo)..."
 NETWORK_NAME="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' "$MONGO_CONTAINER" | grep -v '^$' | head -n1)"

@@ -44,3 +44,46 @@ detect_one(){ # detect_one "<grep -E pattern>" ; echoes single container name or
   docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Ports}}' \
     | grep -iE "$1" | awk '{print $1}' | sort -u
 }
+
+# Authoritative ArbiCore Mongo container name (override via MONGO_CONTAINER env
+# or deploy.env). Used to disambiguate when several Mongo containers coexist on
+# the host (e.g. other apps' Mongos). Never touches data.
+ARBICORE_DEFAULT_MONGO="${ARBICORE_DEFAULT_MONGO:-arbicore-x-mongo}"
+
+# choose_mongo_container <candidates-newline-list> <explicit-or-empty> <default>
+# Pure (no docker) deterministic selection. Echoes the chosen name and returns:
+#   0  chosen (explicit-match | single-candidate | default-among-candidates)
+#   2  explicit set but NOT among candidates
+#   3  ambiguous: multiple candidates and none match the default
+choose_mongo_container(){
+  local candidates="$1" explicit="$2" default="$3" c
+  if [ -n "$explicit" ]; then
+    while IFS= read -r c; do
+      [ -n "$c" ] || continue
+      [ "$c" = "$explicit" ] && { printf '%s\n' "$explicit"; return 0; }
+    done <<EOF
+$candidates
+EOF
+    return 2
+  fi
+  local n; n="$(printf '%s\n' "$candidates" | grep -c . || true)"
+  if [ "$n" = "1" ]; then printf '%s\n' "$candidates" | tr -d '[:space:]'; return 0; fi
+  if [ -n "$default" ]; then
+    while IFS= read -r c; do
+      [ -n "$c" ] || continue
+      [ "$c" = "$default" ] && { printf '%s\n' "$default"; return 0; }
+    done <<EOF
+$candidates
+EOF
+  fi
+  return 3
+}
+
+# validate_mongo_container <name> — running + not explicitly unhealthy. Read-only.
+validate_mongo_container(){
+  local c="$1" hs
+  docker ps --format '{{.Names}}' | grep -qx "$c" || return 1
+  hs="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$c" 2>/dev/null || echo none)"
+  [ "$hs" = "unhealthy" ] && return 1
+  return 0
+}
