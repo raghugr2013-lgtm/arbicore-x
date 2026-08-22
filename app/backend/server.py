@@ -6312,6 +6312,23 @@ except Exception:  # noqa: BLE001
         "/api/auth/{status,setup,change-password,logout-all,refresh} will be 404"
     )
 
+# ---------------------------------------------------------------------------
+# Canonical scanner management router (D-1 surface): per-scanner
+# status/kill/resume/config/gate-analysis + discovery + venues endpoints.
+# All routes are auth-gated (Depends(require_auth)). Registering the router
+# only EXPOSES these read/config endpoints — it does not start any scanner,
+# sign, broadcast, or move capital. SHADOW/PAPER posture is unaffected.
+# ---------------------------------------------------------------------------
+try:
+    from arbicore.routes.scanners import router as scanners_router
+    app.include_router(scanners_router)
+    logger.info("canonical scanners router mounted (/api/arbicore/scanners/*)")
+except Exception:  # noqa: BLE001
+    logger.exception(
+        "canonical scanners router failed to import — "
+        "/api/arbicore/scanners/* management endpoints will be 404"
+    )
+
 
 @app.on_event("startup")
 async def _canonical_auth_provision_startup():
@@ -6863,19 +6880,59 @@ _ARBICORE_RUNTIME_INIT: Dict[str, Any] = {
 
 
 @app.on_event("startup")
+async def _arbicore_bootstrap_substrate():
+    """Always-run, execution-free substrate bootstrap.
+
+    Creates the idempotent arbicore_* indexes (incl. TTL indexes on
+    arbicore_state_snapshots / arbicore_audit_log) and seeds the canonical
+    scanner_config + scanner_state documents (6 each). Every seeded scanner
+    STATE row is dormant (``enabled=False``); nothing here starts a scanner,
+    signs, broadcasts, or moves capital. Decoupled from
+    ``ARBICORE_RUNTIME_AUTOSTART`` so the substrate exists in SHADOW/PAPER —
+    scanner *execution* remains gated in ``_arbicore_runtime_autostart``.
+    """
+    errors: Dict[str, str] = {}
+    # ── 1. arbicore_* index bootstrap (idempotent) ─────────────
+    try:
+        from arbicore.data.mongo.arbicore_collections import (
+            ensure_indexes as _ensure_arbicore_indexes,
+        )
+        await _ensure_arbicore_indexes()
+    except Exception as exc:  # noqa: BLE001
+        errors["arbicore_indexes"] = f"{type(exc).__name__}: {exc}"
+
+    # ── 2. discovery-layer + scanner config/state seeding ──────
+    try:
+        from arbicore.runtime import composition as _comp
+        await _comp.get_discovery_queue().ensure_indexes()
+        await _comp.get_venue_capability_repo().ensure_indexes()
+        await _comp.get_discovery_source_metrics().ensure_indexes()
+        cfg_repo = _comp.get_scanner_config_repo()
+        await cfg_repo.ensure_indexes()
+        await cfg_repo.seed_defaults()
+        state_repo = _comp.get_scanner_state_repo()
+        await state_repo.ensure_indexes()
+        await state_repo.seed_defaults()
+    except Exception as exc:  # noqa: BLE001
+        errors["discovery_bootstrap"] = f"{type(exc).__name__}: {exc}"
+
+    if errors:
+        logger.error("arbicore_bootstrap_substrate errors=%s", errors)
+    else:
+        logger.info("arbicore_bootstrap_substrate: indexes + scanner defaults seeded")
+
+
+@app.on_event("startup")
 async def _arbicore_runtime_autostart():
     """Boot the Wave1B scanners so their EmissionBus emissions reach the
     canonical opportunity repo used by Paper Validation + Shadow
     Certification.
 
-    We intentionally do NOT invoke the full ``initialise_arbicore_runtime()``
-    composition entrypoint because it also drives dormant Phase C
-    learners (OutcomeEvaluator, RegimeWorker, adaptive-weights refresh)
-    that carry drift bugs against the current data schema.  For the
-    live-scanner→canonical-opp emission path we only need:
-      1. arbicore_* index bootstrap
-      2. discovery-layer queue / venue caps / scanner state indexes
-      3. per-scanner instantiation + first cache prime + start()
+    Substrate seeding (indexes + scanner config/state defaults) is handled
+    unconditionally by ``_arbicore_bootstrap_substrate``. This handler only
+    INSTANTIATES + STARTS scanners, gated behind
+    ``ARBICORE_RUNTIME_AUTOSTART`` and the per-scanner ``ARBICORE_SCANNER_*``
+    env flags.
     """
     autostart = (os.environ.get("ARBICORE_RUNTIME_AUTOSTART") or "").strip().lower()
     if autostart not in ("1", "true", "yes", "on"):
@@ -6890,31 +6947,9 @@ async def _arbicore_runtime_autostart():
     started: List[str] = []
     errors: Dict[str, str] = {}
     try:
-        # ── 1. arbicore_* index bootstrap (idempotent) ─────────────
-        from arbicore.data.mongo.arbicore_collections import (
-            ensure_indexes as _ensure_arbicore_indexes,
-        )
-        try:
-            await _ensure_arbicore_indexes()
-        except Exception as exc:  # noqa: BLE001
-            errors["arbicore_indexes"] = f"{type(exc).__name__}: {exc}"
-
-        # ── 2. discovery-layer bootstrapping ───────────────────────
         from arbicore.runtime import composition as _comp
-        try:
-            await _comp.get_discovery_queue().ensure_indexes()
-            await _comp.get_venue_capability_repo().ensure_indexes()
-            await _comp.get_discovery_source_metrics().ensure_indexes()
-            cfg_repo = _comp.get_scanner_config_repo()
-            await cfg_repo.ensure_indexes()
-            await cfg_repo.seed_defaults()
-            state_repo = _comp.get_scanner_state_repo()
-            await state_repo.ensure_indexes()
-            await state_repo.seed_defaults()
-        except Exception as exc:  # noqa: BLE001
-            errors["discovery_bootstrap"] = f"{type(exc).__name__}: {exc}"
 
-        # ── 3. per-scanner instantiate + prime cache + start ───────
+        # ── per-scanner instantiate + prime cache + start ───────
         scanner_map = (
             ("cex_arb",         "get_cex_arb_scanner",         "ARBICORE_SCANNER_CEX_ARB"),
             ("funding_arb",     "get_funding_arb_scanner",     "ARBICORE_SCANNER_FUNDING_ARB"),
