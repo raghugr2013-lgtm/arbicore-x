@@ -48,19 +48,23 @@ HTTP_CODE="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8001/api/ |
 [ "$HTTP_CODE" = "200" ] || c_red "  WARN  old backend /api/ returned HTTP $HTTP_CODE (continuing — rollback still possible)"
 [ "$HTTP_CODE" = "200" ] && ok "old backend /api/ -> 200"
 
-log "Confirming audited backend source is staged at ./backend/ ..."
-[ -f "${ROOT_DIR}/backend/server.py" ] || die "missing ${ROOT_DIR}/backend/server.py — copy the audited backend/ into the bundle"
-[ -f "${ROOT_DIR}/backend/Dockerfile" ] || die "missing ${ROOT_DIR}/backend/Dockerfile (template ships in this bundle)"
-[ -f "${ROOT_DIR}/backend/requirements.txt" ] || die "missing ${ROOT_DIR}/backend/requirements.txt"
+log "Confirming canonical backend source at app/backend/ ..."
+[ -f "${ROOT_DIR}/../../app/backend/server.py" ] || die "missing ${ROOT_DIR}/../../app/backend/server.py — canonical backend source is absent"
+[ -f "${ROOT_DIR}/../../app/backend/requirements.txt" ] || die "missing ${ROOT_DIR}/../../app/backend/requirements.txt"
+[ -d "${ROOT_DIR}/../../app/backend/arbicore" ] || die "missing ${ROOT_DIR}/../../app/backend/arbicore — canonical backend source is incomplete"
+
+# Runtime .env is generated from the live production container by 00_detect_env.sh.
 [ -f "${ROOT_DIR}/backend/.env" ] || die "missing ${ROOT_DIR}/backend/.env — should have been baked by 00_detect_env.sh"
-# arbicore module presence (audited build)
-[ -d "${ROOT_DIR}/backend/arbicore" ] || c_red "  WARN  ${ROOT_DIR}/backend/arbicore not found — confirm you copied the FULL audited backend/"
-# B1: labels.json is bind-mounted by compose/docker-compose.prod.yml L27.
-# If missing, Docker silently creates an empty DIRECTORY at the mount target,
-# breaking the audited launch-arb subsystem. Hard-fail here, not at cutover.
-LABELS="${ROOT_DIR}/backend/arbicore/intel/launch/labels.json"
-[ -f "$LABELS" ] || die "missing $LABELS — required by compose bind mount; copy the FULL audited backend/"
-ok "backend source staged (incl. arbicore/intel/launch/labels.json)"
+
+# Canonical Dockerfile remains in the upgrade bundle and is consumed by the
+# compose build using app/backend as the build context.
+[ -f "${ROOT_DIR}/backend/Dockerfile" ] || die "missing ${ROOT_DIR}/backend/Dockerfile"
+
+# B1: labels.json is bind-mounted by compose/docker-compose.prod.yml.
+LABELS="${ROOT_DIR}/../../app/backend/arbicore/intel/launch/labels.json"
+[ -f "$LABELS" ] || die "missing $LABELS — required by compose bind mount"
+
+ok "canonical backend source staged at app/backend/ (incl. arbicore/intel/launch/labels.json)"
 
 log "Confirming compose env was generated ..."
 [ -f "$COMPOSE_ENV" ] || die "missing $COMPOSE_ENV — run 00_detect_env.sh"

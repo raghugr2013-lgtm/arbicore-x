@@ -24,7 +24,13 @@ MONGO_COUNT="$(printf '%s\n' "$MONGO_CANDIDATES" | grep -c . || true)"
 #   3. the authoritative default ($ARBICORE_DEFAULT_MONGO, e.g. arbicore-x-mongo)
 EXPLICIT_MONGO="${MONGO_CONTAINER:-}"
 if [ -z "$EXPLICIT_MONGO" ] && [ -f "$DEPLOY_ENV" ]; then
-  EXPLICIT_MONGO="$(grep -E '^MONGO_CONTAINER=' "$DEPLOY_ENV" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+  EXPLICIT_MONGO="$(
+  (
+    set -a
+    source "$DEPLOY_ENV"
+    printf '%s' "${MONGO_CONTAINER:-}"
+  )
+)"
 fi
 set +e
 MONGO_CONTAINER="$(choose_mongo_container "$MONGO_CANDIDATES" "$EXPLICIT_MONGO" "$ARBICORE_DEFAULT_MONGO")"
