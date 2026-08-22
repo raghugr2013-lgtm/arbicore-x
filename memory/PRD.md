@@ -202,6 +202,14 @@ System MUST remain SHADOW/PAPER until explicit operator approval. No deploy/broa
 - Remaining USER secrets (NOT chat): (1) execution signer key → encrypted vault → unblocks SIGNER+ATOMIC_EXECUTOR_SIM+SIMULATION_ONCHAIN; (2) dedicated Alchemy Base RPC → removes rate-limit fragility, lifts REAL quote coverage; (3) archive/fork RPC + anvil → unblocks FORK_VALIDATION.
 - Remaining ENGINEERING (post-secrets): wire real fork exec in `AnvilForkHarness.run_fork_validation` once anvil+archive RPC land; run full `simulate_atomic` through deployed executor once signer present.
 
+## Done — 2026-06 (Atomic-sim diagnostics A + B — diagnosis/parity only, NO execution changes)
+- **B**: `POST /engine/run-atomic-sim` returns full replay `artifact` (executor, entrypoint, selector, from, borrow token/amount, flash_vault, settlement_target, tokens, amounts, hops w/ fee_ppm+amountOutMin+sqrtLimit, userData, profit_recipient, calldata_hex) + `execution_context`. Never echoes private key / vault material / RPC URL.
+- **A**: `POST /engine/run-atomic-sim` accepts optional `{block_number, fork_rpc}`. `block_number` prefers a LOCAL anvil fork (new `anvil_fork()` async ctx mgr in executor_entrypoint.py), falls back to archive-RPC historical eth_call `hex(block)`. `fork_rpc` runs against an operator fork endpoint. All READ-ONLY; signed/broadcast always false.
+- Honest semantics preserved: only `live_rpc_latest` PASS updates `_ATOMIC_LIVE_RUN`/SIMULATION_ONCHAIN. Block-pinned/fork runs stored in `_ATOMIC_DIAG_RUN` (`diagnostic=true`) and NEVER flip the live matrix (rule 6/7 honored).
+- Verified live: B artifact returns correct calldata (selector 0x64ba4bc1, settlement UniV3 SwapRouter02, flash Balancer V2 Vault, no secret leak); A local-anvil-fork path `mode=block_pinned_anvil_fork fork_block=50218031`; archive fallback `mode=block_pinned_archive_rpc`. Tests: A/B + calldata + execution-capability + atomic-gate 75/75 PASS.
+- TRUTH re-confirmed from tests+history: atomic sim NEVER passed in Emergent (iter16/17/18 assert passed=False, SIMULATION_ONCHAIN=YELLOW). VPS reproduces Emergent exactly — no parity bug. Revert = deterministic economics (same-tier round trip loses fees, cannot repay 0-fee Balancer loan). 0 profitable fixtures in evidence (alerts=0, executable=0).
+- Preview-only test contradiction documented in `/app/memory/atomic_sim_diagnostics.md`: older tests assume anvil ABSENT, newer assume PRESENT; VPS has anvil so iter17/18 are authoritative. Not a code regression.
+
 ## Done — 2026-06 (VPS non-destructive deployment runbook — operator-confirmed facts)
 - Operator confirmed authoritative prod DB: `factory-mongo` (Mongo 7.0.39) → `arbicore_x`, volume `factory-mongo_factory_mongo_data`, target `factory-mongo:27017`. `arbicore-x-mongo` (Mongo 4.4) is NON-authoritative — never switch/migrate to it.
 - Preserve exactly (no rotation/change): `VAULT_KEY`, `MONGO_URL`, `DB_NAME=arbicore_x`. Untouched: factory-mongo, its volume, Caddy, backups.

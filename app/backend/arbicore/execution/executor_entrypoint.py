@@ -258,4 +258,70 @@ class AnvilForkHarness:
                         pass
 
 
-__all__ = ["build_executor_entrypoint_calldata", "AnvilForkHarness"]
+__all__ = ["build_executor_entrypoint_calldata", "AnvilForkHarness", "anvil_fork"]
+
+
+import contextlib
+
+
+@contextlib.asynccontextmanager
+async def anvil_fork(block_number: Optional[int] = None, *, port: int = 8546):
+    """Async context manager: spawn a local Anvil Base fork (optionally pinned
+    to ``block_number``), yield ``{"ok","local_url","fork_block","reason"}``,
+    and always tear the process down. READ-ONLY use only — the caller runs
+    eth_call against the local fork; nothing is signed or broadcast, and no
+    real chain state is modified.
+
+    On ``ok=False`` (anvil missing / archive RPC absent / did not come up) the
+    caller must fall back honestly — this NEVER fabricates a fork."""
+    import asyncio
+    import httpx
+
+    harness = AnvilForkHarness(port=port)
+    rd = harness.readiness()
+    if not rd["ready_to_run"]:
+        yield {"ok": False, "local_url": None, "fork_block": None, "reason": rd["reason"]}
+        return
+
+    local_url = f"http://127.0.0.1:{harness._port}"
+    cmd = [rd["anvil_path"], "--fork-url", harness._fork_rpc,
+           "--port", str(harness._port), "--silent"]
+    if block_number is not None:
+        cmd += ["--fork-block-number", str(int(block_number))]
+
+    proc = None
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+        fork_block = None
+        for _ in range(40):  # ~20s
+            if proc.returncode is not None:
+                yield {"ok": False, "local_url": None, "fork_block": None,
+                       "reason": f"anvil exited early (code {proc.returncode})"}
+                return
+            try:
+                async with httpx.AsyncClient(timeout=8) as c:
+                    r = await c.post(local_url, json={"jsonrpc": "2.0", "id": 1,
+                                                      "method": "eth_blockNumber", "params": []})
+                res = r.json().get("result")
+                if isinstance(res, str):
+                    fork_block = int(res, 16)
+                    break
+            except Exception:  # noqa: BLE001
+                pass
+            await asyncio.sleep(0.5)
+        if fork_block is None:
+            yield {"ok": False, "local_url": None, "fork_block": None,
+                   "reason": "anvil fork did not become ready within timeout"}
+            return
+        yield {"ok": True, "local_url": local_url, "fork_block": fork_block, "reason": None}
+    finally:
+        if proc is not None and proc.returncode is None:
+            try:
+                proc.terminate()
+                await asyncio.wait_for(proc.wait(), timeout=5)
+            except Exception:  # noqa: BLE001
+                try:
+                    proc.kill()
+                except Exception:  # noqa: BLE001
+                    pass

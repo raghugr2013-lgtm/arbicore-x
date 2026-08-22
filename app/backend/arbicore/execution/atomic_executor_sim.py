@@ -41,14 +41,16 @@ class AtomicExecutorSimulator:
         self._executor = executor_address or os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
         self._bytecode = executor_bytecode or os.environ.get("ARBICORE_EXECUTOR_BYTECODE")
 
-    async def _raw_eth_call(self, params: List[Any]) -> Dict[str, Any]:
+    async def _raw_eth_call(self, params: List[Any],
+                            rpc_url: Optional[str] = None) -> Dict[str, Any]:
         from .quoter import _throttle, _is_rate_limited
+        target = rpc_url or self._rpc
         last: Dict[str, Any] = {}
         for attempt in range(5):
             await _throttle()
             async with httpx.AsyncClient(timeout=15) as c:
-                r = await c.post(self._rpc, json={"jsonrpc": "2.0", "id": 1,
-                                                  "method": "eth_call", "params": params})
+                r = await c.post(target, json={"jsonrpc": "2.0", "id": 1,
+                                               "method": "eth_call", "params": params})
             body = r.json()
             if _is_rate_limited(body.get("error")):
                 last = body
@@ -83,14 +85,24 @@ class AtomicExecutorSimulator:
     async def simulate_atomic(self, *, entry_calldata: str,
                               state_overrides: Optional[Dict[str, Any]] = None,
                               value_wei: int = 0, signer_present: bool = False,
-                              from_address: Optional[str] = None) -> Dict[str, Any]:
+                              from_address: Optional[str] = None,
+                              rpc_url_override: Optional[str] = None,
+                              block_tag: str = "latest") -> Dict[str, Any]:
         """Full atomic simulation of the executor entrypoint.
 
         The executor is a DEPLOYED contract, so we eth_call it live (no code
         injection needed); ``from_address`` is the vault signer's public address
         and ``state_overrides`` inject its approvals/balances. Gated on a signer
-        being present in the vault. Never signs or broadcasts — pure eth_call."""
-        if not self._rpc:
+        being present in the vault. Never signs or broadcasts — pure eth_call.
+
+        Diagnostic replay knobs (read-only, never sign/broadcast):
+          * ``rpc_url_override`` — run the eth_call against a specific endpoint
+            (e.g. a local Anvil fork ``http://127.0.0.1:8546``).
+          * ``block_tag`` — the block parameter for eth_call ("latest" for live
+            current state, or ``hex(block_number)`` for archive-RPC historical
+            state). The URL is NEVER echoed back (may carry an API key)."""
+        target_rpc = rpc_url_override or self._rpc
+        if not target_rpc:
             return {"available": False, "passed": False, "reason": "ARBICORE_RPC_URL not configured"}
         if not self._executor:
             return {"available": False, "passed": False,
@@ -110,15 +122,18 @@ class AtomicExecutorSimulator:
         if from_address:
             call_obj["from"] = from_address
         try:
-            body = await self._raw_eth_call([call_obj, "latest", overrides or {}])
+            body = await self._raw_eth_call([call_obj, block_tag, overrides or {}],
+                                            rpc_url=target_rpc)
         except Exception as exc:  # noqa: BLE001
-            return {"available": True, "passed": False, "reason": f"rpc error: {exc}"}
+            return {"available": True, "passed": False, "reason": f"rpc error: {exc}",
+                    "block_tag": block_tag}
         if "error" in body:
             return {"available": True, "passed": False, "stage": "atomic_call",
                     "reason": f"executor reverted: {body['error'].get('message')}",
-                    "signed": False, "broadcast": False}
+                    "block_tag": block_tag, "signed": False, "broadcast": False}
         return {"available": True, "passed": True, "stage": "atomic_call",
-                "result": body.get("result"), "signed": False, "broadcast": False}
+                "result": body.get("result"), "block_tag": block_tag,
+                "signed": False, "broadcast": False}
 
 
 __all__ = ["AtomicExecutorSimulator"]

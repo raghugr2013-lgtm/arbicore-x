@@ -394,6 +394,7 @@ _RPC_CAPS: Dict[str, Any] = {}
 _SETTLEMENT_SELFTEST: Dict[str, Any] = {}
 _ATOMIC_SELFTEST: Dict[str, Any] = {}
 _ATOMIC_LIVE_RUN: Dict[str, Any] = {}   # last live atomic sim vs deployed executor
+_ATOMIC_DIAG_RUN: Dict[str, Any] = {}   # last DIAGNOSTIC (block-pinned/fork) atomic sim — never feeds live matrix
 _FORK_RUN: Dict[str, Any] = {}          # last genuine anvil fork validation result
 
 
@@ -4939,24 +4940,42 @@ async def v2_engine_run_fork_validation(body: Dict[str, Any] = None) -> Dict[str
     return {"fork_validation": result, "generated_at": _iso_now()}
 
 
-async def _run_live_atomic_sim() -> Dict[str, Any]:
+async def _run_live_atomic_sim(*, block_number: Optional[int] = None,
+                               fork_rpc: Optional[str] = None) -> Dict[str, Any]:
     """Run the atomic executor state-override simulation against the DEPLOYED
     executor using its REAL ABI (recovered from source): entrypoint
     ``execute(address[],uint256[],bytes)`` (Balancer V2 flash) with
     ``userData = abi.encode(SwapHop[], profitRecipient)`` and Uniswap V3
     exactInputSingle hops. Pure eth_call from the owner/signer — never
     signs/broadcasts. A revert is a deterministic on-chain result classified
-    below (economics / swap / repayment / decode)."""
+    below (economics / swap / repayment / decode).
+
+    Diagnostic replay (A) — READ-ONLY, never signs/broadcasts, never modifies
+    real chain state, never touches the LIVE readiness matrix:
+      * ``fork_rpc`` — run the eth_call against an operator-provided fork
+        endpoint (e.g. an already-running Anvil). URL is never echoed.
+      * ``block_number`` — pin to a historical block. Prefers a LOCAL Anvil
+        fork (``--fork-block-number``); falls back to a direct archive-RPC
+        eth_call at ``hex(block)`` when Anvil is unavailable.
+    Only a ``live_rpc_latest`` pass updates SIMULATION_ONCHAIN; block-pinned /
+    fork runs are stored as separate diagnostic evidence (honest semantics)."""
     from arbicore.execution.signer_vault import signer_status
-    from arbicore.execution.calldata import encode_executor_execute, build_user_data_from_hops
+    from arbicore.execution.calldata import (encode_executor_execute,
+                                             build_user_data_from_hops,
+                                             UNISWAP_V3_ROUTER_BY_CHAIN,
+                                             BALANCER_V2_VAULT_BY_CHAIN)
+    from arbicore.execution.executor_entrypoint import anvil_fork
+
+    diagnostic = bool(block_number is not None or fork_rpc)
+    slot = _ATOMIC_DIAG_RUN if diagnostic else _ATOMIC_LIVE_RUN
 
     executor = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
     st = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
     if not (st.get("present") and executor):
         res = {"available": False, "passed": False,
                "reason": "signer not in vault or executor not configured"}
-        _ATOMIC_LIVE_RUN.clear(); _ATOMIC_LIVE_RUN.update({**res, "ran_at": _iso_now()})
-        return _ATOMIC_LIVE_RUN
+        slot.clear(); slot.update({**res, "ran_at": _iso_now()})
+        return dict(slot)
 
     WETH = "0x4200000000000000000000000000000000000006"
     USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
@@ -4975,11 +4994,72 @@ async def _run_live_atomic_sim() -> Dict[str, Any]:
                                        amounts=[borrow], user_data_hex=user_data)
     except Exception as exc:  # noqa: BLE001
         res = {"available": True, "passed": False, "reason": f"calldata encode failed: {exc}"}
-        _ATOMIC_LIVE_RUN.clear(); _ATOMIC_LIVE_RUN.update({**res, "ran_at": _iso_now()})
-        return _ATOMIC_LIVE_RUN
+        slot.clear(); slot.update({**res, "ran_at": _iso_now()})
+        return dict(slot)
 
-    res = await _ATOMIC_SIM.simulate_atomic(
-        entry_calldata=call.calldata_hex, signer_present=True, from_address=signer)
+    # (B) Complete diagnostic execution artifact — deterministic replay/tracing.
+    # NEVER includes any private key / vault material / RPC URL (may carry a key).
+    artifact = {
+        "executor": executor,
+        "entrypoint": "execute(address[],uint256[],bytes)",
+        "selector": call.selector_hex,
+        "from": signer,
+        "borrow_token": WETH,
+        "borrow_amount_wei": borrow,
+        "flash_provider": "balancer_v2",
+        "flash_vault": BALANCER_V2_VAULT_BY_CHAIN.get("base"),
+        "settlement_target": UNISWAP_V3_ROUTER_BY_CHAIN.get("base"),  # UniV3 SwapRouter02
+        "settlement_venue": "uniswap_v3",
+        "tokens": [WETH],
+        "amounts": [borrow],
+        "hops": [
+            {"index": i, "token_in": h["token_in"], "token_out": h["token_out"],
+             "fee_ppm": int(h["fee_tier_bps"]) * 100,
+             "fee_tier": f"{(int(h['fee_tier_bps']) * 100) / 10000:.2f}%",
+             "amount_in_wei": int(h.get("amount_in_wei") or 0),
+             "amount_out_minimum_wei": int(h["amount_out_min_wei"]),
+             "sqrt_price_limit_x96": int(h.get("sqrt_price_limit_x96") or 0)}
+            for i, h in enumerate(hops)
+        ],
+        "user_data": user_data,
+        "profit_recipient": signer,
+        "calldata_hex": call.calldata_hex,
+        "value_wei": 0,
+    }
+
+    # (A) Determine the simulation context + endpoint/block.
+    async def _sim(rpc_override, block_tag):
+        return await _ATOMIC_SIM.simulate_atomic(
+            entry_calldata=call.calldata_hex, signer_present=True,
+            from_address=signer, rpc_url_override=rpc_override, block_tag=block_tag)
+
+    rpc_context: Dict[str, Any] = {}
+    if fork_rpc:
+        # Operator-provided external fork (e.g. their own anvil). URL not echoed.
+        res = await _sim(fork_rpc, "latest")
+        rpc_context = {"mode": "block_pinned_fork_external", "fork": True,
+                       "rpc_source": "operator_fork_rpc", "block": "fork_latest",
+                       "block_number": block_number}
+    elif block_number is not None:
+        # Prefer a LOCAL Anvil fork pinned to the block; fall back to archive RPC.
+        async with anvil_fork(int(block_number)) as fk:
+            if fk.get("ok"):
+                res = await _sim(fk["local_url"], "latest")
+                rpc_context = {"mode": "block_pinned_anvil_fork", "fork": True,
+                               "rpc_source": "local_anvil", "block": "fork_block",
+                               "block_number": block_number, "fork_block": fk.get("fork_block")}
+            else:
+                # Archive fallback: historical state via the live archive RPC.
+                res = await _sim(None, hex(int(block_number)))
+                rpc_context = {"mode": "block_pinned_archive_rpc", "fork": False,
+                               "rpc_source": "ARBICORE_RPC_URL", "block": hex(int(block_number)),
+                               "block_number": block_number,
+                               "anvil_fallback_reason": fk.get("reason")}
+    else:
+        res = await _sim(None, "latest")
+        rpc_context = {"mode": "live_rpc_latest", "fork": False,
+                       "rpc_source": "ARBICORE_RPC_URL", "block": "latest",
+                       "block_number": None}
 
     # Classify the deterministic on-chain outcome (honest — never GREEN on revert).
     reason = str(res.get("reason") or "")
@@ -5006,9 +5086,14 @@ async def _run_live_atomic_sim() -> Dict[str, Any]:
     res["entrypoint"] = "execute(address[],uint256[],bytes)"
     res["venue"] = "balancer_v2_flash + uniswap_v3_swaps"
     res["route"] = "WETH→USDC→WETH @ 0.05% (representative UniV3-only)"
-    _ATOMIC_LIVE_RUN.clear()
-    _ATOMIC_LIVE_RUN.update({**res, "ran_at": _iso_now()})
-    return _ATOMIC_LIVE_RUN
+    res["execution_context"] = rpc_context           # (A) live vs block-pinned fork evidence
+    res["diagnostic"] = diagnostic
+    res["artifact"] = artifact                        # (B) complete replay artifact
+    res["signed"] = False
+    res["broadcast"] = False
+    slot.clear()
+    slot.update({**res, "ran_at": _iso_now()})
+    return dict(slot)
 
 
 _EXECUTOR_ABI_CACHE: Dict[str, Any] = {}   # last-good executor ABI inspection
@@ -5036,10 +5121,23 @@ async def v2_engine_executor_abi() -> Dict[str, Any]:
 
 @api_router.post("/arbicore/engine/run-atomic-sim",
                  dependencies=[Depends(_require_operator_dep)])
-async def v2_engine_run_atomic_sim() -> Dict[str, Any]:
+async def v2_engine_run_atomic_sim(body: Dict[str, Any] = None) -> Dict[str, Any]:
     """Execute ATOMIC_EXECUTOR_SIM + SIMULATION_ONCHAIN against the deployed
-    executor with the vault signer. Returns the deterministic eth_call result."""
-    result = await _run_live_atomic_sim()
+    executor with the vault signer. Returns the deterministic eth_call result
+    plus a complete replay/trace artifact (calldata, hops, userData, context).
+
+    Optional body (diagnostic, READ-ONLY — never signs/broadcasts):
+      * ``block_number`` (int) — pin the sim to a historical block (prefers a
+        local Anvil fork, falls back to archive-RPC historical state).
+      * ``fork_rpc`` (str) — run against an operator-provided fork endpoint.
+    A live (default) pass updates SIMULATION_ONCHAIN; block-pinned/fork runs are
+    returned as separate diagnostic evidence and never flip the live matrix."""
+    b = body or {}
+    block_number = b.get("block_number")
+    fork_rpc = b.get("fork_rpc")
+    result = await _run_live_atomic_sim(
+        block_number=int(block_number) if block_number is not None else None,
+        fork_rpc=str(fork_rpc) if fork_rpc else None)
     return {"atomic_sim": result, "generated_at": _iso_now()}
 
 
