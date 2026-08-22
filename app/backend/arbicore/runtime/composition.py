@@ -709,7 +709,16 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
     if _flash_loan_arb_scanner is None:
         cfg_repo = get_scanner_config_repo()
         state_repo = get_scanner_state_repo()
-        cache = {"cfg": dict(), "state": {"enabled": False}}
+        # Canonical activation: detection ENABLED by default (SHADOW/detection
+        # only — emission is still fully gated by the economic/atomic/MEV gates
+        # in the verifier, and execution by the mode ladder + AutoExecutor).
+        cache = {"cfg": {"interval_s": 60.0,
+                          "chains": {"base": {"enabled": True}},
+                          "providers": {"balancer_v2": {"enabled": True}},
+                          "route_search": {"max_hops": 3, "wall_clock_cap_s": 3.0,
+                                            "candidate_cap": 48, "min_pool_tvl_usd": 0.0},
+                          "gate_thresholds": {"default": {}}},
+                 "state": {"enabled": True}}
 
         def _load_cfg():
             return cache["cfg"] or {}
@@ -718,17 +727,26 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             return cache["state"] or {}
 
         async def _refresh_caches_once():
+            # Merge operator overrides from the repos WITHOUT disabling the
+            # canonical detection plane (repo default ships enabled=False; a
+            # canonical activation keeps detection on unless an operator has
+            # explicitly written enabled=False).
             try:
-                cache["cfg"] = await cfg_repo.get("flash_loan_arb")
-                cache["state"] = await state_repo.get("flash_loan_arb")
+                rc = await cfg_repo.get("flash_loan_arb")
+                if rc:
+                    cache["cfg"] = {**cache["cfg"], **rc}
+                rs = await state_repo.get("flash_loan_arb")
+                if isinstance(rs, dict) and rs.get("enabled") is False and rs.get("_operator_set"):
+                    cache["state"] = {"enabled": False}
             except Exception:
                 pass
 
-        # Default empty pool loader — operator must inject a real loader
-        # before route search yields cycles. Detection without a loader
-        # produces zero candidates (visibly counted, never emitted).
-        def _empty_pool_loader(chain: str):
-            return []
+        # Real Base pool universe (SAME graph the OpportunityEngine uses).
+        from ..discovery.base_venues import CHAIN as _BASE_CHAIN, build_pool_graph as _bpg
+        _base_pools, _ = _bpg()
+
+        def _base_pool_loader(chain: str):
+            return _base_pools if chain == _BASE_CHAIN else []
 
         _flash_loan_arb_scanner = FlashLoanArbitrageScanner(
             emission_bus=get_emission_bus(),
@@ -736,13 +754,42 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             venue_capability_repo=get_venue_capability_repo(),
             config_loader=_load_cfg,
             state_loader=_load_state,
-            pool_loader=_empty_pool_loader,
-            quote_provider=None,
+            pool_loader=_base_pool_loader,
+            quote_provider=None,   # set to the live provider at activation
             chain_liveness_loader=None,
             confidence_engine=get_confidence_engine(),
         )
         _flash_loan_arb_scanner._refresh_caches_once = _refresh_caches_once  # type: ignore[attr-defined]
     return _flash_loan_arb_scanner
+
+
+async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
+    """STAGE 1 canonical activation of the REAL FlashLoanArbitrageScanner.
+
+    Wires the live Base quote provider (same QuoterRegistry as the
+    OpportunityEngine) and starts detection. Detection-only / SHADOW: emission
+    remains gated by the economic + atomic-profit + liquidity + MEV gates in the
+    verifier, and execution by the mode ladder + AutoExecutor. Never signs or
+    broadcasts. Idempotent."""
+    from ..scanners.flash_loan_arbitrage.live_quote_provider import make_live_quote_provider
+    scanner = get_flash_loan_arb_scanner()
+    scanner.set_quote_provider(make_live_quote_provider(quoter_registry))
+    await scanner.start()
+    return {
+        "instantiated": True,
+        "class": "FlashLoanArbitrageScanner",
+        "scanner_id": scanner.scanner_id,
+        "quote_provider": "live" if not scanner.quote_provider_is_default else "noop",
+        "pool_universe_size": len(_base_pools_size()),
+        "enabled": scanner.is_enabled(),
+        "detection_only": True,
+    }
+
+
+def _base_pools_size():
+    from ..discovery.base_venues import build_pool_graph as _bpg
+    pools, _ = _bpg()
+    return pools
 
 
 def _register_default_state_observers() -> int:

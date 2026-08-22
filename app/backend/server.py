@@ -6817,6 +6817,31 @@ async def _scanners_activate_startup():
         logger.exception("scanners: activation failed: %s", exc)
 
 
+_CANONICAL_FL_SCANNER = None          # real FlashLoanArbitrageScanner (canonical)
+_CANONICAL_FL_ACTIVATION: Dict[str, Any] = {}
+
+
+@app.on_event("startup")
+async def _canonical_flash_loan_scanner_startup():
+    """STAGE 1 — activate the REAL canonical FlashLoanArbitrageScanner
+    (discovery over the real Base pool universe + live QuoterRegistry). This
+    supersedes the dormant wave1b ShadowScannerAdapter for flash-loan discovery.
+    Detection-only / SHADOW: emission is gated by the verifier's economic +
+    atomic-profit + liquidity + MEV gates, and execution by the mode ladder +
+    AutoExecutor. Never signs or broadcasts."""
+    global _CANONICAL_FL_SCANNER, _CANONICAL_FL_ACTIVATION
+    try:
+        from arbicore.runtime import composition as _composition
+        _CANONICAL_FL_ACTIVATION = await _composition.activate_canonical_flash_loan_scanner(
+            _QUOTER_REGISTRY)
+        _CANONICAL_FL_SCANNER = _composition.get_flash_loan_arb_scanner()
+        logger.info("scanners: canonical FlashLoanArbitrageScanner ACTIVE — %s",
+                    _CANONICAL_FL_ACTIVATION)
+    except Exception as exc:  # noqa: BLE001
+        _CANONICAL_FL_ACTIVATION = {"instantiated": False, "error": f"{type(exc).__name__}: {exc}"}
+        logger.exception("scanners: canonical flash-loan activation failed: %s", exc)
+
+
 # ---------------------------------------------------------------------------
 # v2.11.9 · Wave1B individual scanners (CEX / DEX / Flash Loan / Funding /
 # Cross Chain / Launch) — instantiated + started via
@@ -6958,6 +6983,28 @@ async def scanners_status() -> Dict[str, Any]:
         "mode": "shadow",
         **_SCANNER_ACTIVATION.summary(),
         "generated_at": _iso_now(),
+    }
+    # STAGE 1 — canonical real flash-loan scanner (supersedes the dormant
+    # wave1b ShadowScannerAdapter for flash_loan_arbitrage discovery).
+    canonical = {"instantiated": False}
+    if _CANONICAL_FL_SCANNER is not None:
+        canonical = {
+            **_CANONICAL_FL_ACTIVATION,
+            "instantiated": True,
+            "authoritative": True,
+            "detection_only": True,
+            "stats": _CANONICAL_FL_SCANNER.stats,
+            "quote_provider": ("noop" if _CANONICAL_FL_SCANNER.quote_provider_is_default
+                               else "live"),
+            "enabled": _CANONICAL_FL_SCANNER.is_enabled(),
+        }
+    else:
+        canonical = {**_CANONICAL_FL_ACTIVATION, "instantiated": False}
+    payload["canonical_flash_loan_arbitrage"] = canonical
+    # Mark the legacy shadow adapter as non-authoritative for this family.
+    payload["flash_loan_arbitrage_shadow_adapter"] = {
+        "authoritative": False,
+        "note": "superseded by canonical FlashLoanArbitrageScanner (STAGE 1)",
     }
     if _INTEL_ACTIVATION is not None:
         payload["intelligence_bridge_stats"] = (

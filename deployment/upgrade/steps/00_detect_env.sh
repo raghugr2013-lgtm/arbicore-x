@@ -41,6 +41,9 @@ ok "MONGO_URL: $(printf '%s' "$MONGO_URL" | sed -E 's#//[^@]*@#//***@#')   DB_NA
 
 # Provenance / image tag
 GITSHA="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "$(date +%Y%m%d)")"
+GITTAG="$(git -C "$ROOT_DIR" describe --tags --always --dirty 2>/dev/null || echo "$GITSHA")"
+BUILD_TIME="$(date -u +%FT%TZ)"
+APP_VERSION="$GITTAG"
 IMAGE_TAG="arbicore-x-backend:0.1.0-realign-${GITSHA}"
 BACKEND_NEW="arbicore-x-backend"
 [ "$BACKEND_NEW" = "$BACKEND_OLD" ] && BACKEND_NEW="arbicore-x-backend-new"  # avoid name collision
@@ -65,6 +68,9 @@ NETWORK_NAME=${NETWORK_NAME}
 IMAGE_TAG=${IMAGE_TAG}
 BACKEND_NEW=${BACKEND_NEW}
 GITSHA=${GITSHA}
+GITTAG=${GITTAG}
+BUILD_TIME=${BUILD_TIME}
+APP_VERSION=${APP_VERSION}
 EOF
 ok "compose/.env written"
 
