@@ -56,9 +56,32 @@ log "Resolving Mongo hostname on the network (for new backend MONGO_URL)..."
 OLD_ENV="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$BACKEND_OLD" 2>/dev/null || true)"
 get_old(){ printf '%s\n' "$OLD_ENV" | grep -E "^$1=" | head -n1 | cut -d= -f2-; }
 
-MONGO_URL="$(get_old MONGO_URL)"; [ -n "$MONGO_URL" ] || MONGO_URL="mongodb://${MONGO_CONTAINER}:27017"
+MONGO_URL="mongodb://${MONGO_CONTAINER}:27017"
+OLD_MONGO_URL="$(get_old MONGO_URL)"
+if [ -n "${ARBICORE_MONGO_URL:-}" ]; then
+  # Operator-authoritative full override.
+  MONGO_URL="$ARBICORE_MONGO_URL"
+  ok "MONGO_URL: operator override via ARBICORE_MONGO_URL"
+elif [ -n "$OLD_MONGO_URL" ]; then
+  OLD_HOST="$(mongo_url_host "$OLD_MONGO_URL")"
+  if [ "$OLD_HOST" = "$MONGO_CONTAINER" ]; then
+    MONGO_URL="$OLD_MONGO_URL"   # already consistent with the selected container
+  else
+    # Reconcile the host to the authoritative container the preflight selected,
+    # preserving credentials / authSource / query / path. Loudly reported —
+    # never silently trusts a stale host.
+    MONGO_URL="$(rewrite_mongo_host "$OLD_MONGO_URL" "$MONGO_CONTAINER")"
+    c_red "  WARN - old backend MONGO_URL host '$OLD_HOST' != selected authoritative Mongo '$MONGO_CONTAINER'."
+    c_red "         Reconciled host -> '$MONGO_CONTAINER' (credentials/authSource/DB preserved)."
+    c_red "         If '$OLD_HOST' is in fact authoritative, set MONGO_CONTAINER=$OLD_HOST"
+    c_red "         (or ARBICORE_MONGO_URL=<full-url>) and re-run 00_detect_env.sh."
+  fi
+fi
 DB_NAME="$(get_old DB_NAME)";     [ -n "$DB_NAME" ] || DB_NAME="arbicore_x_prod"
 ok "MONGO_URL: $(printf '%s' "$MONGO_URL" | sed -E 's#//[^@]*@#//***@#')   DB_NAME: $DB_NAME"
+# Consistency guarantee: the generated URL host MUST equal the selected container.
+[ "$(mongo_url_host "$MONGO_URL")" = "$MONGO_CONTAINER" ] || [ -n "${ARBICORE_MONGO_URL:-}" ] \
+  || die "internal: MONGO_URL host does not match selected container '$MONGO_CONTAINER'"
 
 # Provenance / image tag
 GITSHA="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "$(date +%Y%m%d)")"

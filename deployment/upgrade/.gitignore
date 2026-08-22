@@ -1,0 +1,5 @@
+# Runtime deployment state (backups/logs) — never commit.
+.state/
+compose/.env
+deploy.env
+backend/.env
