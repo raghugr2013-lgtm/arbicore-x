@@ -11,8 +11,11 @@
 services:
   backend:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      # Context = the real backend source (contains requirements.txt AND the
+      # app tree for `COPY . /app`). Dockerfile stays canonical under
+      # deployment/upgrade/backend/ and is referenced relative to the context.
+      context: ../../../app/backend
+      dockerfile: ../../deployment/upgrade/backend/Dockerfile
       args:
         GITSHA: ${GITSHA:-unknown}
         GITTAG: ${GITTAG:-unknown}

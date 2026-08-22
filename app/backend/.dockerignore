@@ -1,0 +1,12 @@
+# Build context hygiene for the canonical upgrade image (context = app/backend).
+# Secrets are mounted via env_file at runtime, never baked into the image.
+.env
+.env.*
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+tests/
+test_reports/
+*.log
+.DS_Store
