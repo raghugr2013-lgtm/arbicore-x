@@ -95,9 +95,10 @@ GITTAG="$(git -C "$ROOT_DIR" describe --tags --always --dirty 2>/dev/null || ech
 BUILD_TIME="$(date -u +%FT%TZ)"
 APP_VERSION="$GITTAG"
 # Unambiguous image identity: <repo-semver>-<short-sha> (no static 0.1.0-realign
-# prefix that would collide across different commits). Falls back to the short
-# SHA if the VERSION file is missing.
-APP_SEMVER="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION" 2>/dev/null || true)"
+# prefix that would collide across different commits). VERSION is resolved from
+# the REPOSITORY ROOT (REPO_ROOT), NOT the deployment/upgrade dir. Falls back to
+# 0.0.0 only if the repo VERSION file is genuinely absent (never hardcoded).
+APP_SEMVER="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION" 2>/dev/null || true)"
 [ -n "$APP_SEMVER" ] || APP_SEMVER="0.0.0"
 IMAGE_TAG="arbicore-x-backend:${APP_SEMVER}-${GITSHA}"
 BACKEND_NEW="arbicore-x-backend"

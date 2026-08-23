@@ -1,4 +1,36 @@
 <!-- ============================================================ -->
+<!-- VPS DEPLOY FIX — VERSION RESOLVED FROM REPO ROOT (2026-06) -->
+<!-- ============================================================ -->
+## ArbiCore X — deploy script now resolves VERSION from the repository root (2026-06)
+
+**Issue (VPS preflight):** `00_detect_env.sh` read `$ROOT_DIR/VERSION`, but
+`ROOT_DIR` (from `common.sh`) is the `deployment/upgrade` dir — so it looked at
+`deployment/upgrade/VERSION` (absent) and produced
+`IMAGE_TAG=arbicore-x-backend:0.0.0-dfda1ec` instead of `…:2.9.2-dfda1ec`.
+
+**Fix (deploy scripts only; no app/arch/Mongo/secret change):**
+- `lib/common.sh`: added `REPO_ROOT` = `git rev-parse --show-toplevel` with a
+  `ROOT_DIR/../..` fallback (deployment/upgrade → repo root two levels up). No
+  hardcoded version.
+- `00_detect_env.sh`: `APP_SEMVER` now reads `$REPO_ROOT/VERSION` (was
+  `$ROOT_DIR/VERSION`). IMAGE_TAG = `arbicore-x-backend:${APP_SEMVER}-${GITSHA}`.
+- Mongo selection/reconciliation, env-parity, secrets: UNCHANGED (grep-verified).
+  factory-mongo (DB arbicore_x) remains authoritative; arbicore-x-mongo NOT substituted.
+
+**Test:** NEW `tests/test_stage2_version_resolution.py` (4): static guards
+(REPO_ROOT via toplevel+fallback; VERSION read from `$REPO_ROOT` not `$ROOT_DIR`)
++ functional (sources the real common.sh → REPO_ROOT resolves to repo root,
+APP_SEMVER == repo VERSION, ≠ 0.0.0; non-git fallback path). All Stage-2 + T2
+deployment tests 52/52 pass (`test_version_endpoint_contract` needs
+REACT_APP_BACKEND_URL — passes when provided; only "fails" on the missing
+/app/frontend/.env artifact in this backend-only fork).
+
+**Expected VPS IMAGE_TAG:** `arbicore-x-backend:2.9.2-dfda1ec`. NOT deployed; no cutover.
+
+<!-- ============================================================ -->
+
+
+<!-- ============================================================ -->
 <!-- VPS DEPLOY FIX — PINNED ANVIL v1.7.1 IN BACKEND IMAGE (2026-06) -->
 <!-- ============================================================ -->
 ## ArbiCore X — canonical backend image now bundles pinned Foundry/Anvil v1.7.1 (2026-06)
