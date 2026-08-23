@@ -1,4 +1,41 @@
 <!-- ============================================================ -->
+<!-- T2 REVM tx_builder → CANONICAL calldata WIRING (2026-06) -->
+<!-- ============================================================ -->
+## ArbiCore X — T2 RevmForkBackend tx_builder wired to canonical execute() ABI (2026-06)
+
+**Done:** New `make_calldata_tx_builder(...)` in `arbicore/searcher/revm_backend.py` bridges a T2
+`List[Edge]` cycle + amount → an eth_call tx dict `{to=executor, from, data, value:0x0}` by
+REUSING the existing canonical encoders `encode_executor_execute` (selector `0x64ba4bc1`) +
+`build_user_data_from_hops` in `arbicore/execution/calldata.py` — NO new/parallel execution
+architecture. Borrow token = first hop `token_in` (amount→wei via decimals); per-hop fee tier
+pulled from `PoolStateCache.fee_bps` (×100 → Uniswap ppm); first hop injects borrowed amount,
+later hops forward (amountIn=0); userData = `abi.encode(SwapHop[], profitRecipient)`. Resolves
+executor/gas-wallet from args or `ARBICORE_EXECUTOR_ADDRESS_BASE`/`ARBICORE_GAS_WALLET_ADDRESS`.
+Fails closed (raises) on empty cycle, unmapped token, or unresolved executor — never fabricates.
+
+**Invariants preserved:** SHADOW-only (tx is `value:0x0`, consumed ONLY via `ForkHandle.eth_call`;
+zero signing/broadcast paths — grep-verified), $25 Gate 7 unchanged, Gate 8 fail-closed, REAL
+provenance only, no auto-promotion.
+
+**Tests:** NEW in `tests/test_t2_runtime.py` (4): canonical execute() calldata decode
+(selector/tokens/amounts/userData hops+recipient), determinism, fail-closed branches, and
+end-to-end feed into `AnvilRevmForkBackend` with an injected offline fork. testing_agent
+iteration_2: 100% (56/56 pytest + independent eth_abi decode), 0 critical/minor, 0 regressions.
+Independent verifier: `tests/_independent_abi_verify.py`.
+
+**Env note (fork):** this preview fork was missing `app/backend/.env`; recreated with local Mongo
+(`MONGO_URL=mongodb://localhost:27017`, `DB_NAME=arbicore_x`, `JWT_SECRET`, admin creds) so the
+backend boots (200 on `/api/arbicore/version`). Anvil binary + live Base RPC remain absent by
+design → fork sim correctly fails closed here (VPS-only).
+
+**Not done (deferred/next):** Aave `executeAave` (0x4343d8b2) variant path (explicitly deferred by
+user); optional server endpoint exposing the wired builder + flipping `base_live_readiness
+(tx_builder_wired=True)`; T3 opportunity families; T4 Arbitrum adapter.
+
+<!-- ============================================================ -->
+
+
+<!-- ============================================================ -->
 <!-- UNIVERSAL ARCHITECTURE + T2 SEARCHER CORE (2026-06) -->
 <!-- ============================================================ -->
 ## ArbiCore X — Universal adapters + T2 searcher core (2026-06)
