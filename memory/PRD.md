@@ -1,4 +1,27 @@
 <!-- ============================================================ -->
+<!-- TIER-1 BASE PROFITABILITY (2026-06) -->
+<!-- ============================================================ -->
+## ArbiCore X — Flash-Loan T1 (Base profitability) — kernels implemented 2026-06
+
+Doc: `docs/FLASH_LOAN_T1_IMPLEMENTATION_REPORT.md`. Baseline `main@43230f6`.
+
+**Implemented (additive, DRY; pure/testable; fail-closed on missing data):**
+- Real TVL: `OnChainReserveTVLProvider` (Σ reserve×price, None if any price/reserve missing) + `CachedTVLProvider` (TTL, injectable clock) → Gate 8 uses real values / stays fail-closed
+- Flash-loan provider selection: cheapest feasible (0-fee Balancer/Morpho → Aave 5bps → Uni tier); feasible only if borrow liquidity KNOWN ≥ amount; added **Morpho Blue** (0bps, ETH+Base)
+- Full §19 profit vector (`build_profit_vector`) projected from the single canonical `EconomicAssessment` (expected_net == expected_profit_usd; worst-case slippage stress)
+- Opportunity ranking (`rank_opportunities`) by risk-adjusted executable value (§20 contract proven)
+- Reused existing kernels: `optimize_size` (EV-max sizing), `expected_value` (execution prob), `net_profit`, `aggregate_economics`
+
+**Invariants:** $25 Gate 7 unchanged; Gate 8 fail-closed; no fabricated liquidity/quotes; provenance & signing untouched.
+
+**Tests:** `tests/test_t1_profitability.py` 7 pass; T0+T1 26 pass; regression 53 pass (total 79, 0 regressions).
+
+**Remaining before T2:** wire kernels into runtime verifier/Gate 8/opportunity payload; provide live Base `reserves_fn`/`price_fn` + provider-liquidity probe (VPS); exercise paper/shadow with real quotes. No new DEX venues added (no fake integrations). NOT deployed.
+
+<!-- ============================================================ -->
+
+
+<!-- ============================================================ -->
 <!-- TIER-0 CORRECTNESS (2026-06) — Flash-Loan-First Profit Engine -->
 <!-- ============================================================ -->
 ## ArbiCore X — Flash-Loan T0 correctness (implemented 2026-06)

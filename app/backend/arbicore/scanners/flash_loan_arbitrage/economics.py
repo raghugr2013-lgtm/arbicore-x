@@ -48,6 +48,12 @@ FLASH_LOAN_PROVIDERS: Dict[str, Dict[str, Any]] = {
         "supports_chains": (
             "ethereum", "arbitrum", "base", "optimism", "polygon"),
     },
+    "morpho_blue": {
+        # T1: 0-fee, gas-efficient singleton flash loans. Ethereum + Base.
+        "fee_bps_default": 0,
+        "source_id": "morpho_blue_flashloan_real",
+        "supports_chains": ("ethereum", "base"),
+    },
 }
 
 

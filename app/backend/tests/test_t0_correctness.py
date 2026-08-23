@@ -27,8 +27,7 @@ def test_rpc_precedence_deterministic(monkeypatch):
     assert resolve_rpc_url_from_env("base") == "chain"         # beats generic
 
 
-def test_env_sync_writes_legacy_alias(monkeypatch):
-    import asyncio
+async def test_env_sync_writes_legacy_alias(monkeypatch):
     from arbicore.config.env_sync import sync_env_from_network_config
     for k in ("ARBICORE_RPC_URL", "ARBICORE_RPC_URL_BASE", "BASE_RPC_URL"):
         monkeypatch.delenv(k, raising=False)
@@ -37,8 +36,7 @@ def test_env_sync_writes_legacy_alias(monkeypatch):
         async def get(self):
             return {"rpc_urls": {"base": ["https://x"]}, "executor_addresses": {}}
 
-    exported = asyncio.get_event_loop().run_until_complete(
-        sync_env_from_network_config(_Repo(), chain="base"))
+    exported = await sync_env_from_network_config(_Repo(), chain="base")
     assert os.environ["ARBICORE_RPC_URL_BASE"] == "https://x"
     assert os.environ["BASE_RPC_URL"] == "https://x"           # legacy alias
     assert "BASE_RPC_URL" in exported
