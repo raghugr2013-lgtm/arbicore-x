@@ -1,4 +1,24 @@
 <!-- ============================================================ -->
+<!-- UNIVERSAL ARCHITECTURE + T2 SEARCHER CORE (2026-06) -->
+<!-- ============================================================ -->
+## ArbiCore X — Universal adapters + T2 searcher core (2026-06)
+
+Consolidated report: `docs/FLASH_LOAN_RELEASE_CANDIDATE_REPORT.md`. Baseline `main@43230f6`.
+
+**Added (additive, tested, chain-agnostic):**
+- Adapters: `chains/adapter.py` (ChainAdapter+ChainCapability), `chains/dex_adapter.py` (DEXAdapter, FlashLoanProviderAdapter + Base impls)
+- Searcher core: `searcher/amm_math.py` (V2/V3/StableSwap), `searcher/pool_cache.py` (log-synced + block-staleness refusal), `searcher/route.py` (graph+cycle enum+spot fast-filter), `searcher/simulation.py` (SimulationBackend iface + LocalMath backend + honest REVM stub + two_stage_pipeline)
+- T1 kernels (prior): TVL providers, provider selection (+Morpho), profit vector, ranking
+
+**Tests:** 105 pass (T0 19 + T1 7 + T2 8 + regression 71), 0 regressions.
+**Benchmarks (1 core):** V2 2.71M/s, V3 2.01M/s, StableSwap 389K/s, fast_filter ~357K cycles/s (100K cycles ≈ 0.28s → per-block rescan feasible).
+
+**Not done (VPS/live-infra or deferred):** runtime hot-path wiring into verifier; live REVM/Anvil + WSS ingestion + real reserves/price/liquidity feeds; actual Arbitrum adapter; liquidation/backrun families. No fake integrations. NOT deployed; no live trading.
+
+<!-- ============================================================ -->
+
+
+<!-- ============================================================ -->
 <!-- TIER-1 BASE PROFITABILITY (2026-06) -->
 <!-- ============================================================ -->
 ## ArbiCore X — Flash-Loan T1 (Base profitability) — kernels implemented 2026-06
