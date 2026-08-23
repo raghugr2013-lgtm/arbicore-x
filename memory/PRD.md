@@ -1,4 +1,37 @@
 <!-- ============================================================ -->
+<!-- VPS DEPLOY FIX — PINNED ANVIL v1.7.1 IN BACKEND IMAGE (2026-06) -->
+<!-- ============================================================ -->
+## ArbiCore X — canonical backend image now bundles pinned Foundry/Anvil v1.7.1 (2026-06)
+
+**Issue:** VPS preflight (flashloan-live-shadow @ 3109ac8) — the canonical backend
+image did NOT install anvil, so the T2 REVM fork simulation backend would
+fail-closed in-container even though the VPS host has anvil 1.7.1.
+
+**Fix (deploy artifacts only; ZERO T0/T1/T2 logic change):**
+- `deployment/upgrade/backend/Dockerfile`: added a pinned, SHA256-verified
+  Foundry/Anvil install layer. `FOUNDRY_VERSION=v1.7.1`,
+  `FOUNDRY_SHA256=cf7e688ed0c4c48adffca788b496076e31060b67ac5afe1e43dbb5499c20c88b`;
+  downloads `foundry_v1.7.1_linux_amd64.tar.gz`, `sha256sum -c` verifies it,
+  extracts ONLY `anvil` → `/usr/local/bin`, `anvil --version` validates at build.
+  amd64-guarded (VPS target). Reproducible + production-safe.
+- Version identity de-ambiguated: `deployment/upgrade/steps/00_detect_env.sh`
+  IMAGE_TAG now `arbicore-x-backend:<VERSION>-<shortsha>` (e.g. `2.9.2-3109ac8`)
+  instead of the static `0.1.0-realign-<sha>`. Compose comment updated.
+
+**SHADOW invariants unchanged:** anvil used ONLY for local `--fork-url` read-only
+eth_call sim; never signs/broadcasts. Gate 7 $25, Gate 8 fail-closed, provenance
+enforcement, broadcast=false all untouched.
+
+**Verification:** Dockerfile install block simulated end-to-end (checksum `OK`,
+anvil binary extracted, amd64). `bash -n` clean; IMAGE_TAG resolves to
+`arbicore-x-backend:2.9.2-3109ac8`. T2/regression 85/85 pass; Stage-2 static
+deploy tests 28/28 pass (1 unrelated env-only failure: missing
+/app/frontend/.env in this backend-only fork). NOT deployed; main not modified.
+
+<!-- ============================================================ -->
+
+
+<!-- ============================================================ -->
 <!-- BASE LIVE-SHADOW READINESS INTEGRATION + SOFTWARE AUDIT (2026-06) -->
 <!-- ============================================================ -->
 ## ArbiCore X — Base live-SHADOW readiness integration + 5-category software audit (2026-06)

@@ -1,6 +1,10 @@
-# Audited ArbiCore X backend image (0.1.0).
+# Audited ArbiCore X backend image.
 # Pinned to the MANIFEST baseline: Python 3.11-slim, FastAPI 0.110.1, Motor 3.3.1, httpx 0.28.1.
+# Bundles pinned Foundry/Anvil v1.7.1 (SHA256-verified) for the T2 REVM fork
+# simulation backend — SHADOW-only, never signs/broadcasts.
 # Built only via compose so labels/context match the deployment manifest exactly.
+# Version/commit identity is injected via build.args (GITSHA/GITTAG/APP_VERSION)
+# and the compose IMAGE_TAG derives from the repo VERSION + short SHA (unambiguous).
 FROM python:3.11-slim AS runtime
 
 # Deployment identity (Stage 2) — supplied by compose build.args from
@@ -25,6 +29,30 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates build-essential \
  && rm -rf /var/lib/apt/lists/*
+
+# ---------------------------------------------------------------------------
+# Pinned Foundry / Anvil runtime (T2 REVM fork simulation backend)
+# ---------------------------------------------------------------------------
+# The T2 searcher's RevmForkBackend uses `anvil --fork-url` for LOCAL, READ-ONLY
+# state simulation (eth_call against a forked Base state). SHADOW-only: anvil is
+# NEVER used to sign or broadcast a transaction. Pinned to v1.7.1 (== the VPS
+# host's anvil) and SHA256-verified so the image is byte-reproducible and
+# production-safe. Only the `anvil` binary is extracted to keep the image lean.
+ARG FOUNDRY_VERSION=v1.7.1
+ARG FOUNDRY_SHA256=cf7e688ed0c4c48adffca788b496076e31060b67ac5afe1e43dbb5499c20c88b
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    if [ "$arch" != "amd64" ]; then \
+      echo "Foundry pin only provisioned for amd64 (VPS target); got '$arch'" >&2; \
+      exit 1; \
+    fi; \
+    url="https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz"; \
+    curl -fsSL "$url" -o /tmp/foundry.tar.gz; \
+    echo "${FOUNDRY_SHA256}  /tmp/foundry.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/foundry.tar.gz -C /usr/local/bin anvil; \
+    rm -f /tmp/foundry.tar.gz; \
+    chmod 755 /usr/local/bin/anvil; \
+    anvil --version
 
 WORKDIR /app
 

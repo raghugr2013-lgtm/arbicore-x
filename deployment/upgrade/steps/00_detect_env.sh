@@ -94,7 +94,12 @@ GITSHA="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "$(date 
 GITTAG="$(git -C "$ROOT_DIR" describe --tags --always --dirty 2>/dev/null || echo "$GITSHA")"
 BUILD_TIME="$(date -u +%FT%TZ)"
 APP_VERSION="$GITTAG"
-IMAGE_TAG="arbicore-x-backend:0.1.0-realign-${GITSHA}"
+# Unambiguous image identity: <repo-semver>-<short-sha> (no static 0.1.0-realign
+# prefix that would collide across different commits). Falls back to the short
+# SHA if the VERSION file is missing.
+APP_SEMVER="$(tr -d '[:space:]' < "$ROOT_DIR/VERSION" 2>/dev/null || true)"
+[ -n "$APP_SEMVER" ] || APP_SEMVER="0.0.0"
+IMAGE_TAG="arbicore-x-backend:${APP_SEMVER}-${GITSHA}"
 BACKEND_NEW="arbicore-x-backend"
 [ "$BACKEND_NEW" = "$BACKEND_OLD" ] && BACKEND_NEW="arbicore-x-backend-new"  # avoid name collision
 
