@@ -35,6 +35,29 @@ die(){ c_red "  FAIL - $*"; c_red "DEPLOYMENT STOPPED. Production unchanged."; e
 
 need_cmd(){ command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"; }
 
+# ---- T2 Base searcher (SHADOW) config gate ----
+# Fails CLOSED when the T2 Base searcher is enabled but its required Base WSS
+# (primary ARBICORE_WSS_URL_BASE, fallback ARBICORE_RPC_WSS_BASE) — or Base RPC —
+# is absent from the baked backend/.env. Read-only; SHADOW-safe; never relaxes
+# any safety invariant. When T2 is disabled it is a no-op.
+assert_t2_config_or_die(){
+  local envf="$1"
+  [ -f "$envf" ] || die "assert_t2_config_or_die: env file not found: $envf"
+  local flag
+  flag="$(grep -E '^ARBICORE_T2_SEARCHER_ENABLED=' "$envf" | tail -n1 \
+          | cut -d= -f2- | tr -d '[:space:]' | tr 'A-Z' 'a-z' || true)"
+  case "$flag" in
+    1|true|yes|on)
+      grep -Eq '^(ARBICORE_WSS_URL_BASE|ARBICORE_RPC_WSS_BASE)=..*' "$envf" \
+        || die "T2 enabled (ARBICORE_T2_SEARCHER_ENABLED=$flag) but no Base WSS configured — set ARBICORE_WSS_URL_BASE (primary) or ARBICORE_RPC_WSS_BASE (fallback) and re-run 00_detect_env.sh"
+      grep -Eq '^(ARBICORE_RPC_URL_BASE|ARBICORE_RPC_URL)=..*' "$envf" \
+        || die "T2 enabled but no Base RPC (ARBICORE_RPC_URL_BASE/ARBICORE_RPC_URL) configured"
+      return 0
+      ;;
+    *) return 0 ;;
+  esac
+}
+
 # ---- mongo shell selection (4.4.30 ships 'mongo'; newer images ship 'mongosh') ----
 mongo_shell(){
   local cnt="$1"

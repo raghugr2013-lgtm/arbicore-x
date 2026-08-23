@@ -71,6 +71,11 @@ log "Confirming compose env was generated ..."
 [ -f "$COMPOSE_FILE" ] || die "missing $COMPOSE_FILE — this bundle is incomplete"
 ok "compose files present"
 
+# T2 Base searcher (SHADOW) config gate — fails closed if enabled without WSS/RPC.
+log "Verifying T2 Base searcher (SHADOW) runtime config ..."
+assert_t2_config_or_die "${ROOT_DIR}/backend/.env"
+ok "T2 config gate passed (disabled, or enabled with Base WSS + Base RPC present)"
+
 log "Backup target directory ..."
 mkdir -p "$BACKUP_DIR" "$LOG_DIR"
 ok "backup dir: $BACKUP_DIR    log dir: $LOG_DIR"

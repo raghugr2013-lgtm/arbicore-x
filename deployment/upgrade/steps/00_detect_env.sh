@@ -185,6 +185,28 @@ grep -q '^DB_NAME='   "$BACKEND_ENV" || echo "DB_NAME=${DB_NAME}"     >> "$BACKE
 grep -q '^ARBICORE_SCANNER_CEX_ARB='     "$BACKEND_ENV" || echo "ARBICORE_SCANNER_CEX_ARB=on"     >> "$BACKEND_ENV"
 grep -q '^ARBICORE_SCANNER_FUNDING_ARB=' "$BACKEND_ENV" || echo "ARBICORE_SCANNER_FUNDING_ARB=on" >> "$BACKEND_ENV"
 
+# ── T2 Base searcher (SHADOW) canonical wiring ──────────────────────────────
+# The flashloan-live-shadow branch runs the T2 Base searcher in SHADOW mode.
+# Wire the activation flag REPRODUCIBLY (defaults ON; an OLD-container value or a
+# detect-time override `ARBICORE_T2_SEARCHER_ENABLED=...` is preserved). This
+# NEVER enables broadcasting/signing — SHADOW only; Gate 7 $25 + Gate 8
+# fail-closed + provenance enforcement are unaffected by this flag.
+T2_FLAG="${ARBICORE_T2_SEARCHER_ENABLED:-true}"
+grep -q '^ARBICORE_T2_SEARCHER_ENABLED=' "$BACKEND_ENV" \
+  || echo "ARBICORE_T2_SEARCHER_ENABLED=${T2_FLAG}" >> "$BACKEND_ENV"
+
+# Base WSS endpoint consumed by the T2 runtime. The code reads
+# ARBICORE_WSS_URL_BASE FIRST, then falls back to ARBICORE_RPC_WSS_BASE
+# (arbicore/searcher/live_base.py). Inject an operator-supplied value if present
+# and not already inherited from the OLD container. NEVER fabricate a URL — if
+# T2 is enabled and no WSS is provided, 01_preflight.sh fails closed.
+if ! grep -q '^ARBICORE_WSS_URL_BASE=' "$BACKEND_ENV" && [ -n "${ARBICORE_WSS_URL_BASE:-}" ]; then
+  echo "ARBICORE_WSS_URL_BASE=${ARBICORE_WSS_URL_BASE}" >> "$BACKEND_ENV"
+fi
+if ! grep -q '^ARBICORE_RPC_WSS_BASE=' "$BACKEND_ENV" && [ -n "${ARBICORE_RPC_WSS_BASE:-}" ]; then
+  echo "ARBICORE_RPC_WSS_BASE=${ARBICORE_RPC_WSS_BASE}" >> "$BACKEND_ENV"
+fi
+
 # Build NEW key set from the file we just wrote and emit the parity report.
 grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$BACKEND_ENV" | cut -d= -f1 | sort -u > "$NEW_APP_KEYS"
 sort -u -o "$OLD_APP_KEYS" "$OLD_APP_KEYS"

@@ -1,4 +1,46 @@
 <!-- ============================================================ -->
+<!-- VPS DEPLOY FIX — T2 SHADOW RUNTIME CONFIG WIRING (2026-06) -->
+<!-- ============================================================ -->
+## ArbiCore X — canonical deploy config now wires the T2 Base searcher (SHADOW) (2026-06)
+
+**Issue (VPS):** healthy image `2.9.2-7afef92` (anvil 1.7.1 in-container, DB arbicore_x,
+Base RPC present) but the T2 runtime wiring was MISSING from the deployment env —
+`ARBICORE_T2_SEARCHER_ENABLED`, `ARBICORE_WSS_URL_BASE`, `ARBICORE_RPC_WSS_BASE`
+absent from compose/.env, backend/.env, deploy.env and the running container.
+Root cause: `00_detect_env.sh` bakes `backend/.env` by INHERITING OLD-container
+app vars; the OLD container never had the T2 vars, so they were never added.
+
+**T2 variable names (from source of truth `arbicore/searcher/live_base.py`):**
+- Flag: `ARBICORE_T2_SEARCHER_ENABLED` (1/true/yes/on)
+- Base WSS: **`ARBICORE_WSS_URL_BASE` (PRIMARY)**, `ARBICORE_RPC_WSS_BASE` (fallback)
+  — code: `os.environ.get("ARBICORE_WSS_URL_BASE") or os.environ.get("ARBICORE_RPC_WSS_BASE")`
+
+**Fix (deploy scripts only; no app/arch/Mongo/trading change):**
+- `00_detect_env.sh`: reproducibly writes `ARBICORE_T2_SEARCHER_ENABLED` (default
+  `true`; OLD value / detect-time override preserved, idempotent) and injects an
+  operator-supplied `ARBICORE_WSS_URL_BASE`/`ARBICORE_RPC_WSS_BASE` when present
+  and not already inherited. Never fabricates a URL; never erases existing vars.
+- `lib/common.sh`: new `assert_t2_config_or_die <envfile>` — fails CLOSED when T2
+  is enabled but Base WSS (primary or fallback) — or Base RPC — is missing; no-op
+  when T2 disabled.
+- `01_preflight.sh`: invokes the gate against the baked `backend/.env`.
+
+**Safety invariants preserved:** SHADOW only, broadcast=false, AUTOEXEC/RUNTIME
+unchanged (flag activates SHADOW construction only), signing disabled, Gate 7 $25,
+Gate 8 fail-closed, provenance enforcement — all untouched. Mongo selection NOT
+modified (factory-mongo / arbicore_x authoritative; arbicore-x-mongo not substituted).
+
+**Test:** NEW `tests/test_stage2_t2_runtime_config.py` (9): source-of-truth var
+names, idempotent flag wiring, non-erasing WSS injection, preflight invocation,
+and functional gate (pass with WSS or RPC-WSS fallback + RPC; fail-closed when
+WSS or RPC missing; no-op when disabled/absent). Full deploy+T2 suite 69/69 pass.
+End-to-end simulated bake: existing factory-mongo/arbicore_x/RPC/executor
+preserved, T2 flag+WSS added, gate PASS. NOT deployed; no cutover.
+
+<!-- ============================================================ -->
+
+
+<!-- ============================================================ -->
 <!-- VPS DEPLOY FIX — VERSION RESOLVED FROM REPO ROOT (2026-06) -->
 <!-- ============================================================ -->
 ## ArbiCore X — deploy script now resolves VERSION from the repository root (2026-06)
