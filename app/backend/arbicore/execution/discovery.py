@@ -101,7 +101,7 @@ class DiscoveredOpportunity:
 
 
 class DiscoveryRepo:
-    def __init__(self, db, collection: str = "opportunities"):
+    def __init__(self, db, collection: str = "arbicore_research_candidates"):
         self._db = db
         self._coll = db[collection]
         self._indexes_ready = False
@@ -306,7 +306,13 @@ class ContinuousDiscovery:
                 import server as _srv  # type: ignore  # noqa: PLC0415
                 repo = getattr(_srv, "_CANONICAL_OPP_REPO", None)
             if repo is not None:
-                await repo.upsert(canonical)
+                # T0-2 QUARANTINE: the thin activator is a SYNTHETIC/SIMULATED
+                # research source and MUST NOT contaminate the canonical
+                # executable opportunity stream. Canonical upsert is disabled;
+                # thin candidates persist only to the research collection
+                # (DiscoveryRepo → arbicore_research_candidates). The canonical
+                # repo write-gate (T0-2) is the backstop if this is bypassed.
+                pass
         except Exception as _e:  # noqa: BLE001
             logger.warning("canonical upsert skipped: %s", _e)
         # Confidence heuristic: profitable ⇒ 0.75; not profitable ⇒ 0.30.

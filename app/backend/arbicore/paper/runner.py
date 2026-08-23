@@ -253,12 +253,24 @@ class PaperValidationRunner:
     # Helpers
     # ------------------------------------------------------------------
     async def _fetch_opps(self) -> List[Any]:
-        """Ask the opp source for a bounded window of newest opps."""
+        """Ask the opp source for a bounded window of newest opps.
+
+        T0-2: restrict to REAL / VERIFIED_REAL provenance so SIMULATED /
+        synthetic (thin_activator) rows can never be paper/shadow-analyzed as
+        executable. Legitimate REAL opps in any mode (PAPER/SHADOW/LIVE) are
+        unaffected — ``mode`` is orthogonal to ``source_data_quality``.
+        """
+        from ..models.enums import LEARNING_ELIGIBLE_PROVENANCE as _REAL_PROV
         try:
-            rows = await self._opp_source.find({}, limit=self._batch_limit)
+            rows = await self._opp_source.find(
+                {}, limit=self._batch_limit, provenance_filter=_REAL_PROV)
         except TypeError:
-            # Some sources signature `find(limit=...)` only.
-            rows = await self._opp_source.find(limit=self._batch_limit)
+            try:
+                rows = await self._opp_source.find(
+                    limit=self._batch_limit, provenance_filter=_REAL_PROV)
+            except TypeError:
+                # Source without provenance support — fall back (tests).
+                rows = await self._opp_source.find({}, limit=self._batch_limit)
         except Exception as exc:  # noqa: BLE001
             self.metrics.exceptions += 1
             self.metrics.last_error = f"opp source: {exc}"

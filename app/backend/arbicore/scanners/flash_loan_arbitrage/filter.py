@@ -74,6 +74,18 @@ class FlashLoanGate8LiquidityDepth:
         floor = float(self.cfg.get("min_pool_tvl_usd_in_route", 100_000.0))
         snap = {"min_pool_tvl_usd_in_route": min_pool_tvl_usd_in_route,
                  "floor_usd": floor}
+        # T0-6: FAIL CLOSED when liquidity cannot be verified. A non-positive
+        # route TVL means no real depth was resolved (the old $5M sentinel is
+        # gone) — never pass the liquidity gate on fabricated depth.
+        if min_pool_tvl_usd_in_route <= 0.0:
+            reason = ("liquidity-depth gate FAILED CLOSED — route TVL "
+                      "unverifiable (no fabricated liquidity pass)")
+            return GateResult(
+                gate_id="gate_8_liquidity_depth",
+                passed=False, reason=reason,
+                metric_snapshot={**snap, "liquidity_unverifiable": True},
+                rationale=[reason],
+            )
         passed = min_pool_tvl_usd_in_route >= floor
         reason = ("liquidity-depth gate passed" if passed
                    else f"min route TVL ${min_pool_tvl_usd_in_route:.0f} "

@@ -59,6 +59,29 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+#: Provenance tiers that may count toward executable/profitability metrics.
+_REAL_PROVENANCE_VALUES = frozenset({"REAL", "VERIFIED_REAL"})
+
+
+def partition_executable_by_provenance(evidence_rows):
+    """T0-7 · split evidence into (real, synthetic) by provenance.
+
+    Only REAL / VERIFIED_REAL evidence may contribute to executable_rate and
+    profitability certification. SIMULATED / SYNTHETIC / TEST / unknown rows
+    are reported separately and NEVER counted as executable. Accepts dicts or
+    objects carrying ``source_data_quality``.
+    """
+    real, synthetic = [], []
+    for r in evidence_rows or []:
+        prov = (r.get("source_data_quality") if isinstance(r, dict)
+                else getattr(r, "source_data_quality", None)) or "unknown"
+        if str(prov).upper() in _REAL_PROVENANCE_VALUES:
+            real.append(r)
+        else:
+            synthetic.append(r)
+    return real, synthetic
+
+
 def _p95(values: List[float]) -> float:
     if not values:
         return 0.0

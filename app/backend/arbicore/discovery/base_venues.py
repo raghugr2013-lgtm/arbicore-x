@@ -137,7 +137,7 @@ def build_pool_graph() -> Tuple[List[PoolNode], Dict[str, Dict[str, Any]]]:
         fee_bps = (fee_ppm // 100) if dex == "uniswap_v3" else _NOMINAL_FEE_BPS[dex]
         pools.append(PoolNode(
             pool_address=vid, dex_protocol=dex, chain=CHAIN,
-            token_a=a, token_b=b, tvl_usd=5_000_000.0, fee_bps=int(fee_bps or 5)))
+            token_a=a, token_b=b, tvl_usd=0.0, fee_bps=int(fee_bps or 5)))
         spec: Dict[str, Any] = {"dex": dex}
         if dex == "uniswap_v3":
             spec["fee"] = fee_ppm

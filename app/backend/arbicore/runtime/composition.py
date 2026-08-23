@@ -786,6 +786,38 @@ async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
     }
 
 
+def flash_loan_quote_readiness(*, quote_provider_is_default: bool,
+                               mode: str) -> dict:
+    """T0-1 · scanner quote-provider readiness gate.
+
+    The canonical scanner must NEVER run the ``noop_quote_provider`` as a
+    silent production quote path. If the flash-loan strategy is in an analysis
+    mode (PAPER/SHADOW/LIMITED_LIVE/FULL_LIVE) while still on the default noop
+    provider, this returns an explicit ``readiness_error`` and marks the
+    scanner NOT active. OBSERVE (and unknown) modes may remain on noop for
+    cold-start/tests.
+    """
+    analysis_modes = {"PAPER", "SHADOW", "LIMITED_LIVE", "FULL_LIVE"}
+    m = (mode or "").upper()
+    if quote_provider_is_default and m in analysis_modes:
+        return {
+            "ready": False,
+            "active": False,
+            "quote_provider": "noop",
+            "readiness_error": (
+                f"canonical flash-loan scanner is in {m} but still on the "
+                "default noop quote provider — refusing to run a synthetic "
+                "production quote path (T0-1). Wire the live quote provider "
+                "via activate_canonical_flash_loan_scanner()."),
+        }
+    return {
+        "ready": True,
+        "active": not quote_provider_is_default,
+        "quote_provider": "noop" if quote_provider_is_default else "live",
+        "readiness_error": None,
+    }
+
+
 def _base_pools_size():
     from ..discovery.base_venues import build_pool_graph as _bpg
     pools, _ = _bpg()

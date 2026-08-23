@@ -1,3 +1,36 @@
+<!-- ============================================================ -->
+<!-- TIER-0 CORRECTNESS (2026-06) — Flash-Loan-First Profit Engine -->
+<!-- ============================================================ -->
+## ArbiCore X — Flash-Loan T0 correctness (implemented 2026-06)
+
+Baseline: `main@43230f6`. Docs: `docs/FLASH_LOAN_ARCHITECTURE_AUDIT.md`,
+`docs/FLASH_LOAN_MARKET_COMPETITIVE_AUDIT.md`,
+`docs/FLASH_LOAN_T0_IMPLEMENTATION_PLAN.md`,
+`docs/FLASH_LOAN_T0_IMPLEMENTATION_REPORT.md`.
+
+**Implemented (T0 — truthful, provenance-safe Base foundation):**
+- T0-1 canonical scanner cannot silently run `noop` quote provider (readiness gate)
+- T0-2 thin_activator quarantined from canonical repo (+ REAL-only write-gate + PaperRunner filter)
+- T0-3 missing execution mode ⇒ explicit readiness/infra error (not silent OBSERVE)
+- T0-4 single canonical economics kernel (`aggregate_economics` + `canonical_net_profit_usd`)
+- T0-5 one deterministic RPC resolver `ARBICORE_RPC_URL_<CHAIN>`>`ARBICORE_RPC_URL`>legacy
+- T0-6 TVL `5_000_000` sentinel removed; Gate 8 fails-closed on unverifiable liquidity
+- T0-7 evidence provenance stamp + certification real-vs-synthetic partition
+- T0-8 minimal `BaseChainAdapter` isolating Base assumptions (Arbitrum-ready seam)
+- T0-9 additive idempotent DRY-RUN provenance backfill script
+
+**Invariants preserved:** $25 Gate 7 floor, signing not disabled, no auto live-promotion,
+honest-refusal, no historical evidence deleted.
+
+**Tests:** `tests/test_t0_correctness.py` 17/17 pass; 80 existing unit tests pass (0 regressions).
+
+**Remaining (do NOT start until approved):** small server-side wiring for T0-1/T0-7 health
+endpoints; then T1 (real TVL + private RPC/WSS + sizing) and T2 (local cache + AMM/CL math +
+per-block trigger + revm sim). NOT deployed to VPS — awaiting separate deploy authorization.
+
+<!-- ============================================================ -->
+
+
 # ArbiCore X — PRD / Working Memory
 
 ## Origin

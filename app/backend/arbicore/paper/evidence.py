@@ -112,6 +112,12 @@ class EvidenceBundle:
     #: Version tag for the schema — bump when a *breaking* field changes.
     schema_version: str = "v2.11.8"
 
+    #: T0-7 · provenance of the source opportunity (REAL / VERIFIED_REAL /
+    #: SIMULATED / …). Additive, non-hashed metadata — certification uses it
+    #: to exclude synthetic evidence from executable/profitability metrics.
+    #: Historical rows without this field read as None (treated as non-real).
+    source_data_quality: Optional[str] = None
+
     def to_mongo(self) -> Dict[str, Any]:
         d = asdict(self)
         d["outcome"] = self.outcome.value

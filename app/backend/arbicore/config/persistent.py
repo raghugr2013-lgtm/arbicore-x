@@ -382,6 +382,21 @@ class NetworkConfigRepo:
 # Env-fallback resolver — used by legacy call sites during migration
 # ============================================================================
 
+def resolve_rpc_url_from_env(chain: str = "base") -> Optional[str]:
+    """T0-5 canonical *synchronous* RPC precedence resolver (no DB).
+
+    Precedence (deterministic):
+        ARBICORE_RPC_URL_<CHAIN>  >  ARBICORE_RPC_URL  >  legacy <CHAIN>_RPC_URL
+
+    Returns None when unset — callers fail fast; no fabricated default.
+    """
+    c = chain.upper()
+    return (os.environ.get(f"ARBICORE_RPC_URL_{c}")
+            or os.environ.get("ARBICORE_RPC_URL")
+            or os.environ.get(f"{c}_RPC_URL")
+            or None)
+
+
 async def resolve_rpc_url(*, network_repo: NetworkConfigRepo,
                            chain: str = "base") -> Optional[str]:
     """Return the primary RPC URL for ``chain`` (Mongo first, env fallback)."""

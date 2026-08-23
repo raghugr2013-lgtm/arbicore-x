@@ -12,11 +12,22 @@ Write-path invariants (enforced inside upsert):
 """
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
 from ..models.canonical import CanonicalOpportunity
-from ..models.enums import DataProvenance, OpportunityStatus, OpportunityType
+from ..models.enums import (
+    DataProvenance, LEARNING_ELIGIBLE_PROVENANCE, OpportunityStatus,
+    OpportunityType,
+)
+
+
+def _strict_canonical_provenance() -> bool:
+    """T0-2 write-gate toggle. Production sets this true so only REAL /
+    VERIFIED_REAL opportunities enter the canonical executable stream."""
+    return (os.environ.get("ARBICORE_CANONICAL_STRICT_PROVENANCE")
+            or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 class OpportunityRepository(ABC):
@@ -62,6 +73,19 @@ def validate_for_upsert(opp: CanonicalOpportunity) -> None:
     if opp.source_data_quality is DataProvenance.DEAD:
         raise ValueError(
             "OpportunityRepository.upsert rejected: source_data_quality=DEAD",
+        )
+    # T0-2: canonical provenance write-gate (defense in depth). When
+    # ARBICORE_CANONICAL_STRICT_PROVENANCE is enabled, only learning-eligible
+    # (REAL / VERIFIED_REAL) opportunities may enter the canonical executable
+    # stream — SIMULATED/CONTAMINATED thin/synthetic candidates are refused so
+    # they can never masquerade as executable.
+    if _strict_canonical_provenance() and \
+            opp.source_data_quality not in LEARNING_ELIGIBLE_PROVENANCE:
+        prov = getattr(opp.source_data_quality, "value",
+                       opp.source_data_quality)
+        raise ValueError(
+            "OpportunityRepository.upsert rejected: non-REAL provenance "
+            f"'{prov}' blocked by ARBICORE_CANONICAL_STRICT_PROVENANCE (T0-2)",
         )
     if not isinstance(opp.opportunity_type, OpportunityType):
         raise ValueError("opportunity_type must be an OpportunityType")
