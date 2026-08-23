@@ -39,7 +39,7 @@ from arbicore.shadow.mapper import (
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://defi-exec-audit.preview.emergentagent.com",
+    "https://flash-execution.preview.emergentagent.com",
 ).rstrip("/")
 
 
