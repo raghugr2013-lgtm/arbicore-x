@@ -5308,6 +5308,45 @@ async def v2_flash_loan_readiness() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
+@api_router.get("/arbicore/engine/base-live-shadow/readiness",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_base_live_shadow_readiness() -> Dict[str, Any]:
+    """T2 · Base live-SHADOW readiness. Evidence-based per-dependency status +
+    categorized blockers. tx_builder is now WIRED (SOFTWARE self-test against
+    the canonical execute() encoder). SHADOW-only; never signs/broadcasts."""
+    from arbicore.searcher import live_base as _lb
+    readiness = _lb.base_live_readiness()          # tx_builder auto self-tested
+    return {"readiness": readiness,
+            "tx_builder_selftest": _lb.tx_builder_selftest(),
+            "mode": "SHADOW", "broadcast": False, "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/engine/base-live-shadow/audit",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_base_live_shadow_audit() -> Dict[str, Any]:
+    """T2 · Full Base live-SHADOW software audit — every path item classified as
+    SOFTWARE / CONFIGURATION / VALIDATION / MARKET / SAFETY with evidence-based
+    status. Read-only; changes nothing; never signs/broadcasts."""
+    from arbicore.searcher import live_base as _lb
+    audit = _lb.base_live_shadow_audit()
+    audit["generated_at"] = _iso_now()
+    return audit
+
+
+@api_router.get("/arbicore/engine/base-live-shadow/dry-run",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_base_live_shadow_dry_run() -> Dict[str, Any]:
+    """T2 · SHADOW dry-run transaction audit — builds the canonical executor tx
+    for a representative Base route via the wired tx_builder and DECODES it
+    (selector, borrow, hops, profit-recipient) for operator review.
+
+    READ-ONLY: value=0x0, eth_call/fork-sim only. NEVER signs or broadcasts."""
+    from arbicore.searcher import live_base as _lb
+    audit = _lb.shadow_dry_run_audit()
+    audit["generated_at"] = _iso_now()
+    return audit
+
+
 @api_router.get("/arbicore/certification/provenance-split",
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_certification_provenance_split() -> Dict[str, Any]:

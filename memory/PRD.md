@@ -1,4 +1,38 @@
 <!-- ============================================================ -->
+<!-- BASE LIVE-SHADOW READINESS INTEGRATION + SOFTWARE AUDIT (2026-06) -->
+<!-- ============================================================ -->
+## ArbiCore X — Base live-SHADOW readiness integration + 5-category software audit (2026-06)
+
+**Done (SHADOW-only; zero signing/broadcast):**
+- `tx_builder_wired` is now EVIDENCE-BASED in `base_live_readiness()`
+  (`arbicore/searcher/live_base.py`): a `tx_builder_selftest()` builds a
+  representative WETH→USDC→WETH executor tx via the wired `make_calldata_tx_builder`
+  and asserts the canonical `execute(address[],uint256[],bytes)` selector
+  `0x64ba4bc1`. `_drive_sync()` runs the awaitless builder coroutine safely from
+  any context. → readiness now reports `tx_builder: true` (no longer a SOFTWARE blocker).
+- `shadow_dry_run_audit()`: builds + DECODES the canonical calldata (selector,
+  borrow token/amount, per-hop tokens/fee_ppm/amountIn, profit-recipient,
+  calldata_sha256). Read-only, `value=0x0`, `signed=false`, `broadcast=false`.
+- `base_live_shadow_audit()`: classifies every Base live-SHADOW path item into
+  SOFTWARE (9, all COMPLETE) / CONFIGURATION (7) / VALIDATION (2) / MARKET (1) /
+  SAFETY (5, all ENFORCED), evidence-based (never fake-GREEN).
+- NEW operator-auth endpoints: `GET /api/arbicore/engine/base-live-shadow/readiness`,
+  `.../audit`, `.../dry-run`.
+
+**Invariants:** $25 Gate 7 unchanged; Gate 8 fail-closed; REAL provenance only;
+no auto-promotion; SHADOW-only (asserted; no signing/broadcast path).
+
+**Tests:** `tests/test_t2_live_base.py` +4 (selftest, readiness, dry-run decode,
+5-category audit). testing_agent iteration_3: 100% (6/6 endpoint acceptance +
+85/85 regression), 401 on unauth, ZERO secret leaks. Golden calldata_sha256 for
+the 0.05 WETH WETH→USDC→WETH sample: `768c0f8bacdde49bc140b2677bf622ab7efaace7cc125dbe2bb58dc367b030e4`.
+
+**Still deferred (per user):** Aave `executeAave` (0x4343d8b2) variant; T3 families; T4 Arbitrum.
+
+<!-- ============================================================ -->
+
+
+<!-- ============================================================ -->
 <!-- T2 REVM tx_builder → CANONICAL calldata WIRING (2026-06) -->
 <!-- ============================================================ -->
 ## ArbiCore X — T2 RevmForkBackend tx_builder wired to canonical execute() ABI (2026-06)

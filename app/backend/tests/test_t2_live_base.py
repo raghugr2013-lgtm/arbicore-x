@@ -15,8 +15,47 @@ def test_readiness_classifies_blockers(monkeypatch):
     r = base_live_readiness()
     assert r["ready"] is False and r["mode"] == "SHADOW" and r["broadcast"] is False
     deps = {b["dependency"]: b["category"] for b in r["blockers"]}
-    assert deps["base_rpc"] == "CONFIGURATION" and deps["tx_builder"] == "SOFTWARE"
+    assert deps["base_rpc"] == "CONFIGURATION"
     assert "base_wss" in deps and "anvil_binary" in deps
+    # tx_builder is now WIRED (evidence-based self-test) → NOT a blocker.
+    assert r["checks"]["tx_builder"] is True
+    assert "tx_builder" not in deps
+
+
+def test_tx_builder_selftest_evidence_based():
+    from arbicore.searcher.live_base import tx_builder_selftest
+    r = tx_builder_selftest()
+    assert r["ok"] is True and r["selector"] == "0x64ba4bc1"
+    assert r["value"] == "0x0" and r["signed"] is False and r["broadcast"] is False
+
+
+def test_shadow_dry_run_audit_decodes_canonical_tx():
+    from arbicore.searcher.live_base import shadow_dry_run_audit
+    a = shadow_dry_run_audit()          # representative WETH→USDC→WETH sample
+    assert a["ok"] is True and a["sample"] is True and a["mode"] == "SHADOW"
+    assert a["signed"] is False and a["broadcast"] is False
+    assert a["tx"]["value"] == "0x0"
+    d = a["decoded"]
+    assert d["selector"] == "0x64ba4bc1"
+    assert d["entrypoint"] == "execute(address[],uint256[],bytes)"
+    assert len(d["borrow_tokens"]) == 1 and len(d["hops"]) == 2
+    assert d["hops"][0]["fee_ppm"] == 500 and d["hops"][1]["fee_ppm"] == 3000
+    assert int(d["hops"][1]["amount_in_wei"]) == 0   # forwards prior output
+
+
+def test_base_live_shadow_audit_five_categories():
+    from arbicore.searcher.live_base import base_live_shadow_audit
+    a = base_live_shadow_audit()
+    assert a["software_ready"] is True and a["broadcast"] is False
+    cats = {it["category"] for it in a["items"]}
+    assert cats == {"SOFTWARE", "CONFIGURATION", "VALIDATION", "MARKET", "SAFETY"}
+    # tx_builder wiring must be COMPLETE (evidence-based)
+    txb = next(it for it in a["items"] if it["id"] == "tx_builder_wiring")
+    assert txb["category"] == "SOFTWARE" and txb["status"] == "COMPLETE"
+    # safety invariants ENFORCED
+    safety = [it for it in a["items"] if it["category"] == "SAFETY"]
+    assert safety and all(it["status"] == "ENFORCED" for it in safety)
+    assert a["summary"]["software_broken"] == 0
 
 
 async def test_reserves_and_price_hooks_fail_closed():
