@@ -249,3 +249,41 @@ async def test_base_chain_adapter():
     cap = await a.capability()
     assert isinstance(cap, ChainCapability)
     assert cap.active_ready is False  # never active on assumptions alone
+
+
+# ── T0-7 live wiring: certification partitions evidence delta by provenance ─
+async def test_cert_sample_evidence_delta_excludes_synthetic():
+    from arbicore.certification.engine import ShadowCertificationEngine
+
+    class _FakeEvidenceRepo:
+        # no _col attr → engine uses list_recent fallback
+        def __init__(self, docs): self._docs = docs
+        async def list_recent(self, limit=200): return list(self._docs)
+
+    docs = [
+        {"outcome": "EXECUTABLE", "source_data_quality": "REAL", "created_at": "2026-01-01T00:00:01"},
+        {"outcome": "EXECUTABLE", "source_data_quality": "VERIFIED_REAL", "created_at": "2026-01-01T00:00:02"},
+        {"outcome": "EXECUTABLE", "source_data_quality": "SIMULATED", "created_at": "2026-01-01T00:00:03"},
+        {"outcome": "EXECUTABLE", "source_data_quality": None, "created_at": "2026-01-01T00:00:04"},
+        {"outcome": "REJECTED", "source_data_quality": "REAL", "created_at": "2026-01-01T00:00:05"},
+    ]
+    eng = ShadowCertificationEngine.__new__(ShadowCertificationEngine)
+    eng._evidence_repo = _FakeEvidenceRepo(docs)
+    eng._evidence_sample = 100
+    eng._baseline = {"last_evidence_created_at": None}
+
+    outcome_delta, exec_delta, _vids, _p95, _b = await eng._sample_evidence_delta()
+    # 2 REAL executables count; SIMULATED + unknown executables are excluded.
+    assert exec_delta == 2
+    split = eng.last_provenance_split()
+    assert split["executable_real"] == 2
+    assert split["synthetic_executable_excluded"] == 2
+    assert split["real"] == 3 and split["synthetic"] == 2
+
+
+def test_cert_last_provenance_split_default():
+    from arbicore.certification.engine import ShadowCertificationEngine
+    eng = ShadowCertificationEngine.__new__(ShadowCertificationEngine)
+    s = eng.last_provenance_split()
+    assert s == {"real": 0, "synthetic": 0,
+                 "synthetic_executable_excluded": 0, "executable_real": 0}

@@ -534,11 +534,24 @@ class ShadowCertificationEngine:
             raise
 
         new_boundary = last_boundary
+        real_ct = synthetic_ct = synthetic_executable = 0
         for doc in docs:
             outcome = str(doc.get("outcome") or "UNKNOWN")
             outcome_delta[outcome] = outcome_delta.get(outcome, 0) + 1
+            # T0-7: only REAL / VERIFIED_REAL evidence may count as executable.
+            # Synthetic/SIMULATED (or unknown) evidence is tracked separately
+            # and NEVER contributes to executable_rate/profitability grading.
+            prov = str(doc.get("source_data_quality") or "unknown").upper()
+            is_real = prov in _REAL_PROVENANCE_VALUES
+            if is_real:
+                real_ct += 1
+            else:
+                synthetic_ct += 1
             if outcome == "EXECUTABLE":
-                exec_delta += 1
+                if is_real:
+                    exec_delta += 1
+                else:
+                    synthetic_executable += 1
             vid = doc.get("validation_id")
             if vid:
                 validation_ids.append(str(vid))
@@ -557,7 +570,24 @@ class ShadowCertificationEngine:
                 stage_durations.setdefault(name, []).append(float(dur))
 
         stage_p95 = {name: _p95(vals) for name, vals in stage_durations.items()}
+        # T0-7: publish the REAL vs SYNTHETIC provenance split for this delta
+        # so operator reporting can prove executable metrics exclude synthetic.
+        self._last_provenance_split = {
+            "real": real_ct,
+            "synthetic": synthetic_ct,
+            "synthetic_executable_excluded": synthetic_executable,
+            "executable_real": exec_delta,
+        }
         return outcome_delta, exec_delta, validation_ids, stage_p95, new_boundary
+
+    def last_provenance_split(self) -> Dict[str, int]:
+        """T0-7 · most-recent evidence-delta REAL/SYNTHETIC partition.
+        Executable metrics count REAL/VERIFIED_REAL only; synthetic executable
+        evidence is reported here but excluded from executable_rate."""
+        return dict(getattr(self, "_last_provenance_split", {
+            "real": 0, "synthetic": 0,
+            "synthetic_executable_excluded": 0, "executable_real": 0,
+        }))
 
     async def _reset_baseline(self) -> None:
         """Set baseline to the current world state so cycle #0 is a

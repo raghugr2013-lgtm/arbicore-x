@@ -151,3 +151,60 @@ Resource footprint of T0 is negligible (Redis-cacheable TVL, additive fields) �
 **Deployment package = the change set in §B + the DRY-RUN backfill script + the §T0-11 sequence in the plan. NOT deployed. Awaiting separate VPS deployment authorization.**
 
 **STOP — T0 implementation + tests complete. No T1/T2 work started. No live deployment performed.**
+
+---
+
+# ADDENDUM — T0 final wiring (live-facing surfaces) · 2026-06
+
+Completes the two follow-ups previously listed under §F-1 and §F-2. Backend-only, additive; no frontend/UI, no branch merges, working tree not reset/cleaned.
+
+## A. Exact additional changes
+- **`arbicore/certification/engine.py`** — `_sample_evidence_delta()` now partitions the evidence delta by `source_data_quality`: **only REAL/VERIFIED_REAL EXECUTABLE evidence increments `exec_delta`**; synthetic/SIMULATED/unknown executable evidence is counted into `synthetic_executable_excluded` and NEVER into executable_rate. New `last_provenance_split()` accessor exposes `{real, synthetic, synthetic_executable_excluded, executable_real}`.
+- **`server.py`** — startup `_canonical_flash_loan_scanner_startup()` now merges a live readiness verdict (via `composition.flash_loan_quote_readiness()` against the resolved `flash_loan_arbitrage` mode) into `_CANONICAL_FL_ACTIVATION`. Two new operator GET endpoints (both `Depends(_require_operator_dep)`):
+  - `GET /api/arbicore/engine/flash-loan/readiness` → `{activation, readiness{ready,active,quote_provider,readiness_error}, generated_at}` (T0-1).
+  - `GET /api/arbicore/certification/provenance-split` → `{provenance_split{real,synthetic,synthetic_executable_excluded,executable_real}, generated_at}` (T0-7).
+- **`tests/test_t0_correctness.py`** — +2 tests (evidence-delta provenance partition through the real `_sample_evidence_delta`; default `last_provenance_split`).
+
+`ARBICORE_CANONICAL_STRICT_PROVENANCE` implementation is unchanged and remains OFF by default (not auto-enabled).
+
+## B. Tests / results
+- `tests/test_t0_correctness.py` → **19 passed** (`pytest -p no:xdist`).
+- **Live HTTP verification (testing agent, `/app/test_reports/iteration_1.json`): backend 100%, 0 issues, retest_needed=false.** Booted the app locally (uvicorn :8099, throwaway Mongo) — the app imports/initializes fully; startup log emitted `readiness={ready:true, active:true, quote_provider:'live', readiness_error:null}` for the canonical scanner. Verified: both endpoints 401 unauthenticated; after admin login → 200 with the exact contract shapes above.
+
+## C. Git diff / status
+- Full T0 set vs `43230f6`: **19 files, +842/−12** (12 modified, 5 new backend + the test file; earlier T0 files auto-committed, this turn's pending: `certification/engine.py`, `server.py`, `tests/test_t0_correctness.py`).
+- Working tree otherwise clean; the 44 intentional preview-URL edits and (on the VPS) the intentional Dockerfile change (git + pinned Foundry/Anvil v1.7.1) are preserved — not reset/cleaned/stashed.
+
+## D. Recommended commit separation (T0 code vs Dockerfile infra)
+Keep application correctness separate from build/infra so either can be reverted independently:
+1. **Commit 1 — `feat(t0): flash-loan correctness foundation`** — all 19 T0 backend files + tests (`arbicore/**`, `server.py`, `tests/test_t0_correctness.py`).
+2. **Commit 2 — `chore(t0): live-facing readiness + provenance-split wiring`** *(optional split of the addendum: `certification/engine.py`, `server.py` endpoints, +2 tests)* — if you prefer the endpoint wiring isolated from the core logic commit.
+3. **Commit 3 — `build(infra): add git + pinned Foundry/Anvil v1.7.1 to Dockerfile`** — the Dockerfile change **only**, no app code. Reversible without touching T0 logic.
+Suggested branch: `t0/flash-loan-correctness` off `main@43230f6`.
+
+## E. Final T0 deployment checklist (operator, on VPS — NOT run here)
+Pre-deploy:
+- [ ] On `main@43230f6`; create branch `t0/flash-loan-correctness`; apply the 3 commits (D).
+- [ ] Confirm canonical DB `factory-mongo/arbicore_x`; `execution_mode_state`=7, `execution_mode_audit`=7 (already confirmed).
+- [ ] `mongodump` backup of `arbicore_x` (record SHA256). No deletes will occur.
+- [ ] Decide `SIGNING_ACTIVE_KEY_VERSION` (currently UNSET → evidence stays UNSIGNED by design; do NOT auto-generate). Configure a key + version for signed production evidence when ready.
+- [ ] Rotate the PAT embedded in the git remote URL.
+
+Deploy:
+- [ ] Set `ARBICORE_CANONICAL_STRICT_PROVENANCE=true` (production enforces the canonical write-gate).
+- [ ] Rebuild backend image (Dockerfile now provides git + Foundry/Anvil v1.7.1 for atomic-sim replay).
+- [ ] Restart backend (and frontend only if built together). No DB container restart.
+
+Post-deploy health (all should be truthful, not fabricated):
+- [ ] `GET /api/arbicore/engine/flash-loan/readiness` → `quote_provider:"live"`, `readiness_error:null` (NOT noop in SHADOW).
+- [ ] `GET /api/arbicore/certification/provenance-split` → integers; `synthetic_executable_excluded` present.
+- [ ] Scanner rejection histogram shows honest `gate_7`/`gate_8:liquidity_unverifiable` reasons (expected: Gate 8 fails-closed until T1 wires real TVL).
+- [ ] Canonical opportunities carry provenance ∈ {REAL, VERIFIED_REAL}; no `thin_activator`/SIMULATED rows in `arbicore_opportunities`.
+- [ ] `execution_mode_state` seeded (flash_loan_arbitrage=SHADOW); no strategy in LIMITED_LIVE/FULL_LIVE.
+- [ ] (Optional) run `python -m arbicore.scripts.t0_provenance_backfill` **dry-run**, review counts, then `--apply`.
+
+Rollback:
+- [ ] Redeploy previous image tag; set `ARBICORE_CANONICAL_STRICT_PROVENANCE=false` + `ARBICORE_TVL_PROVIDER=sentinel` to restore prior behavior without code change; restore `mongodump` only if a backfill was applied and needs reverting (additive fields need no restore).
+
+**STOP — awaiting deployment authorization.**
+

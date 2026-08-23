@@ -5281,6 +5281,49 @@ async def v2_engine_scanner_status() -> Dict[str, Any]:
     return _CONTINUOUS_SCANNER.status()
 
 
+@api_router.get("/arbicore/engine/flash-loan/readiness",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_flash_loan_readiness() -> Dict[str, Any]:
+    """T0-1 · canonical flash-loan scanner quote-provider readiness.
+
+    Proves the canonical scanner is NOT silently running the noop quote
+    provider in an analysis mode. Live-computed against the current
+    flash_loan_arbitrage execution mode.
+    """
+    from arbicore.runtime import composition as _composition
+    activation = dict(_CANONICAL_FL_ACTIVATION)
+    readiness = activation.get("readiness")
+    try:
+        scanner = _composition.get_flash_loan_arb_scanner()
+        fl_row = await _EXECUTION_MODE_REPO.get("flash_loan_arbitrage")
+        fl_mode = (fl_row or {}).get("mode") or "OBSERVE"
+        readiness = _composition.flash_loan_quote_readiness(
+            quote_provider_is_default=scanner.quote_provider_is_default,
+            mode=fl_mode)
+        activation["mode"] = fl_mode
+        activation["readiness"] = readiness
+    except Exception as exc:  # noqa: BLE001
+        activation["readiness_error"] = f"{type(exc).__name__}: {exc}"
+    return {"activation": activation, "readiness": readiness,
+            "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/certification/provenance-split",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_certification_provenance_split() -> Dict[str, Any]:
+    """T0-7 · REAL vs SYNTHETIC provenance partition of the latest evidence
+    delta. Executable metrics count REAL/VERIFIED_REAL only; synthetic
+    executable evidence is reported here but excluded from executable_rate."""
+    split = {"real": 0, "synthetic": 0,
+             "synthetic_executable_excluded": 0, "executable_real": 0}
+    if _SHADOW_CERT_ENGINE is not None:
+        try:
+            split = _SHADOW_CERT_ENGINE.last_provenance_split()
+        except Exception:  # noqa: BLE001
+            pass
+    return {"provenance_split": split, "generated_at": _iso_now()}
+
+
 @api_router.post("/arbicore/engine/scanner/start",
                  dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_scanner_start() -> Dict[str, Any]:
@@ -6852,6 +6895,20 @@ async def _canonical_flash_loan_scanner_startup():
         _CANONICAL_FL_ACTIVATION = await _composition.activate_canonical_flash_loan_scanner(
             _QUOTER_REGISTRY)
         _CANONICAL_FL_SCANNER = _composition.get_flash_loan_arb_scanner()
+        # T0-1: surface an explicit readiness verdict so a canonical scanner
+        # in an analysis mode on the default noop quote provider is visible
+        # (never a silent synthetic production quote path).
+        try:
+            _fl_row = await _EXECUTION_MODE_REPO.get("flash_loan_arbitrage")
+            _fl_mode = (_fl_row or {}).get("mode") or "OBSERVE"
+            _readiness = _composition.flash_loan_quote_readiness(
+                quote_provider_is_default=_CANONICAL_FL_SCANNER.quote_provider_is_default,
+                mode=_fl_mode)
+            _CANONICAL_FL_ACTIVATION = {**_CANONICAL_FL_ACTIVATION,
+                                        "mode": _fl_mode,
+                                        "readiness": _readiness}
+        except Exception as _re:  # noqa: BLE001
+            logger.warning("flash-loan readiness snapshot failed: %s", _re)
         logger.info("scanners: canonical FlashLoanArbitrageScanner ACTIVE — %s",
                     _CANONICAL_FL_ACTIVATION)
     except Exception as exc:  # noqa: BLE001
