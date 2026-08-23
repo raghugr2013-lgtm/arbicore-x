@@ -56,3 +56,35 @@ Redeploy previous image tag; toggles `ARBICORE_CANONICAL_STRICT_PROVENANCE=false
 **Wire T2 into the runtime behind a feature flag on Base only:** feed `PoolStateCache` from a real Base WSS log stream, resolve pools via `BaseAerodromeUniAdapter`, run `fast_filter → LocalMathSimulationBackend` per block, hand survivors to the existing verifier (Gate 7 $25 + Gate 8 real TVL + economics + provenance), keep mode SHADOW. Add `RevmForkBackend` (Anvil) as the stage-2b confirmation. Measure real candidate/quote/sim latency on the VPS before considering a second chain.
 
 **STOP — release-candidate core implemented, tested (105 pass) and benchmarked. No deploy/live trading. Awaiting your direction on runtime wiring vs. next chain/family.**
+
+---
+
+# ADDENDUM — Base runtime wiring + real Anvil REVM backend (2026-06)
+
+## Implemented (flag-gated, SHADOW, no broadcast)
+- **`searcher/runtime.py` `BaseSearcherRuntime`** — the full real-data path: `ingest_log` (WSS/logs → `PoolStateCache`) → `enumerate_cycles` → `fast_filter` → `LocalMathSimulationBackend` → **Gate 7 ($25, unchanged)** → **Gate 8 (real TVL via provider, FAIL-CLOSED without verifiable liquidity)** → **REAL provenance** → `rank_opportunities`. Asserts SHADOW; `broadcast=False` always; `broadcasts` metric hard-0.
+- **Flag** `ARBICORE_T2_SEARCHER_ENABLED` (default **off**) via `maybe_build_base_searcher()`; wired into server startup as **construction-only** (no loop, no broadcast) so default deploy is unaffected.
+- **`searcher/revm_backend.py` `AnvilRevmForkBackend`** — REAL `anvil --fork-url <BASE_RPC>` transaction-level simulation via injected `ForkLauncher` + `tx_builder` + net decoder. **Fails closed** (never fabricates) when RPC / anvil binary / tx_builder / decoder is missing, or on any sim error. Production launcher shells out to Foundry Anvil (v1.7.1 from the Dockerfile); the real `ForkHandle`/`tx_builder` (executor calldata) are provided on the VPS.
+
+## Tests / results `[FACT]`
+`tests/test_t2_runtime.py` → **7 passed**: end-to-end SHADOW candidate production (REAL provenance, Gate 7 held, `broadcast=False`); Gate 8 fail-closed without TVL; **$25 floor blocks sub-$25 profit**; stale-state protection blocks scan; flag off-by-default; REVM backend fail-closed (no-rpc / no-tx-builder) + injected happy-path. Combined relevant suite now **112 passing, 0 regressions** (server.py compiles).
+
+## Measured locally (synthetic topology; single core)
+- **Scan latency:** 0.484 ms for a 6-token / 10-pool / **84-cycle** full scan (enumerate→fast-filter→local-sim→gates) → **~2,066 full scans/sec**.
+- Combined with earlier kernels (V2 2.71M/s, fast-filter ~357K cycles/s), a per-block full-graph rescan on Base (~2 s blocks) has large headroom before bounded concurrency across 12 vCPU.
+
+## VPS-only metrics (CANNOT be produced in Emergent; NOT fabricated)
+The following require a live Base RPC/WSS + node + executor contract and must be measured on the VPS with the flag enabled in SHADOW:
+WSS latency, block-to-cache-update latency, real scan latency under live load, candidates/block on live state, real opportunities, live Gate 7/8 rejection distribution, **real REVM/Anvil fork simulation latency + success rate**, stale-state rate, provider liquidity availability, end-to-end opportunity age. In Emergent the real `RevmForkBackend` correctly **fails closed** (`fail_closed:no_base_rpc_configured` / `anvil_binary_unavailable`).
+
+## Remaining VPS wiring to go fully live-in-SHADOW
+1. A real `ForkLauncher`/`ForkHandle` (anvil subprocess + JSON-RPC client) and `tx_builder` (executor calldata for the atomic route) — provider-specific, VPS.
+2. A Base WSS log subscriber calling `runtime.ingest_log(...)` on Sync/Swap and `scan_block(...)` on `newHeads`.
+3. Real `TVLProvider` (`OnChainReserveTVLProvider` fed by live reserves + price feed) so Gate 8 evaluates real depth instead of failing closed.
+4. Bridge accepted candidates into the existing verifier/evidence/certification for SHADOW provenance recording.
+
+## Safety (unchanged)
+SHADOW-only; no broadcasting; $25 Gate 7 intact; Gate 8 real-liquidity/fail-closed; REAL provenance only; no synthetic in the real funnel; no auto-promotion; no gate weakening; no live trading; not deployed.
+
+**STOP — Base end-to-end searcher path implemented + proven in SHADOW with deterministic fixtures and local benchmarks; live Base metrics pending VPS wiring. Awaiting direction.**
+

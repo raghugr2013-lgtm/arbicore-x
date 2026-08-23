@@ -6915,6 +6915,21 @@ async def _canonical_flash_loan_scanner_startup():
         _CANONICAL_FL_ACTIVATION = {"instantiated": False, "error": f"{type(exc).__name__}: {exc}"}
         logger.exception("scanners: canonical flash-loan activation failed: %s", exc)
 
+    # T2 · flag-gated Base searcher runtime (SHADOW, construction-only; never
+    # broadcasts, never promotes). Default OFF → zero runtime impact.
+    global _BASE_SEARCHER_RUNTIME
+    try:
+        from arbicore.searcher.runtime import maybe_build_base_searcher
+        _BASE_SEARCHER_RUNTIME = maybe_build_base_searcher()
+        if _BASE_SEARCHER_RUNTIME is not None:
+            logger.info("searcher: T2 Base runtime constructed (SHADOW, "
+                        "no-broadcast, flag ARBICORE_T2_SEARCHER_ENABLED=on)")
+        else:
+            logger.info("searcher: T2 Base runtime disabled (flag off)")
+    except Exception as exc:  # noqa: BLE001
+        _BASE_SEARCHER_RUNTIME = None
+        logger.warning("searcher: T2 runtime construction skipped: %s", exc)
+
 
 # ---------------------------------------------------------------------------
 # v2.11.9 · Wave1B individual scanners (CEX / DEX / Flash Loan / Funding /
