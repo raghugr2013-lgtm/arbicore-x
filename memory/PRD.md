@@ -58,6 +58,39 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
 - NEXT (per user): M2 real-live-quote -> real TVL -> net profit -> Gate 7/8/9 -> verified evidence -> shadow/paper.
   Limited live NOT enabled.
 
+## M2.6 delivered (2026-06) — Aerodrome/Slipstream on-chain pool resolution (fail-closed)
+- NEW arbicore/searcher/aero_resolver.py: AerodromePoolResolver resolves runtime_getpool
+  Aerodrome (classic) + Aerodrome-Slipstream (CL) pools via the DEX factory getPool on-chain,
+  then VALIDATES before accepting: non-zero address, on-chain token0()/token1() == canonical
+  address-ordered pair, pool type (classic stable() / slipstream tickSpacing()) match, correct
+  chain. Any RPC failure/zero/mismatch/missing → None (fail-closed). Selectors computed via
+  function_signature_to_4byte_selector (no hardcoded selector strings).
+- Factories: classic PoolFactory reused = 0x420DD381b31aEf6683db6B902084cB0FFECe40Da
+  (env ARBICORE_AERO_POOL_FACTORY_BASE). Slipstream CLFactory default =
+  0x5e7BB104d84c7CB9B682AaC2F3d509f5F406809A (env ARBICORE_AERO_CL_FACTORY_BASE). Both
+  env-overridable. No individual pool address hardcoded — all resolved on-chain + validated.
+- Registry single source: base_pool_registry adds RUNTIME_RESOLVED + set_runtime_resolved_address()
+  (dataclasses.replace fills address, sets RUNTIME_RESOLVED, updates by-id/by-address; refuses
+  zero/unknown → fail-closed). unresolved_pools() filters runtime_getpool|unresolved;
+  registry_summary adds runtime_resolved. No parallel pool list / routing engine.
+- Composition: activate_canonical_flash_loan_scanner runs resolver.resolve_all(unresolved_pools())
+  AFTER eth_call and BEFORE build_base_tvl_provider, applying validated addresses to the registry
+  so the EXISTING v3_state reserves path (make_base_v3_reserves_fn/build_pool_meta_for_reserves)
+  and live_quote_provider._resolve_pool_tvls pick them up unchanged. Activation dict adds
+  aero_pools_resolved count. Preview (no RPC) → nothing resolves → Gate 8 stays fail-closed.
+- Gate 7/8/9 semantics, signing, broadcast, LIMITED/FULL_LIVE, SHADOW no-broadcast, price
+  provenance: ALL untouched. M2.5 pricing still UniV3-only (Slipstream RUNTIME_RESOLVED excluded
+  from pricing routes, used only for TVL/reserves).
+- Tests: tests/test_m2_6_aero_resolution.py (17) — valid classic/slipstream resolution; zero/none/
+  RPC-fail/token-mismatch/wrong-tickSpacing/wrong-stable/tick-read-none/CL-unset/wrong-chain all
+  fail closed; registry round-trip+guards; integration unresolved→Gate 8 FAIL then resolved+depth→
+  Gate 8 PASS; resolve_all skips failures. testing_agent iteration_5: 17/17 + 77/77 regression +
+  44/44 leakage check PASS; no critical/minor issues. Pre-existing broad-selector FAIL/ERROR are
+  preview-env/HTTP artifacts (frontend/.env, MONGO_URL, HTTP auth) — not M2.6 regressions.
+- Env for VPS (M2.6): ARBICORE_AERO_POOL_FACTORY_BASE (default classic), ARBICORE_AERO_CL_FACTORY_BASE
+  (default 0x5e7BB104…). STOPPED for VPS live validation before any Limited-Live proposal. No
+  execution/broadcast enabled.
+
 ## M2.5 delivered (2026-06) — multi-token USD price feed (on-chain, fail-closed)
 - NEW arbicore/searcher/price_feed.py: OnChainUsdPriceFeed + PricePoint +
   build_base_price_feed_from_env + m2_5_enabled. USDC-denominated pricing via the

@@ -835,8 +835,25 @@ async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
     tvl_provider = None
     price_feed = None
     price_source_kind = "none"
+    aero_resolved = 0
     try:
         eth_call = make_base_eth_call_from_env()
+        # M2.6 — resolve Aerodrome/Slipstream pools on-chain via factory getPool
+        # and record validated addresses into the canonical registry so the
+        # EXISTING reserves/TVL path picks them up. Fail-closed per pool.
+        if eth_call is not None:
+            try:
+                from ..searcher.aero_resolver import build_base_aero_resolver_from_env
+                from ..discovery import base_pool_registry as _reg
+                resolver = build_base_aero_resolver_from_env(eth_call)
+                if resolver is not None:
+                    results = await resolver.resolve_all(_reg.unresolved_pools())
+                    for cid, r in results.items():
+                        if _reg.set_runtime_resolved_address(
+                                cid, r.address, provenance=r.provenance):
+                            aero_resolved += 1
+            except Exception:  # noqa: BLE001 — resolution never blocks activation
+                aero_resolved = 0
         price_feed = build_base_price_feed_from_env(quoter_registry)
         if price_feed is not None:
             price_source = price_feed.price_source
@@ -882,6 +899,7 @@ async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
         "tvl_provider": ("onchain_reserves" if tvl_provider is not None
                          else "unverified_fail_closed"),
         "price_source": price_source_kind,
+        "aero_pools_resolved": aero_resolved,
         "evidence_sink": evidence_sink_wired,
         "shadow_route": shadow_route_wired,
         "pool_universe_size": len(_base_pools_size()),

@@ -26,7 +26,7 @@ left UNCHANGED — this module is purely additive until the registry is proven.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace as _dc_replace
 from typing import Any, Dict, List, Optional, Tuple
 
 from eth_abi import encode as _abi_encode
@@ -55,6 +55,7 @@ UNIV3_GET_POOL_SELECTOR = "0x1698ee82"
 
 DETERMINISTIC_VERIFIED = "deterministic_verified"
 RUNTIME_GETPOOL = "runtime_getpool"
+RUNTIME_RESOLVED = "runtime_resolved"   # M2.6: resolved+validated on-chain (VPS)
 UNRESOLVED = "unresolved"
 
 
@@ -227,7 +228,41 @@ def resolved_addresses() -> Dict[str, str]:
 
 def unresolved_pools() -> List[CanonicalPool]:
     """Pools still needing on-chain resolution (runtime_getpool/unresolved)."""
-    return [p for p in _POOLS if p.address_resolution != DETERMINISTIC_VERIFIED]
+    return [p for p in _POOLS if p.address_resolution == RUNTIME_GETPOOL
+            or p.address_resolution == UNRESOLVED]
+
+
+def set_runtime_resolved_address(canonical_id: str, address: str, *,
+                                 provenance: Dict[str, Any]) -> bool:
+    """M2.6 — record an on-chain-resolved+validated pool address into the ONE
+    canonical registry (single source of truth; no parallel pool list).
+
+    Replaces the frozen ``CanonicalPool`` in-place with ``address`` filled and
+    ``address_resolution=RUNTIME_RESOLVED``. Fail-closed: refuses missing/zero
+    addresses and unknown ids (returns False, leaving the pool unresolved so
+    Gate 8 keeps failing closed). The caller MUST have validated the address
+    on-chain (token pair + pool type + non-zero) before calling this."""
+    p = _BY_ID.get(canonical_id)
+    if p is None or not address:
+        return False
+    try:
+        if int(address, 16) == 0:
+            return False
+        addr = _checksum(address)
+    except (ValueError, TypeError):
+        return False
+    newp = _dc_replace(
+        p, address=addr, address_resolution=RUNTIME_RESOLVED,
+        provenance=f"aerodrome_getpool_onchain:{provenance.get('method', '?')}",
+        resolver={**p.resolver, "resolved_address": addr,
+                  "resolution": dict(provenance)})
+    for i, existing in enumerate(_POOLS):
+        if existing.canonical_id == canonical_id:
+            _POOLS[i] = newp
+            break
+    _BY_ID[canonical_id] = newp
+    _BY_ADDRESS[addr.lower()] = newp
+    return True
 
 
 def registry_summary() -> Dict[str, Any]:
@@ -241,6 +276,7 @@ def registry_summary() -> Dict[str, Any]:
         "univ3_factory": BASE_UNIV3_FACTORY,
         "deterministic_verified": counts.get(DETERMINISTIC_VERIFIED, 0),
         "runtime_getpool": counts.get(RUNTIME_GETPOOL, 0),
+        "runtime_resolved": counts.get(RUNTIME_RESOLVED, 0),
         "unresolved": counts.get(UNRESOLVED, 0),
     }
 
@@ -248,8 +284,9 @@ def registry_summary() -> Dict[str, Any]:
 __all__ = [
     "CHAIN", "CanonicalPool",
     "BASE_UNIV3_FACTORY", "UNIV3_POOL_INIT_CODE_HASH", "UNIV3_GET_POOL_SELECTOR",
-    "DETERMINISTIC_VERIFIED", "RUNTIME_GETPOOL", "UNRESOLVED",
+    "DETERMINISTIC_VERIFIED", "RUNTIME_GETPOOL", "RUNTIME_RESOLVED", "UNRESOLVED",
     "compute_univ3_pool_address", "build_canonical_pools",
     "get_canonical_pools", "canonical_pool_by_id", "canonical_pool_by_address",
-    "resolved_addresses", "unresolved_pools", "registry_summary",
+    "resolved_addresses", "unresolved_pools", "set_runtime_resolved_address",
+    "registry_summary",
 ]
