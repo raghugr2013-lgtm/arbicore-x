@@ -186,6 +186,11 @@ class FlashLoanArbitrageScanner:
         """M2.4 — wire the SHADOW/PAPER routing sink onto the verifier."""
         self._verifier.shadow_sink = sink
 
+    def set_price_provenance_fn(self, fn) -> None:
+        """M2.5 — wire the per-token USD price provenance source onto the
+        verifier for the evidence bundle."""
+        self._verifier.price_provenance_fn = fn
+
     # -- lifecycle --------------------------------------------------------
 
     async def start(self) -> None:

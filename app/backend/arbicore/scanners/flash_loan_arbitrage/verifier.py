@@ -70,6 +70,8 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
         shadow_sink: Optional[
             Callable[[CanonicalOpportunity, Dict[str, Any]],
                      Awaitable[None]]] = None,
+        price_provenance_fn: Optional[
+            Callable[[List[str]], List[Dict[str, Any]]]] = None,
     ) -> None:
         self.quote_provider = quote_provider
         self.economics = economics_assessor
@@ -84,6 +86,8 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
         # returned verdict). M2.4 — SHADOW/PAPER routing for CONFIRMED opps.
         self.evidence_sink = evidence_sink
         self.shadow_sink = shadow_sink
+        # M2.5 — per-token USD price provenance for the evidence bundle.
+        self.price_provenance_fn = price_provenance_fn
 
     async def verify(self, candidate: DiscoveryCandidate,
                      ) -> Tuple[Optional[CanonicalOpportunity], str]:
@@ -380,6 +384,7 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
             "liquidity": {
                 "min_pool_tvl_usd_in_route": ev.get("min_tvl", 0.0),
                 "tvl_provenance": facts.get("tvl_provenance"),
+                "price_provenance": self._price_provenance(hm),
             },
             "gas": {
                 "tx_gas_units": facts.get("tx_gas_units"),
@@ -408,6 +413,21 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
                 "borrow_amount_usd": econ.borrow_amount_usd,
             }
         return bundle
+
+    def _price_provenance(self, hm: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """M2.5 — per-token USD price provenance for the route (audit only)."""
+        if self.price_provenance_fn is None:
+            return []
+        toks: List[str] = list(hm.get("cycle_token_path") or [])
+        if not toks:
+            bt = hm.get("borrow_token")
+            if bt:
+                toks = [bt]
+        try:
+            return self.price_provenance_fn(toks)
+        except Exception:  # noqa: BLE001 — audit is best-effort, never fatal
+            return []
+
 
     # ---- helpers ----------------------------------------------------------
 

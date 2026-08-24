@@ -58,6 +58,38 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
 - NEXT (per user): M2 real-live-quote -> real TVL -> net profit -> Gate 7/8/9 -> verified evidence -> shadow/paper.
   Limited live NOT enabled.
 
+## M2.5 delivered (2026-06) — multi-token USD price feed (on-chain, fail-closed)
+- NEW arbicore/searcher/price_feed.py: OnChainUsdPriceFeed + PricePoint +
+  build_base_price_feed_from_env + m2_5_enabled. USDC-denominated pricing via the
+  existing QuoterRegistry (PRIMARY, genuine on-chain quotes). USDC = configured
+  numéraire (ARBICORE_USD_NUMERAIRE, peg ARBICORE_STABLE_PEG_USD=1.0) — a valuation
+  anchor, never quoted. Non-anchor tokens priced direct T→USDC or two-hop T→WETH→USDC
+  over deterministic-verified UniV3 pools only. Stablecoins (ARBICORE_STABLES) peg-guarded
+  (±ARBICORE_STABLE_PEG_BAND_BPS); freshness enforced (ARBICORE_PRICE_TTL_S cache +
+  ARBICORE_PRICE_MAX_BLOCK_LAG vs head). Any missing/stale/unverifiable/out-of-band/no-path/
+  quote-failure → None → Gate 8 fails closed. ZERO fabricated prices.
+- Provenance: per-token PricePoint {token, price_usd, source, status, path, pools, quoter,
+  block, head_block, stale, ts}. Surfaced in evidence bundle liquidity.price_provenance via
+  verifier.price_provenance_fn (new optional) ← scanner.set_price_provenance_fn ←
+  composition wires feed.provenance_for. Audit-only; gate semantics unchanged.
+- composition.activate_canonical_flash_loan_scanner now prefers the M2.5 feed
+  (build_base_price_feed_from_env) and falls back to native-only source when
+  ARBICORE_USD_NUMERAIRE/RPC absent (fail-closed). Activation dict adds price_source kind.
+- Tests: tests/test_m2_5_price_feed.py (13) — numéraire-no-quote, direct WETH, two-hop weETH,
+  in/out-of-band peg guard, stale block-lag, unverifiable head, no_path, quote_failed,
+  not_evaluated provenance, Gate 8 pass/fail via feed integration. testing_agent iteration_4:
+  40/40 targeted (13 M2.5 + 21 M2.1-4 + 6 M3) PASS; invariants verified; no regressions.
+  Pre-existing 7 FAIL + 58 ERROR are preview-env artifacts (frontend/.env, MONGO_URL, HTTP auth).
+- Token universe (12 across 30 canonical pools): WETH, USDC, USDT, DAI, USDbC, cbETH,
+  wstETH, rETH, weETH, cbBTC, AERO, DEGEN. UniV3 deterministic pools give a genuine USDC
+  pricing graph for all 12.
+- Env required (VPS): ARBICORE_USD_NUMERAIRE=USDC, ARBICORE_STABLE_PEG_USD=1.0,
+  ARBICORE_STABLES=USDC,USDT,DAI,USDbC, ARBICORE_STABLE_PEG_BAND_BPS=200,
+  ARBICORE_PRICE_TTL_S=12, ARBICORE_PRICE_MAX_BLOCK_LAG=5, plus ARBICORE_RPC_URL(_BASE),
+  ARBICORE_WSS_URL_BASE, ARBICORE_NATIVE_PRICE_USD, ARBICORE_T2_SEARCHER_ENABLED=true.
+  ARBICORE_FLASH_LOAN_SHADOW_ROUTE stays OFF. No LIMITED_LIVE/FULL_LIVE.
+- Production stays on 9bd3ea5 pending VPS live validation. No execution/broadcast enabled.
+
 ## M2.2 / M2.3 / M2.4 delivered (2026-06) — offline, fail-closed, NO execution
 - M2.2 REAL TVL→Gate8: make_live_quote_provider(quoter, *, tvl_provider=None). New
   _resolve_pool_tvls (synthetic route id == canonical registry id → REAL address →

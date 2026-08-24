@@ -824,20 +824,39 @@ async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
         make_base_eth_call_from_env, make_base_price_source_from_env,
         build_base_tvl_provider,
     )
+    from ..searcher.price_feed import build_base_price_feed_from_env
     scanner = get_flash_loan_arb_scanner()
     # M2.2 — build the REAL, fail-closed Gate-8 TVL provider from the operator
     # environment (Base RPC eth_call + genuine USD price source). Absent either
     # dependency → tvl_provider is None → Gate 8 fails closed (never fabricated).
+    # M2.5 — prefer the on-chain multi-token USD price feed (USDC-denominated,
+    # peg-guarded, freshness-checked) when ARBICORE_USD_NUMERAIRE is configured;
+    # otherwise fall back to the native-only source. Either way: no fabrication.
     tvl_provider = None
+    price_feed = None
+    price_source_kind = "none"
     try:
         eth_call = make_base_eth_call_from_env()
-        price_source = make_base_price_source_from_env()
+        price_feed = build_base_price_feed_from_env(quoter_registry)
+        if price_feed is not None:
+            price_source = price_feed.price_source
+            price_source_kind = "onchain_usd_feed_m2_5"
+        else:
+            price_source = make_base_price_source_from_env()
+            price_source_kind = ("native_only" if price_source is not None
+                                 else "none")
         if eth_call is not None and price_source is not None:
             tvl_provider = build_base_tvl_provider(eth_call, price_source)
     except Exception:  # noqa: BLE001 — fail-closed to None
         tvl_provider = None
     scanner.set_quote_provider(
         make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider))
+    # M2.5 — wire per-token USD price provenance into the evidence bundle.
+    if price_feed is not None:
+        try:
+            scanner.set_price_provenance_fn(price_feed.provenance_for)
+        except Exception:  # noqa: BLE001
+            pass
     # M2.3 — persist an auditable evidence bundle for every verified candidate.
     try:
         scanner.set_evidence_sink(make_flash_loan_evidence_sink())
@@ -862,6 +881,7 @@ async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
         "quote_provider": "live" if not scanner.quote_provider_is_default else "noop",
         "tvl_provider": ("onchain_reserves" if tvl_provider is not None
                          else "unverified_fail_closed"),
+        "price_source": price_source_kind,
         "evidence_sink": evidence_sink_wired,
         "shadow_route": shadow_route_wired,
         "pool_universe_size": len(_base_pools_size()),
