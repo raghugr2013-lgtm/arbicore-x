@@ -263,7 +263,9 @@ class BaseWssSubscriber:
         async for msg in self.ws:
             kind = msg.get("kind")
             if kind == "log":
-                dec = decode_sync_log(msg["log"])
+                # V3 (Swap/Mint/Burn/Initialize) first, then V2 Sync fallback.
+                from .v3_state import decode_v3_log
+                dec = decode_v3_log(msg["log"]) or decode_sync_log(msg["log"])
                 if dec:
                     self.runtime.ingest_log(dec)
                     self.logs_ingested += 1
@@ -457,7 +459,8 @@ def base_live_shadow_audit() -> Dict[str, Any]:
              "existing verifier/paper/shadow/evidence pipeline.",
              "ENGINEERING"),
         item("wss_ingestion_decoder", "SOFTWARE", "COMPLETE",
-             "Sync-log decoder + BaseWssSubscriber → runtime.ingest/scan.",
+             "V3 (Swap/Mint/Burn/Initialize) + V2 Sync decoders + slot0/"
+             "liquidity bootstrap → PoolStateCache via BaseWssSubscriber.",
              "ENGINEERING"),
 
         # ── CONFIGURATION (VPS/operator-provided; not code) ──

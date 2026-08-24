@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from .pool_cache import PoolStateCache
+from .pool_cache import PoolStateCache, PoolState
 from .route import RouteGraph, enumerate_cycles, fast_filter
 from .simulation import LocalMathSimulationBackend, SimulationBackend
 from ..scanners.flash_loan_arbitrage.ranking import rank_opportunities
@@ -140,14 +140,153 @@ class BaseSearcherRuntime:
             vals.append(v)
         return min(vals) if vals else None
 
+    def pool_addresses(self) -> List[str]:
+        """Real pool contract addresses seeded into the cache (for WSS subs)."""
+        return self.cache.pools()
+
+
+# ── Canonical registry-driven composition (M1→M4 wiring) ────────────────────
+def _load_canonical_base_pools():
+    from ..discovery import base_pool_registry as reg
+    return reg.get_canonical_pools()
+
+
+def populate_from_registry(cache: PoolStateCache, graph: RouteGraph,
+                           pools=None, *, seed_block: int = 0) -> int:
+    """Seed the route graph + empty PoolState skeletons from the canonical Base
+    pool registry (M1). Needs NO RPC — only pools with a resolved real address
+    are added (deterministic-verified UniV3 today; runtime-resolved Aerodrome on
+    the VPS). Keyed by REAL contract address so WSS logs land in the cache.
+    Skeletons hold sqrt_p/liquidity=0 → cache.quote returns None (honest) until
+    real V3 state arrives via slot0 bootstrap / Swap events."""
+    if pools is None:
+        pools = _load_canonical_base_pools()
+    added = 0
+    for p in pools:
+        if not p.address:
+            continue                            # runtime_getpool → resolve on VPS
+        key = p.address.lower()
+        graph.add_pool(key, p.token0_symbol, p.token1_symbol)
+        fee_bps = p.fee_bps if p.fee_bps is not None else (5 if p.kind == "v3" else 30)
+        cache.upsert(PoolState(pool=key, kind=p.kind,
+                               token0=p.token0_symbol, token1=p.token1_symbol,
+                               fee_bps=int(fee_bps), block=seed_block))
+        added += 1
+    return added
+
+
+def build_base_tvl_provider(eth_call, price_source, pools=None):
+    """Build the REAL, fail-closed Gate-8 TVL provider by REUSING the existing
+    OnChainReserveTVLProvider + CachedTVLProvider, fed by a V3-aware on-chain
+    reserves fn (balanceOf — NOT V2 getReserves) and a genuine USD price source.
+    Unknown price/reserves → None → Gate 8 fails closed (never fabricated)."""
+    from ..scanners.flash_loan_arbitrage.tvl_provider import (
+        OnChainReserveTVLProvider, CachedTVLProvider)
+    from .live_base import make_base_price_fn
+    from .v3_state import make_base_v3_reserves_fn, build_pool_meta_for_reserves
+    if pools is None:
+        pools = _load_canonical_base_pools()
+    meta = build_pool_meta_for_reserves(pools)
+    reserves_fn = make_base_v3_reserves_fn(eth_call, meta)
+    price_fn = make_base_price_fn(price_source)
+    return CachedTVLProvider(OnChainReserveTVLProvider(reserves_fn, price_fn))
+
+
+def build_base_searcher_runtime(*, eth_call=None, price_source=None,
+                                pools=None, **kw) -> BaseSearcherRuntime:
+    """Full canonical Base searcher composition (SHADOW-only):
+      registry → route graph + cache skeletons → (real TVL provider when a
+      genuine eth_call + price source are supplied). tvl_provider stays None
+      (Gate 8 fail-closed) if either is absent — never fabricated."""
+    cache = PoolStateCache()
+    graph = RouteGraph()
+    populate_from_registry(cache, graph, pools)
+    tvl = None
+    if eth_call is not None and price_source is not None:
+        tvl = build_base_tvl_provider(eth_call, price_source, pools)
+    return BaseSearcherRuntime(cache=cache, graph=graph, tvl_provider=tvl, **kw)
+
+
+# ── Env-driven real-infra adapters (VPS); all fail-closed to None ───────────
+def make_base_eth_call_from_env():
+    """Return ``async (to, data) -> hex`` over the configured Base RPC, or None
+    when no RPC is configured. Reuses the canonical EthJsonRpcProvider (no new
+    network abstraction)."""
+    from ..config.persistent import resolve_rpc_url_from_env
+    url = resolve_rpc_url_from_env("base")
+    if not url:
+        return None
+    from ..providers.rpc import EthJsonRpcProvider
+    provider = EthJsonRpcProvider(chain="base", url=url)
+
+    async def eth_call(to: str, data: str):
+        try:
+            return await provider.eth_call({"to": to, "data": data})
+        except Exception:  # noqa: BLE001 — fail-closed
+            return None
+    return eth_call
+
+
+def make_base_price_source_from_env():
+    """Return ``async (token) -> usd|None`` from GENUINE operator-provided price
+    config. Only the native asset price (ARBICORE_NATIVE_PRICE_USD, operator
+    config — NOT a hardcoded constant) is served; every other token → None so
+    Gate 8 fails closed until a full multi-token price feed is wired on the VPS.
+    Returns None (→ no TVL provider) when no price config exists."""
+    raw = os.environ.get("ARBICORE_NATIVE_PRICE_USD")
+    if not raw:
+        return None
+    try:
+        native = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if native <= 0:
+        return None
+    native_syms = {"WETH", "ETH"}
+
+    async def price_source(token: str):
+        return native if str(token).upper() in native_syms else None
+    return price_source
+
+
+def make_base_v3_state_initializer_from_env():
+    """Return the real slot0()/liquidity() V3 state initializer over env RPC, or
+    None when no RPC is configured."""
+    eth_call = make_base_eth_call_from_env()
+    if eth_call is None:
+        return None
+    from .v3_state import make_v3_state_initializer
+
+    async def _get_block():
+        from ..config.persistent import resolve_rpc_url_from_env
+        from ..providers.rpc import EthJsonRpcProvider
+        url = resolve_rpc_url_from_env("base")
+        return await EthJsonRpcProvider(chain="base", url=url).eth_get_block_number()
+    return make_v3_state_initializer(eth_call, get_block=_get_block)
+
 
 def maybe_build_base_searcher() -> Optional[BaseSearcherRuntime]:
-    """Flag-gated factory. Returns None unless ARBICORE_T2_SEARCHER_ENABLED.
-    Construction only — never starts broadcasting; SHADOW-only."""
+    """Flag-gated factory (SHADOW-only; never broadcasts/promotes).
+
+    Now performs the FULL canonical composition: registry → graph + cache +
+    real (fail-closed) TVL provider when Base RPC + a genuine price source are
+    configured. Eliminates the previous empty-graph / tvl_provider=None blocker
+    through genuine wiring; Gate 8 remains fail-closed."""
     if not searcher_enabled():
         return None
-    return BaseSearcherRuntime(cache=PoolStateCache(), graph=RouteGraph())
+    try:
+        eth_call = make_base_eth_call_from_env()
+    except Exception:  # noqa: BLE001
+        eth_call = None
+    try:
+        price_source = make_base_price_source_from_env()
+    except Exception:  # noqa: BLE001
+        price_source = None
+    return build_base_searcher_runtime(eth_call=eth_call, price_source=price_source)
 
 
 __all__ = ["BaseSearcherRuntime", "ScanMetrics", "searcher_enabled",
-           "maybe_build_base_searcher", "STRATEGY", "MODE"]
+           "maybe_build_base_searcher", "build_base_searcher_runtime",
+           "populate_from_registry", "build_base_tvl_provider",
+           "make_base_eth_call_from_env", "make_base_price_source_from_env",
+           "make_base_v3_state_initializer_from_env", "STRATEGY", "MODE"]

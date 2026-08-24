@@ -26,11 +26,14 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from .live_base import BaseWssSubscriber
 from .runtime import BaseSearcherRuntime, searcher_enabled
+from .v3_state import V3_LOG_TOPIC0S
 
 logger = logging.getLogger("arbicore.searcher.wss")
 
 # Uniswap V2 / Aerodrome-classic `Sync(uint112,uint112)` topic0.
 _SYNC_TOPIC0 = "0x1c411e9a96e071241c2f21f7726b17ae89e3cab4c78be50e062b03a9fffbbad1"
+# topic0 OR-set actually subscribed: V2 Sync + V3 Swap/Mint/Burn/Initialize.
+_LOG_TOPIC0S = [_SYNC_TOPIC0, *V3_LOG_TOPIC0S]
 
 
 def resolve_base_wss_url() -> Optional[str]:
@@ -74,7 +77,7 @@ class BaseWssClient:
                 await ws.send(json.dumps({
                     "jsonrpc": "2.0", "id": 2, "method": "eth_subscribe",
                     "params": ["logs", {"address": self._pools,
-                                        "topics": [_SYNC_TOPIC0]}]}))
+                                        "topics": [_LOG_TOPIC0S]}]}))
             async for raw in ws:
                 msg = self._normalize(raw)
                 if msg is not None:
@@ -121,6 +124,7 @@ class T2WssManager:
                  start_tokens: Optional[List[str]] = None,
                  amount_in: float = 1.0,
                  client_factory: Optional[Callable[[], Any]] = None,
+                 state_initializer: Optional[Callable[..., Any]] = None,
                  base_backoff_s: float = 1.0,
                  max_backoff_s: float = 30.0) -> None:
         self._runtime = runtime
@@ -128,6 +132,14 @@ class T2WssManager:
         self._start_tokens = start_tokens or ["WETH", "USDC"]
         self._amount_in = amount_in
         self._client_factory = client_factory
+        # Subscribe to the canonical pool addresses seeded into the runtime
+        # cache (real contract addresses from base_pool_registry).
+        self._pool_addresses = (runtime.pool_addresses()
+                                if runtime is not None else [])
+        # Optional real-RPC V3 slot0()/liquidity() bootstrap (VPS-wired).
+        self._state_initializer = state_initializer
+        self._bootstrapped = False
+        self._pools_initialized = 0
         self._base_backoff = base_backoff_s
         self._max_backoff = max_backoff_s
         self._subscriber = BaseWssSubscriber(
@@ -138,6 +150,29 @@ class T2WssManager:
         self._reconnect_count = 0
         self._started_at: Optional[str] = None
 
+    async def bootstrap_v3_state(self) -> int:
+        """Seed real V3 PoolState via slot0()/liquidity() before/while streaming.
+        No-op (returns 0) when no initializer is wired. Reuses the existing
+        cache; events keep the state fresh afterwards."""
+        if self._state_initializer is None or self._runtime is None:
+            return 0
+        n = 0
+        for st in self._runtime.cache.all_states():
+            if st.kind != "v3":
+                continue
+            try:
+                new = await self._state_initializer(
+                    pool_address=st.pool, token0=st.token0, token1=st.token1,
+                    fee_bps=st.fee_bps)
+            except Exception:  # noqa: BLE001 — bootstrap never fabricates
+                new = None
+            if new is not None:
+                self._runtime.cache.upsert(new)
+                n += 1
+        self._pools_initialized = n
+        self._bootstrapped = True
+        return n
+
     # ── lifecycle ──────────────────────────────────────────────────────────
     async def start(self) -> Dict[str, Any]:
         if self._task and not self._task.done():
@@ -145,6 +180,12 @@ class T2WssManager:
         self._stopping = False
         from datetime import datetime, timezone
         self._started_at = datetime.now(timezone.utc).isoformat()
+        # Real V3 initial-state bootstrap (slot0/liquidity) when RPC-wired.
+        if self._state_initializer is not None and not self._bootstrapped:
+            try:
+                await self.bootstrap_v3_state()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("T2 V3 state bootstrap skipped: %s", exc)
         self._task = asyncio.create_task(self._run_forever())
         logger.info("T2 Base WSS subscriber started (SHADOW, no-broadcast) url=%s",
                     _mask(self._url))
@@ -164,7 +205,8 @@ class T2WssManager:
     def _new_client(self):
         if self._client_factory:
             return self._client_factory()
-        return BaseWssClient(self._url, on_connected=self._mark_connected)
+        return BaseWssClient(self._url, pool_addresses=self._pool_addresses,
+                             on_connected=self._mark_connected)
 
     def _mark_connected(self):
         self._connected = True
@@ -218,6 +260,9 @@ class T2WssManager:
             "logs_ingested": self._subscriber.logs_ingested,
             "last_block": self._subscriber.last_block,
             "reconnect_count": self._reconnect_count,
+            "subscribed_pools": len(self._pool_addresses),
+            "v3_pools_initialized": self._pools_initialized,
+            "state_bootstrapped": self._bootstrapped,
         }
 
 
@@ -236,10 +281,14 @@ def _mask(url: Optional[str]) -> Optional[str]:
 def maybe_build_t2_wss_manager(
     runtime: Optional[BaseSearcherRuntime],
     *, client_factory: Optional[Callable[[], Any]] = None,
+    state_initializer: Optional[Callable[..., Any]] = None,
 ) -> Optional[T2WssManager]:
     """Flag-gated factory. Returns None unless the T2 searcher is enabled, a
     runtime exists, AND a Base WSS url is configured (SOFTWARE wiring only —
-    presence of a URL is CONFIGURATION and enforced at deploy preflight)."""
+    presence of a URL is CONFIGURATION and enforced at deploy preflight).
+
+    ``state_initializer`` (optional) is the real slot0/liquidity V3 bootstrap;
+    when unset it is auto-wired from env RPC (see ``runtime.make_base_v3_state_initializer_from_env``)."""
     if runtime is None or not searcher_enabled():
         return None
     url = resolve_base_wss_url()
@@ -247,7 +296,14 @@ def maybe_build_t2_wss_manager(
         logger.info("T2 WSS manager not started: ARBICORE_WSS_URL_BASE/"
                     "ARBICORE_RPC_WSS_BASE not configured")
         return None
-    return T2WssManager(runtime, url, client_factory=client_factory)
+    if state_initializer is None:
+        try:
+            from .runtime import make_base_v3_state_initializer_from_env
+            state_initializer = make_base_v3_state_initializer_from_env()
+        except Exception:  # noqa: BLE001 — bootstrap stays optional
+            state_initializer = None
+    return T2WssManager(runtime, url, client_factory=client_factory,
+                        state_initializer=state_initializer)
 
 
 __all__ = ["BaseWssClient", "T2WssManager", "resolve_base_wss_url",

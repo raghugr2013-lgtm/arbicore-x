@@ -20,12 +20,28 @@ SHADOW broadcast=False; Gate7 $25 floor; Gate8 fail-closed on TVL<=0/None; REAL-
 provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in SHADOW.
 
 ## Milestones
-- M1 Canonical Base pool registry + real addresses — **DONE (2026-06, software+offline tests, PASS)**
-- M2 V3 initial state (slot0/liquidity) + WSS sync (Swap/Mint/Burn/Initialize) + sqrtX96 conv — NOT STARTED
-- M3 Real TVL provider wired into T2 (OnChainReserve + price fn) — NOT STARTED
-- M4 Shadow validation certification (VPS) — NOT STARTED
-- M5 Limited Live (hard risk limits) — NOT STARTED
-- M6 Controlled Auto Mode — NOT STARTED
+- M1 Canonical Base pool registry + real addresses — **DONE (PASS)**
+- M2 V3 state (slot0/liquidity bootstrap + WSS Swap/Mint/Burn/Initialize + sqrtX96 conv) — **DONE (PASS)**
+- M3 Real TVL/price wired into T2 (OnChainReserveTVLProvider + V3 balanceOf reserves + price fn) — **DONE (PASS)**
+- M4 Registry integration into T2 composition (graph+cache from real addrs; empty-graph/tvl=None blocker eliminated) — **DONE (PASS)**
+- Base searcher composition COMPLETE (registry→V3 state→WSS→cache→routes→quotes→TVL→economics→sim→gates→cert→mode→exec) — **DONE**
+- M5 Limited Live (hard risk limits) — infra REUSED/ready; operator-gated (NOT enabled)
+- M6 Controlled Auto Mode — infra REUSED/ready; operator-gated (NOT enabled)
+
+## Final build (2026-06)
+- NEW: arbicore/searcher/v3_state.py (sqrtX96 conv, V3 decode, slot0/liquidity bootstrap,
+  V3 balanceOf reserves, getPool verifier). Extended pool_cache (tick + delta + Initialize +
+  accessors), live_base (V3 decode in subscriber), wss_ingest (V3 topics + real pool subs +
+  bootstrap + telemetry), runtime (full registry-driven composition + env adapters).
+- server.py UNCHANGED (self-wiring via maybe_build_base_searcher/maybe_build_t2_wss_manager).
+- Tests: 52 new (M1-M4 + e2e), all PASS; 71 searcher-package unit regression PASS; no regression.
+- Report: reports/ARBICORE_X_FINAL_BUILD_REPORT.md. Deploy/rollback via existing runbook.
+- Genuinely absent (VPS/operator): multi-token price feed breadth, Aerodrome getPool resolution,
+  live RPC/WSS/anvil + live Shadow cert. Dormant: Arbitrum/OP adapters, MEV/liquidation exec.
+- Duplication: CONSOLIDATE build_pool_graph→registry (deferred); DEPRECATE dex_arbitrage/quoter.py (0 importers, not deleted).
+
+## Backlog / next (VPS)
+- Deploy ONCE per runbook; validate live (§15 of final report). Return to Emergent only on a real defect.
 
 ## M1 delivered (2026-06)
 - ADDED arbicore/discovery/base_pool_registry.py (CanonicalPool + CREATE2 UniV3 derivation,

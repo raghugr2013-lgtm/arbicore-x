@@ -27,6 +27,7 @@ class PoolState:
     # v3
     liquidity: float = 0.0
     sqrt_p: float = 0.0
+    tick: int = 0
     # stable
     balances: List[float] = field(default_factory=list)
     amp: float = 100.0
@@ -71,10 +72,28 @@ class PoolStateCache:
                 st.liquidity = float(log["liquidity"])
             if "sqrt_p" in log:
                 st.sqrt_p = float(log["sqrt_p"])
+            if "tick" in log:
+                st.tick = int(log["tick"])
+            if "liquidity_delta" in log:
+                # V3 Mint/Burn change GLOBAL (active) liquidity only when the
+                # current tick is within the position range. Apply the signed
+                # delta only in-range; Swap events remain authoritative.
+                lo = log.get("tick_lower")
+                hi = log.get("tick_upper")
+                in_range = (lo is None or hi is None
+                            or int(lo) <= st.tick < int(hi))
+                if in_range:
+                    st.liquidity = max(0.0, st.liquidity
+                                       + float(log["liquidity_delta"]))
             if "reserve0" in log:
                 st.reserve0 = float(log["reserve0"])
             if "reserve1" in log:
                 st.reserve1 = float(log["reserve1"])
+        elif ev == "Initialize":
+            if "sqrt_p" in log:
+                st.sqrt_p = float(log["sqrt_p"])
+            if "tick" in log:
+                st.tick = int(log["tick"])
         elif ev == "StableBalances":
             st.balances = [float(x) for x in log.get("balances", st.balances)]
         st.block = block
@@ -88,6 +107,14 @@ class PoolStateCache:
         if self._head_block - st.block > self._max_stale:
             return None                      # stale-state protection: refuse
         return st
+
+    def pools(self) -> List[str]:
+        """All known pool keys (ignores staleness) — for WSS subscription."""
+        return list(self._pools.keys())
+
+    def all_states(self) -> List[PoolState]:
+        """All PoolState skeletons/values (ignores staleness) — for bootstrap."""
+        return list(self._pools.values())
 
     def quote(self, pool: str, token_in: str, amount_in: float) -> Optional[float]:
         """Local quote for one hop. None on stale/unknown/unpriceable state."""
