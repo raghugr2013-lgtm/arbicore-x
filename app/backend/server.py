@@ -334,6 +334,12 @@ _CONTINUOUS_SCANNER = ContinuousScanner(
     recurrence_repo=_ROUTE_RECURRENCE_REPO, alert_repo=_PROFIT_ALERT_REPO,
     interval_s=90.0, routes_per_scan=12)
 
+# T2 Base searcher (SHADOW) runtime + live WSS ingestion manager. Constructed +
+# started at app startup only when ARBICORE_T2_SEARCHER_ENABLED and a WSS url are
+# configured. SHADOW-only; never signs/broadcasts.
+_BASE_SEARCHER_RUNTIME = None
+_T2_WSS_MANAGER = None
+
 from arbicore.execution.settlement_simulator import SettlementSimulator
 _SETTLEMENT_SIM = SettlementSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
 _OPPORTUNITY_ENGINE._settlement_sim = _SETTLEMENT_SIM   # mandatory settlement gate
@@ -5347,6 +5353,24 @@ async def v2_base_live_shadow_dry_run() -> Dict[str, Any]:
     return audit
 
 
+@api_router.get("/arbicore/engine/base-live-shadow/wss-status",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_base_live_shadow_wss_status() -> Dict[str, Any]:
+    """T2 · Live Base WSS ingestion telemetry (SHADOW). Reflects ONLY real
+    events — a live connection does NOT flip any readiness gate to PASSED."""
+    mgr = _T2_WSS_MANAGER
+    if mgr is None:
+        from arbicore.searcher.wss_ingest import resolve_base_wss_url
+        return {"enabled": False, "running": False, "mode": "SHADOW",
+                "broadcast": False,
+                "wss_url_present": bool(resolve_base_wss_url()),
+                "reason": "T2 WSS manager not started (flag off or WSS unconfigured)",
+                "generated_at": _iso_now()}
+    st = mgr.status()
+    st["generated_at"] = _iso_now()
+    return st
+
+
 @api_router.get("/arbicore/certification/provenance-split",
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_certification_provenance_split() -> Dict[str, Any]:
@@ -6956,13 +6980,27 @@ async def _canonical_flash_loan_scanner_startup():
 
     # T2 · flag-gated Base searcher runtime (SHADOW, construction-only; never
     # broadcasts, never promotes). Default OFF → zero runtime impact.
-    global _BASE_SEARCHER_RUNTIME
+    global _BASE_SEARCHER_RUNTIME, _T2_WSS_MANAGER
     try:
         from arbicore.searcher.runtime import maybe_build_base_searcher
         _BASE_SEARCHER_RUNTIME = maybe_build_base_searcher()
         if _BASE_SEARCHER_RUNTIME is not None:
             logger.info("searcher: T2 Base runtime constructed (SHADOW, "
                         "no-broadcast, flag ARBICORE_T2_SEARCHER_ENABLED=on)")
+            # Start the live Base WSS ingestion lifecycle (newHeads → scan_block,
+            # Sync logs → cache) when a WSS url is configured. SHADOW-only.
+            try:
+                from arbicore.searcher.wss_ingest import maybe_build_t2_wss_manager
+                _T2_WSS_MANAGER = maybe_build_t2_wss_manager(_BASE_SEARCHER_RUNTIME)
+                if _T2_WSS_MANAGER is not None:
+                    await _T2_WSS_MANAGER.start()
+                    logger.info("searcher: T2 Base WSS manager started (SHADOW)")
+                else:
+                    logger.info("searcher: T2 WSS manager not started "
+                                "(no ARBICORE_WSS_URL_BASE/ARBICORE_RPC_WSS_BASE)")
+            except Exception as exc:  # noqa: BLE001
+                _T2_WSS_MANAGER = None
+                logger.warning("searcher: T2 WSS manager start skipped: %s", exc)
         else:
             logger.info("searcher: T2 Base runtime disabled (flag off)")
     except Exception as exc:  # noqa: BLE001

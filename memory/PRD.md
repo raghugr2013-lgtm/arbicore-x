@@ -1,4 +1,41 @@
 <!-- ============================================================ -->
+<!-- T2 LIVE WSS RUNTIME INTEGRATION + ACTIVATION RUNBOOK (2026-06) -->
+<!-- ============================================================ -->
+## ArbiCore X — T2 Base WSS runtime started at app boot + Production Runbook (2026-06)
+
+**Done (SHADOW-only; no signing/broadcast):**
+- NEW `arbicore/searcher/wss_ingest.py`: `BaseWssClient` (JSON-RPC-over-WSS async
+  iterator, injectable connector, newHeads+Sync-log subscribe, key-masked) +
+  `T2WssManager` (start/stop lifecycle, reconnect w/ backoff, telemetry) +
+  `resolve_base_wss_url()` (ARBICORE_WSS_URL_BASE primary, ARBICORE_RPC_WSS_BASE
+  fallback) + `maybe_build_t2_wss_manager()` (flag+WSS gated).
+- `BaseWssSubscriber` (+ additive counters logs_ingested/newheads_received/last_block).
+- `server.py` startup now STARTS the manager when T2 enabled + WSS set; NEW endpoint
+  `GET /api/arbicore/engine/base-live-shadow/wss-status` (telemetry: running,
+  connected, newheads_received, blocks_scanned, logs_ingested, last_block,
+  reconnect_count). A live connection NEVER flips readiness to PASSED.
+- NEW `docs/ARBICORE_X_PRODUCTION_ACTIVATION_RUNBOOK.md` — full 12-section runbook
+  generated from actual code (state, config inventory, chain/capability matrices,
+  readiness gates, mode transitions, monitoring, activation, troubleshooting,
+  rollback, autonomy, checklist).
+
+**Invariants:** SHADOW only, broadcast=false, no signing, Gate 7 $25, Gate 8
+fail-closed, REAL provenance, no auto-promotion — all unchanged.
+
+**Tests:** NEW `tests/test_t2_wss_ingest.py` (5): normalization, flag/WSS gating,
+lifecycle processing (scan_block+ingest_log via injected events, cache updates,
+telemetry), reconnect recovery, clean stop. testing_agent iteration_4: 100%
+(5/5 lifecycle + 58/58 regression + endpoint + SHADOW grep), 0 critical/minor.
+Full T2+deploy+calldata suite 103/103.
+
+**Classification:** SOFTWARE (complete). Remaining Base blockers are CONFIGURATION
+(set ARBICORE_WSS_URL_BASE on VPS) + VALIDATION (fork-sim run) + MARKET (profitable
+route) — none are Emergent software work.
+
+<!-- ============================================================ -->
+
+
+<!-- ============================================================ -->
 <!-- VPS DEPLOY FIX — T2 SHADOW RUNTIME CONFIG WIRING (2026-06) -->
 <!-- ============================================================ -->
 ## ArbiCore X — canonical deploy config now wires the T2 Base searcher (SHADOW) (2026-06)

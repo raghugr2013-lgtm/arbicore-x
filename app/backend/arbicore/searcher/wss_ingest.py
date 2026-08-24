@@ -121,12 +121,14 @@ class T2WssManager:
                  start_tokens: Optional[List[str]] = None,
                  amount_in: float = 1.0,
                  client_factory: Optional[Callable[[], Any]] = None,
+                 base_backoff_s: float = 1.0,
                  max_backoff_s: float = 30.0) -> None:
         self._runtime = runtime
         self._url = wss_url
         self._start_tokens = start_tokens or ["WETH", "USDC"]
         self._amount_in = amount_in
         self._client_factory = client_factory
+        self._base_backoff = base_backoff_s
         self._max_backoff = max_backoff_s
         self._subscriber = BaseWssSubscriber(
             runtime, None, self._start_tokens, amount_in=amount_in)
@@ -169,7 +171,7 @@ class T2WssManager:
         logger.info("T2 Base WSS connected url=%s", _mask(self._url))
 
     async def _run_forever(self):
-        backoff = 1.0
+        backoff = self._base_backoff
         while not self._stopping:
             try:
                 client = self._new_client()
@@ -194,7 +196,7 @@ class T2WssManager:
                     raise
                 backoff = min(self._max_backoff, backoff * 2)
             else:
-                backoff = 1.0
+                backoff = self._base_backoff
 
     # ── telemetry ───────────────────────────────────────────────────────────
     @property
