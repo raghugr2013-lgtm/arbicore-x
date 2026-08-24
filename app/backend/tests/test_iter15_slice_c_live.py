@@ -5,7 +5,7 @@ import os
 import requests
 
 BASE = os.environ.get("REACT_APP_BACKEND_URL", "").rstrip("/") or \
-       "https://flash-execution.preview.emergentagent.com"
+       "https://base-v3-live.preview.emergentagent.com"
 
 VALIDATION_ENDPOINTS = [
     "/api/arbicore/validation/report",

@@ -5,7 +5,7 @@ import re
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://flash-execution.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://base-v3-live.preview.emergentagent.com").rstrip("/")
 GAS_ADDR = "0x998d6efF2b28b72c44f7a334c42678eb4cCaad25"
 
 USERNAME = "operator"

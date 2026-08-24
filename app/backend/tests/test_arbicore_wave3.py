@@ -24,7 +24,7 @@ from arbicore.models import CanonicalOpportunity, DataProvenance, OpportunityTyp
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://flash-execution.preview.emergentagent.com",
+    "https://base-v3-live.preview.emergentagent.com",
 ).rstrip("/")
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "ArbiCore2026!"

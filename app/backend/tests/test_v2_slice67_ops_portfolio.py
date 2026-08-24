@@ -9,7 +9,7 @@ import requests
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://flash-execution.preview.emergentagent.com",
+    "https://base-v3-live.preview.emergentagent.com",
 ).rstrip("/")
 
 ADMIN_USER = "admin"
