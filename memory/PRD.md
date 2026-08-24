@@ -41,6 +41,19 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
 - Pre-existing test env issue: tests/test_stage1_canonical_flash_loan_scanner.py imports
   /app/frontend/.env (absent here) — unrelated to M1.
 
+## Repo audit (2026-06) — reuse map
+- Full 6-branch + 149-commit audit done → reports/ARBICORE_X_REPO_AUDIT_AND_INVENTORY.md
+- KEY: only GENUINELY ABSENT capability = V3 on-chain state ingestion (V3 WSS decode +
+  slot0/liquidity bootstrap + sqrtPriceX96->sqrt_p). Verified 0 matches on all branches.
+  Everything else on roadmap = built+tested; work is composition/wiring + operator provisioning.
+- Single incomplete composition point: server.py:6986 -> runtime.maybe_build_base_searcher()
+  builds BaseSearcherRuntime with EMPTY RouteGraph + tvl_provider=None. This is where M2/M3 land.
+- Reuse verdicts: M2=NEW(min, extend BaseWssSubscriber/PoolState/amm_math); M3=INTEGRATE existing
+  OnChainReserveTVLProvider+price fn; M4=REUSE certification/*; M5=REUSE LimitedLiveBroadcaster+
+  mode ladder+kill switch; M6=REUSE auto_executor.
+- Duplication: dex_arbitrage/quoter.py = REMOVE AFTER VERIFICATION (0 importers); pool identity =
+  CONSOLIDATE onto base_pool_registry; execution/quoter.py = CANONICAL quoter.
+
 ## Backlog / next
-- M2 next (only on operator go). Then wire registry into consumers (resolved_addresses) +
-  resolve Aerodrome getPool on VPS.
+- M2 next (only on operator go) as pure EXTENSION: V3 event decoder + sqrtX96 util + slot0 bootstrap
+  + offline tests. Then M3 wiring at maybe_build_base_searcher + resolve Aerodrome getPool on VPS.
