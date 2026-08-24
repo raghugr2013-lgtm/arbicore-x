@@ -43,6 +43,21 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
 ## Backlog / next (VPS)
 - Deploy ONCE per runbook; validate live (§15 of final report). Return to Emergent only on a real defect.
 
+## Bugfix (2026-06): flash-loan candidates stuck in discovery (A->B blocker)
+- ROOT CAUSE: DiscoveryCandidate.expires_at hardcoded hint_observed_at+60s; DiscoveryQueue.claim_batch
+  filters expires_at>now; per-tick discover+upsert latency > 60s -> claim always returned [] ->
+  verifier never ran -> ~4600 candidates stuck verified_outcome=None. (TTL index also broken: float vs BSON Date.)
+- FIX (minimal, 1 file): arbicore/models/discovery.py -> configurable ARBICORE_DISCOVERY_CANDIDATE_TTL_S
+  (default 900s, fail-safe). No gate/economics/mode/execution change.
+- Verifier path confirmed SEPARATE from searcher/runtime.py stablecoin patch; ARBICORE_NATIVE_PRICE_USD
+  not on this path. Verification runs in OBSERVE (gated only by is_enabled, not detection_only).
+- Tests: tests/test_flashloan_candidate_progression.py (7, real Mongo queue+tick). testing_agent iteration_1:
+  38/38 PASS, acceptance A-I met, no broadcast, retest_needed=false.
+- Existing replay harness reused: tests/_pending_scanner_activation/test_d6_1_verifier_scanner_sources.py,
+  tests/test_d6_1_economics_and_gates.py, tests/test_d6_1_route_search.py.
+- NEXT (per user): M2 real-live-quote -> real TVL -> net profit -> Gate 7/8/9 -> verified evidence -> shadow/paper.
+  Limited live NOT enabled.
+
 ## M1 delivered (2026-06)
 - ADDED arbicore/discovery/base_pool_registry.py (CanonicalPool + CREATE2 UniV3 derivation,
   KAT-proven). Derived 1:1 from base_venues (no duplicate metadata). canonical_id == synthetic id.
