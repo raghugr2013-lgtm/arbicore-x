@@ -178,6 +178,14 @@ class FlashLoanArbitrageScanner:
         self._quote_provider = provider
         self._verifier.quote_provider = provider
 
+    def set_evidence_sink(self, sink) -> None:
+        """M2.3 — wire the auditable evidence sink onto the verifier."""
+        self._verifier.evidence_sink = sink
+
+    def set_shadow_sink(self, sink) -> None:
+        """M2.4 — wire the SHADOW/PAPER routing sink onto the verifier."""
+        self._verifier.shadow_sink = sink
+
     # -- lifecycle --------------------------------------------------------
 
     async def start(self) -> None:

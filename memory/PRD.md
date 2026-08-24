@@ -58,6 +58,45 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
 - NEXT (per user): M2 real-live-quote -> real TVL -> net profit -> Gate 7/8/9 -> verified evidence -> shadow/paper.
   Limited live NOT enabled.
 
+## M2.2 / M2.3 / M2.4 delivered (2026-06) — offline, fail-closed, NO execution
+- M2.2 REAL TVL→Gate8: make_live_quote_provider(quoter, *, tvl_provider=None). New
+  _resolve_pool_tvls (synthetic route id == canonical registry id → REAL address →
+  tvl_provider.get_pool_tvl_usd) + _route_min_tvl (fail-closed 0.0 unless EVERY route
+  pool has positive verified depth). tvl_provenance flag on facts. Wired in
+  composition.activate_canonical_flash_loan_scanner from env (make_base_eth_call_from_env
+  + make_base_price_source_from_env + build_base_tvl_provider); absent env → None →
+  Gate 8 fails closed. Preview stays fail-closed; VPS gets real depth.
+- M2.3 evidence for EVERY verified candidate (CONFIRMED + DENIED): verifier.verify()
+  refactored to a single _finalize() exit + per-gate ledger. _build_evidence_bundle emits
+  verification_status (CONFIRMED|DENIED), gates.{gate_7,gate_8,gate_9}={status
+  PASS|FAIL|NOT_EVALUATED, reason} (short-circuit 7→8→9 preserved), route+real pool
+  addresses, input amount, quotes/hop_legs, fees, gas, economics, liquidity(min TVL +
+  tvl_provenance), mev, block_context, provenance=REAL, broadcast=False. Persisted via new
+  optional evidence_sink → EvidenceBundlesRepo/db.evidence_bundles
+  (composition.make_flash_loan_evidence_sink + get_evidence_bundles_repo). Sink is
+  side-effect only; a sink exception NEVER changes the (canonical, outcome) verdict.
+- M2.4 CONFIRMED → SHADOW/PAPER: new shadow_route.py (canonical_to_pipeline_opp +
+  route_to_shadow) drives the existing arbicore/execution OpportunityPipeline in SHADOW
+  (no mode_repo → mode=SHADOW; no broadcaster → cannot broadcast; asserts action!='broadcast').
+  Wired via verifier.shadow_sink (scanner.set_shadow_sink) + composition.make_flash_loan_shadow_sink,
+  OPT-IN behind ARBICORE_FLASH_LOAN_SHADOW_ROUTE (default OFF to avoid double-processing
+  with the global PaperValidationRunner). No signing, no broadcast.
+- SIDE FIX (on the M2.4 confirm path): live_quote_provider now emits REGISTERED REAL
+  quoter source ids per DEX (_dex_source_id: uniswap_v3→uniswap_v3_quoter_base,
+  aerodrome*→aerodrome_quoter_base) instead of the previously-unregistered *_quote_real
+  strings, which classified as DEAD in provenance.get_classification and structurally
+  blocked derive_provenance → every confirm became denied:venue_unreadable. This unblocks
+  the CONFIRMED path without weakening provenance (still fail-closed on unknown DEX).
+  Updated test_m2_1_live_quote_provider assertion to check REAL classification.
+- Tests: test_m2_2_real_tvl_gate8.py, test_m2_3_evidence_bundle.py, test_m2_4_shadow_route.py
+  (+ m2_1 kept green) = 21/21 PASS. testing_agent iteration_3: 21/21 green, invariants
+  verified (broadcast=False, route_to_shadow tripwire, no broadcaster/mode_repo wired),
+  7 HTTP failures + 58 collection errors classified PRE-EXISTING preview-env artifacts.
+- NEXT (per user): STOP; await VPS live validation (real Base RPC/WSS/price) of
+  M2.1–M2.4 before any Limited-Live execution proposal. VPS backlog unchanged: resolve
+  11 Aerodrome runtime_getpool pools; wire multi-token USD price feed (Gate 8 non-native);
+  fix Mongo TTL reaping (expires_at BSON Date vs float epoch). Execution NOT enabled.
+
 ## M1 delivered (2026-06)
 - ADDED arbicore/discovery/base_pool_registry.py (CanonicalPool + CREATE2 UniV3 derivation,
   KAT-proven). Derived 1:1 from base_venues (no duplicate metadata). canonical_id == synthetic id.

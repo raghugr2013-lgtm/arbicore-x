@@ -470,6 +470,54 @@ def get_scanner_state_repo() -> ScannerStateRepository:
 
 # v2.11.8 — Paper Validation Framework repo (canonical evidence store).
 _paper_evidence_repo = None  # type: ignore[assignment]
+_evidence_bundles_repo = None  # type: ignore[assignment]
+
+
+def get_evidence_bundles_repo():
+    """M2.3 — singleton :class:`EvidenceBundlesRepo` over ``db.evidence_bundles``
+    (append-only audit store). Lazily built against the shared Mongo handle."""
+    global _evidence_bundles_repo
+    if _evidence_bundles_repo is None:
+        from ..data.mongo.evidence_bundles_repo import EvidenceBundlesRepo
+        _evidence_bundles_repo = EvidenceBundlesRepo(_get_db())
+    return _evidence_bundles_repo
+
+
+def make_flash_loan_evidence_sink():
+    """Return ``async (bundle_dict) -> None`` persisting an audit bundle for
+    EVERY verified flash-loan candidate (CONFIRMED and DENIED) into
+    ``db.evidence_bundles``. Best-effort by contract (the verifier already
+    guards it) — never alters a verdict, never broadcasts."""
+    repo = get_evidence_bundles_repo()
+
+    async def _sink(bundle: dict) -> None:
+        await repo.insert(bundle)
+    return _sink
+
+
+def _os_env_on(key: str) -> bool:
+    import os as _os
+    return (_os.environ.get(key) or "").strip().lower() in {
+        "1", "true", "yes", "on"}
+
+
+def make_flash_loan_shadow_sink():
+    """M2.4 — return ``async (canonical, evidence) -> None`` that routes a
+    CONFIRMED flash-loan candidate through a SHADOW OpportunityPipeline.
+
+    The pipeline is built with NO broadcaster and NO mode_repo, so
+    ``_resolve_mode`` returns ``SHADOW`` and broadcast is structurally
+    impossible. Evidence lands in the immutable paper-evidence store."""
+    from ..execution.pipeline import OpportunityPipeline
+    from ..data.journal import OpportunityJournal
+    from ..scanners.flash_loan_arbitrage.shadow_route import route_to_shadow
+    journal = OpportunityJournal(_get_db())
+    pipeline = OpportunityPipeline(
+        journal=journal, evidence_repo=get_paper_evidence_repo())
+
+    async def _sink(canonical, evidence: dict) -> None:
+        await route_to_shadow(pipeline, canonical, evidence)
+    return _sink
 
 
 def get_paper_evidence_repo():
@@ -772,14 +820,50 @@ async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
     verifier, and execution by the mode ladder + AutoExecutor. Never signs or
     broadcasts. Idempotent."""
     from ..scanners.flash_loan_arbitrage.live_quote_provider import make_live_quote_provider
+    from ..searcher.runtime import (
+        make_base_eth_call_from_env, make_base_price_source_from_env,
+        build_base_tvl_provider,
+    )
     scanner = get_flash_loan_arb_scanner()
-    scanner.set_quote_provider(make_live_quote_provider(quoter_registry))
+    # M2.2 — build the REAL, fail-closed Gate-8 TVL provider from the operator
+    # environment (Base RPC eth_call + genuine USD price source). Absent either
+    # dependency → tvl_provider is None → Gate 8 fails closed (never fabricated).
+    tvl_provider = None
+    try:
+        eth_call = make_base_eth_call_from_env()
+        price_source = make_base_price_source_from_env()
+        if eth_call is not None and price_source is not None:
+            tvl_provider = build_base_tvl_provider(eth_call, price_source)
+    except Exception:  # noqa: BLE001 — fail-closed to None
+        tvl_provider = None
+    scanner.set_quote_provider(
+        make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider))
+    # M2.3 — persist an auditable evidence bundle for every verified candidate.
+    try:
+        scanner.set_evidence_sink(make_flash_loan_evidence_sink())
+        evidence_sink_wired = True
+    except Exception:  # noqa: BLE001 — audit wiring never blocks activation
+        evidence_sink_wired = False
+    # M2.4 — route CONFIRMED candidates into the SHADOW/PAPER pipeline. Opt-in
+    # (default OFF) to avoid double-processing with the global PaperValidation
+    # runner; strictly SHADOW — no broadcaster/mode wired → cannot broadcast.
+    shadow_route_wired = False
+    if _os_env_on("ARBICORE_FLASH_LOAN_SHADOW_ROUTE"):
+        try:
+            scanner.set_shadow_sink(make_flash_loan_shadow_sink())
+            shadow_route_wired = True
+        except Exception:  # noqa: BLE001
+            shadow_route_wired = False
     await scanner.start()
     return {
         "instantiated": True,
         "class": "FlashLoanArbitrageScanner",
         "scanner_id": scanner.scanner_id,
         "quote_provider": "live" if not scanner.quote_provider_is_default else "noop",
+        "tvl_provider": ("onchain_reserves" if tvl_provider is not None
+                         else "unverified_fail_closed"),
+        "evidence_sink": evidence_sink_wired,
+        "shadow_route": shadow_route_wired,
         "pool_universe_size": len(_base_pools_size()),
         "enabled": scanner.is_enabled(),
         "detection_only": True,

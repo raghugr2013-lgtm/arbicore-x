@@ -28,12 +28,75 @@ def _tvl_by_pool() -> Dict[str, float]:
     return {p.pool_address: float(getattr(p, "tvl_usd", 0.0) or 0.0) for p in pools}
 
 
+# Map a route DEX to its REGISTERED REAL provenance source id (see
+# arbicore/data/provenance.py SOURCE_REGISTRY). An unregistered id classifies
+# as DEAD and would (correctly) fail-closed at derive_provenance — so we emit
+# the genuine, registered quoter id for the live Base venues.
+_DEX_SOURCE_ID: Dict[str, str] = {
+    "uniswap_v3": f"uniswap_v3_quoter_{CHAIN}",
+    "aerodrome_slipstream": f"aerodrome_quoter_{CHAIN}",
+    "aerodrome": f"aerodrome_quoter_{CHAIN}",
+}
+
+
+def _dex_source_id(dex: str) -> str:
+    return _DEX_SOURCE_ID.get(dex, f"{dex}_quoter_{CHAIN}")
+
+
+async def _resolve_pool_tvls(route_pools: List[str], tvl_provider) -> Dict[str, float]:
+    """M2.2 — measure REAL on-chain pool depth for each route pool.
+
+    Maps each synthetic route pool id (== canonical registry id) to its REAL
+    contract address and asks the injected ``tvl_provider`` for the measured
+    USD depth. NEVER fabricates: a missing provider, an unresolved address, a
+    provider error, or a non-positive read all leave the pool ABSENT from the
+    returned map — which forces Gate 8 to fail closed downstream.
+    """
+    out: Dict[str, float] = {}
+    if tvl_provider is None:
+        return out
+    from ...discovery.base_pool_registry import canonical_pool_by_id
+    for pid in route_pools:
+        cp = canonical_pool_by_id(pid)
+        addr = getattr(cp, "address", None) if cp else None
+        if not addr:
+            continue  # runtime_getpool / unresolved → fail closed
+        try:
+            v = await tvl_provider.get_pool_tvl_usd(CHAIN, addr)
+        except Exception:  # noqa: BLE001 — provider never fabricates a value
+            v = None
+        if v is not None and float(v) > 0.0:
+            out[pid] = float(v)
+    return out
+
+
+def _route_min_tvl(pool_tvls: Dict[str, float], route_pools: List[str]) -> float:
+    """Min measured TVL over the route. FAIL CLOSED (0.0) unless EVERY pool on
+    the route has a positive, verified on-chain TVL — never a partial pass."""
+    if not route_pools:
+        return 0.0
+    vals: List[float] = []
+    for pid in route_pools:
+        v = pool_tvls.get(pid)
+        if v is None or v <= 0.0:
+            return 0.0
+        vals.append(v)
+    return min(vals)
+
+
 def make_live_quote_provider(
     quoter_registry,
+    *,
+    tvl_provider=None,
 ) -> Callable[[Dict[str, Any], float], Awaitable[Optional[Dict[str, Any]]]]:
-    """Return an async ``QuoteProvider`` bound to a live ``QuoterRegistry``."""
+    """Return an async ``QuoteProvider`` bound to a live ``QuoterRegistry``.
+
+    ``tvl_provider`` (M2.2, optional) supplies REAL measured on-chain pool
+    depth for Gate 8. When it is ``None`` (preview / not provisioned) or a
+    pool's depth is unverifiable, ``min_pool_tvl_usd_in_route`` is ``0.0`` so
+    Gate 8 fails closed — depth is NEVER fabricated.
+    """
     _pools, specs = build_pool_graph()
-    tvl_map = {p.pool_address: float(getattr(p, "tvl_usd", 0.0) or 0.0) for p in _pools}
 
     async def _provider(cycle_metadata: Dict[str, Any],
                         borrow_amount_usd: float) -> Optional[Dict[str, Any]]:
@@ -85,28 +148,31 @@ def make_live_quote_provider(
             # HopQuote has no fee; recover from spec by matching addresses.
             hop_legs.append({
                 "venue_id": f"{getattr(h, 'dex', 'dex')}:{CHAIN}",
-                "source_id": ("uniswap_v3_quote_real"
-                              if getattr(h, "dex", "") == "uniswap_v3"
-                              else f"{getattr(h, 'dex', 'dex')}_quote_real"),
+                "source_id": _dex_source_id(getattr(h, "dex", "")),
                 "price": None,
                 "depth_usd": 0.0,
                 "fee_bps": fee_bps,
                 "dex_protocol": getattr(h, "dex", None),
                 "status": getattr(h, "status", None),
             })
-        # attach real fee_bps + depth from specs/tvl per hop
+        # attach real fee_bps per hop + REAL measured on-chain depth (M2.2).
+        pool_tvls = await _resolve_pool_tvls(route_pools, tvl_provider)
         for leg, pool_addr in zip(hop_legs, route_pools):
             spec = specs.get(pool_addr) or {}
             leg["fee_bps"] = int(spec.get("fee", 3000)) // 100
-            leg["depth_usd"] = float(tvl_map.get(pool_addr, 0.0))
+            leg["depth_usd"] = float(pool_tvls.get(pool_addr, 0.0))
 
-        min_tvl = min((float(tvl_map.get(p, 0.0)) for p in route_pools), default=0.0)
+        # Gate-8 input: min REAL TVL over the route. Fail-closed (0.0) unless
+        # every route pool resolved to a positive, measured on-chain depth.
+        min_tvl = _route_min_tvl(pool_tvls, route_pools)
 
         return {
             "hop_legs": hop_legs,
             "gross_profit_pct": gross_profit_pct,
             "tx_gas_units": rq.aggregate_gas_estimate_units,
             "min_pool_tvl_usd_in_route": min_tvl,
+            "tvl_provenance": ("onchain_reserves" if tvl_provider is not None
+                               else "unverified"),
             "flash_loan_pool_address": "",
             "route_quote_status": rq.status,
             "verified_at_ts": time.time(),
