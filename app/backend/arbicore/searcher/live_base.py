@@ -253,6 +253,9 @@ class BaseWssSubscriber:
         self.start_tokens = start_tokens
         self.amount_in = amount_in
         self.blocks_scanned = 0
+        self.logs_ingested = 0            # decoded Sync logs applied to cache
+        self.newheads_received = 0
+        self.last_block = 0
 
     async def run(self, max_messages: Optional[int] = None) -> Dict[str, Any]:
         results = []
@@ -263,8 +266,11 @@ class BaseWssSubscriber:
                 dec = decode_sync_log(msg["log"])
                 if dec:
                     self.runtime.ingest_log(dec)
+                    self.logs_ingested += 1
             elif kind == "newHead":
                 block = int(msg.get("block", 0))
+                self.newheads_received += 1
+                self.last_block = block
                 res = await self.runtime.scan_block(block, self.start_tokens,
                                                     amount_in=self.amount_in)
                 assert res["broadcast"] is False   # SHADOW invariant
@@ -273,7 +279,10 @@ class BaseWssSubscriber:
             n += 1
             if max_messages is not None and n >= max_messages:
                 break
-        return {"blocks_scanned": self.blocks_scanned, "scans": results}
+        return {"blocks_scanned": self.blocks_scanned,
+                "logs_ingested": self.logs_ingested,
+                "newheads_received": self.newheads_received,
+                "last_block": self.last_block, "scans": results}
 
 
 # ── Bridge: accepted SHADOW candidate → REAL CanonicalOpportunity ──────────
