@@ -1,9 +1,10 @@
+import { API_BASE } from "@/lib/apiBase";
 /** Guided Flash Loan Journey (Phase 10.7) — 14 stages, progressive unlock. */
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = API_BASE;
 const MONO = "var(--v2-font-mono, ui-monospace, monospace)";
 const TONE = {
   READY:   { bg: "#022c22", fg: "#4ade80", bd: "#065f46" },

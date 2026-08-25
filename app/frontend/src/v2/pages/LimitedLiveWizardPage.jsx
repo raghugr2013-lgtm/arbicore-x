@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/apiBase";
 /**
  * ArbiCore X — UI v2 · Guided LIMITED_LIVE Wizard (Phase 9)
  *
@@ -19,8 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API = API_BASE;
 
 const POLL_MS = 5000;
 

@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/apiBase";
 /**
  * ArbiCore X — InitializationPage (production entry experience)
  *
@@ -13,8 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import "@/v2/theme/tokens.css";
 import "@/v2/pages/InitializationPage.css";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
-const API = `${BACKEND_URL}/api`;
+const API = API_BASE;
 
 const STEPS = [
   { key: "market",       label: "Connecting to Market…",              endpoint: "/" },

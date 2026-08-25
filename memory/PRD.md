@@ -533,3 +533,22 @@ branding + Opportunities/Portfolio data-truth regression all green.
 - Non-blocking (deferred): React duplicate-key console warning on Live Ops scanner feed; optional
   capital-balances-unavailable testid; /dashboard index → Control fallback breadcrumb.
 - No LIMITED_LIVE/FULL_LIVE/signing/broadcast touched. No production deploy/switch.
+
+## Session — API-base normalization layer (2026-06) — DONE, testing-agent verified
+Fixes same-origin validator wiring without exposing backend or using empty base.
+- NEW frontend/src/lib/apiBase.js: computeApiBase/computeOrigin + API_BASE/BACKEND_ORIGIN/apiUrl.
+  Rules: ''/'api'->'/api'; absolute->'<base>/api'; trailing '/api' or slash tolerated; never '/api/api'.
+- Refactored shared helper (v2/lib/api.js), AuthContext, and ALL active v2 direct-callers
+  (LiveOps, ControlCenter, Capital, FlashLoanJourney, LimitedLiveWizard, ExecutorVerify,
+  FlashLoanOperator, Initialization, PostTrade -> const API=API_BASE; OpsCenter -> BACKEND_ORIGIN).
+- Regression tests frontend/src/lib/apiBase.test.js: 8/8 PASS (prod absolute, same-origin /api,
+  empty, trailing slash, already-/api, no /api/api duplication, origin+own-/api).
+- Validator-only nginx: deployment/validator/nginx.validator.conf (proxies /api -> backend
+  container 'arbicore-validator:8001' on private net; backend never public). Production nginx untouched.
+- Runbook step 7a updated: build FE from latest HEAD with REACT_APP_BACKEND_URL=/api, run on
+  shared docker net 'arbicore-validator-net', mount validator nginx, prove /api proxy hits backend.
+- Testing agent iteration_10: 7/7 PASS (100% frontend), ZERO /api/api or undefined/api requests;
+  branding + data-truth + titles all intact. No backend code changed (backend stays f36d7c9).
+- Known pre-existing (NOT this task, deferred): intermittent ~20% login bounce login->/initialization
+  ->/login (client init-gate race; backend /auth/login 200 reliably); Live Ops duplicate React keys.
+- No LIMITED_LIVE/FULL_LIVE/signing/broadcast touched. No production deploy/switch.

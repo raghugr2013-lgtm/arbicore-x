@@ -100,7 +100,9 @@ ARBICORE_AUTOEXEC_AUTOSTART=0
 # (do NOT add any *PRIVATE_KEY* / signer var)
 EOF
 
+docker network create arbicore-validator-net 2>/dev/null || true
 docker run -d --name arbicore-validator \
+  --network arbicore-validator-net \
   --env-file "$VDIR/.env.validator" \
   -p 127.0.0.1:8199:8001 \
   "$BACKEND_IMAGE_TAG"
@@ -146,8 +148,9 @@ test "$(git rev-parse HEAD)" = "5875f4c2912227bc83f742f9b0fa42df3651f3c5" \
   && echo "FRONTEND SHA OK" || { echo "SHA MISMATCH — ABORT"; exit 1; }
 
 export FE_SHA=5875f4c2912227bc83f742f9b0fa42df3651f3c5
-# Bake the URL the browser will use to reach the f36d7c9 validator backend (step 4):
-export REACT_APP_BACKEND_URL='http://127.0.0.1:8199'
+# SAME-ORIGIN mode: the browser hits the validator nginx only; nginx proxies
+# /api -> the backend container on the private network. NEVER expose :8199 publicly.
+export REACT_APP_BACKEND_URL='/api'
 docker build --no-cache \
   -f deployment/docker/frontend/Dockerfile \
   --build-arg REACT_APP_BACKEND_URL="$REACT_APP_BACKEND_URL" \
@@ -156,8 +159,14 @@ docker build --no-cache \
 
 docker rm -f arbicore-validator-fe 2>/dev/null || true
 docker run -d --name arbicore-validator-fe \
-  -p 127.0.0.1:8299:80 "arbicore-x-frontend:validator-${FE_SHA:0:12}"
+  --network arbicore-validator-net \
+  -p 127.0.0.1:8299:80 \
+  -v "$VDIR/repo/deployment/validator/nginx.validator.conf:/etc/nginx/conf.d/default.conf:ro" \
+  "arbicore-x-frontend:validator-${FE_SHA:0:12}"
 sleep 4
+# Prove the API proxy reaches the f36d7c9 backend (same-origin):
+curl -s http://127.0.0.1:8299/api/arbicore/version | python3 -m json.tool
+curl -s http://127.0.0.1:8299/api/ && echo "  <- /api proxied to validator backend OK"
 ```
 
 ### 7b. Verify branding + data-truth

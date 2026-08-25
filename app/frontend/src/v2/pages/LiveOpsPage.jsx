@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/apiBase";
 /**
  * ArbiCore X — Live Ops Control Center
  *
@@ -11,7 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = API_BASE;
 const MONO = "var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace)";
 
 const TONE = {

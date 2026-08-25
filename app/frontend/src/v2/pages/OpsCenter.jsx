@@ -1,3 +1,4 @@
+import { BACKEND_ORIGIN } from "@/lib/apiBase";
 /**
  * ArbiCore X — Live Operations Center (Stage 3 · v2.6.0)
  *
@@ -17,7 +18,7 @@
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+const API = BACKEND_ORIGIN;
 const POLL_MS = 6000;
 
 const fmtUsd = (n) =>

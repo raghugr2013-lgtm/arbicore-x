@@ -2,7 +2,8 @@
  * ArbiCore X — UI v2 · Thin API client (Slice 0)
  *
  * Wraps axios for the /v2 sub-app so v2 code never touches the legacy axios
- * defaults directly. All calls go to REACT_APP_BACKEND_URL + /api/… so the
+ * defaults directly. All calls go through API_BASE (normalized in
+ * @/lib/apiBase) so requests resolve to exactly one /api segment in both the
  * build-time env-var guarantee (docs/releases/v1.0.2.md) is preserved.
  *
  * Endpoints wired at Slice 0:
@@ -13,9 +14,9 @@
  *   - GET /api/arbicore/roi-probability
  */
 import axios from "axios";
+import { API_BASE } from "@/lib/apiBase";
 
-const BASE = process.env.REACT_APP_BACKEND_URL;
-const API = `${BASE}/api`;
+const API = API_BASE;
 
 // v2 endpoints authenticate via Authorization headers, not cookies.  Keep
 // withCredentials off so cross-origin fetches (e.g. when the app is served

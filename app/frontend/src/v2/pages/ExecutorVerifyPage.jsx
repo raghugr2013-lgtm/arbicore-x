@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/apiBase";
 /**
  * ArbiCore X — UI v2 · Executor Verification panel (Phase 9)
  *
@@ -10,8 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API = API_BASE;
 const MONO = "var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace)";
 
 const TONE = {
