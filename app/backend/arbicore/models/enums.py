@@ -20,6 +20,24 @@ class OpportunityType(str, Enum):
     FLASH_LOAN_ARBITRAGE = "FLASH_LOAN_ARBITRAGE"  # future rebuild — detection only
 
 
+class StrategyType(str, Enum):
+    """Flash-loan sub-strategy dimension (multi-strategy expansion, Phase 2).
+
+    Additive to ``OpportunityType``. ``opportunity_type`` stays the coarse
+    family (e.g. FLASH_LOAN_ARBITRAGE / DEX_ARBITRAGE); ``strategy`` refines
+    it into the concrete route-building strategy. Optional everywhere — legacy
+    rows and non-flash families simply leave it ``None``.
+    """
+
+    GENERIC_DEX = "GENERIC_DEX"          # simple 2-hop cross-DEX / fee-tier arb
+    TRIANGULAR = "TRIANGULAR"            # 3-leg single-chain cycle
+    STABLECOIN = "STABLECOIN"            # stable-pair / peg arb
+    MULTI_HOP = "MULTI_HOP"              # >3-leg route
+    LST_LRT = "LST_LRT"                  # liquid (re)staking token arb
+    LIQUIDATION = "LIQUIDATION"          # atomic flash-funded liquidation
+    COLLATERAL_DEBT = "COLLATERAL_DEBT"  # atomic collateral/debt swap
+
+
 class OpportunityStatus(str, Enum):
     """Canonical lifecycle. Execution states exist in the contract for future
     use but NO module in Phase 1/B may transition an opportunity into them."""

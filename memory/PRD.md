@@ -552,3 +552,36 @@ Fixes same-origin validator wiring without exposing backend or using empty base.
 - Known pre-existing (NOT this task, deferred): intermittent ~20% login bounce login->/initialization
   ->/login (client init-gate race; backend /auth/login 200 reliably); Live Ops duplicate React keys.
 - No LIMITED_LIVE/FULL_LIVE/signing/broadcast touched. No production deploy/switch.
+
+## Session — Flash multi-chain expansion Steps 1-3 FOUNDATION (2026-06) — DONE, testing-agent verified
+Additive, fail-closed, SHADOW/read-only. No signing/broadcast/mode/M3-gate touched;
+ARBICORE_MIN_NET_PROFIT_USD stays $35; production untouched. Sandbox has NO EVM RPC (no live claims).
+Scope = reusable foundation ONLY (NOT the full multi-strategy universe); Arbitrum strategy work deferred.
+- Step 1 (canonical model): NEW `StrategyType` enum (GENERIC_DEX/TRIANGULAR/STABLECOIN/MULTI_HOP/
+  LST_LRT/LIQUIDATION/COLLATERAL_DEBT) in models/enums.py; CanonicalOpportunity gains additive
+  Optional fields `strategy` + `chain_id` (default None). extra="forbid" intact; legacy rows/round-trip
+  unaffected — no schema/API break. Exported from models/__init__.py.
+- Step 2 (flash-provider optimizer): NEW scanners/flash_loan_arbitrage/flash_provider_optimizer.py
+  (`optimize_flash_provider` + `FLASH_PROVIDER_CONSTRAINTS`). Reuses FLASH_LOAN_PROVIDERS catalog +
+  provider_fee_bps. Compares all chain-supported providers, picks cheapest FEASIBLE (fee then deepest
+  liquidity). Fail-closed: unknown/unreadable fee, unresolved uniswap_v3 tier, unknown/insufficient
+  liquidity, unknown borrow, unsupported chain → DENY. NEVER assumes 0% fee for an unknown-fee provider
+  (real 0-bps balancer/morpho allowed). Carries per-provider callback_extra_gas_units. Not yet wired
+  into a scanner (foundation only). select_flash_loan_provider left intact.
+- Step 3 (ChainGasModel seam): NEW chains/gas_model.py (`ChainGasModel` Protocol + `BaseGasModel`
+  pass-through + `get_chain_gas_model` registry). BaseGasModel wraps make_base_all_in_cost_estimator_
+  from_env EXACTLY (all 7 kwargs forwarded; None estimator → None DENY). get_chain_gas_model('base')→
+  model; arbitrum/ethereum/'' → None (caller fail-closes; NO Base fallback for non-Base). composition.py
+  fresh_fn rewired to price Base all-in via the seam — behaviour regression-identical.
+- Tests: tests/test_flash_multichain_foundation.py (20) + testing-agent's independent
+  tests/test_t1_multichain_foundation_adversarial.py (28) + 111 named Base regression = 159/159 PASS
+  (iteration_11). No signing/broadcast in new modules; safety envelope re-confirmed (SHADOW, kill switch
+  off, arbicore_secrets empty, no LIMITED_LIVE/FULL_LIVE, $35 gate unchanged).
+- Remaining for Arbitrum (next batch, do NOT start until approved): ArbitrumGasModel implementing
+  ChainGasModel (NodeInterface/ArbGasInfo L1 security fee) + register in _GAS_MODEL_FACTORIES;
+  Arbitrum ChainAdapter (venue/token registry); per-chain provider liquidity reads feeding the
+  optimizer; producers that SET strategy/chain_id at emit time; wire optimizer callback_extra_gas_units
+  into the gas budget.
+- Pre-existing/out-of-scope (deferred): stale admin creds (401) + missing operator user block API-level
+  HTTP regression; _worth_m3 signature drift (5 tests in test_spread_widener_watch_edge_t1.py); pytest
+  xdist 'no current event loop' cross-file pollution. None touch the new modules.

@@ -26,6 +26,9 @@ from .economics import (
     FlashLoanEconomicsAssessor, FlashLoanEconomicsResult,
     FLASH_LOAN_PROVIDERS,
 )
+from .flash_provider_optimizer import (
+    FLASH_PROVIDER_CONSTRAINTS, OptimizedProvider, optimize_flash_provider,
+)
 from .filter import (
     FlashLoanGate7AtomicProfit,
     FlashLoanGate8LiquidityDepth,
@@ -51,6 +54,8 @@ __all__ = [
     # Economics
     "FlashLoanEconomicsAssessor", "FlashLoanEconomicsResult",
     "FLASH_LOAN_PROVIDERS",
+    # Flash-provider optimizer (multi-provider, fail-closed)
+    "optimize_flash_provider", "OptimizedProvider", "FLASH_PROVIDER_CONSTRAINTS",
     # Gates
     "FlashLoanGate7AtomicProfit", "FlashLoanGate8LiquidityDepth",
     "FlashLoanGate9FlashLoanMev", "GateResult",

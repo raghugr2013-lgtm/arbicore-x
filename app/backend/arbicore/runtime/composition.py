@@ -512,9 +512,11 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
         roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05))
     mev = MevRiskScorer()
     congestion_source = make_base_congestion_source_from_env()
-    from ..searcher.base_all_in_cost import (
-        make_base_all_in_cost_estimator_from_env)
-    all_in_cost_estimator = make_base_all_in_cost_estimator_from_env()
+    from ..chains.gas_model import get_chain_gas_model
+    # Base all-in cost is now priced through the chain-neutral gas-model seam.
+    # BaseGasModel is a pass-through over make_base_all_in_cost_estimator_from_env
+    # → behaviour is identical to the previous direct wiring (fail-closed when no RPC).
+    gas_model = get_chain_gas_model("base")
     import os as _os
     vault = (_os.environ.get("BASE_BALANCER_V2_VAULT")
              or "0xBA12222222228d8Ba445958a75a0704d566BF2C8")
@@ -694,11 +696,11 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
             except Exception as exc:  # noqa: BLE001
                 _M3_LOG.warning("all_in_cost ETH_USD read failed %s: %s",
                                 type(exc).__name__, exc)
-            all_in = (await all_in_cost_estimator(
+            all_in = (await gas_model.all_in_cost(
                 gross_profit_usd=gross_profit_usd, borrow_amount_usd=borrow_usd,
                 notional_usd=borrow_usd, gas_units=facts.get("tx_gas_units"),
                 eth_usd=eth_usd)
-                if all_in_cost_estimator is not None else None)
+                if gas_model is not None else None)
             if all_in is None:
                 _M3_LOG.warning(
                     "DENY stage=all_in_cost — true all-in Base fee could not be "

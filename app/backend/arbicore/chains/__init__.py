@@ -7,5 +7,15 @@ in T0.
 """
 from .adapter import ChainAdapter, ChainCapability
 from .base_adapter import BaseChainAdapter
+from .gas_model import (
+    BaseGasModel,
+    ChainGasModel,
+    get_chain_gas_model,
+    supported_gas_model_chains,
+)
 
-__all__ = ["ChainAdapter", "ChainCapability", "BaseChainAdapter"]
+__all__ = [
+    "ChainAdapter", "ChainCapability", "BaseChainAdapter",
+    "ChainGasModel", "BaseGasModel",
+    "get_chain_gas_model", "supported_gas_model_chains",
+]
