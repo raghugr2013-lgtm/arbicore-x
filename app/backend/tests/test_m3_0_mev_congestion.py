@@ -165,3 +165,39 @@ def test_unknown_token_fails_closed_none():
     from arbicore.discovery.base_venues import token_address, canonical_symbol
     assert canonical_symbol("NOPE") is None
     assert token_address("NOPE") is None         # None, not KeyError
+
+
+# ---- TVL reserves_fn aligns with runtime-resolved Aerodrome addresses ------
+
+@pytest.mark.asyncio
+async def test_reserves_fn_registry_fallback_for_runtime_resolved_pool():
+    """When pool_meta (snapshotted at build time) lacks a runtime-resolved
+    Aerodrome/Slipstream address, reserves_fn must resolve the token metadata
+    from the canonical registry and still measure reserves."""
+    from types import SimpleNamespace
+    from arbicore.searcher.v3_state import make_base_v3_reserves_fn
+    import arbicore.discovery.base_pool_registry as reg
+    fake = SimpleNamespace(
+        token0_symbol="WETH", token0_address="0xW", token0_decimals=18,
+        token1_symbol="USDC", token1_address="0xU", token1_decimals=6)
+
+    async def fake_eth(to, data):
+        return hex(2 * 10 ** 18) if to == "0xW" else hex(6000 * 10 ** 6)
+
+    with patch.object(reg, "canonical_pool_by_address", lambda a: fake):
+        rfn = make_base_v3_reserves_fn(fake_eth, {})   # EMPTY meta → fallback
+        res = await rfn("base", "0xPOOL")
+    assert res == ("WETH", 2.0, "USDC", 6000.0)
+
+
+@pytest.mark.asyncio
+async def test_reserves_fn_none_when_pool_unknown():
+    from arbicore.searcher.v3_state import make_base_v3_reserves_fn
+    import arbicore.discovery.base_pool_registry as reg
+
+    async def fake_eth(to, data):
+        return "0x" + "0" * 64
+
+    with patch.object(reg, "canonical_pool_by_address", lambda a: None):
+        rfn = make_base_v3_reserves_fn(fake_eth, {})
+        assert await rfn("base", "0xUNKNOWN") is None

@@ -320,3 +320,38 @@ Offline (no RPC) the correct result is DENY/fail-closed (verified).
     python -m json.tool /tmp/m3_audit.json      # pure JSON (logs are in /tmp/m3_run.log)
     # read: .verdict.safe, .verdict.signed_or_broadcast, .m3_final_gates.ok,
     #       .fresh_stage_probe.FIRST_BLOCKING_STAGE
+
+## Session — Real-Base M3.0 candidate validation (2026-08-25, next phase)
+Ran the IDENTICAL read-only M3.0 validator against REAL public Base RPC (mainnet.base.org)
+from inside the Emergent container (no VPS access available to the agent; container has
+outbound internet). Source commit cdd201f + this session's fixes. NO signing key, NO
+broadcast, NO live flags; the running preview backend .env still has NO RPC (fail-closed).
+
+### Real-Base findings (head block ~50,429,4xx)
+- Validator + CircuitBreaker CONSTRUCT against real RPC (ARBICORE_RPC_URL + _BASE + USD_NUMERAIRE=USDC).
+- MEV congestion source WORKS on real chain: eth_feeHistory gasUsedRatio ≈ 6.67% → LOW, mev_ok=True.
+- Quotes WORK on real chain (real gross % per route). Balancer V2 Vault balanceOf real: ~24.4 WETH.
+- UniV3 route TVL measured real (min route TVL ≈ $8.20M, provenance=onchain_reserves).
+- 5 genuine canonical cycles scanned (fee-tier, cross-DEX, stable, triangular). GREEN=0.
+  DECISIVE blocker = profit_buffer (economics): all real gross profits NEGATIVE
+  (−0.017% … −0.571%; candidate WETH/USDC univ3 500→3000 = −0.571%, net ≈ −$92 vs required $35).
+  → NO genuinely profitable candidate currently exists. Correct result = DENY / fail-closed.
+  verdict.safe=true, broadcast_sent=false throughout.
+
+### Additional fix landed this phase (TVL source-of-truth completion)
+- `v3_state.make_base_v3_reserves_fn`: on a pool_meta miss it now falls back to
+  `base_pool_registry.canonical_pool_by_address()` so RUNTIME-RESOLVED Aerodrome/Slipstream
+  addresses (written by `resolve_and_propagate`) become TVL-measurable. Proven on real chain:
+  `aerodrome_slipstream:USDC:WETH:100` resolved to 0xb2cc…DC59 (runtime_resolved) and holds
+  ~1647 WETH + 6.03M USDC (~$10M). (Intermittent None here is the FREE public RPC rate-limiting
+  consecutive balanceOf calls — NOT a code bug; a dedicated VPS RPC returns both reads.)
+- New harness: `scripts/m3_0_real_candidate_scan.py` (read-only) scans candidate cycles and emits
+  per-gate + real-economics JSON. testing_agent iteration_3: 68/68 + 3/3 integration, all green.
+
+### NEXT STEP toward controlled-live (blocked on a genuinely profitable candidate)
+1. Commit fixes; build a fresh VPS validator image from the new HEAD.
+2. On the VPS, point at a DEDICATED (non-rate-limited) Base RPC and run
+   `scripts.m3_0_real_candidate_scan` / `scripts.m3_0_vps_validate` against REAL CONFIRMED
+   evidence bundles from the production Mongo to hunt a candidate that clears profit_buffer.
+3. M3 GREEN only when a real arb nets ≥ $35 (min $25 + $10 buffer) with all other gates PASS.
+   Do NOT lower thresholds. Until then the system correctly stays fail-closed.

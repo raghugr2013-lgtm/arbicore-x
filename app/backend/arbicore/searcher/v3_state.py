@@ -188,7 +188,22 @@ def make_base_v3_reserves_fn(
     async def reserves_fn(chain: str, pool: str):
         meta = pool_meta.get((pool or "").lower())
         if meta is None:
-            return None
+            # Runtime-resolved pools (Aerodrome/Slipstream) are written into the
+            # canonical registry AFTER this provider was built, so pool_meta —
+            # snapshotted at construction — does not know their address. Resolve
+            # the token metadata dynamically from the ONE canonical registry so
+            # the TVL/reserves path aligns with the runtime-resolved address
+            # (single source of truth). Still fail-closed if truly unknown.
+            try:
+                from ..discovery.base_pool_registry import (
+                    canonical_pool_by_address)
+                cp = canonical_pool_by_address(pool)
+            except Exception:  # noqa: BLE001
+                cp = None
+            if cp is None:
+                return None
+            meta = (cp.token0_symbol, cp.token0_address, cp.token0_decimals,
+                    cp.token1_symbol, cp.token1_address, cp.token1_decimals)
         t0_id, t0_addr, d0, t1_id, t1_addr, d1 = meta
         raw0 = await eth_call(t0_addr, _balanceof_data(pool))
         raw1 = await eth_call(t1_addr, _balanceof_data(pool))
