@@ -14,6 +14,8 @@ ARG GITSHA=unknown
 ARG GITTAG=unknown
 ARG BUILD_TIME=unset
 ARG APP_VERSION=unset
+ARG IMAGE_DIGEST=unset
+ARG IMAGE_REF=unset
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -23,6 +25,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     ARBICORE_GIT_TAG=${GITTAG} \
     ARBICORE_BUILD_TIME=${BUILD_TIME} \
     ARBICORE_VERSION=${APP_VERSION} \
+    ARBICORE_IMAGE_DIGEST=${IMAGE_DIGEST} \
+    ARBICORE_IMAGE_REF=${IMAGE_REF} \
     ARBICORE_ENV=production
 
 # Minimal OS deps: curl for the compose healthcheck; build-essential only at install-time.
@@ -66,6 +70,10 @@ RUN pip install --no-cache-dir -r /app/requirements.txt \
 # Copy the audited source. .env is intentionally NOT copied -> mounted via env_file at runtime
 # so secrets never end up in the image. .dockerignore enforces this.
 COPY . /app
+
+# Stamp deployment identity into the image so GET /api/arbicore/version reports
+# real Git SHA / tag / build time / version even without .git (env ARGs feed it).
+RUN python -m scripts.gen_build_info || true
 
 # Non-root runtime user
 RUN useradd --create-home --shell /bin/bash --uid 1001 arbicore \

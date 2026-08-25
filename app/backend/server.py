@@ -2957,8 +2957,10 @@ async def v2_positions(venue: Optional[str] = None,
     → empty items + zero totals.
     """
     _ = venue, side  # noqa: F841 — contract preserved for UI filter chips
-    return {"items": [], "total": 0, "total_size_usd": 0.0,
-            "total_upnl_usd": 0.0, "generated_at": _iso_now()}
+    return {"items": [], "total": None, "total_size_usd": None,
+            "total_upnl_usd": None, "available": False, "source": "unwired",
+            "unavailable_reason": "execution position source not wired yet",
+            "generated_at": _iso_now()}
 
 
 @api_router.get(
@@ -2973,7 +2975,9 @@ async def v2_balances(venue: Optional[str] = None) -> Dict[str, Any]:
     milestone). No canonical source exists today → empty.
     """
     _ = venue  # noqa: F841
-    return {"items": [], "total": 0, "total_usd": 0.0,
+    return {"items": [], "total": None, "total_usd": None,
+            "available": False, "source": "unwired",
+            "unavailable_reason": "per-venue balance polling not enabled yet",
             "generated_at": _iso_now()}
 
 
@@ -2990,7 +2994,9 @@ async def v2_transfers(status: Optional[str] = None,
     → empty.
     """
     _ = status, limit  # noqa: F841
-    return {"items": [], "total": 0, "generated_at": _iso_now()}
+    return {"items": [], "total": None, "available": False, "source": "unwired",
+            "unavailable_reason": "treasury transfer ledger not wired yet",
+            "generated_at": _iso_now()}
 
 
 @api_router.get(
@@ -3006,11 +3012,14 @@ async def v2_deployable() -> Dict[str, Any]:
     executor + balance-polling wiring. Empty per-venue → zero totals.
     """
     return {
-        "total_deployable_usd": 0.0,
-        "total_utilised_usd": 0.0,
-        "total_capital_usd": 0.0,
-        "utilisation_pct": 0.0,
+        "total_deployable_usd": None,
+        "total_utilised_usd": None,
+        "total_capital_usd": None,
+        "utilisation_pct": None,
         "per_venue": [],
+        "available": False,
+        "source": "unwired",
+        "unavailable_reason": "runtime deployable/utilised state not wired yet",
         "generated_at": _iso_now(),
     }
 
@@ -3025,7 +3034,10 @@ async def v2_treasury() -> Dict[str, Any]:
     TODO: wire ``TreasuryLedger.vault_snapshot()``. No canonical source
     exists today → empty vaults + zero total.
     """
-    return {"vaults": [], "total_usd": 0.0, "generated_at": _iso_now()}
+    return {"vaults": [], "total_usd": None, "available": False,
+            "source": "unwired",
+            "unavailable_reason": "treasury vault ledger not wired yet",
+            "generated_at": _iso_now()}
 
 
 @api_router.get(
@@ -3040,7 +3052,9 @@ async def v2_ledger(kind: Optional[str] = None,
     source exists today → empty.
     """
     _ = kind, limit  # noqa: F841
-    return {"items": [], "total": 0, "generated_at": _iso_now()}
+    return {"items": [], "total": None, "available": False, "source": "unwired",
+            "unavailable_reason": "treasury ledger not wired yet",
+            "generated_at": _iso_now()}
 
 
 @api_router.get(
@@ -3053,7 +3067,9 @@ async def v2_exposure() -> Dict[str, Any]:
     TODO: wire ``ExposureAnalyzer.breakdown()``. Derives from
     balances + positions once those canonical sources exist. Empty today.
     """
-    return {"by_asset": [], "by_chain": [], "total_usd": 0.0,
+    return {"by_asset": [], "by_chain": [], "total_usd": None,
+            "available": False, "source": "unwired",
+            "unavailable_reason": "exposure derives from balances/positions (unwired)",
             "generated_at": _iso_now()}
 
 
@@ -3068,8 +3084,10 @@ async def v2_allocation() -> Dict[str, Any]:
     ledger + capital router substrate. No canonical source today → empty
     items + zero totals.
     """
-    return {"items": [], "total_target_usd": 0.0,
-            "total_actual_usd": 0.0, "generated_at": _iso_now()}
+    return {"items": [], "total_target_usd": None,
+            "total_actual_usd": None, "available": False, "source": "unwired",
+            "unavailable_reason": "allocation derives from treasury/capital router (unwired)",
+            "generated_at": _iso_now()}
 
 # ---------------------------------------------------------------------------
 # UI v2 · Slice 5 preview endpoints — Settings (account, vault, execution,

@@ -474,3 +474,23 @@ handlers only), `frontend/src/v2/components/Primitives.jsx`, `.../components/Opp
   (raw SIMULATED→UNVERIFIED/"—"; REAL approved→GO, $120/1.20%). Pre-existing legacy live-HTTP
   tests still fail on stale password `ShadowOperator!2026` (out of scope).
 - NOT deployed (per instruction). Build/validate image separately; run gen_build_info in build.
+
+## Session — Data-Truth Phase 2b: Portfolio/Capital/Legend/BuildStamp (2026-06) — DONE, tested
+Remaining P1 truth fixes. No execution/signing/broadcast/mode/M3 files touched; LIMITED_LIVE/FULL_LIVE
+still hard-gated (verified refused). Not deployed. Docker not available in sandbox → image build
+must run in CI/host; Dockerfile wiring validated via gen_build_info + /arbicore/version.
+- Portfolio Truth: 8 stub endpoints (positions/balances/transfers/deployable/treasury/ledger/
+  exposure/allocation) now return available:false + null USD totals + unavailable_reason instead
+  of $0.0. Frontend UnavailableNote banner + counts "—". (server.py, PortfolioPage.jsx)
+- Capital/Wallet: WalletIntelligenceEngine.live_balances → total_value_usd=None + available:false
+  + unavailable_reason when on-chain source down (ok=False); genuine confirmed zero (ok=True) stays 0.
+  Frontend UNAVAILABLE banner in Live Balances panel. (wallet_intelligence.py, CapitalIntelligencePage.jsx)
+- Verdict Legend: economic-state ladder on Opportunities — DISCOVERED → LIVE_QUOTED → VERIFIED →
+  ECONOMICALLY_VALID → M3_GREEN. (OpportunitiesPage.jsx)
+- CI Build Stamp: both backend Dockerfiles (deployment/docker/backend, deployment/upgrade/backend)
+  add IMAGE_DIGEST/IMAGE_REF ARGs+ENV and `RUN python -m scripts.gen_build_info` so /arbicore/version
+  reports git SHA/tag/build time/version/image/env even without .git. BUILD_INFO.json refreshed.
+- Tests: 23 data-truth + 28 M3 wiring/pre-broadcast = 51 PASS. Live API verified (portfolio
+  available:false/null; capital live RPC read works + unavailable path unit-tested). Screenshots
+  confirm legend + Portfolio UNAVAILABLE banner ("—" not $0).
+- Commit SHA at report time: 6142487 (platform auto-commits this step's edits as the next checkpoint).

@@ -138,6 +138,22 @@ export default function OpportunitiesPage() {
         <span className="v2-kbd">Enter</span> to open, <span className="v2-kbd">A</span>/<span className="v2-kbd">R</span> to approve / reject.
       </p>
 
+      <div data-testid="v2-opp-verdict-legend" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "8px 12px", marginBottom: 14, border: "1px solid var(--v2-border-subtle)", background: "var(--v2-bg-surface)", borderRadius: 2, fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 0.5 }}>
+        <span style={{ color: "var(--v2-text-muted)", textTransform: "uppercase", letterSpacing: 1 }}>Economic state ladder</span>
+        {[
+          { k: "DISCOVERED", c: "var(--v2-text-muted)", d: "Raw candidate — nothing priced" },
+          { k: "LIVE_QUOTED", c: "var(--v2-conf-mid)", d: "Live spread / venue price exists" },
+          { k: "VERIFIED", c: "var(--v2-accent-base)", d: "REAL provenance + economics" },
+          { k: "ECONOMICALLY_VALID", c: "var(--v2-verdict-go)", d: "REAL + positive profit + spread → GO-eligible" },
+          { k: "M3_GREEN", c: "var(--v2-verdict-go)", d: "M3 execution authority (not enabled)" },
+        ].map((s, i, arr) => (
+          <span key={s.k} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span title={s.d} style={{ color: s.c, border: `1px solid ${s.c}`, padding: "1px 6px", borderRadius: 2 }}>{s.k}</span>
+            {i < arr.length - 1 && <span style={{ color: "var(--v2-text-muted)" }}>→</span>}
+          </span>
+        ))}
+      </div>
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14, alignItems: "center" }} data-testid="v2-opp-filters">
         <span style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", marginRight: 4 }}>Family</span>
         {FAMILY_OPTS.map((f) => (

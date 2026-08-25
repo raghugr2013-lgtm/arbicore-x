@@ -54,6 +54,16 @@ function StateTag({ value, map }) {
   );
 }
 
+/** Honest banner shown when a data source is not wired / unavailable. */
+function UnavailableNote({ data, testid }) {
+  if (!data || data.available !== false) return null;
+  return (
+    <div data-testid={testid} style={{ border: "1px dashed var(--v2-verdict-no-soft)", background: "var(--v2-bg-panel)", color: "var(--v2-verdict-no-soft)", padding: "8px 12px", borderRadius: 2, marginBottom: 12, fontFamily: "var(--v2-font-mono)", fontSize: 11, letterSpacing: 0.5 }}>
+      UNAVAILABLE — {data.unavailable_reason || "data source not wired yet"}. Values shown as "—" (not $0).
+    </div>
+  );
+}
+
 function useAsync(fn, deps = []) {
   const [s, setS] = useState({ loading: true, data: null, error: null });
   useEffect(() => {
@@ -98,6 +108,7 @@ function Positions() {
   const SIDES = ["ALL", "LONG", "SHORT", "LP"];
   return (
     <section data-testid="v2-portfolio-positions">
+      <UnavailableNote data={data} testid="v2-portfolio-positions-unavailable" />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 12 }}>
         <div className="v2-panel" data-testid="v2-portfolio-positions-summary-total"><MetricStat label="Positions" value={data?.total ?? "—"} /></div>
         <div className="v2-panel"><MetricStat label="Notional" value={fmtUsd(data?.total_size_usd)} /></div>
@@ -153,12 +164,13 @@ function Balances() {
   const { loading, data } = useAsync(() => v2Api.balances());
   return (
     <section data-testid="v2-portfolio-balances">
+      <UnavailableNote data={data} testid="v2-portfolio-balances-unavailable" />
       <div className="v2-panel" style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div className="v2-panel__title">Total holdings</div>
           <div className="v2-num" style={{ fontSize: 24, color: "var(--v2-accent-base)" }}>{fmtUsd(data?.total_usd)}</div>
         </div>
-        <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>{data?.total ?? 0} rows</div>
+        <div style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 11 }}>{data?.total ?? "—"} rows</div>
       </div>
       <div style={CARD}>
         <table style={TABLE} data-testid="v2-portfolio-balances-table">
@@ -191,6 +203,7 @@ function Transfers() {
   const OPTS = ["ALL", "PENDING", "SETTLED", "FAILED"];
   return (
     <section data-testid="v2-portfolio-transfers">
+      <UnavailableNote data={data} testid="v2-portfolio-transfers-unavailable" />
       <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "center" }}>
         <span style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", marginRight: 4 }}>Status</span>
         {OPTS.map((s) => (
@@ -234,6 +247,7 @@ function Deployable() {
   if (loading) return <div className="v2-empty">Loading deployable capital…</div>;
   return (
     <section data-testid="v2-portfolio-deployable">
+      <UnavailableNote data={data} testid="v2-portfolio-deployable-unavailable" />
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 12 }}>
         <div className="v2-panel" data-testid="v2-portfolio-deployable-total">
           <div className="v2-num" style={{ fontSize: 24, color: "var(--v2-verdict-go)" }}>{fmtUsd(data?.total_deployable_usd)}</div>
@@ -278,6 +292,7 @@ function Treasury() {
   const { loading, data } = useAsync(() => v2Api.treasury());
   return (
     <section data-testid="v2-portfolio-treasury">
+      <UnavailableNote data={data} testid="v2-portfolio-treasury-unavailable" />
       <div className="v2-panel" style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div className="v2-panel__title">Treasury total</div>
@@ -311,6 +326,7 @@ function Ledger() {
   const OPTS = ["ALL", "PNL", "FEE", "TRANSFER", "DEPOSIT", "WITHDRAW"];
   return (
     <section data-testid="v2-portfolio-ledger">
+      <UnavailableNote data={data} testid="v2-portfolio-ledger-unavailable" />
       <div style={{ display: "flex", gap: 6, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
         <span style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", marginRight: 4 }}>Kind</span>
         {OPTS.map((k) => (
@@ -357,6 +373,7 @@ function Exposure() {
   const { loading, data } = useAsync(() => v2Api.exposure());
   return (
     <section data-testid="v2-portfolio-exposure">
+      <UnavailableNote data={data} testid="v2-portfolio-exposure-unavailable" />
       <div className="v2-panel" style={{ marginBottom: 12 }}>
         <div className="v2-panel__title">Total exposure</div>
         <div className="v2-num" style={{ fontSize: 22, color: "var(--v2-accent-base)" }}>{fmtUsd(data?.total_usd)}</div>
@@ -405,6 +422,7 @@ function Allocation() {
   const { loading, data } = useAsync(() => v2Api.allocation());
   return (
     <section data-testid="v2-portfolio-allocation">
+      <UnavailableNote data={data} testid="v2-portfolio-allocation-unavailable" />
       <div className="v2-panel" style={{ marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div className="v2-panel__title">Target vs actual</div>
