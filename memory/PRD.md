@@ -425,3 +425,26 @@ Production untouched; no signing/live/broadcast; M3 + min_net UNCHANGED.
 - Real-Base proof (band=100 demo): near_threshold=2 ranked nearest-first (gap $79.79 net -$44.79;
   gap $80.99 net -$45.99), min_net=35 unchanged, safe=true, signed_or_broadcast=false.
 - testing_agent iteration_7: 88/88 in-scope tests green, no critical issues.
+
+## Session — Frontend Data-Truth / Operator-Trust Audit (2026-06) — REPORT ONLY, no code changed
+Delivered `/app/memory/FRONTEND_DATA_TRUTH_AUDIT.md` (full field→API→backend→Mongo/on-chain
+trace + classification + P0-P3). No code changed; M3 fail-closed untouched; no live/signing.
+- Active UI = `src/v2/*` at `/dashboard`. Data-truth defects concentrated in ONE translator
+  `server.py::_canonical_opp_to_contract` (1013-1049) + `v2/components/Primitives.jsx`.
+- P0-1 fake 100% safety (risk_score default 0.0 → safety 1.0). P0-2 implausible return %
+  (USD expected_profit_usd in return_low/high rendered ×100% by fmtPct). P0-3 verdict=GO from
+  lifecycle status, not economics.
+- P1: spread None→0.0bps + unit assumption; "Depth"=capital_required_usd (mislabel, None→$0);
+  confidence/score None→0; provenance never rendered; drawer reasoning/verification DEMO;
+  roi-probability hardcoded+unauth; /arbicore/version unknown/unset in prod (build env not injected).
+- Source-of-truth map: opportunities/discovery/confidence/spread/depth/return/verdict ←
+  `arbicore_opportunities`; mode ← `control_state`(default SHADOW); config (scanner/execution/
+  operational/network/account/notifications) consolidated in `arbicore_config` by `_id:kind`
+  (explains "missing" arbicore_*-prefixed collections); capital_policy/wallet_registry/
+  execution_mode_state real. Control Center + Live Ops are HONEST (backend-authoritative, "—").
+- Prod 2.9.2-78b2a8c vs validator ce041c8 gap: MEV congestion source, aero resolve+TVL propagate,
+  case-insensitive token lookup, all-in L1/L2 cost gate, spread-widener watch — all validator-only.
+- NEXT (await user approval): Phase 2 P0/P1 display-truth fixes in controlled batches + tests +
+  screenshots. Backend: stop `or 0` coercion, split USD vs %, add economic_state/verdict, surface
+  provenance, drop DEMO blocks, guard roi-probability. Frontend: UNAVAILABLE pill states, fmtUsd
+  for USD, % only for real fractions, provenance chip, no fake GREEN/SAFE/GO.
