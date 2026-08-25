@@ -135,9 +135,33 @@ curl -s -X POST http://127.0.0.1:8199/api/arbicore/control/mode -b "$TOKEN_COOKI
 ```
 
 ## 7. Verify the new frontend branding + data-truth build
+
+### 7a. Rebuild ONLY the frontend from the LATEST HEAD (includes the nav.js /dashboard/* fix)
+Backend stays `f36d7c9` (unchanged — do NOT rebuild it). Frontend HEAD = `5875f4c2912227bc83f742f9b0fa42df3651f3c5`.
 ```bash
-docker run -d --name arbicore-validator-fe -p 127.0.0.1:8299:80 "$FRONTEND_IMAGE_TAG"
+cd "$VDIR/repo"
+git fetch origin complete-Base-M1-M4-live-shadow-composition
+git checkout 5875f4c2912227bc83f742f9b0fa42df3651f3c5
+test "$(git rev-parse HEAD)" = "5875f4c2912227bc83f742f9b0fa42df3651f3c5" \
+  && echo "FRONTEND SHA OK" || { echo "SHA MISMATCH — ABORT"; exit 1; }
+
+export FE_SHA=5875f4c2912227bc83f742f9b0fa42df3651f3c5
+# Bake the URL the browser will use to reach the f36d7c9 validator backend (step 4):
+export REACT_APP_BACKEND_URL='http://127.0.0.1:8199'
+docker build --no-cache \
+  -f deployment/docker/frontend/Dockerfile \
+  --build-arg REACT_APP_BACKEND_URL="$REACT_APP_BACKEND_URL" \
+  --build-arg GITSHA="$FE_SHA" \
+  -t "arbicore-x-frontend:validator-${FE_SHA:0:12}" .
+
+docker rm -f arbicore-validator-fe 2>/dev/null || true
+docker run -d --name arbicore-validator-fe \
+  -p 127.0.0.1:8299:80 "arbicore-x-frontend:validator-${FE_SHA:0:12}"
 sleep 4
+```
+
+### 7b. Verify branding + data-truth
+```bash
 # Browser title = ArbiCore X, no "Emergent | Fullstack App":
 curl -s http://127.0.0.1:8299/ | grep -o '<title>[^<]*</title>'
 curl -s http://127.0.0.1:8299/ | grep -qi 'Emergent | Fullstack App' && echo "STALE BRANDING!" || echo "no stale branding OK"
