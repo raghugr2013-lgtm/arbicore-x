@@ -2,13 +2,14 @@
  * ArbiCore X — UI v2 · Application shell (Slice 1)
  * Header + LeftNavRail + Content + CommandPalette + global keyboard hook.
  */
-import { useCallback, useState } from "react";
-import { Route, Routes } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Header } from "@/v2/components/Header";
 import { LeftNavRail } from "@/v2/components/LeftNavRail";
 import { CommandPalette } from "@/v2/components/CommandPalette";
+import { NAV_SECTIONS } from "@/v2/lib/nav";
 import { useKeyboardShortcuts } from "@/v2/hooks/useKeyboardShortcuts";
 import HomePage from "@/v2/pages/HomePage";
 import OpsCenter from "@/v2/pages/OpsCenter";
@@ -31,6 +32,13 @@ import "@/v2/theme/tokens.css";
 
 export function AppShell() {
   const { user, logout } = useAuth() || {};
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const match = NAV_SECTIONS.find((s) =>
+      s.end ? pathname === s.path : pathname === s.path || pathname.startsWith(`${s.path}/`)
+    );
+    document.title = match?.label ? `ArbiCore X — ${match.label}` : "ArbiCore X";
+  }, [pathname]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   const closePalette = useCallback(() => setPaletteOpen(false), []);

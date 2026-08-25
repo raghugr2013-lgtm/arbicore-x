@@ -494,3 +494,15 @@ must run in CI/host; Dockerfile wiring validated via gen_build_info + /arbicore/
   available:false/null; capital live RPC read works + unavailable path unit-tested). Screenshots
   confirm legend + Portfolio UNAVAILABLE banner ("—" not $0).
 - Commit SHA at report time: 6142487 (platform auto-commits this step's edits as the next checkpoint).
+
+## Session — Branding / UI identity integration (2026-06) — DONE, verified (UI-only)
+Frontend + public assets ONLY; no backend/execution/M3/API/scanner/wallet touched; no safety flags.
+- Assets from uploaded artwork → processed transparent PNGs in frontend/public: arbicore-emblem.png
+  (+16/32/64/180/192/512), favicon.ico (multi-res), arbicore-logo.png (full lockup).
+- Login (LoginPage.jsx/.css): clean emblem centered above "ARBICORE X" wordmark (gold X) + tagline.
+- Header (Header.jsx): compact emblem + "ARBICORE X" (gold X), consistent across all sections.
+- Browser title: index.html <title> "Emergent | Fullstack App" → "ArbiCore X"; meta description →
+  ArbiCore X; favicon/apple-touch links added. AppShell sets per-page "ArbiCore X — {Section}";
+  LoginPage sets "ArbiCore X". No "Emergent | Fullstack App" remains (vendor scripts kept).
+- QA: Playwright screenshots (login + header) + page.title() assertions ("ArbiCore X",
+  "ArbiCore X — Live Ops") + asset 200 checks. No jest suite in project.
