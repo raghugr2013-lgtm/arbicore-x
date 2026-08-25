@@ -229,6 +229,9 @@ class LimitedLiveBroadcaster:
                  capital_allocator,
                  evidence_signer=None,
                  balance_reader=None,
+                 pre_broadcast_validator=None,
+                 circuit_breaker=None,
+                 require_revalidation: bool = False,
                  rpc_url_env: str = "ARBICORE_RPC_URL",
                  preflight_only_default: bool = True):
         self._kill = kill_switch
@@ -240,6 +243,12 @@ class LimitedLiveBroadcaster:
         # S5 · read-only authoritative wallet balance source used to bind
         # capital sizing to the real gas-wallet state (not a hardcoded ref).
         self._balance_reader = balance_reader
+        # M3.0 · atomic pre-broadcast revalidation + circuit breaker. When
+        # ``require_revalidation`` is True (controlled-live wiring) a missing or
+        # failing validator DENIES broadcast (fail-closed).
+        self._revalidator = pre_broadcast_validator
+        self._breaker = circuit_breaker
+        self._require_revalidation = bool(require_revalidation)
         self._rpc_url_env = rpc_url_env
         self._preflight_only_default = bool(preflight_only_default)
 
@@ -436,6 +445,18 @@ class LimitedLiveBroadcaster:
         signer_wallet_id = plan_doc.get("signer_wallet_id")
         gate_ladder: Dict[str, str] = {}
         denied: List[str] = []
+
+        # --------------- Gate 0: circuit breaker (M3.0) ------------------
+        if self._breaker is not None:
+            try:
+                st = await self._breaker.guard()
+            except Exception as exc:  # noqa: BLE001 — breaker error ⇒ fail closed
+                st = {"tripped": True, "reasons": [f"breaker_error:{exc}"]}
+            if st.get("tripped"):
+                gate_ladder["circuit_breaker"] = "DENIED"
+                denied.append("circuit_breaker: " + "; ".join(st.get("reasons") or []))
+            else:
+                gate_ladder["circuit_breaker"] = "PASS"
 
         # ----------------- Gate 1: kill switch ---------------------------
         try:
@@ -701,6 +722,29 @@ class LimitedLiveBroadcaster:
             denied.append(
                 "operator_confirm: missing — set confirm=true to authorise broadcast"
             )
+
+        # --------- Gate 5b: ATOMIC PRE-BROADCAST REVALIDATION (M3.0) ------
+        # The final fail-closed gate: a fresh re-check of quote/TVL/price/
+        # economics + block/reorg/deadline + flash-loan availability + safety
+        # buffer + duplicate-opportunity. A tx can be signed ONLY if this
+        # passes. Under ``require_revalidation`` a missing validator DENIES.
+        if self._revalidator is not None:
+            try:
+                decision = await self._revalidator.validate(plan_doc)
+            except Exception as exc:  # noqa: BLE001 — any error ⇒ fail closed
+                decision = None
+                gate_ladder["pre_broadcast_revalidation"] = "DENIED"
+                denied.append(f"pre_broadcast_revalidation: {type(exc).__name__}")
+            if decision is not None:
+                gate_ladder["pre_broadcast_revalidation"] = (
+                    "PASS" if decision.ok else "DENIED")
+                if not decision.ok:
+                    denied.extend(decision.reasons or ["pre_broadcast_revalidation: denied"])
+        elif self._require_revalidation:
+            gate_ladder["pre_broadcast_revalidation"] = "DENIED"
+            denied.append(
+                "pre_broadcast_revalidation: fresh final validation required but "
+                "no revalidator wired — refusing broadcast (fail-closed)")
 
         broadcast_sent = False
         tx_hash: Optional[str] = None

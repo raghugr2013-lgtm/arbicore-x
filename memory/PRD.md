@@ -58,6 +58,28 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
 - NEXT (per user): M2 real-live-quote -> real TVL -> net profit -> Gate 7/8/9 -> verified evidence -> shadow/paper.
   Limited live NOT enabled.
 
+## M3.0 delivered (2026-06) — Atomic Pre-Broadcast Revalidation & Circuit Breakers (fail-closed)
+- NEW arbicore/execution/pre_broadcast.py: PreBroadcastValidator (fresh re-check: re-quote/
+  re-TVL/re-price/re-economics + block/reorg/deadline + real-time flash-loan availability +
+  duplicate-opportunity + conservative safety-buffer), SeenOpportunityGuard (TTL de-dupe),
+  CircuitBreaker (daily/hourly realized-loss caps, consecutive-failure cap, health flags,
+  on_trip→kill-switch, fires once). All injectable; None/stale/error/mismatch → fail-closed.
+- broadcast.py: LimitedLiveBroadcaster gains pre_broadcast_validator, circuit_breaker,
+  require_revalidation. Gate 0 (circuit breaker) before kill switch; Gate 5b (atomic
+  pre-broadcast revalidation) after operator-confirm and before the sign+broadcast branch.
+  Both append to `denied`, so `if not denied and preflight_ok and confirm and not force_broadcast`
+  is structurally unreachable unless fresh validation passes. Backward-compatible: new gates
+  only active when injected / require_revalidation=True (default False).
+- Env knobs (defaults): ARBICORE_MIN_NET_PROFIT_USD=25, ARBICORE_SAFETY_BUFFER_USD=10,
+  ARBICORE_MAX_DAILY_LOSS_USD=100, ARBICORE_MAX_HOURLY_LOSS_USD=50, ARBICORE_MAX_CONSEC_FAILURES=3,
+  ARBICORE_DEDUPE_TTL_S=30, ARBICORE_PRICE_MAX_BLOCK_LAG=5.
+- Tests: tests/test_m3_0_pre_broadcast.py (22). testing_agent iteration_6: 116/116 PASS
+  (22 M3.0 + 77 M1-M2.6 + 17 wave7 broadcaster); no issues. Existing broadcaster suite green
+  (backward-compatible). NOT wired to live: no signing key, LIMITED_LIVE off, production unchanged.
+- NEXT: operator wiring on VPS of fresh_fn (real quoter/TVL/price/economics) + circuit_breaker
+  into the LIMITED_LIVE broadcaster with require_revalidation=True — BEFORE any Limited-Live.
+  Await explicit approval.
+
 ## M2.6 delivered (2026-06) — Aerodrome/Slipstream on-chain pool resolution (fail-closed)
 - NEW arbicore/searcher/aero_resolver.py: AerodromePoolResolver resolves runtime_getpool
   Aerodrome (classic) + Aerodrome-Slipstream (CL) pools via the DEX factory getPool on-chain,
