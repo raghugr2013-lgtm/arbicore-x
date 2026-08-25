@@ -227,6 +227,41 @@ def make_base_eth_call_from_env():
     return eth_call
 
 
+def make_base_congestion_source_from_env():
+    """Return ``async () -> congestion_pct(0..100) | None`` derived from GENUINE
+    Base network state — the mean ``gasUsedRatio`` over the most recent blocks
+    via ``eth_feeHistory`` (a real, per-block network-load measure straight from
+    the chain). Returns None on ANY RPC/format/availability failure so the M3.0
+    MEV gate fails CLOSED rather than inventing a congestion value. Returns None
+    (→ no source) when no Base RPC is configured (preview)."""
+    from ..config.persistent import resolve_rpc_url_from_env
+    url = resolve_rpc_url_from_env("base")
+    if not url:
+        return None
+    from ..providers.rpc import EthJsonRpcProvider
+    provider = EthJsonRpcProvider(chain="base", url=url)
+
+    async def congestion_source():
+        try:
+            fh = await provider.eth_get_fee_history(blocks=10, newest="latest")
+        except Exception:  # noqa: BLE001 — RPC failure ⇒ fail closed
+            return None
+        if not isinstance(fh, dict):
+            return None
+        ratios = fh.get("gasUsedRatio")
+        if not ratios:
+            return None
+        try:
+            vals = [float(x) for x in ratios if x is not None]
+        except (TypeError, ValueError):
+            return None
+        if not vals:
+            return None
+        avg = sum(vals) / len(vals)          # 0..1 fraction of block gas used
+        return max(0.0, min(100.0, avg * 100.0))
+    return congestion_source
+
+
 def make_base_price_source_from_env():
     """Return ``async (token) -> usd|None`` from GENUINE operator-provided price
     config. Only the native asset price (ARBICORE_NATIVE_PRICE_USD, operator

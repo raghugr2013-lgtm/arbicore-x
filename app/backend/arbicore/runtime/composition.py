@@ -488,7 +488,8 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
     from ..execution.pre_broadcast import (
         PreBroadcastValidator, CircuitBreaker, RevalidationInputs)
     from ..searcher.runtime import (
-        make_base_eth_call_from_env, build_base_tvl_provider)
+        make_base_eth_call_from_env, build_base_tvl_provider,
+        make_base_congestion_source_from_env)
     from ..searcher.price_feed import build_base_price_feed_from_env
     from ..scanners.flash_loan_arbitrage.live_quote_provider import (
         make_live_quote_provider)
@@ -510,6 +511,7 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
     econ = FlashLoanEconomicsAssessor(
         roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05))
     mev = MevRiskScorer()
+    congestion_source = make_base_congestion_source_from_env()
     import os as _os
     vault = (_os.environ.get("BASE_BALANCER_V2_VAULT")
              or "0xBA12222222228d8Ba445958a75a0704d566BF2C8")
@@ -605,6 +607,20 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                     "check evidence-bundle route.cycle_token_path persistence",
                     len(route_pools), len(token_path), len(route_pools) + 1)
                 return None
+            stage = "resolve_pools"
+            # M2.6 PROPAGATION — resolve+validate the Aerodrome/Slipstream route
+            # pools on-chain and write REAL addresses into the ONE canonical
+            # registry so the TVL/address path matches the (working) quote path.
+            # Best-effort: if it fails, TVL stays unmeasured and Gate 8 keeps
+            # failing closed (no address is ever fabricated).
+            try:
+                from ..searcher.aero_resolver import resolve_and_propagate
+                await resolve_and_propagate(
+                    eth_call, route_pools, get_block=price_feed._head_block)
+            except Exception as exc:  # noqa: BLE001
+                _M3_LOG.warning(
+                    "aero resolve/propagate soft-fail %s: %s (TVL gate stays "
+                    "fail-closed)", type(exc).__name__, exc)
             stage = "live_quote"
             hm = {"chain": "base", "provider": provider,
                   "borrow_token": borrow_token, "route_pools": route_pools,
@@ -625,10 +641,24 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                     "route_quote_status=%r", facts.get("route_quote_status"))
                 return None
             stage = "mev"
-            mev_view = mev.classify(source_chain_congestion=None,
-                                    destination_chain_congestion=None,
+            # Real Base network congestion (eth_feeHistory gasUsedRatio). No
+            # source / any read failure ⇒ DENY (fail-closed, never fabricated).
+            congestion = (await congestion_source()
+                          if congestion_source is not None else None)
+            if congestion is None:
+                _M3_LOG.warning(
+                    "DENY stage=mev real Base congestion unavailable "
+                    "(eth_feeHistory gasUsedRatio unreadable / no Base RPC) — "
+                    "MEV classification fails closed rather than inventing a "
+                    "value")
+                return None
+            mev_view = mev.classify(source_chain_congestion=congestion,
+                                    destination_chain_congestion=congestion,
                                     asset=borrow_token, notional_usd=borrow_usd,
                                     is_atomic=True)
+            # Policy (matches flash_loan_arbitrage.filter._MEV_ORDER): LOW/MEDIUM
+            # pass, HIGH denies. MevRiskLevel is a str-enum ⇒ compare by label.
+            mev_ok = mev_view["label"] != "HIGH"
             stage = "economics"
             e = econ.assess(provider=provider, chain="base",
                             borrow_token=borrow_token, borrow_amount_usd=borrow_usd,
@@ -659,7 +689,7 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                 facts.get("min_pool_tvl_usd_in_route"),
                 facts.get("route_quote_status") == "ok",
                 facts.get("tvl_provenance") == "onchain_reserves",
-                mev_view["level"] <= 2, avail, head, quoted_block)
+                mev_ok, avail, head, quoted_block)
             return RevalidationInputs(
                 block_number=head, quoted_block=quoted_block, now_ts=_t.time(),
                 deadline_ts=plan.get("deadline_ts"),
@@ -667,7 +697,7 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                 min_tvl_usd=float(facts.get("min_pool_tvl_usd_in_route") or 0.0),
                 quote_ok=(facts.get("route_quote_status") == "ok"),
                 price_ok=(facts.get("tvl_provenance") == "onchain_reserves"),
-                mev_ok=(mev_view["level"] <= 2),
+                mev_ok=mev_ok,
                 flashloan_available=avail,
                 opp_fingerprint=str(plan.get("opportunity_id")
                                     or plan.get("plan_id") or ""))

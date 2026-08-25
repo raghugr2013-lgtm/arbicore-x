@@ -19,7 +19,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Awaitable
 
 from ...discovery.base_venues import (
-    CHAIN, PROBE_AMOUNT, TOKENS, build_pool_graph, token_address,
+    CHAIN, build_pool_graph, token_address, probe_amount,
 )
 
 
@@ -121,7 +121,7 @@ def make_live_quote_provider(
                 "token_out": addr_out,
             }
             if i == 0:
-                hop["amount_in_wei"] = int(PROBE_AMOUNT.get(borrow_token, 10 ** 16))
+                hop["amount_in_wei"] = int(probe_amount(borrow_token))
             if "fee" in spec:
                 hop["fee"] = spec["fee"]
             # Pass the venue-specific quote params so non-UniV3 hops quote

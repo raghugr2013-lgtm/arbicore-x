@@ -225,9 +225,60 @@ def build_base_aero_resolver_from_env(
     )
 
 
+async def resolve_and_propagate(
+    eth_call: Optional[EthCall],
+    pool_ids: Optional[List[str]] = None,
+    *,
+    get_block: Optional[Callable[[], Awaitable[Optional[int]]]] = None,
+) -> int:
+    """M2.6 PROPAGATION — resolve+VALIDATE the Aerodrome/Slipstream
+    ``runtime_getpool`` pools on-chain and write the REAL, validated addresses
+    into the ONE canonical registry via ``set_runtime_resolved_address``.
+
+    This aligns the TVL/address source-of-truth with the (already working)
+    quote path: the quote path resolves Aerodrome/Slipstream addresses on the
+    fly, but until now the resolved address was never persisted back into the
+    registry, so ``canonical_pool_by_id(pid).address`` stayed ``None`` and the
+    TVL provider (and the VPS probe) could not measure depth.
+
+    ``pool_ids`` restricts work to a specific route (list of canonical ids);
+    ``None`` ⇒ every currently-unresolved Aerodrome/Slipstream pool. Fully
+    FAIL-CLOSED: pools that fail ANY on-chain check are simply skipped and stay
+    unresolved, so Gate 8 keeps denying. No address is ever fabricated. Returns
+    the number of pools newly propagated into the registry."""
+    if eth_call is None:
+        return 0
+    from ..discovery import base_pool_registry as _reg
+    resolver = build_base_aero_resolver_from_env(eth_call, get_block=get_block)
+    if resolver is None:
+        return 0
+    if pool_ids is None:
+        targets = _reg.unresolved_pools()
+    else:
+        seen: set = set()
+        targets = []
+        for pid in pool_ids:
+            if pid in seen:
+                continue
+            seen.add(pid)
+            cp = _reg.canonical_pool_by_id(pid)
+            if (cp is not None and cp.address is None
+                    and cp.dex in ("aerodrome", "aerodrome_slipstream")):
+                targets.append(cp)
+    if not targets:
+        return 0
+    results = await resolver.resolve_all(targets)
+    n = 0
+    for cid, res in results.items():
+        if _reg.set_runtime_resolved_address(
+                cid, res.address, provenance=res.provenance):
+            n += 1
+    return n
+
+
 __all__ = [
     "AerodromePoolResolver", "ResolutionResult",
-    "build_base_aero_resolver_from_env",
+    "build_base_aero_resolver_from_env", "resolve_and_propagate",
     "DEFAULT_AERO_POOL_FACTORY", "DEFAULT_AERO_CL_FACTORY",
     "SEL_GETPOOL_BOOL", "SEL_GETPOOL_INT24",
 ]

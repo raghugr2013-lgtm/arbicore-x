@@ -268,3 +268,55 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
   culprit under real RPC. Slipstream/Aerodrome hops will price genuinely with the passthrough fix.
   STILL fail-closed: no LIMITED_LIVE, no signing key, production untouched.
 - DEFERRED (unchanged, separate pass per operator): Mongo TTL reaping expires_at float→BSON Date.
+
+## Session — M3.0 Real-Base GREEN prep (2026-08-25, continuation)
+HEAD at start: cdd201f (parent 32d86e6). Branch: complete-Base-M1-M4-live-shadow-composition.
+Preview container had NO Base RPC and .env was stripped by fork → restored (local Mongo,
+DB_NAME=arbicore_x). All live/exec/signing flags kept OFF (AUTOEXEC/RUNTIME/DISCOVERY
+autostart=false; no signing key; FLASH_LOAN_SHADOW_ROUTE unset). Production untouched.
+
+### Fixes landed (offline, fail-closed preserved, testing_agent 88/88)
+1. MEV `source_chain_congestion=None` blocker — real source added:
+   `arbicore/searcher/runtime.py::make_base_congestion_source_from_env()` derives Base
+   congestion (0..100) from `eth_feeHistory.gasUsedRatio`. Wired into `composition.py`
+   fresh_fn stage=mev; **DENY if unreadable** (no fabricated value). Also fixed a latent
+   crash: `mev_view["level"] <= 2` (str-enum vs int) → policy now `label != "HIGH"`
+   (LOW/MEDIUM pass, HIGH denies; matches flash_loan filter._MEV_ORDER).
+2. Stage-probe alignment — `scripts/m3_0_vps_validate.py`: added `stage_8_mev` + reordered
+   `_first_blocking_stage` to mirror fresh_fn (shape→resolve→live_quote→hop_legs→mev→
+   head→price→flashloan) + ERROR-string branch so a stage_6 exception is reported as
+   live_quote (before mev), not misattributed to mev.
+3. Aerodrome/Slipstream address/TVL propagation — `aero_resolver.py::resolve_and_propagate()`
+   resolves+validates on-chain and writes REAL addresses into the ONE canonical registry via
+   `set_runtime_resolved_address()`. Wired into fresh_fn (stage=resolve_pools) + the probe, so
+   the TVL/address path now matches the quote path. Fail-closed if resolution fails.
+4. Audit JSON cleanup — `ARBICORE_M3_AUDIT_FILE` writes pure JSON; logs→stderr, JSON→stdout.
+5. BONUS (was HIGH): mixed-case Base token KeyError — `base_venues.py` now has
+   `canonical_symbol()`, case-insensitive `token_address()`/`is_stable()` (None on unknown),
+   and `probe_amount()`. Prevented cbETH/USDbC/cbBTC/rETH/wstETH/weETH routes from
+   permanently DENYing on the VPS. `live_quote_provider.py` uses `probe_amount()`.
+
+Regression: tests/test_m3_0_mev_congestion.py (22 new tests) + existing M3 suites pass.
+
+### Definition of done for M3.0 REAL BASE GREEN (still pending — needs VPS real RPC)
+On an isolated VPS validator with real Base RPC + a genuinely profitable candidate, the audit
+must show m3_final_gates.ok=true while signed_or_broadcast=false / broadcast_sent=false / safe=true.
+Offline (no RPC) the correct result is DENY/fail-closed (verified).
+
+### VPS validator / stage-confirm commands (run on isolated validator, NOT production)
+    # env required (isolated validator only):
+    #   ARBICORE_RPC_URL_BASE=<real Base RPC>   (precedence: ARBICORE_RPC_URL_BASE > ARBICORE_RPC_URL > BASE_RPC_URL)
+    #   ARBICORE_NATIVE_PRICE_USD / ARBICORE_USD_NUMERAIRE  (M2.5 price feed)
+    #   (Aero factories + Balancer vault have canonical defaults; override via
+    #    ARBICORE_AERO_CL_FACTORY_BASE / ARBICORE_AERO_POOL_FACTORY_BASE / BASE_BALANCER_V2_VAULT)
+    #   KEEP OFF: no signing key, ARBICORE_FLASH_LOAN_SHADOW_ROUTE unset,
+    #            ARBICORE_AUTOEXEC_AUTOSTART=false, ARBICORE_RUNTIME_AUTOSTART=false
+    cd /app/backend
+    ARBICORE_M3_AUDIT_FILE=/tmp/m3_audit.json \
+      python -m scripts.m3_0_vps_validate 2> /tmp/m3_run.log            # latest CONFIRMED bundle
+    # or with an explicit plan:
+    ARBICORE_M3_AUDIT_FILE=/tmp/m3_audit.json \
+      python -m scripts.m3_0_vps_validate '<plan-json>' 2> /tmp/m3_run.log
+    python -m json.tool /tmp/m3_audit.json      # pure JSON (logs are in /tmp/m3_run.log)
+    # read: .verdict.safe, .verdict.signed_or_broadcast, .m3_final_gates.ok,
+    #       .fresh_stage_probe.FIRST_BLOCKING_STAGE

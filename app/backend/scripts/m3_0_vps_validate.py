@@ -42,8 +42,7 @@ async def _probe_fresh_stages(plan, quoter):
     from arbicore.scanners.flash_loan_arbitrage.live_quote_provider import (
         make_live_quote_provider)
     from arbicore.scanners.flash_loan_arbitrage.economics import (
-        FlashLoanEconomicsAssessor, FLASH_LOAN_PROVIDERS)
-    from arbicore.intelligence.roi_probability import ROIProbabilityEngine
+        FLASH_LOAN_PROVIDERS)
     from arbicore.discovery.base_venues import build_pool_graph, token_address
     from arbicore.discovery.base_pool_registry import (canonical_pool_by_id,
                                                        get_canonical_pools)
@@ -75,6 +74,20 @@ async def _probe_fresh_stages(plan, quoter):
         and len(token_path) == len(route_pools) + 1,
         "borrow_token": borrow_token, "borrow_amount_usd": borrow_usd,
     }
+
+    # M2.6 PROPAGATION — resolve the Aerodrome/Slipstream route pools on-chain
+    # and write REAL addresses into the canonical registry BEFORE reading
+    # addresses/TVL below, so stage_2 mirrors the working quote path (single
+    # source of truth). Fail-closed: unresolved pools stay address=None.
+    try:
+        from arbicore.searcher.aero_resolver import resolve_and_propagate
+        if eth_call is not None:
+            n_prop = await resolve_and_propagate(
+                eth_call, route_pools,
+                get_block=(price_feed._head_block if price_feed else None))
+            out["stage_2_aero_propagated"] = n_prop
+    except Exception as exc:  # noqa: BLE001
+        out["stage_2_aero_propagated"] = f"ERROR {type(exc).__name__}: {exc}"
 
     # Stage 2 — per-pool spec resolution + REAL address + on-chain TVL
     pool_probe = []
@@ -112,13 +125,17 @@ async def _probe_fresh_stages(plan, quoter):
 
     # Stage 5 — raw per-hop route quote (shows WHICH hop degrades + why)
     if out["stage_1_plan_shape"]["shape_ok"]:
+        from arbicore.discovery.base_venues import probe_amount
         hops = []
         for i, pid in enumerate(route_pools):
             spec = dict(specs.get(pid) or {})
             tin, tout = token_path[i], token_path[i + 1]
+            # token_address is case-insensitive (Base has mixed-case symbols
+            # such as cbETH/USDbC); None ⇒ keep the raw symbol so the culprit
+            # is visible rather than raising KeyError.
             h = {"dex": spec.get("dex") or "uniswap_v3",
-                 "token_in": token_address(tin) if tin in _known(tin) else tin,
-                 "token_out": token_address(tout) if tout in _known(tout) else tout}
+                 "token_in": token_address(tin) or tin,
+                 "token_out": token_address(tout) or tout}
             if "fee" in spec:
                 h["fee"] = spec["fee"]
             if "tick_spacing" in spec:
@@ -126,8 +143,7 @@ async def _probe_fresh_stages(plan, quoter):
             if "stable" in spec:
                 h["stable"] = spec["stable"]
             if i == 0:
-                from arbicore.discovery.base_venues import PROBE_AMOUNT
-                h["amount_in_wei"] = int(PROBE_AMOUNT.get(borrow_token, 10 ** 16))
+                h["amount_in_wei"] = int(probe_amount(borrow_token))
             hops.append(h)
         try:
             rq = await quoter.quote_route(chain="base", hops=hops)
@@ -190,24 +206,60 @@ async def _probe_fresh_stages(plan, quoter):
             fl["result"] = f"ERROR balanceOf {type(exc).__name__}: {exc}"
     out["stage_7_flashloan_availability"] = fl
 
+    # Stage 8 — MEV classification from REAL Base congestion (eth_feeHistory
+    # gasUsedRatio). Mirrors composition.fresh_fn stage=mev exactly: no source /
+    # any read failure ⇒ fresh_fn DENIES here (fail-closed).
+    from arbicore.searcher.runtime import make_base_congestion_source_from_env
+    from arbicore.scanners.cross_chain_arbitrage.bridge_intelligence import (
+        MevRiskScorer)
+    congestion_source = make_base_congestion_source_from_env()
+    try:
+        congestion = (await congestion_source()
+                      if congestion_source is not None else None)
+        mev_out = {
+            "congestion_pct": congestion,
+            "congestion_source": ("eth_feeHistory.gasUsedRatio"
+                                  if congestion_source is not None
+                                  else "no_base_rpc"),
+        }
+        if congestion is None:
+            mev_out["mev_ok"] = None
+            mev_out["note"] = "fresh_fn DENIES at stage=mev (fail-closed)"
+        else:
+            mv = MevRiskScorer().classify(
+                source_chain_congestion=congestion,
+                destination_chain_congestion=congestion,
+                asset=borrow_token, notional_usd=borrow_usd, is_atomic=True)
+            mev_out.update({
+                "level": str(mv["level"]), "label": mv["label"],
+                "score": mv["score"],
+                # LOW/MEDIUM pass, HIGH denies (matches fresh_fn policy).
+                "mev_ok": mv["label"] != "HIGH"})
+    except Exception as exc:  # noqa: BLE001
+        mev_out = f"ERROR {type(exc).__name__}: {exc}"
+    out["stage_8_mev"] = mev_out
+
     # Culprit summary
     culprit = _first_blocking_stage(out)
     out["FIRST_BLOCKING_STAGE"] = culprit
     return out
 
 
-def _known(sym):
-    try:
-        from arbicore.discovery.base_venues import TOKENS
-        return TOKENS
-    except Exception:  # noqa: BLE001
-        return {}
-
-
 def _first_blocking_stage(o: dict) -> str:
+    """Ordered EXACTLY as composition.fresh_fn evaluates dependencies:
+    plan-shape → resolve_pools → live_quote(facts) → hop_legs → mev →
+    head_block → borrow_price → flashloan_available. The reported stage is the
+    first one that would make fresh_fn return None (DENY)."""
+    # 1. plan shape (extract_plan / token_path_shape)
     if not o.get("stage_1_plan_shape", {}).get("shape_ok"):
         return "stage_1_plan_shape (cycle_token_path length != route_pools+1)"
+    # 2. live_quote facts (stage_6) — None ⇒ route unpriceable
     facts = o.get("stage_6_facts")
+    if isinstance(facts, str):
+        # An exception string here means live_quote raised BEFORE mev is ever
+        # reached in fresh_fn — report it as the (earlier) blocking stage.
+        return (f"stage_6_facts errored ({facts}) -> fresh_fn DENY at "
+                "stage=live_quote (before mev)")
     if facts is None:
         rq = o.get("stage_5_route_quote")
         if isinstance(rq, dict):
@@ -219,14 +271,33 @@ def _first_blocking_stage(o: dict) -> str:
     if isinstance(facts, dict) and facts.get("route_quote_status") != "ok":
         return ("stage_6 quote status != ok -> fresh_quote gate will DENY "
                 f"(status={facts.get('route_quote_status')})")
+    # 3. hop_legs
+    if isinstance(facts, dict) and not facts.get("n_hop_legs"):
+        return ("stage_6 facts present but n_hop_legs=0 -> fresh_fn DENY at "
+                "stage=hop_legs")
+    # 4. MEV — real congestion + classification (stage_8)
+    mev = o.get("stage_8_mev")
+    if isinstance(mev, str):
+        return f"stage_8_mev {mev} -> fresh_fn DENY at stage=mev"
+    if isinstance(mev, dict):
+        if mev.get("congestion_pct") is None:
+            return ("stage_8_mev real Base congestion unavailable "
+                    "(eth_feeHistory gasUsedRatio) -> fresh_fn DENY at "
+                    "stage=mev (fail-closed)")
+        if mev.get("mev_ok") is not True:
+            return (f"stage_8_mev risk={mev.get('label')} "
+                    f"(score={mev.get('score')}) -> mev_ok gate will DENY")
+    # 5. head block
     hb = o.get("stage_3_head_block")
     if not isinstance(hb, int):
         return (f"stage_3_head_block unavailable ({hb}) -> block_freshness "
                 "gate will DENY")
+    # 6. borrow-token price
     px = o.get("stage_4_borrow_price_usd")
     if not isinstance(px, (int, float)):
         return (f"stage_4_borrow_price_usd unavailable ({px}) -> flashloan/"
                 "price gate will DENY")
+    # 7. flash-loan availability
     fl = o.get("stage_7_flashloan_availability", {})
     if fl.get("available") is not True:
         return f"stage_7_flashloan_availability not True ({fl.get('available')})"
@@ -356,7 +427,18 @@ async def main() -> None:
         "signed_or_broadcast": _sent,
         "safe": _sent is False,
     }
-    print(json.dumps(audit, indent=2, default=str))
+    # Machine-readable audit: pure JSON only. Runtime logs go to STDERR (see
+    # basicConfig above); the audit JSON goes to STDOUT and, when
+    # ARBICORE_M3_AUDIT_FILE is set, to that file — so `python -m json.tool`
+    # never sees interleaved log lines ("Extra data").
+    payload = json.dumps(audit, indent=2, default=str)
+    audit_file = os.environ.get("ARBICORE_M3_AUDIT_FILE")
+    if audit_file:
+        with open(audit_file, "w", encoding="utf-8") as fh:
+            fh.write(payload + "\n")
+        logging.getLogger("scripts.m3_0_vps_validate").info(
+            "audit JSON written to %s", audit_file)
+    print(payload)
 
 
 if __name__ == "__main__":
