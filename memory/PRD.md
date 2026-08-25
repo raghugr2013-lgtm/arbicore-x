@@ -355,3 +355,38 @@ broadcast, NO live flags; the running preview backend .env still has NO RPC (fai
    evidence bundles from the production Mongo to hunt a candidate that clears profit_buffer.
 3. M3 GREEN only when a real arb nets ≥ $35 (min $25 + $10 buffer) with all other gates PASS.
    Do NOT lower thresholds. Until then the system correctly stays fail-closed.
+
+## Session — Spread Widener Watch (2026-08-25, first-revenue support)
+Per user's paused/refined instruction (competitive-research report DEFERRED; focus on
+first-revenue path). Production untouched (2.9.2-78b2a8c); no signing/live/broadcast.
+
+### Delivered: scripts/m3_0_spread_widener_watch.py (READ-ONLY monitor)
+- Auto-enumerates every canonical Base route cycle (fee-tier + cross-DEX 2-hop) from the
+  registry + freshest CONFIRMED evidence bundles from Mongo; computes each route's REAL
+  gross_profit_pct (live quote + M2.6 TVL) and est_net_usd (FlashLoanEconomicsAssessor with
+  MEV level from REAL eth_feeHistory congestion).
+- FLAG semantics (signal separation, addresses testing_agent minor):
+    worth_m3_validation = net computed AND net >= min_net (default 25+10=35)  → run full M3
+    edge_positive       = gross >= min_gross (default 0.0)                    → informational
+  Only FULLY-priced ("ok") routes with a plausible spread (|gross| <= 50% clamp) are ever
+  flagged — partial/anomalous quotes (public-RPC rate-limit noise) are refused (net=None).
+- Env: ARBICORE_RPC_URL(+_BASE), ARBICORE_USD_NUMERAIRE=USDC, optional
+  ARBICORE_SPREAD_WATCH_{MIN_NET_USD,MIN_GROSS_PCT,BORROW_USD,MAX_ROUTES,INTERVAL_S,MAX_GROSS_PCT},
+  ARBICORE_M3_AUDIT_FILE. NO broadcaster/signer is constructed anywhere in the script.
+- Real-Base proof (public RPC): fully-priced WETH/USDC cycles show net −$46.6/−$62.2/−$82.6
+  (gross −0.11%/−0.27%/−0.47%), flagged_count=0, safe=true. No profitable candidate exists.
+- testing_agent iteration_4: 131 tests pass, no critical issues; regression green.
+
+### VPS run recipe (dedicated RPC + prod Mongo)
+    cd /app/backend
+    export ARBICORE_RPC_URL=$BASE_RPC_DEDICATED ARBICORE_RPC_URL_BASE=$BASE_RPC_DEDICATED ARBICORE_USD_NUMERAIRE=USDC
+    export MONGO_URL=$PROD_READONLY_MONGO_URL DB_NAME=$PROD_DB_NAME
+    export ARBICORE_SPREAD_WATCH_INTERVAL_S=30            # loop; omit for single pass
+    ARBICORE_M3_AUDIT_FILE=/tmp/spread.json python -m scripts.m3_0_spread_widener_watch 2> /tmp/spread.log
+    # When flagged_count > 0 → take that route's route_pools and run full M3:
+    ARBICORE_M3_AUDIT_FILE=/tmp/m3.json python -m scripts.m3_0_vps_validate '<plan-with-flagged-route>' 2> /tmp/m3.log
+    python -m json.tool /tmp/m3.json    # require m3_final_gates.ok=true, broadcast_sent=false, safe=true
+
+### DEFERRED (not started, per user): PART 1-11 competitive-research report, multi-agent
+Foreman, competitor-intelligence layer, multi-chain workers. To be produced on request AFTER
+the first genuine M3 GREEN candidate + Controlled-Live readiness.
