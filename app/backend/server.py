@@ -240,6 +240,18 @@ _CONTINUOUS_DISCOVERY = ContinuousDiscovery(
     plans_repo=_EXECUTION_PLANS_REPO,
     interval_s=60.0,
 )
+def _controlled_live_safety_or_none():
+    """M3.0 · build (validator, breaker) fail-closed. Any error / missing dep
+    → (None, None); with require_revalidation=True the broadcaster then DENIES
+    before signing (never a silent broadcast)."""
+    try:
+        from arbicore.runtime.composition import build_controlled_live_safety
+        return build_controlled_live_safety(_QUOTER_REGISTRY,
+                                            kill_switch=_KILL_SWITCH_REPO)
+    except Exception:  # noqa: BLE001
+        return (None, None)
+
+
 _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     kill_switch=_KILL_SWITCH_REPO,
     mode_repo=_EXECUTION_MODE_REPO,
@@ -248,6 +260,17 @@ _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     capital_allocator=_CAPITAL_ALLOCATOR,
     evidence_signer=_EVIDENCE_SIGNER,
     balance_reader=_WALLET_BALANCE_READER,
+    # M3.0 · controlled-live safety wiring. The pre-broadcast validator
+    # (fresh M2.1 quote + M2.5 price + M2.6 TVL + economics + flash-loan
+    # liquidity) and circuit breaker are built from the operator env; when the
+    # env lacks a Base RPC both are None. require_revalidation=True means a
+    # None/failing validator DENIES before signing — fail-closed, never a
+    # silent broadcast. Signing/LIMITED_LIVE remain OFF (mode gate unchanged).
+    **dict(zip(
+        ("pre_broadcast_validator", "circuit_breaker"),
+        _controlled_live_safety_or_none(),
+    )),
+    require_revalidation=True,
 )
 
 # ---------------------------------------------------------------------------

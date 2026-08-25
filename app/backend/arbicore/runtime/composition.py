@@ -469,6 +469,143 @@ def get_scanner_state_repo() -> ScannerStateRepository:
 
 
 # v2.11.8 — Paper Validation Framework repo (canonical evidence store).
+def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
+    """M3.0 wiring — build (PreBroadcastValidator, CircuitBreaker) for the
+    controlled-live broadcaster, reusing the EXISTING M2.1 live quote provider,
+    M2.5 price feed, M2.6-resolved TVL, and the flash-loan economics assessor.
+
+    Returns (None, None) when the operator environment lacks a Base RPC — the
+    broadcaster is wired with require_revalidation=True, so a None validator
+    forces a fail-closed DENY before signing (never a silent broadcast)."""
+    from ..execution.pre_broadcast import (
+        PreBroadcastValidator, CircuitBreaker, RevalidationInputs)
+    from ..searcher.runtime import (
+        make_base_eth_call_from_env, build_base_tvl_provider)
+    from ..searcher.price_feed import build_base_price_feed_from_env
+    from ..scanners.flash_loan_arbitrage.live_quote_provider import (
+        make_live_quote_provider)
+    from ..scanners.flash_loan_arbitrage.economics import (
+        FlashLoanEconomicsAssessor, FLASH_LOAN_PROVIDERS)
+    from ..scanners.cross_chain_arbitrage.bridge_intelligence import MevRiskScorer
+    from ..intelligence.roi_probability import ROIProbabilityEngine
+    from ..discovery import base_pool_registry as _reg
+
+    eth_call = make_base_eth_call_from_env()
+    if eth_call is None:
+        return None, None
+    price_feed = build_base_price_feed_from_env(quoter_registry)
+    if price_feed is None:
+        return None, None
+    tvl_provider = build_base_tvl_provider(eth_call, price_feed.price_source)
+    quote_provider = make_live_quote_provider(quoter_registry,
+                                              tvl_provider=tvl_provider)
+    econ = FlashLoanEconomicsAssessor(
+        roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05))
+    mev = MevRiskScorer()
+    import os as _os
+    vault = (_os.environ.get("BASE_BALANCER_V2_VAULT")
+             or "0xBA12222222228d8Ba445958a75a0704d566BF2C8")
+
+    async def _flashloan_available(provider, borrow_token, borrow_amount_usd):
+        """Real-time genuine check: Balancer V2 Vault must actually hold at
+        least the borrow amount of the borrow token. Any read failure → None."""
+        meta = FLASH_LOAN_PROVIDERS.get((provider or "").lower())
+        if not meta or "base" not in meta.get("supports_chains", ()):
+            return False
+        cp = None
+        for p in _reg.get_canonical_pools():
+            if borrow_token.upper() in (p.token0_symbol.upper(), p.token1_symbol.upper()):
+                cp = p
+                break
+        if cp is None:
+            return None
+        if cp.token0_symbol.upper() == borrow_token.upper():
+            taddr, tdec = cp.token0_address, cp.token0_decimals
+        else:
+            taddr, tdec = cp.token1_address, cp.token1_decimals
+        data = "0x70a08231" + vault.lower().replace("0x", "").rjust(64, "0")
+        try:
+            raw = await eth_call(taddr, data)
+        except Exception:  # noqa: BLE001
+            return None
+        if not raw:
+            return None
+        try:
+            bal = int(raw, 16) / (10 ** int(tdec))
+        except (ValueError, TypeError):
+            return None
+        px = await price_feed.price_source(borrow_token)
+        if px is None or px <= 0:
+            return None
+        return bal >= (float(borrow_amount_usd) / px)
+
+    async def fresh_fn(plan):
+        """FRESH re-check at broadcast time. Any missing input → None (deny)."""
+        try:
+            route_pools = list(plan.get("route_pools") or [])
+            token_path = list(plan.get("cycle_token_path") or [])
+            borrow_token = (plan.get("borrow_token") or "").upper()
+            borrow_usd = float(plan.get("borrow_amount_usd") or 0.0)
+            provider = (plan.get("flash_loan_provider")
+                        or plan.get("provider") or "balancer_v2")
+            quoted_block = plan.get("quoted_block")
+            if not route_pools or not borrow_token or borrow_usd <= 0:
+                return None
+            hm = {"chain": "base", "provider": provider,
+                  "borrow_token": borrow_token, "route_pools": route_pools,
+                  "cycle_token_path": token_path}
+            facts = await quote_provider(hm, borrow_usd)      # M2.1 quote + M2.6 TVL
+            if not facts:
+                return None
+            hop_legs = list(facts.get("hop_legs") or [])
+            if not hop_legs:
+                return None
+            mev_view = mev.classify(source_chain_congestion=None,
+                                    destination_chain_congestion=None,
+                                    asset=borrow_token, notional_usd=borrow_usd,
+                                    is_atomic=True)
+            e = econ.assess(provider=provider, chain="base",
+                            borrow_token=borrow_token, borrow_amount_usd=borrow_usd,
+                            hop_legs=hop_legs, signal_categories=[provider, "base"],
+                            real_outcomes=[], synthetic_outcomes=[],
+                            gross_profit_pct=float(facts.get("gross_profit_pct") or 0.0),
+                            mev_risk_level=mev_view["level"],
+                            gas_cost_usd_override=facts.get("gas_cost_usd"),
+                            tx_gas_units=facts.get("tx_gas_units"))
+            head = None
+            try:
+                head = await price_feed._head_block()  # reuse cached head reader
+            except Exception:  # noqa: BLE001
+                head = None
+            avail = await _flashloan_available(provider, borrow_token, borrow_usd)
+            import time as _t
+            return RevalidationInputs(
+                block_number=head, quoted_block=quoted_block, now_ts=_t.time(),
+                deadline_ts=plan.get("deadline_ts"),
+                net_profit_usd=e.atomic_profit_usd,
+                min_tvl_usd=float(facts.get("min_pool_tvl_usd_in_route") or 0.0),
+                quote_ok=(facts.get("route_quote_status") == "ok"),
+                price_ok=(facts.get("tvl_provenance") == "onchain_reserves"),
+                mev_ok=(mev_view["level"] <= 2),
+                flashloan_available=avail,
+                opp_fingerprint=str(plan.get("opportunity_id")
+                                    or plan.get("plan_id") or ""))
+        except Exception:  # noqa: BLE001 — any error ⇒ fail closed
+            return None
+
+    async def _on_trip(reason):
+        if kill_switch is not None:
+            try:
+                await kill_switch.engage(f"circuit_breaker: {reason}",
+                                         actor="circuit_breaker")
+            except Exception:  # noqa: BLE001
+                pass
+
+    validator = PreBroadcastValidator(fresh_fn=fresh_fn)
+    breaker = CircuitBreaker(on_trip=_on_trip)
+    return validator, breaker
+
+
 _paper_evidence_repo = None  # type: ignore[assignment]
 _evidence_bundles_repo = None  # type: ignore[assignment]
 

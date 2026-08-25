@@ -58,6 +58,22 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
 - NEXT (per user): M2 real-live-quote -> real TVL -> net profit -> Gate 7/8/9 -> verified evidence -> shadow/paper.
   Limited live NOT enabled.
 
+## M3.0 WIRING delivered (2026-06) — controlled-live broadcaster now receives the safety layer
+- GAP found: server.py:243 built _LIMITED_LIVE_BROADCASTER WITHOUT pre_broadcast_validator/
+  circuit_breaker/require_revalidation → M3.0 layer inert. FIXED (minimum wiring, no features).
+- NEW composition.build_controlled_live_safety(quoter_registry, kill_switch=...) → (PreBroadcastValidator,
+  CircuitBreaker) or (None,None) w/o Base RPC. fresh_fn reuses make_live_quote_provider (M2.1) +
+  build_base_tvl_provider(price_feed.price_source) (M2.5 price + M2.6-resolved TVL) +
+  FlashLoanEconomicsAssessor (economics) + MevRiskScorer + Balancer V2 Vault balanceOf liquidity
+  (real-time flash-loan availability). on_trip → kill_switch.engage.
+- server.py: _controlled_live_safety_or_none() (fail-closed try/except) feeds the app broadcaster with
+  require_revalidation=True. Preview (no RPC) → (None,None) → broadcaster DENIES before signing.
+- Tests: tests/test_m3_0_wiring.py (6) — preview fail-closed builder; missing/denying validator, stale,
+  unprofitable, flashloan-unavailable, tripped-breaker all → broadcast_sent False. testing_agent
+  iteration_7: 100% pass, no issues. server.py boots with require_revalidation=True, validator/breaker
+  None in preview (fail-closed).
+- Live flags remain OFF: no signing key, LIMITED_LIVE not enabled, production untouched.
+
 ## M3.0 delivered (2026-06) — Atomic Pre-Broadcast Revalidation & Circuit Breakers (fail-closed)
 - NEW arbicore/execution/pre_broadcast.py: PreBroadcastValidator (fresh re-check: re-quote/
   re-TVL/re-price/re-economics + block/reorg/deadline + real-time flash-loan availability +
