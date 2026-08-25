@@ -819,14 +819,16 @@ async def v2_deck(limit: int = 5) -> Dict[str, Any]:
         rows = []
 
     def _row(o) -> Dict[str, Any]:
-        c = float(o.confidence_score or 0)
-        conf = c / 100.0 if c > 1.0 else c
+        raw_c = float(o.confidence_score or 0.0)
+        c = raw_c / 100.0 if raw_c > 1.0 else raw_c
+        assessed = bool(raw_c > 0.0 or _opp_is_real_provenance(o))
         return {
             "id":                o.opportunity_id,
             "opportunity_type":  o.opportunity_type.value if hasattr(o.opportunity_type, "value") else str(o.opportunity_type),
             "subject_id":        o.subject_id or o.asset or o.opportunity_id,
             "chain":             o.chain,
-            "confidence":        round(conf, 4),
+            "confidence":        round(c, 4) if assessed else None,
+            "confidence_assessed": assessed,
             "status":            o.status.value if hasattr(o.status, "value") else str(o.status),
             "created_at":        o.created_at,
         }
@@ -917,16 +919,54 @@ async def v2_opportunities_summary(
     }
 
 
-@api_router.get("/arbicore/roi-probability")
+@api_router.get("/arbicore/roi-probability", dependencies=[Depends(_require_operator_dep)])
 async def v2_roi_probability(
 route_id: str) -> Dict[str, Any]:
+    """Route ROI statistics from the authoritative learning store.
+
+    Reads realized outcomes from ``arbicore_opportunity_journal`` for the
+    given route. When no authoritative samples exist we report
+    ``available=False`` with null statistics — never fabricated win-rates.
+    """
+    sample_size = 0
+    wins = 0
+    outcome_sum = 0.0
+    try:
+        cur = db["arbicore_opportunity_journal"].find(
+            {"route": route_id}, {"_id": 0})
+        async for row in cur:
+            outcome = row.get("realized_outcome")
+            if outcome is None:
+                continue
+            sample_size += 1
+            outcome_sum += float(outcome)
+            if float(outcome) > 0:
+                wins += 1
+    except Exception:
+        logger.debug("roi-probability: journal read unavailable")
+
+    if sample_size == 0:
+        return {
+            "route_id": route_id,
+            "available": False,
+            "model": None,
+            "sample_size": 0,
+            "win_rate": None,
+            "realized_outcome_mean": None,
+            "realized_outcome_sum": None,
+            "last_outcome_at": None,
+            "note": "No authoritative realized-outcome samples for this route yet.",
+            "generated_at": _iso_now(),
+        }
     return {
         "route_id": route_id,
-        "sample_size": 42,
-        "win_rate": 0.643,
-        "realized_outcome_mean": 0.012,
-        "realized_outcome_sum": 0.517,
-        "last_outcome_at": _iso_now(),
+        "available": True,
+        "model": "opportunity-journal-realized@v1",
+        "sample_size": sample_size,
+        "win_rate": round(wins / sample_size, 4),
+        "realized_outcome_mean": round(outcome_sum / sample_size, 6),
+        "realized_outcome_sum": round(outcome_sum, 6),
+        "last_outcome_at": None,
         "generated_at": _iso_now(),
     }
 
@@ -989,7 +1029,9 @@ async def v2_opportunities_list(
             continue
         if verdict and verdict != "ALL" and o["verdict"] != verdict:
             continue
-        if o["confidence"] < min_confidence:
+        # None confidence is UNAVAILABLE — only filter rows that HAVE a score.
+        if min_confidence and (o.get("confidence") is None
+                               or o["confidence"] < min_confidence):
             continue
         out.append(o)
 
@@ -1010,21 +1052,103 @@ async def v2_opportunities_list(
     }
 
 
+def _opp_provenance_str(opp: "CanonicalOpportunity") -> str:
+    return (opp.source_data_quality.value
+            if hasattr(opp.source_data_quality, "value")
+            else str(opp.source_data_quality))
+
+
+def _opp_is_real_provenance(opp: "CanonicalOpportunity") -> bool:
+    """True only when the row is backed by REAL / VERIFIED_REAL data."""
+    return _opp_provenance_str(opp) in ("REAL", "VERIFIED_REAL")
+
+
+def _opp_economic_state(opp: "CanonicalOpportunity") -> str:
+    """Honest lifecycle-vs-economics state.
+
+    DISCOVERED         raw candidate, nothing priced
+    LIVE_QUOTED        a live spread / venue price exists
+    VERIFIED           REAL provenance + at least one economic figure
+    ECONOMICALLY_VALID REAL provenance + positive expected profit + spread
+    """
+    real = _opp_is_real_provenance(opp)
+    has_spread = opp.spread_pct is not None
+    has_price = opp.buy_price is not None or opp.sell_price is not None
+    profit = opp.expected_profit_usd
+    if real and profit is not None and float(profit) > 0 and has_spread:
+        return "ECONOMICALLY_VALID"
+    if real and (has_spread or profit is not None):
+        return "VERIFIED"
+    if has_spread or has_price:
+        return "LIVE_QUOTED"
+    return "DISCOVERED"
+
+
 def _canonical_opp_to_contract(opp: "CanonicalOpportunity") -> Dict[str, Any]:
-    """Translate a CanonicalOpportunity into the frontend v2 contract."""
+    """Translate a CanonicalOpportunity into the frontend v2 contract.
+
+    Truth rules (no silent zero coercion):
+      * Missing economics stay ``None`` (frontend renders "—"/UNAVAILABLE).
+      * A genuine confirmed zero (present + real provenance) stays 0.
+      * ``safety`` / ``confidence`` are numeric ONLY when backed by a real
+        assessment (a positive score OR REAL/VERIFIED_REAL provenance);
+        otherwise ``None`` with ``*_assessed=False``.
+      * USD stays USD (``expected_profit_usd``, ``capital_required_usd``);
+        ``return_pct`` is a genuine fraction (profit/capital) or ``None`` —
+        never ``expected_profit_usd`` reinterpreted as a percentage.
+      * ``verdict=="GO"`` ONLY when APPROVED **and** ECONOMICALLY_VALID; a raw
+        or merely-validated candidate is never GO. M3 remains the final
+        execution authority — this verdict is advisory display only.
+    """
     from datetime import datetime as _dt, timezone as _tz
     now = _dt.now(_tz.utc)
     try:
         created = _dt.fromisoformat(opp.created_at.replace("Z", "+00:00"))
         age_s = max(0, int((now - created).total_seconds()))
     except Exception:
-        age_s = 0
-    conf = float(opp.confidence_score or 0)
-    if conf > 1.0:  # tolerate 0-100 scale
-        conf = conf / 100.0
-    verdict = "GO" if opp.status in (OpportunityStatus.APPROVED,
-                                       OpportunityStatus.VALIDATED) \
-        else ("HARD_NO" if opp.status == OpportunityStatus.REJECTED else "SOFT_NO")
+        age_s = None  # unknown age → UNAVAILABLE, not "0s fresh"
+
+    real = _opp_is_real_provenance(opp)
+    econ_state = _opp_economic_state(opp)
+    econ_valid = econ_state == "ECONOMICALLY_VALID"
+
+    # Confidence — numeric only when assessed.
+    raw_conf = float(opp.confidence_score or 0.0)
+    conf_val = raw_conf / 100.0 if raw_conf > 1.0 else raw_conf
+    confidence_assessed = bool(raw_conf > 0.0 or real)
+    confidence = round(conf_val, 4) if confidence_assessed else None
+
+    # Safety — numeric only when a real risk assessment exists.
+    raw_risk = float(opp.risk_score or 0.0)
+    safety_assessed = bool(raw_risk > 0.0 or real)
+    safety = round(1.0 - min(1.0, raw_risk / 100.0), 4) if safety_assessed else None
+
+    # Spread — None stays None (no 0.0 bps coercion). spread_pct is in percent.
+    spread_bps = int(round(opp.spread_pct * 100)) if opp.spread_pct is not None else None
+
+    # Economics — keep USD as USD; expose capital required under its true name.
+    expected_profit_usd = (round(float(opp.expected_profit_usd), 2)
+                           if opp.expected_profit_usd is not None else None)
+    capital_required_usd = (int(round(opp.capital_required_usd))
+                            if opp.capital_required_usd is not None else None)
+    # Real fractional return only when both figures are present and capital > 0.
+    return_pct = None
+    if (opp.expected_profit_usd is not None
+            and opp.capital_required_usd is not None
+            and float(opp.capital_required_usd) > 0):
+        return_pct = round(float(opp.expected_profit_usd)
+                           / float(opp.capital_required_usd), 4)
+
+    # Verdict — economic/safety-authoritative, never lifecycle alone.
+    if opp.status == OpportunityStatus.REJECTED:
+        verdict = "HARD_NO"
+    elif opp.status == OpportunityStatus.APPROVED and econ_valid:
+        verdict = "GO"
+    elif econ_valid:
+        verdict = "SOFT_NO"   # economically valid but not operator-approved
+    else:
+        verdict = "UNVERIFIED"  # raw / not economically validated
+
     return {
         "id": opp.opportunity_id,
         "subject_id": opp.subject_id or opp.asset,
@@ -1033,18 +1157,20 @@ def _canonical_opp_to_contract(opp: "CanonicalOpportunity") -> Dict[str, Any]:
                               else str(opp.opportunity_type)),
         "chain": opp.chain or "-",
         "verdict": verdict,
-        "confidence": round(conf, 4),
-        "safety": round(1.0 - min(1.0, float(opp.risk_score or 0) / 100.0), 4),
-        "spread_bps": int(round((opp.spread_pct or 0) * 100)),
-        "depth_usd": int(round(opp.capital_required_usd or 0)),
-        "return_low": round((opp.expected_profit_usd or 0) * 0.9, 2),
-        "return_high": round((opp.expected_profit_usd or 0) * 1.1, 2),
+        "economic_state": econ_state,
+        "confidence": confidence,
+        "confidence_assessed": confidence_assessed,
+        "safety": safety,
+        "safety_assessed": safety_assessed,
+        "spread_bps": spread_bps,
+        "capital_required_usd": capital_required_usd,
+        "depth_usd": None,  # real pool TVL not available on canonical rows
+        "expected_profit_usd": expected_profit_usd,
+        "return_pct": return_pct,
         "age_s": age_s,
         "route": opp.route,
         "status": (opp.status.value if hasattr(opp.status, "value") else str(opp.status)),
-        "source_data_quality": (opp.source_data_quality.value
-                                 if hasattr(opp.source_data_quality, "value")
-                                 else str(opp.source_data_quality)),
+        "source_data_quality": _opp_provenance_str(opp),
         "canonical": True,
     }
 
@@ -1060,19 +1186,31 @@ async def v2_opportunity_detail(
         canonical = None
     if canonical is not None:
         base = _canonical_opp_to_contract(canonical)
+        # Honest reasoning — NO fabricated confidence breakdown / gate lists.
+        # Surface only what the canonical row genuinely provides.
+        econ_state = base["economic_state"]
+        note = None
+        if econ_state != "ECONOMICALLY_VALID":
+            note = ("Lifecycle record only — no live quote / economics attached. "
+                    "Not economically validated; M3 remains the execution authority.")
         base["reasoning"] = {
-            "confidence_breakdown": [
-                {"factor": "Route confidence", "delta": int(base["confidence"] * 10),
-                 "notes": f"Canonical score {base['confidence']:.2%}"},
-            ],
-            "gates_passed": ["provenance", "lifecycle"],
+            "economic_state": econ_state,
+            "provenance": base["source_data_quality"],
+            "confidence_assessed": base["confidence_assessed"],
+            "safety_assessed": base["safety_assessed"],
+            "note": note,
+            # Real per-factor breakdown / gate ledger is only available from an
+            # evidence bundle; empty here rather than fabricated.
+            "confidence_breakdown": [],
+            "gates_passed": [],
             "gates_dropped": [],
         }
+        # Verification — do not claim a quote source when none was taken.
         base["verification"] = {
-            "quote_source": "canonical_opp_repo",
+            "quote_source": None,
             "last_verified_at": canonical.updated_at,
             "fresh_window_s": 60,
-            "stale": base["age_s"] > 60,
+            "stale": (base["age_s"] is None or base["age_s"] > 60),
         }
         base["evidence"] = {"cycle_id": None,
                               "download_endpoint": f"/api/arbicore/opportunities/{opp_id}/evidence",
@@ -1343,9 +1481,11 @@ _UI_ACTION_TO_TARGET_STATUS = {
 
 def _canonical_opp_to_discovery(opp: "CanonicalOpportunity") -> Dict[str, Any]:
     """Translate a CanonicalOpportunity into the Discovery UI contract."""
-    conf = float(opp.confidence_score or 0)
-    if conf > 1.0:  # tolerate 0-100 scale
-        conf = conf / 100.0
+    raw_conf = float(opp.confidence_score or 0.0)
+    conf = raw_conf / 100.0 if raw_conf > 1.0 else raw_conf
+    real = _opp_is_real_provenance(opp)
+    score_assessed = bool(raw_conf > 0.0 or real)
+    score = round(conf, 4) if score_assessed else None
     otype = (opp.opportunity_type.value if hasattr(opp.opportunity_type, "value")
              else str(opp.opportunity_type))
     provenance = (opp.source_data_quality.value
@@ -1382,7 +1522,8 @@ def _canonical_opp_to_discovery(opp: "CanonicalOpportunity") -> Dict[str, Any]:
         "kind":     kind,
         "chain":    opp.chain or "-",
         "source":   f"canonical:{provenance.lower()}",
-        "score":    round(conf, 4),
+        "score":    score,
+        "score_assessed": score_assessed,
         "status":   _CANONICAL_STATUS_TO_UI.get(canonical_status, "NEW"),
         "why":      why,
         "signals":  signals,
@@ -1451,7 +1592,7 @@ async def v2_discovery_candidates(
             continue
         if kind and kind != "ALL" and c["kind"] != kind:
             continue
-        if c["score"] < min_score:
+        if min_score and (c.get("score") is None or c["score"] < min_score):
             continue
         out.append(c)
     out.sort(key=lambda c: c.get("score") or 0, reverse=True)
@@ -5160,6 +5301,7 @@ def _resolve_build_identity() -> Dict[str, Any]:
     if _BUILD_IDENTITY:
         return _BUILD_IDENTITY
     import subprocess
+    import json as _json
 
     def _git(args: List[str]) -> Optional[str]:
         try:
@@ -5170,19 +5312,32 @@ def _resolve_build_identity() -> Dict[str, Any]:
         except Exception:  # noqa: BLE001
             return None
 
-    git_sha = (os.environ.get("ARBICORE_GIT_SHA") or _git(["rev-parse", "HEAD"]) or "unknown")
-    git_tag = (os.environ.get("ARBICORE_GIT_TAG")
-               or _git(["describe", "--tags", "--always", "--dirty"]) or "unknown")
+    # Build-time stamp file (written by CI / image build). Used as a fallback
+    # so a deployed image with no .git dir still reports a real identity.
+    stamp: Dict[str, Any] = {}
+    try:
+        _p = Path(os.path.dirname(__file__)) / "BUILD_INFO.json"
+        if _p.exists():
+            stamp = _json.loads(_p.read_text()) or {}
+    except Exception:  # noqa: BLE001
+        stamp = {}
+
+    def _pick(env_key: str, stamp_key: str, live: Optional[str], default: str) -> str:
+        return (os.environ.get(env_key) or stamp.get(stamp_key) or live or default)
+
+    git_sha = _pick("ARBICORE_GIT_SHA", "git_sha", _git(["rev-parse", "HEAD"]), "unknown")
+    git_tag = _pick("ARBICORE_GIT_TAG", "git_tag",
+                    _git(["describe", "--tags", "--always", "--dirty"]), "unknown")
     _BUILD_IDENTITY = {
         "application": "arbicore-x",
-        "app_version": os.environ.get("ARBICORE_VERSION") or git_tag,
+        "app_version": _pick("ARBICORE_VERSION", "app_version", git_tag, git_tag),
         "git_sha": git_sha,
         "git_sha_short": git_sha[:12] if git_sha and git_sha != "unknown" else "unknown",
         "git_tag": git_tag,
-        "image_digest": os.environ.get("ARBICORE_IMAGE_DIGEST") or "unset",
-        "image_ref": os.environ.get("ARBICORE_IMAGE_REF") or "unset",
-        "build_time": os.environ.get("ARBICORE_BUILD_TIME") or "unset",
-        "runtime_env": os.environ.get("ARBICORE_ENV") or "unset",
+        "image_digest": _pick("ARBICORE_IMAGE_DIGEST", "image_digest", None, "unset"),
+        "image_ref": _pick("ARBICORE_IMAGE_REF", "image_ref", None, "unset"),
+        "build_time": _pick("ARBICORE_BUILD_TIME", "build_time", None, "unset"),
+        "runtime_env": _pick("ARBICORE_ENV", "runtime_env", None, "unset"),
         "dirty": git_tag.endswith("-dirty") if git_tag else False,
     }
     return _BUILD_IDENTITY

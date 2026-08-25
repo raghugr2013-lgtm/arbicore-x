@@ -448,3 +448,29 @@ trace + classification + P0-P3). No code changed; M3 fail-closed untouched; no l
   screenshots. Backend: stop `or 0` coercion, split USD vs %, add economic_state/verdict, surface
   provenance, drop DEMO blocks, guard roi-probability. Frontend: UNAVAILABLE pill states, fmtUsd
   for USD, % only for real fractions, provenance chip, no fake GREEN/SAFE/GO.
+
+## Session — Data-Truth Phase 2 fixes (2026-06) — DONE, tested
+Implemented + verified P0-1/P0-2/P0-3 and P1 truth fixes. No execution/signing/broadcast/mode/M3
+files touched; LIMITED_LIVE/FULL_LIVE remain OFF. Changed files: `backend/server.py` (display
+handlers only), `frontend/src/v2/components/Primitives.jsx`, `.../components/OpportunityDrawer.jsx`,
+`.../pages/OpportunitiesPage.jsx`; new `backend/BUILD_INFO.json`, `backend/scripts/gen_build_info.py`,
+`backend/tests/test_data_truth_contract.py`.
+- P0-1 SAFE: `safety`/`confidence` numeric ONLY when assessed (score>0 OR REAL/VERIFIED_REAL
+  provenance); else `null` + `*_assessed=False` (UI "—"). Genuine REAL zero stays real.
+- P0-2 RETURN: removed fabricated ±10% band + `return_low/high`; USD stays USD
+  (`expected_profit_usd`, `capital_required_usd`); `return_pct` = real fraction profit/capital or null.
+  Frontend renders USD via fmtUsd, % only for real fractions. Killed the "$X → X0000%" unit bug.
+- P0-3 VERDICT: GO only when APPROVED **and** ECONOMICALLY_VALID; added `economic_state`
+  (DISCOVERED/LIVE_QUOTED/VERIFIED/ECONOMICALLY_VALID) + new UNVERIFIED verdict. Raw/validated-
+  but-unpriced rows never GO. M3 remains final execution authority (display-advisory only).
+- P1: no zero-coercion (spread/capital/confidence/score None→"—"); ProvenanceChip
+  SIMULATED/REAL/VERIFIED_REAL on table+drawer; "Depth" column relabelled "Capital req."
+  (real TVL not on canonical rows → depth_usd=null); drawer Reasoning/Verification DEMO/HARDCODED
+  removed (honest economic-state block, quote_source=null); roi-probability now reads
+  `arbicore_opportunity_journal` realized outcomes (available=false when no samples) + auth-gated;
+  FreshnessBadge null→"—"; build metadata via BUILD_INFO.json fallback (preview reports real
+  git_sha/tag/build_time; CI/Docker should run scripts/gen_build_info.py or set ARBICORE_* env).
+- Tests: 18 new contract regressions PASS; M3 safety 52 PASS; live API + UI screenshots verified
+  (raw SIMULATED→UNVERIFIED/"—"; REAL approved→GO, $120/1.20%). Pre-existing legacy live-HTTP
+  tests still fail on stale password `ShadowOperator!2026` (out of scope).
+- NOT deployed (per instruction). Build/validate image separately; run gen_build_info in build.

@@ -124,16 +124,25 @@ export function OpportunityDrawer({ id, open, onOpenChange, onActioned }) {
               <TabsContent value="overview">
                 <TabHeading>Route</TabHeading>
                 <Row k="Route" v={data.route} mono />
+                <Row k="Economic state" v={data.economic_state} mono />
+                <Row k="Provenance" v={data.source_data_quality} mono />
                 <Row k="Spread" v={fmtBps(data.spread_bps)} mono />
-                <Row k="Depth" v={fmtUsd(data.depth_usd)} mono />
+                <Row k="Capital required" v={fmtUsd(data.capital_required_usd)} mono />
                 <TabHeading>Return estimate</TabHeading>
-                <Row k="Low" v={fmtPct(data.return_low)} mono />
-                <Row k="High" v={fmtPct(data.return_high)} mono />
+                <Row k="Expected profit" v={fmtUsd(data.expected_profit_usd)} mono />
+                <Row k="Return %" v={data.return_pct != null ? fmtPct(data.return_pct) : "—"} mono />
               </TabsContent>
 
               <TabsContent value="reasoning">
-                <TabHeading>Confidence breakdown</TabHeading>
-                {data.reasoning?.confidence_breakdown?.map((f, i) => (
+                <TabHeading>Economic assessment</TabHeading>
+                <Row k="State" v={data.reasoning?.economic_state} mono />
+                <Row k="Provenance" v={data.reasoning?.provenance} mono />
+                <Row k="Confidence assessed" v={data.reasoning?.confidence_assessed ? "YES" : "NO"} mono />
+                <Row k="Safety assessed" v={data.reasoning?.safety_assessed ? "YES" : "NO"} mono />
+                {data.reasoning?.note && (
+                  <div style={{ color: "var(--v2-text-muted)", fontSize: 11, margin: "8px 0" }}>{data.reasoning.note}</div>
+                )}
+                {(data.reasoning?.confidence_breakdown || []).map((f, i) => (
                   <div key={i} style={{ padding: "8px 0", borderBottom: "1px solid var(--v2-border-subtle)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                       <span style={{ color: "var(--v2-text-primary)", fontSize: 12 }}>{f.factor}</span>

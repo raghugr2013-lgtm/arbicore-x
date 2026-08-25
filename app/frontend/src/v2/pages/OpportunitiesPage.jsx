@@ -12,6 +12,7 @@ import {
   ConfidencePill,
   SafetyPill,
   FreshnessBadge,
+  ProvenanceChip,
   fmtBps,
   fmtUsd,
   fmtPct,
@@ -20,7 +21,7 @@ import { OpportunityDrawer } from "@/v2/components/OpportunityDrawer";
 import { toast } from "sonner";
 
 const FAMILY_OPTS = ["ALL", "CEX_ARBITRAGE", "DEX_ARBITRAGE", "FUNDING_ARBITRAGE", "CROSS_CHAIN_ARBITRAGE", "FLASH_LOAN_ARBITRAGE", "LAUNCH_ARBITRAGE"];
-const VERDICT_OPTS = ["ALL", "GO", "SOFT_NO", "HARD_NO"];
+const VERDICT_OPTS = ["ALL", "GO", "SOFT_NO", "HARD_NO", "UNVERIFIED"];
 
 function Chip({ active, children, onClick, testid }) {
   return (
@@ -165,17 +166,17 @@ export default function OpportunitiesPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--v2-font-mono)", fontSize: 12 }} data-testid="v2-opp-table">
           <thead>
             <tr style={{ background: "var(--v2-bg-panel)" }}>
-              {["Asset", "Family", "Chain", "Verdict", "Confidence", "Safety", "Spread", "Depth", "Est. return", "Age"].map((h) => (
+              {["Asset", "Family", "Chain", "Verdict", "Confidence", "Safety", "Spread", "Capital req.", "Est. profit", "Provenance", "Age"].map((h) => (
                 <th key={h} style={{ textAlign: "left", padding: "8px 10px", color: "var(--v2-text-muted)", fontWeight: 500, fontSize: 10, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid var(--v2-border-subtle)" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={10} style={{ padding: 16, color: "var(--v2-text-muted)" }}>Loading…</td></tr>
+              <tr><td colSpan={11} style={{ padding: 16, color: "var(--v2-text-muted)" }}>Loading…</td></tr>
             )}
             {!loading && items.length === 0 && (
-              <tr><td colSpan={10} style={{ padding: 0 }}>
+              <tr><td colSpan={11} style={{ padding: 0 }}>
                 <div className="v2-empty" style={{ margin: 12 }}>
                   {`> 0 opportunities match the current filters.\n> Try widening Family, Chain, or lowering Min Confidence.\n> Full gate reasoning arrives in Slice 3 (Operations · Scanners).`}
                 </div>
@@ -201,10 +202,14 @@ export default function OpportunitiesPage() {
                 <td style={{ padding: "6px 10px" }}><ConfidencePill value={o.confidence} /></td>
                 <td style={{ padding: "6px 10px" }}><SafetyPill value={o.safety} /></td>
                 <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }}>{fmtBps(o.spread_bps)}</td>
-                <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }}>{fmtUsd(o.depth_usd)}</td>
-                <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }}>
-                  {fmtPct(o.return_low)} – {fmtPct(o.return_high)}
+                <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }}>{fmtUsd(o.capital_required_usd)}</td>
+                <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }} data-testid={`v2-opp-profit-${o.id}`}>
+                  {fmtUsd(o.expected_profit_usd)}
+                  {o.return_pct != null && (
+                    <span style={{ color: "var(--v2-text-muted)", marginLeft: 6 }}>({fmtPct(o.return_pct)})</span>
+                  )}
                 </td>
+                <td style={{ padding: "6px 10px" }}><ProvenanceChip value={o.source_data_quality} testid={`v2-opp-prov-${o.id}`} /></td>
                 <td style={{ padding: "6px 10px" }}><FreshnessBadge ageSeconds={o.age_s} /></td>
               </tr>
             ))}
