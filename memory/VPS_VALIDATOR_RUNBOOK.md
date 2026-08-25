@@ -1,7 +1,15 @@
 # ArbiCore X — Isolated VPS Validator Runbook (READ-ONLY, no prod, no signing)
 
-Target HEAD: `ffbd7f0a506ebc78b121cae089985ab5684ec3c9`
+Target HEAD: `f36d7c9dfb10f152bc5fc87f51d802f4ae995291`
 Branch:      `complete-Base-M1-M4-live-shadow-composition`
+
+> ⚠️ FRONTEND SHA CAVEAT: a frontend-only nav fix (per-page title / breadcrumb /
+> rail active-state — `frontend/src/v2/lib/nav.js` now uses `/dashboard/*`) landed
+> AFTER `f36d7c9`. Build the FRONTEND image from the LATEST branch HEAD (the
+> checkpoint that includes this nav fix), not `f36d7c9`, or the title/breadcrumb
+> bug ships. The BACKEND is unaffected — the `f36d7c9` backend image is still valid
+> (the nav fix is frontend-only). Re-push via Save to Github and use the new HEAD
+> for the frontend build.
 
 Objective: build + run an ISOLATED validator of the exact HEAD, verify identity/safety/
 frontend truth, run the real Base Spread-Widener Watch on the dedicated RPC, and — when a route
@@ -30,10 +38,10 @@ cd repo
 git fetch --all --tags --prune
 git checkout complete-Base-M1-M4-live-shadow-composition
 git fetch origin complete-Base-M1-M4-live-shadow-composition
-git checkout ffbd7f0a506ebc78b121cae089985ab5684ec3c9    # detached, exact HEAD
+git checkout f36d7c9dfb10f152bc5fc87f51d802f4ae995291    # detached, exact HEAD
 
 # VERIFY source SHA == expected
-test "$(git rev-parse HEAD)" = "ffbd7f0a506ebc78b121cae089985ab5684ec3c9" \
+test "$(git rev-parse HEAD)" = "f36d7c9dfb10f152bc5fc87f51d802f4ae995291" \
   && echo "SOURCE SHA OK" || { echo "SHA MISMATCH — ABORT"; exit 1; }
 # Confirm the four workstreams are present:
 git log --oneline -4
@@ -103,7 +111,7 @@ sleep 8 && curl -fs http://127.0.0.1:8199/api/ && echo "  <- backend up"
 ## 5. Verify /api/arbicore/version reports REAL identity
 ```bash
 curl -s http://127.0.0.1:8199/api/arbicore/version | python3 -m json.tool
-# EXPECT: git_sha == ffbd7f0a506ebc78b121cae089985ab5684ec3c9 (or short 12),
+# EXPECT: git_sha == f36d7c9dfb10f152bc5fc87f51d802f4ae995291 (or short 12),
 #         git_tag set, build_time set (step-2 value), app_version set,
 #         image_ref == $BACKEND_IMAGE_TAG, runtime_env == "validator".
 #         NO "unknown"/"unset" for git_sha/git_tag/build_time.

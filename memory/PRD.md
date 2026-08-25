@@ -519,3 +519,17 @@ check → m3_0_spread_widener_watch on dedicated RPC → on flagged route run m3
 (confirm=False, never signs/broadcasts) → assert m3_final_gates.ok, verdict.signed_or_broadcast=false,
 broadcast_ladder.broadcast_sent=false, verdict.safe=true). No prod deploy, no proxy switch.
 Objective: FIRST GENUINE BASE M3 GREEN → controlled-live readiness → first small human-confirmed trade.
+
+## Session — Isolated frontend+backend verification of f36d7c9 (2026-06)
+Verified the ArbiCore X frontend (branding + data-truth) against the running preview (isolated,
+non-production, = branch HEAD f36d7c9). Testing agent iteration_8: 8/9 PASS; found 1 MEDIUM defect —
+per-page document.title + header breadcrumb wrong for 9/12 sections (nav.js used legacy /v2/* while
+app routes /dashboard/*). FIXED frontend/src/v2/lib/nav.js → all paths /dashboard/* (home=/dashboard/home).
+Re-test iteration_9: 6/6 PASS (100%) — titles, breadcrumb, rail active-state correct for all sections;
+branding + Opportunities/Portfolio data-truth regression all green.
+- Production still shows OLD frontend = deployment gap only (frontend image not rebuilt); code is correct.
+- FRONTEND SHA CAVEAT: nav fix landed AFTER f36d7c9 → frontend must be built from the new checkpoint SHA
+  (re-push via Save to Github). Backend f36d7c9 image unaffected (nav fix is frontend-only).
+- Non-blocking (deferred): React duplicate-key console warning on Live Ops scanner feed; optional
+  capital-balances-unavailable testid; /dashboard index → Control fallback breadcrumb.
+- No LIMITED_LIVE/FULL_LIVE/signing/broadcast touched. No production deploy/switch.
