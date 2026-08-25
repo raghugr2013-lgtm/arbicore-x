@@ -506,3 +506,16 @@ Frontend + public assets ONLY; no backend/execution/M3/API/scanner/wallet touche
   LoginPage sets "ArbiCore X". No "Emergent | Fullstack App" remains (vendor scripts kept).
 - QA: Playwright screenshots (login + header) + page.title() assertions ("ArbiCore X",
   "ArbiCore X — Live Ops") + asset 200 checks. No jest suite in project.
+
+## Session — VPS validator handoff (2026-06)
+Branch complete-Base-M1-M4-live-shadow-composition HEAD = ffbd7f0a506ebc78b121cae089985ab5684ec3c9
+contains all 4 workstreams (Phase2 data-truth 6142487 → Portfolio/Capital+build-metadata 3e765f9 →
+branding ffbd7f0). User pushes via Save to Github. I cannot push or reach the VPS.
+Delivered /app/memory/VPS_VALIDATOR_RUNBOOK.md — isolated, READ-ONLY validator build+verify+hunt
+runbook (fetch exact HEAD → build fresh image w/ GITSHA/GITTAG/BUILD_TIME/APP_VERSION →
+loopback container w/ .env.validator (LIMITED_LIVE/FULL_LIVE/AUTOEXEC=0, no signer) →
+/api/arbicore/version identity check → mode-refusal safety check → frontend title/favicon/data-truth
+check → m3_0_spread_widener_watch on dedicated RPC → on flagged route run m3_0_vps_validate
+(confirm=False, never signs/broadcasts) → assert m3_final_gates.ok, verdict.signed_or_broadcast=false,
+broadcast_ladder.broadcast_sent=false, verdict.safe=true). No prod deploy, no proxy switch.
+Objective: FIRST GENUINE BASE M3 GREEN → controlled-live readiness → first small human-confirmed trade.
