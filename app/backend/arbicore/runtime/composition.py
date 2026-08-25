@@ -8,8 +8,16 @@ Wired from server.py lifespan AFTER existing services start.
 """
 from __future__ import annotations
 
+import logging as _logging
 import time as _time
 from typing import Optional
+
+# M3.0 diagnostics — per-stage fail-closed visibility for the controlled-live
+# fresh revalidation (build_controlled_live_safety.fresh_fn). Emits WARNING with
+# the EXACT stage + underlying value/exception so the VPS validation harness and
+# the live loop show precisely which dependency blocked. Behaviour unchanged:
+# every failure still fails closed (returns None ⇒ DENY).
+_M3_LOG = _logging.getLogger("arbicore.m3_0.fresh_fn")
 
 from ..data.metrics_repo import MetricsRepository
 from ..data.mongo.arbicore_collections import ensure_indexes as _ensure_indexes
@@ -508,9 +516,16 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
 
     async def _flashloan_available(provider, borrow_token, borrow_amount_usd):
         """Real-time genuine check: Balancer V2 Vault must actually hold at
-        least the borrow amount of the borrow token. Any read failure → None."""
+        least the borrow amount of the borrow token. Any read failure → None.
+
+        Instrumented: every None/False path logs the exact reason so the VPS
+        harness shows whether the balanceOf read, price read, or provider/token
+        mapping is the blocker. Return semantics are UNCHANGED (fail-closed)."""
         meta = FLASH_LOAN_PROVIDERS.get((provider or "").lower())
         if not meta or "base" not in meta.get("supports_chains", ()):
+            _M3_LOG.warning(
+                "flashloan_available=False stage=provider_meta provider=%r "
+                "(unknown provider or not supported on base)", provider)
             return False
         cp = None
         for p in _reg.get_canonical_pools():
@@ -518,6 +533,9 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                 cp = p
                 break
         if cp is None:
+            _M3_LOG.warning(
+                "flashloan_available=None stage=token_registry borrow_token=%r "
+                "(no canonical pool exposes this token)", borrow_token)
             return None
         if cp.token0_symbol.upper() == borrow_token.upper():
             taddr, tdec = cp.token0_address, cp.token0_decimals
@@ -526,21 +544,47 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
         data = "0x70a08231" + vault.lower().replace("0x", "").rjust(64, "0")
         try:
             raw = await eth_call(taddr, data)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            _M3_LOG.warning(
+                "flashloan_available=None stage=balanceOf_eth_call vault=%s "
+                "token=%s(%s) error=%s: %s", vault, borrow_token, taddr,
+                type(exc).__name__, exc)
             return None
         if not raw:
+            _M3_LOG.warning(
+                "flashloan_available=None stage=balanceOf_empty vault=%s "
+                "token=%s(%s) (eth_call returned empty)", vault, borrow_token, taddr)
             return None
         try:
             bal = int(raw, 16) / (10 ** int(tdec))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as exc:
+            _M3_LOG.warning(
+                "flashloan_available=None stage=balanceOf_decode raw=%r error=%s: %s",
+                raw, type(exc).__name__, exc)
             return None
         px = await price_feed.price_source(borrow_token)
         if px is None or px <= 0:
+            _M3_LOG.warning(
+                "flashloan_available=None stage=borrow_token_price token=%r price=%r "
+                "(price feed could not price the borrow token)", borrow_token, px)
             return None
-        return bal >= (float(borrow_amount_usd) / px)
+        ok = bal >= (float(borrow_amount_usd) / px)
+        if not ok:
+            _M3_LOG.warning(
+                "flashloan_available=False stage=insufficient_vault_liquidity "
+                "vault_bal=%s needed=%s token=%s px=%s", bal,
+                float(borrow_amount_usd) / px, borrow_token, px)
+        return ok
 
     async def fresh_fn(plan):
-        """FRESH re-check at broadcast time. Any missing input → None (deny)."""
+        """FRESH re-check at broadcast time. Any missing input → None (deny).
+
+        Fully instrumented: every fail-closed path logs the EXACT stage plus the
+        underlying value/exception at WARNING (logger ``arbicore.m3_0.fresh_fn``)
+        so the VPS validation harness and the live loop reveal precisely which
+        dependency blocked. Behaviour is UNCHANGED — any failure still returns
+        None (deny) and no gate threshold is altered."""
+        stage = "extract_plan"
         try:
             route_pools = list(plan.get("route_pools") or [])
             token_path = list(plan.get("cycle_token_path") or [])
@@ -550,20 +594,42 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                         or plan.get("provider") or "balancer_v2")
             quoted_block = plan.get("quoted_block")
             if not route_pools or not borrow_token or borrow_usd <= 0:
+                _M3_LOG.warning(
+                    "DENY stage=extract_plan route_pools=%d borrow_token=%r "
+                    "borrow_usd=%s", len(route_pools), borrow_token, borrow_usd)
                 return None
+            if len(token_path) != len(route_pools) + 1:
+                _M3_LOG.warning(
+                    "DENY stage=token_path_shape route_pools=%d token_path=%d "
+                    "(need %d) — quote provider requires a closed cycle path; "
+                    "check evidence-bundle route.cycle_token_path persistence",
+                    len(route_pools), len(token_path), len(route_pools) + 1)
+                return None
+            stage = "live_quote"
             hm = {"chain": "base", "provider": provider,
                   "borrow_token": borrow_token, "route_pools": route_pools,
                   "cycle_token_path": token_path}
             facts = await quote_provider(hm, borrow_usd)      # M2.1 quote + M2.6 TVL
             if not facts:
+                _M3_LOG.warning(
+                    "DENY stage=live_quote quote_provider returned no facts — "
+                    "route unpriceable on-chain (all hops fallback ⇒ "
+                    "break_even, malformed route, or unknown token). "
+                    "route_pools=%s token_path=%s", route_pools, token_path)
                 return None
+            stage = "hop_legs"
             hop_legs = list(facts.get("hop_legs") or [])
             if not hop_legs:
+                _M3_LOG.warning(
+                    "DENY stage=hop_legs facts present but no hop_legs "
+                    "route_quote_status=%r", facts.get("route_quote_status"))
                 return None
+            stage = "mev"
             mev_view = mev.classify(source_chain_congestion=None,
                                     destination_chain_congestion=None,
                                     asset=borrow_token, notional_usd=borrow_usd,
                                     is_atomic=True)
+            stage = "economics"
             e = econ.assess(provider=provider, chain="base",
                             borrow_token=borrow_token, borrow_amount_usd=borrow_usd,
                             hop_legs=hop_legs, signal_categories=[provider, "base"],
@@ -572,13 +638,28 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                             mev_risk_level=mev_view["level"],
                             gas_cost_usd_override=facts.get("gas_cost_usd"),
                             tx_gas_units=facts.get("tx_gas_units"))
+            stage = "head_block"
             head = None
             try:
                 head = await price_feed._head_block()  # reuse cached head reader
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                _M3_LOG.warning("head_block read failed %s: %s (block_freshness "
+                                "will deny) ", type(exc).__name__, exc)
                 head = None
+            stage = "flashloan_available"
             avail = await _flashloan_available(provider, borrow_token, borrow_usd)
+            stage = "assemble"
             import time as _t
+            # Structured stage summary (INFO) — the harness elevates this logger
+            # so a successful fresh read is also visible on the VPS.
+            _M3_LOG.info(
+                "fresh read OK net_profit_usd=%s min_tvl_usd=%s quote_ok=%s "
+                "price_ok=%s mev_ok=%s flashloan_available=%s head=%s "
+                "quoted_block=%s", e.atomic_profit_usd,
+                facts.get("min_pool_tvl_usd_in_route"),
+                facts.get("route_quote_status") == "ok",
+                facts.get("tvl_provenance") == "onchain_reserves",
+                mev_view["level"] <= 2, avail, head, quoted_block)
             return RevalidationInputs(
                 block_number=head, quoted_block=quoted_block, now_ts=_t.time(),
                 deadline_ts=plan.get("deadline_ts"),
@@ -590,7 +671,9 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                 flashloan_available=avail,
                 opp_fingerprint=str(plan.get("opportunity_id")
                                     or plan.get("plan_id") or ""))
-        except Exception:  # noqa: BLE001 — any error ⇒ fail closed
+        except Exception as exc:  # noqa: BLE001 — any error ⇒ fail closed
+            _M3_LOG.exception("EXCEPTION at stage=%s %s: %s",
+                              stage, type(exc).__name__, exc)
             return None
 
     async def _on_trip(reason):

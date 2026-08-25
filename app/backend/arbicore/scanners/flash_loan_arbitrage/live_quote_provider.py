@@ -124,6 +124,16 @@ def make_live_quote_provider(
                 hop["amount_in_wei"] = int(PROBE_AMOUNT.get(borrow_token, 10 ** 16))
             if "fee" in spec:
                 hop["fee"] = spec["fee"]
+            # Pass the venue-specific quote params so non-UniV3 hops quote
+            # GENUINELY on-chain. Without these the Slipstream/Aerodrome-classic
+            # backends fall back to a break-even passthrough (amount_out ==
+            # amount_in) — a fabricated leg that corrupts gross_profit_pct and
+            # (for M3.0 fresh_fn) leaves the route unpriceable. No data is
+            # invented here: the values come straight from build_pool_graph().
+            if "tick_spacing" in spec:
+                hop["tick_spacing"] = spec["tick_spacing"]
+            if "stable" in spec:
+                hop["stable"] = spec["stable"]
             hops.append(hop)
 
         try:

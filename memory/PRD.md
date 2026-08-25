@@ -230,3 +230,41 @@ provenance; LIMITED_LIVE/FULL_AUTOMATION hard-gated RED; no signing/broadcast in
 ## Backlog / next
 - M2 next (only on operator go) as pure EXTENSION: V3 event decoder + sqrtX96 util + slot0 bootstrap
   + offline tests. Then M3 wiring at maybe_build_base_searcher + resolve Aerodrome getPool on VPS.
+
+## M3.0 fresh_fn DIAGNOSTICS + spec-passthrough FIX (2026-06)
+- SYMPTOM (VPS): M3.0 final gate DENY "revalidation: fresh market read unavailable" for a
+  genuine WETH route UniV3→Aerodrome→Slipstream. All constructions OK (eth_call, price_feed,
+  tvl_provider, quote_provider, validator, breaker). fresh_fn returned None (not raised) so the
+  exact blocking stage was invisible.
+- ROOT-CAUSE class: fresh_fn (composition.build_controlled_live_safety) had a catch-all
+  `except Exception: return None` + several bare `return None` paths (facts None, no hop_legs)
+  with ZERO diagnostics. Additionally a REAL defect: make_live_quote_provider._provider copied
+  only `fee` into each hop, DROPPING `tick_spacing` (Slipstream) and `stable` (Aerodrome-classic)
+  → those backends degraded to a fabricated break-even passthrough (amount_out==amount_in),
+  corrupting gross_profit and making non-UniV3 routes unpriceable.
+- FIX (minimal, 3 files, fail-closed & gate-behaviour UNCHANGED):
+  1. composition.py: added logger `arbicore.m3_0.fresh_fn`; fresh_fn now tracks a `stage` var and
+     logs the EXACT stage + value/exception on every None/exception path (extract_plan,
+     token_path_shape, live_quote, hop_legs, mev, economics, head_block, flashloan_available,
+     assemble). _flashloan_available logs per-stage (provider_meta / token_registry /
+     balanceOf_eth_call / balanceOf_empty / balanceOf_decode / borrow_token_price /
+     insufficient_vault_liquidity). Return semantics identical — every failure still returns None.
+  2. live_quote_provider.py: _provider now also copies spec['tick_spacing'] and spec['stable']
+     into the hop so Slipstream/Aerodrome hops quote GENUINELY on-chain (values from
+     build_pool_graph — nothing fabricated). UniV3 unchanged.
+  3. scripts/m3_0_vps_validate.py: added read-only _probe_fresh_stages() step-by-step dependency
+     probe (plan shape, per-pool spec+real-addr+TVL, head block, borrow price, raw per-hop route
+     quote with status/error, live-quote facts, Balancer Vault balanceOf) + FIRST_BLOCKING_STAGE
+     summary; enabled INFO logging to stderr; verdict.broadcast_sent normalized to explicit bool.
+- Balancer V2 Vault default 0xBA12222222228d8Ba445958a75a0704d566BF2C8 CONFIRMED correct on Base
+  (canonical, chain-agnostic) → unset BASE_BALANCER_V2_VAULT is NOT a problem; harness actually
+  tests balanceOf so the operator sees the real read.
+- Tests: tests/test_m2_1_live_quote_provider.py +1 (test_venue_specific_quote_params_passed_through:
+  UniV3 gets fee only, Aerodrome gets stable, Slipstream gets tick_spacing; no cross-leak).
+  testing_agent iteration_8: 80/80 PASS across M2.1-2.6 + M3.0 (pre_broadcast + wiring), harness
+  exit 0, verdict.safe=true / signed_or_broadcast=false, no fabrication, no broadcast, no signing.
+- VPS NEXT (operator, read-only): run `python -m scripts.m3_0_vps_validate '<plan>'` inside the
+  M3.0 validator container — FIRST_BLOCKING_STAGE + per-hop stage_5_route_quote now name the exact
+  culprit under real RPC. Slipstream/Aerodrome hops will price genuinely with the passthrough fix.
+  STILL fail-closed: no LIMITED_LIVE, no signing key, production untouched.
+- DEFERRED (unchanged, separate pass per operator): Mongo TTL reaping expires_at float→BSON Date.

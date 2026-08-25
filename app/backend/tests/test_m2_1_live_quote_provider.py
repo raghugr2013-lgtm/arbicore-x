@@ -90,3 +90,28 @@ def test_fail_closed_on_unpriceable_route():
     assert _run(make_live_quote_provider(_FakeRegistry(None))(_meta(), 1e4)) is None
     fb = make_live_quote_provider(_FakeRegistry(_rq(int(1.05e16), status="fallback:break_even")))
     assert _run(fb(_meta(), 1e4)) is None
+
+
+def test_venue_specific_quote_params_passed_through():
+    """M3.0 fix — non-UniV3 hops must receive their real on-chain quote params
+    (Slipstream tick_spacing, Aerodrome-classic stable). Without them those
+    backends degrade to a fabricated break-even passthrough. Values come from
+    build_pool_graph() — nothing invented."""
+    reg = _FakeRegistry(_rq(int(1.05e16)))
+    prov = make_live_quote_provider(reg)
+    meta = {
+        "borrow_token": "WETH",
+        "route_pools": ["uniswap_v3:USDC:WETH:500",
+                        "aerodrome:USDC:USDT:stable",
+                        "aerodrome_slipstream:USDC:WETH:100"],
+        "cycle_token_path": ["WETH", "USDC", "USDT", "WETH"],
+    }
+    facts = _run(prov(meta, 10_000.0))
+    assert facts is not None
+    _chain, hops = reg.calls[-1]
+    assert hops[0]["dex"] == "uniswap_v3" and hops[0]["fee"] == 500
+    assert hops[1]["dex"] == "aerodrome" and hops[1]["stable"] is True
+    assert hops[2]["dex"] == "aerodrome_slipstream" and hops[2]["tick_spacing"] == 100
+    # tick_spacing/stable must NOT leak onto hops that don't own them
+    assert "tick_spacing" not in hops[0] and "stable" not in hops[0]
+    assert "fee" not in hops[1] and "tick_spacing" not in hops[1]
