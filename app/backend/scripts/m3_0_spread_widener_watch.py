@@ -45,6 +45,26 @@ def _worth_m3(net: Optional[float], min_net: float) -> bool:
     return bool(net is not None and net >= min_net)
 
 
+def _near_threshold(rows, min_net: float, band: float, top: int):
+    """Priced routes still BELOW min_net but within ``band``, nearest first."""
+    for r in rows:
+        r["net_gap_usd"] = _net_gap(r.get("est_net_usd"), min_net)
+    near = sorted(
+        [r for r in rows if r.get("net_gap_usd") is not None
+         and 0.0 < r["net_gap_usd"] <= band],
+        key=lambda r: r["net_gap_usd"])[:top]
+    for r in near:
+        r["near_threshold"] = True
+    return near
+
+
+def _net_gap(net: Optional[float], min_net: float) -> Optional[float]:
+    """Distance below the min-net threshold: ``min_net - net``. >0 ⇒ still below
+    threshold by this much (smaller = nearer); <=0 ⇒ already at/above threshold.
+    None when the route was not fully priced."""
+    return None if net is None else (min_net - net)
+
+
 def _cfg_f(key: str, default: float) -> float:
     try:
         return float(os.environ.get(key, "") or default)
@@ -174,7 +194,7 @@ async def _evaluate(cycles, quote_provider, econ, congestion_pct, mev, borrow_us
     return rows
 
 
-async def _scan_once() -> Dict[str, Any]:
+async def _scan_once(focus_route_pools=None) -> Dict[str, Any]:
     from arbicore.execution.quoter import QuoterRegistry
     from arbicore.searcher.runtime import (make_base_eth_call_from_env,
                                             build_base_tvl_provider,
@@ -211,6 +231,10 @@ async def _scan_once() -> Dict[str, Any]:
     congestion = await cong_src() if cong_src else None
 
     cycles = await _load_confirmed_cycles() + _enumerate_cycles()
+    # Focused re-sampling: restrict to a caller-supplied set of near/flagged routes.
+    if focus_route_pools:
+        focus_set = {tuple(x) for x in focus_route_pools}
+        cycles = [c for c in cycles if tuple(c["route_pools"]) in focus_set]
     max_routes = int(_cfg_f("ARBICORE_SPREAD_WATCH_MAX_ROUTES", 0.0))
     if max_routes > 0:
         cycles = cycles[:max_routes]
@@ -233,39 +257,77 @@ async def _scan_once() -> Dict[str, Any]:
     ranked = sorted(rows, key=lambda x: (x.get("est_net_usd") is None,
                                          -(x.get("est_net_usd") or -1e9)))
     flagged = [r for r in ranked if r.get("worth_m3_validation")]
+
+    # READ-ONLY near-threshold signal: priced routes still BELOW min_net but
+    # within a small band — the "almost there" set to watch/sample more often.
+    # This never lowers min_net and never triggers signing/broadcast.
+    near_band = _cfg_f("ARBICORE_SPREAD_WATCH_NEAR_BAND_USD", 25.0)
+    near_top = int(_cfg_f("ARBICORE_SPREAD_WATCH_NEAR_TOP", 10.0))
+    near = _near_threshold(rows, min_net, near_band, near_top)
+    # union of qualifying + almost-there routes → candidates for focused sampling
+    focus_pools = ([r["route_pools"] for r in flagged]
+                   + [r["route_pools"] for r in near])
+
     return {
         "ts": time.time(), "congestion_pct": congestion,
+        "focus": bool(focus_route_pools),
         "thresholds": {"min_net_usd": min_net, "min_gross_pct": min_gross,
-                       "borrow_usd": borrow_usd},
+                       "borrow_usd": borrow_usd, "near_band_usd": near_band},
         "routes_scanned": len(rows), "flagged_count": len(flagged),
         "edge_positive_count": sum(1 for r in rows if r.get("edge_positive")),
+        "near_threshold_count": len(near),
         "flagged": flagged,
+        "near_threshold": near,
+        "focus_route_pools": focus_pools,
         "top5_by_net": ranked[:5],
         "safe": True, "signed_or_broadcast": False,
     }
+
+
+def _emit(snap: Dict[str, Any], audit_file: Optional[str]) -> None:
+    payload = json.dumps(snap, indent=2, default=str)
+    if audit_file:
+        with open(audit_file, "w", encoding="utf-8") as fh:
+            fh.write(payload + "\n")
+    print(payload, flush=True)
+    log = logging.getLogger("arbicore.spread_watch")
+    if snap.get("flagged"):
+        log.warning("SPREAD WIDENER: %d route(s) now worth M3 validation — run "
+                    "scripts.m3_0_vps_validate with the flagged route_pools",
+                    snap["flagged_count"])
+    elif snap.get("near_threshold_count"):
+        nearest = snap["near_threshold"][0]
+        log.warning("NEAR THRESHOLD: %d route(s) within $%.2f of min_net; "
+                    "closest gap=$%.2f (%s) — read-only, no action taken",
+                    snap["near_threshold_count"],
+                    snap["thresholds"]["near_band_usd"],
+                    nearest.get("net_gap_usd"), nearest.get("name"))
 
 
 async def main() -> None:
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr,
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
     interval = _cfg_f("ARBICORE_SPREAD_WATCH_INTERVAL_S", 0.0)
+    focus_interval = _cfg_f("ARBICORE_SPREAD_WATCH_FOCUS_INTERVAL_S", 0.0)
     audit_file = os.environ.get("ARBICORE_M3_AUDIT_FILE")
 
     while True:
         snap = await _scan_once()
-        payload = json.dumps(snap, indent=2, default=str)
-        if audit_file:
-            with open(audit_file, "w", encoding="utf-8") as fh:
-                fh.write(payload + "\n")
-        print(payload, flush=True)
-        if snap.get("flagged"):
-            logging.getLogger("arbicore.spread_watch").warning(
-                "SPREAD WIDENER: %d route(s) now worth M3 validation — run "
-                "scripts.m3_0_vps_validate with the flagged route_pools",
-                snap["flagged_count"])
+        _emit(snap, audit_file)
         if interval <= 0:
             break
-        await asyncio.sleep(interval)
+        focus = snap.get("focus_route_pools") or []
+        # Optionally sample the near-threshold / flagged routes more often
+        # (read-only) BETWEEN full passes, without lowering any threshold.
+        if focus_interval > 0 and focus:
+            elapsed = 0.0
+            while elapsed + focus_interval < interval:
+                await asyncio.sleep(focus_interval)
+                elapsed += focus_interval
+                _emit(await _scan_once(focus_route_pools=focus), audit_file)
+            await asyncio.sleep(max(0.0, interval - elapsed))
+        else:
+            await asyncio.sleep(interval)
 
 
 if __name__ == "__main__":

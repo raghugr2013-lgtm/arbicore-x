@@ -10,7 +10,8 @@ import pytest
 
 from arbicore.scanners.cross_chain_arbitrage.bridge_intelligence import (
     MevRiskScorer)
-from scripts.m3_0_spread_widener_watch import _worth_m3, _evaluate
+from scripts.m3_0_spread_widener_watch import (
+    _worth_m3, _evaluate, _net_gap, _near_threshold)
 
 
 # ---- flag predicate --------------------------------------------------------
@@ -87,3 +88,34 @@ async def test_evaluate_only_prices_ok_plausible_routes():
     assert _worth_m3(by["ok_loss"]["est_net_usd"], 35.0) is False
     assert _worth_m3(by["partial"]["est_net_usd"], 35.0) is False
     assert _worth_m3(by["anomaly"]["est_net_usd"], 35.0) is False
+
+
+# ---- near-threshold signal (read-only) -------------------------------------
+
+def test_net_gap_semantics():
+    assert _net_gap(None, 35.0) is None
+    assert _net_gap(-50.0, 35.0) == pytest.approx(85.0)   # $85 below threshold
+    assert _net_gap(20.0, 35.0) == pytest.approx(15.0)    # $15 below (near)
+    assert _net_gap(40.0, 35.0) == pytest.approx(-5.0)    # above ⇒ negative gap
+
+
+def test_near_threshold_selects_and_ranks_within_band():
+    rows = [
+        {"name": "far_below", "est_net_usd": -50.0},   # gap 85 → excluded
+        {"name": "near_a", "est_net_usd": 20.0},       # gap 15 → in band
+        {"name": "near_b", "est_net_usd": 30.0},       # gap 5  → in band (nearest)
+        {"name": "above", "est_net_usd": 40.0},        # gap -5 → excluded (already worth_m3)
+        {"name": "unpriced", "est_net_usd": None},     # gap None → excluded
+    ]
+    near = _near_threshold(rows, min_net=35.0, band=25.0, top=10)
+    assert [r["name"] for r in near] == ["near_b", "near_a"]   # nearest first
+    assert all(r.get("near_threshold") for r in near)
+    # band respected: nothing beyond $25 gap
+    assert all(0.0 < r["net_gap_usd"] <= 25.0 for r in near)
+
+
+def test_near_threshold_top_limit():
+    rows = [{"name": f"r{i}", "est_net_usd": 34.0 - i} for i in range(20)]
+    near = _near_threshold(rows, min_net=35.0, band=100.0, top=3)
+    assert len(near) == 3
+    assert near[0]["name"] == "r0"    # smallest gap first

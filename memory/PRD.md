@@ -411,3 +411,17 @@ Production untouched (2.9.2-78b2a8c); no signing/live/broadcast.
   multi-chain×multi-strategy breadth (M3-gated), NOT raw latency. P0/P1/P2/P3 roadmap + 30-day plan.
 - NOT implemented (deferred per instruction): WSS/Flashblocks discovery, learning ranker, multi-chain
   workers, liquidation/stablecoin/LST strategies, competitor-intel layer, Foreman, Strategy Factory.
+
+## Session — Near-threshold signal (read-only) in Spread Widener Watch (2026-08-25)
+Production untouched; no signing/live/broadcast; M3 + min_net UNCHANGED.
+- scripts/m3_0_spread_widener_watch.py: added READ-ONLY near-threshold signal.
+  _net_gap(net,min_net)=min_net-net; _near_threshold(rows,min_net,band,top) → priced routes with
+  0<gap<=band ranked nearest-first (tag near_threshold=True). Snapshot adds near_threshold_count,
+  near_threshold[], focus_route_pools (flagged ∪ near). _scan_once(focus_route_pools=...) restricts
+  evaluation to those routes; main() optionally re-samples them every
+  ARBICORE_SPREAD_WATCH_FOCUS_INTERVAL_S between full passes. New env:
+  ARBICORE_SPREAD_WATCH_NEAR_BAND_USD(25), ARBICORE_SPREAD_WATCH_NEAR_TOP(10),
+  ARBICORE_SPREAD_WATCH_FOCUS_INTERVAL_S(0). Never lowers min_net, never signs/broadcasts.
+- Real-Base proof (band=100 demo): near_threshold=2 ranked nearest-first (gap $79.79 net -$44.79;
+  gap $80.99 net -$45.99), min_net=35 unchanged, safe=true, signed_or_broadcast=false.
+- testing_agent iteration_7: 88/88 in-scope tests green, no critical issues.
