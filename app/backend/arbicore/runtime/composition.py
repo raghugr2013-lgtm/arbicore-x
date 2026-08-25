@@ -512,6 +512,9 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
         roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05))
     mev = MevRiskScorer()
     congestion_source = make_base_congestion_source_from_env()
+    from ..searcher.base_all_in_cost import (
+        make_base_all_in_cost_estimator_from_env)
+    all_in_cost_estimator = make_base_all_in_cost_estimator_from_env()
     import os as _os
     vault = (_os.environ.get("BASE_BALANCER_V2_VAULT")
              or "0xBA12222222228d8Ba445958a75a0704d566BF2C8")
@@ -678,14 +681,43 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                 head = None
             stage = "flashloan_available"
             avail = await _flashloan_available(provider, borrow_token, borrow_usd)
+            stage = "all_in_cost"
+            # TRUE all-in Base fee: real gas-price ceiling (L2) + Base L1 data
+            # fee (GasPriceOracle) + flash-loan fee + slippage/risk allowance.
+            # Swap fees are already embedded in the quoted gross round-trip.
+            # DENY (fail-closed) if the exact all-in cost cannot be determined.
+            gross_profit_usd = (borrow_usd
+                                * float(facts.get("gross_profit_pct") or 0.0) / 100.0)
+            eth_usd = None
+            try:
+                eth_usd = await price_feed.price_source("WETH")
+            except Exception as exc:  # noqa: BLE001
+                _M3_LOG.warning("all_in_cost ETH_USD read failed %s: %s",
+                                type(exc).__name__, exc)
+            all_in = (await all_in_cost_estimator(
+                gross_profit_usd=gross_profit_usd, borrow_amount_usd=borrow_usd,
+                notional_usd=borrow_usd, gas_units=facts.get("tx_gas_units"),
+                eth_usd=eth_usd)
+                if all_in_cost_estimator is not None else None)
+            if all_in is None:
+                _M3_LOG.warning(
+                    "DENY stage=all_in_cost — true all-in Base fee could not be "
+                    "determined safely (exact gas / gas price / L1 GasPriceOracle "
+                    "fee / ETH_USD unavailable); fail-closed")
+                return None
+            net_profit_all_in = all_in["net_profit_all_in_usd"]
             stage = "assemble"
             import time as _t
             # Structured stage summary (INFO) — the harness elevates this logger
             # so a successful fresh read is also visible on the VPS.
             _M3_LOG.info(
-                "fresh read OK net_profit_usd=%s min_tvl_usd=%s quote_ok=%s "
+                "fresh read OK net_profit_usd=%s (all_in=%s l1=%s l2=%s "
+                "pre_l1_atomic=%s) min_tvl_usd=%s quote_ok=%s "
                 "price_ok=%s mev_ok=%s flashloan_available=%s head=%s "
-                "quoted_block=%s", e.atomic_profit_usd,
+                "quoted_block=%s", net_profit_all_in,
+                round(all_in["all_in_cost_usd"], 4),
+                round(all_in["l1_fee_usd"], 4), round(all_in["l2_fee_usd"], 4),
+                round(float(e.atomic_profit_usd), 4),
                 facts.get("min_pool_tvl_usd_in_route"),
                 facts.get("route_quote_status") == "ok",
                 facts.get("tvl_provenance") == "onchain_reserves",
@@ -693,7 +725,7 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
             return RevalidationInputs(
                 block_number=head, quoted_block=quoted_block, now_ts=_t.time(),
                 deadline_ts=plan.get("deadline_ts"),
-                net_profit_usd=e.atomic_profit_usd,
+                net_profit_usd=net_profit_all_in,
                 min_tvl_usd=float(facts.get("min_pool_tvl_usd_in_route") or 0.0),
                 quote_ok=(facts.get("route_quote_status") == "ok"),
                 price_ok=(facts.get("tvl_provenance") == "onchain_reserves"),

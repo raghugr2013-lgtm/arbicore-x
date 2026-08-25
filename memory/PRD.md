@@ -390,3 +390,24 @@ first-revenue path). Production untouched (2.9.2-78b2a8c); no signing/live/broad
 ### DEFERRED (not started, per user): PART 1-11 competitive-research report, multi-agent
 Foreman, competitor-intelligence layer, multi-chain workers. To be produced on request AFTER
 the first genuine M3 GREEN candidate + Controlled-Live readiness.
+
+## Session — Base all-in-fee M3 gate + Competitive Strategy Report (2026-08-25)
+Production untouched (2.9.2-78b2a8c); no signing/live/broadcast.
+### P0 code: true all-in transaction-fee gate (controlled-live economics)
+- NEW arbicore/searcher/base_all_in_cost.py: all_in = L2 exec (real gas-price ceiling w/ buffer,
+  DENY if real gp*(1+buf) exceeds ceiling — never silently caps) + Base L1 data fee via
+  GasPriceOracle 0x420...0F getL1Fee + flash-loan fee + slippage allowance. Swap fees already in
+  quoted gross (not double-counted). from_env() hard-clamps gas ceiling < 25M protocol max, floors bps>=0.
+- Wired into composition.fresh_fn stage='all_in_cost': RevalidationInputs.net_profit_usd is now the
+  STRICTER (gross - all_in); fresh_fn DENIES if all-in cannot be determined (fail-closed). Requires
+  (gross - all_in) >= ARBICORE_MIN_NET_PROFIT_USD(25) + ARBICORE_SAFETY_BUFFER_USD(10).
+- Config env: ARBICORE_GAS_PRICE_BUFFER_PCT(0.25), ARBICORE_MAX_GAS_PRICE_WEI(5e9),
+  ARBICORE_GAS_LIMIT_CEILING(3e6), ARBICORE_FLASH_LOAN_FEE_BPS(0), ARBICORE_SLIPPAGE_BPS(30),
+  ARBICORE_BASE_L1_TX_BYTES(1200).
+- Real-Base proof: reads real gas price (7.5 gwei ceiling) + real L1 GasPriceOracle fee; fail-closed.
+- testing_agent iterations 5→6: HIGH gas-cap defect + MINOR env-clamp fixed; 88/88 in-scope tests green.
+### Deliverable: memory/COMPETITIVE_STRATEGY_REPORT.md (PART 1-12, evidence/inference/proposed tagged)
+- Thesis: compete on fail-closed all-in-honest safety + outcome-learning targeted search +
+  multi-chain×multi-strategy breadth (M3-gated), NOT raw latency. P0/P1/P2/P3 roadmap + 30-day plan.
+- NOT implemented (deferred per instruction): WSS/Flashblocks discovery, learning ranker, multi-chain
+  workers, liquidation/stablecoin/LST strategies, competitor-intel layer, Foreman, Strategy Factory.
