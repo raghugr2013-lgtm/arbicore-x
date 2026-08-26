@@ -187,9 +187,14 @@ def test_base_gas_model_registered_and_typed():
 
 
 def test_unimplemented_chain_returns_none_for_fail_closed_deny():
-    assert get_chain_gas_model("arbitrum") is None
-    assert get_chain_gas_model("ethereum") is None
+    # Phase-2: arbitrum/ethereum are now implemented (fail-closed without RPC).
+    # A genuinely unknown chain still returns None ⇒ caller DENIES.
+    assert get_chain_gas_model("solana") is None
+    assert get_chain_gas_model("fantom") is None
     assert get_chain_gas_model("") is None
+    # Arbitrum/Ethereum now resolve to a model that itself DENIES with no RPC.
+    assert get_chain_gas_model("arbitrum") is not None
+    assert get_chain_gas_model("ethereum") is not None
 
 
 def test_base_gas_model_without_rpc_returns_none_deny():

@@ -585,3 +585,62 @@ Scope = reusable foundation ONLY (NOT the full multi-strategy universe); Arbitru
 - Pre-existing/out-of-scope (deferred): stale admin creds (401) + missing operator user block API-level
   HTTP regression; _worth_m3 signature drift (5 tests in test_spread_widener_watch_edge_t1.py); pytest
   xdist 'no current event loop' cross-file pollution. None touch the new modules.
+
+## PHASE 2 delivered (2026-06) — multi-chain flash-loan expansion (SHADOW, fail-closed)
+Safety envelope preserved: SHADOW/read-only, M3 final authority, no signing/broadcast/execution,
+ARBICORE_MIN_NET_PROFIT_USD untouched ($35 prod), production untouched. Testing agent iteration_1:
+142/142 targeted PASS, 0 critical/minor, retest_needed=false.
+
+### Part A — Opportunity Truth Contract fixed END-TO-END (single boundary)
+- NEW arbicore/models/opportunity_contract.py = THE authoritative canonical->display translator.
+  server.py `_canonical_opp_to_contract`/`_canonical_opp_to_discovery`/`_opp_economic_state` +
+  dashboard deck `_row` now DELEGATE (no drift). ROOT-CAUSE fix: provenance==REAL was used as
+  proof of risk/confidence ASSESSMENT -> SAFE 100 / CONF 0 on unassessed REAL rows. Now assessment
+  requires a positive score OR an explicit metadata marker (risk_assessed/confidence_assessed) so a
+  GENUINE zero survives while an init-default 0.0 renders UNAVAILABLE (null). Economics gained a
+  plausibility guard: absurd return (>500%) or uncontextualized large profit (>$100k w/o capital) or
+  negative capital are REJECTED to null and SURFACED via `data_quality_flags` (never clamped). USD
+  stays USD, return_pct is a real fraction, negatives preserved. Verified live: seeding the exact
+  reported symptom (REAL, risk0, conf0, no capital, $48M profit) now yields verdict=UNVERIFIED,
+  confidence/safety/profit=null, flags=["uncontextualized_large_profit"].
+- Frontend v2/components/Primitives.jsx was ALREADY contract-faithful (null->"—"); no FE change needed.
+- Tests: test_phase2_opportunity_truth.py (17) + updated test_data_truth_contract.py.
+
+### Parts B/C/F — chains + gas (Arbitrum, Optimism, Ethereum, Polygon, BNB)
+- NEW arbicore/chains/evm_gas.py: reusable EVM all-in gas layer (EvmGasModel + pure helpers
+  l2_fee_usd / op_stack_l1_fee_usd / arbitrum_l1_fee_usd). L1 mechanism per chain: op_stack
+  (GasPriceOracle 0x42..0F) for Optimism, arbitrum (ArbGasInfo 0x..6C getL1BaseFeeEstimate over
+  calldata) for Arbitrum, none for Ethereum/Polygon/BNB. Gas priced in the chain's NATIVE token USD
+  (POL/BNB not ETH). Fail-closed: no RPC / missing gas/price/L1/native-USD / gas over safety ceiling
+  -> None (DENY). Registered in gas_model.py `_GAS_MODEL_FACTORIES`. BASE UNCHANGED (keeps its own
+  BaseGasModel/base_all_in_cost.py; asserted by regression test).
+- NEW arbicore/chains/registries.py (verified public token + DEX-factory addresses; NO fabricated
+  pools) + evm_adapter.py (one data-driven EvmChainAdapter for all 5 chains; capability() never
+  active_ready offline — identity/quote/simulation probed live on VPS). make_chain_adapter dispatch.
+- persistent.SUPPORTED_CHAINS += "bnb"; FLASH_LOAN_PROVIDERS aave_v3 += "bnb" (Aave V3 live on BNB).
+- Tests: test_phase2_multichain.py (24) incl. fail-closed, pure math, injected-provider estimator,
+  Base-regression.
+
+### Parts D/E/G/H — strategy, true economics, provider optimizer, EV ranking
+- NEW flash_loan_arbitrage/strategy_tagging.py: classify_strategy (STABLECOIN/LST_LRT/TRIANGULAR/
+  MULTI_HOP/GENERIC_DEX) + emit_flash_candidate (sets StrategyType + chain_id at emit; detection-only,
+  never fabricates economics). NEW multichain_economics.py: compute_true_net_profit = gross − provider
+  fee (actual, via existing optimize_flash_provider) − gas − L1 − slippage; total_gas_units adds
+  provider callback_extra_gas_units to route gas (Part B item 6). Fail-closed at every unknown.
+- Part H: reused ranking.py (rank_opportunities) + economics/expected_value.py — advisory only, never
+  emits GO/executable/broadcast; high-spread/low-execution ranks below modest/high-execution.
+- Part I: economic-state ladder (DISCOVERED->LIVE_QUOTED->VERIFIED->ECONOMICALLY_VALID; M3_GREEN = M3
+  authority) single-sourced in opportunity_contract. Tests: test_phase2_strategy_economics.py (15).
+
+### Reused (NOT rebuilt): CanonicalOpportunity (StrategyType/chain_id already present),
+flash_provider_optimizer, provider_selection, ChainGasModel seam, BaseGasModel, ranking, expected_value,
+profit_vector, providers/registry, M3 pre_broadcast (frozen — untouched).
+
+### Env added for validator (were missing on import): backend/.env (MONGO_URL, DB_NAME=arbicore_x,
+JWT_SECRET, ARBICORE_ADMIN/OPERATOR creds) + frontend/.env (REACT_APP_BACKEND_URL). See
+memory/test_credentials.md. VPS chain-by-chain live validation appended to VPS_VALIDATOR_RUNBOOK.md.
+
+### NOT DONE (requires VPS, genuinely absent offline): live RPC connectivity/route discovery/provider
+liquidity/gas/net-profit per new chain; live capability().active_ready. NO live-chain validation was
+performed or claimed. Deeper strategy route-builders (triangular/multi-hop enumerators over live pool
+graphs) and lending/LST state readers remain thin/deferred (tagging spine + economics in place).

@@ -37,9 +37,21 @@ def test_p0_1_unassessed_risk_is_unavailable_not_100pct():
     assert c["safety_assessed"] is False
 
 
-def test_p0_1_real_provenance_allows_genuine_zero_risk():
-    # A genuine, REAL-provenance zero risk stays a real safety=1.0 (confirmed).
+def test_p0_1_real_provenance_alone_is_not_a_risk_assessment():
+    # Phase-2 correction: REAL provenance means the SOURCE DATA is real; it is
+    # NOT, by itself, evidence a risk score was ever computed. An unassessed
+    # risk (default 0.0) must render UNAVAILABLE, never SAFE 100%.
     o = _opp(risk_score=0.0, source_data_quality=DataProvenance.REAL)
+    c = to_contract(o)
+    assert c["safety"] is None
+    assert c["safety_assessed"] is False
+
+
+def test_p0_1_genuine_zero_risk_survives_with_assessment_marker():
+    # A GENUINE assessed zero (invariant: "a genuine zero must remain zero")
+    # survives ONLY when a scanner explicitly marks the assessment performed.
+    o = _opp(risk_score=0.0, source_data_quality=DataProvenance.REAL,
+             metadata={"risk_assessed": True})
     c = to_contract(o)
     assert c["safety_assessed"] is True
     assert c["safety"] == 1.0

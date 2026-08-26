@@ -241,3 +241,58 @@ docker rm -f arbicore-validator arbicore-validator-fe 2>/dev/null || true
 2. Provision a dedicated small-capital signer OUT-OF-BAND only when you explicitly decide.
 3. First small HUMAN-CONFIRMED trade — operator presses confirm; single tx; capped size.
 Never flip LIMITED_LIVE/FULL_LIVE or provision a key as part of validation.
+
+--------------------------------------------------------------------------------
+# PHASE 2 — MULTI-CHAIN LIVE VALIDATION (chain by chain, SHADOW/read-only)
+
+The sandbox has NO EVM RPC, so every Phase-2 chain gas model correctly DENIES
+(returns None) offline. Live-chain validation MUST be done on the VPS. Base
+Phase 1 keeps running independently — do NOT touch it.
+
+Invariants (unchanged): SHADOW / read-only / confirm=False / NO signing key /
+NO signing / NO broadcast / M3 final authority / ARBICORE_MIN_NET_PROFIT_USD=$35.
+LIMITED_LIVE OFF, FULL_LIVE OFF, AUTOEXEC OFF. Production untouched.
+
+## Per-chain RPC env (validator only; use your own archival RPCs)
+```bash
+export ARBICORE_RPC_URL_ARBITRUM=https://<your-arbitrum-rpc>
+export ARBICORE_RPC_URL_OPTIMISM=https://<your-optimism-rpc>
+export ARBICORE_RPC_URL_ETHEREUM=https://<your-eth-rpc>
+export ARBICORE_RPC_URL_POLYGON=https://<your-polygon-rpc>
+export ARBICORE_RPC_URL_BNB=https://<your-bnb-rpc>
+# Native token USD price per chain is passed to the gas model at call time
+# (ETH for arb/op/eth, POL for polygon, BNB for bnb). Never assumed.
+```
+
+## Order (Base already validated): Arbitrum → Optimism → Ethereum → Polygon → BNB
+
+## For EACH chain, prove (offline harness first, then live):
+```bash
+cd /app/backend
+# 1) Adapter identity + registries + flash providers (offline).
+python -c "import asyncio; from arbicore.chains.evm_adapter import EvmChainAdapter; \
+a=EvmChainAdapter('arbitrum'); print(a.chain_id(), a.dex_registry(), a.flashloan_provider_registry()); \
+print(asyncio.run(a.capability()).to_dict())"
+# 2) Gas model DENIES with no RPC (fail-closed), PRICES with RPC set.
+python -c "import asyncio; from arbicore.chains.gas_model import get_chain_gas_model; \
+gm=get_chain_gas_model('arbitrum'); print(asyncio.run(gm.all_in_cost(gross_profit_usd=100,borrow_amount_usd=10000,notional_usd=10000,gas_units=250000,eth_usd=3000)))"
+```
+Live checklist per chain (record JSON evidence):
+  - real RPC connectivity (eth_chainId matches CHAIN_SPECS chain_id)
+  - real route discovery (pools resolved+validated on-chain, never fabricated)
+  - real flash-provider availability (Balancer V2 Vault / Aave V3 balanceOf liquidity read)
+  - real gas calculation (l2 + chain L1/security via gas model; DENY on any unreadable input)
+  - real net-profit (compute_true_net_profit: gross − provider fee − gas − L1 − slippage)
+  - fail-closed behaviour (missing gas/price/L1/native-USD ⇒ DENY)
+  - NO signing key present · NO broadcast · confirm=False
+
+PASS per chain: adapter.capability().active_ready reachable ONLY after live
+probes; a real net figure ≥ $35 threshold is DETECTION-ONLY (M3 remains the
+final authority; a green rank is NOT executable). Archive each chain's audit
+JSON. Never flip LIMITED_LIVE/FULL_LIVE or provision a key during validation.
+
+## Data-truth contract (validator UI)
+`GET /api/arbicore/opportunities` must show: unassessed confidence/safety = "—"
+(null), missing economics = "—", implausible/uncontextualized profit rejected to
+null + listed under `data_quality_flags`, and `strategy`/`chain_id` populated.
+Contract source: `arbicore/models/opportunity_contract.py` (single boundary).

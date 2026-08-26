@@ -11,7 +11,7 @@ from arbicore.intel import EntityType, ref_id, ref_to_entity_id
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://base-v3-live.preview.emergentagent.com",
+    "https://arbitrum-launch-1.preview.emergentagent.com",
 ).rstrip("/")
 
 

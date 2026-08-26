@@ -198,7 +198,7 @@ class ConfigRepo:
 NETWORK_KIND = "network"
 
 # Chain identifiers accepted by adapters + calldata module.
-SUPPORTED_CHAINS = ("base", "ethereum", "arbitrum", "optimism", "polygon")
+SUPPORTED_CHAINS = ("base", "ethereum", "arbitrum", "optimism", "polygon", "bnb")
 
 DEFAULT_NETWORK_CONFIG: Dict[str, Any] = {
     # Ordered RPC list per chain — first is primary, rest are failover.

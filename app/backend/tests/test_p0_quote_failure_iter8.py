@@ -1,7 +1,7 @@
 """Iteration 8 — quote-failure categorization + RPC throttle/retry regression."""
 import os, re, requests, pytest
 
-BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://base-v3-live.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("REACT_APP_BACKEND_URL", "https://arbitrum-launch-1.preview.emergentagent.com").rstrip("/")
 FORBIDDEN = ["private_key", "signed_tx", "raw_tx", "eth_sendTransaction",
              "eth_sendRawTransaction", "personal_sign"]
 CATS_ALLOWED = {"rate_limited", "revert_no_pool", "no_adapter", "rpc_error", "other", None}

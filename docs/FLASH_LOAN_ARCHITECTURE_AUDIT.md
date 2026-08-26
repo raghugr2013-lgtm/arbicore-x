@@ -11,7 +11,7 @@
 - `main` HEAD = `43230f6` ("Clarify limited live readiness authorization"). `[FACT]`
 - Remote branches: `main`, `archive-v1`, `feature/ui-v2-slices-0-2`, `hotfix/auth-routing`, `scanner-bootstrap-validator-fix`. `[FACT]`
 - `origin` remote URL **embeds a GitHub PAT** (`ghu_…`) in cleartext. `[FACT]` → `[RECOMMENDATION]` **Rotate that token immediately**; store credentials in a credential helper, not the remote URL. (Value intentionally NOT reproduced here.)
-- Working tree: 44 uncommitted modifications, each a single-line change swapping the preview host `https://base-v3-live.preview.emergentagent.com` → `https://base-v3-live.preview.emergentagent.com` in test files, 2 Tampermonkey userscripts and 2 docs. **No logic changes.** `[FACT]` Treated as intentional in-progress work; preserved untouched.
+- Working tree: 44 uncommitted modifications, each a single-line change swapping the preview host `https://arbitrum-launch-1.preview.emergentagent.com` → `https://arbitrum-launch-1.preview.emergentagent.com` in test files, 2 Tampermonkey userscripts and 2 docs. **No logic changes.** `[FACT]` Treated as intentional in-progress work; preserved untouched.
 
 ---
 

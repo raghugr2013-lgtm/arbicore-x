@@ -819,19 +819,7 @@ async def v2_deck(limit: int = 5) -> Dict[str, Any]:
         rows = []
 
     def _row(o) -> Dict[str, Any]:
-        raw_c = float(o.confidence_score or 0.0)
-        c = raw_c / 100.0 if raw_c > 1.0 else raw_c
-        assessed = bool(raw_c > 0.0 or _opp_is_real_provenance(o))
-        return {
-            "id":                o.opportunity_id,
-            "opportunity_type":  o.opportunity_type.value if hasattr(o.opportunity_type, "value") else str(o.opportunity_type),
-            "subject_id":        o.subject_id or o.asset or o.opportunity_id,
-            "chain":             o.chain,
-            "confidence":        round(c, 4) if assessed else None,
-            "confidence_assessed": assessed,
-            "status":            o.status.value if hasattr(o.status, "value") else str(o.status),
-            "created_at":        o.created_at,
-        }
+        return _opp_contract.build_deck_row(o)
 
     validated = OpportunityStatus.VALIDATED.value
     candidate = OpportunityStatus.CANDIDATE.value
@@ -1052,36 +1040,21 @@ async def v2_opportunities_list(
     }
 
 
+from arbicore.models import opportunity_contract as _opp_contract
+
+
 def _opp_provenance_str(opp: "CanonicalOpportunity") -> str:
-    return (opp.source_data_quality.value
-            if hasattr(opp.source_data_quality, "value")
-            else str(opp.source_data_quality))
+    return _opp_contract.provenance_str(opp)
 
 
 def _opp_is_real_provenance(opp: "CanonicalOpportunity") -> bool:
     """True only when the row is backed by REAL / VERIFIED_REAL data."""
-    return _opp_provenance_str(opp) in ("REAL", "VERIFIED_REAL")
+    return _opp_contract.is_real_provenance(opp)
 
 
 def _opp_economic_state(opp: "CanonicalOpportunity") -> str:
-    """Honest lifecycle-vs-economics state.
-
-    DISCOVERED         raw candidate, nothing priced
-    LIVE_QUOTED        a live spread / venue price exists
-    VERIFIED           REAL provenance + at least one economic figure
-    ECONOMICALLY_VALID REAL provenance + positive expected profit + spread
-    """
-    real = _opp_is_real_provenance(opp)
-    has_spread = opp.spread_pct is not None
-    has_price = opp.buy_price is not None or opp.sell_price is not None
-    profit = opp.expected_profit_usd
-    if real and profit is not None and float(profit) > 0 and has_spread:
-        return "ECONOMICALLY_VALID"
-    if real and (has_spread or profit is not None):
-        return "VERIFIED"
-    if has_spread or has_price:
-        return "LIVE_QUOTED"
-    return "DISCOVERED"
+    """Honest lifecycle-vs-economics state (see opportunity_contract)."""
+    return _opp_contract.economic_state(opp)
 
 
 def _canonical_opp_to_contract(opp: "CanonicalOpportunity") -> Dict[str, Any]:
@@ -1100,79 +1073,7 @@ def _canonical_opp_to_contract(opp: "CanonicalOpportunity") -> Dict[str, Any]:
         or merely-validated candidate is never GO. M3 remains the final
         execution authority — this verdict is advisory display only.
     """
-    from datetime import datetime as _dt, timezone as _tz
-    now = _dt.now(_tz.utc)
-    try:
-        created = _dt.fromisoformat(opp.created_at.replace("Z", "+00:00"))
-        age_s = max(0, int((now - created).total_seconds()))
-    except Exception:
-        age_s = None  # unknown age → UNAVAILABLE, not "0s fresh"
-
-    real = _opp_is_real_provenance(opp)
-    econ_state = _opp_economic_state(opp)
-    econ_valid = econ_state == "ECONOMICALLY_VALID"
-
-    # Confidence — numeric only when assessed.
-    raw_conf = float(opp.confidence_score or 0.0)
-    conf_val = raw_conf / 100.0 if raw_conf > 1.0 else raw_conf
-    confidence_assessed = bool(raw_conf > 0.0 or real)
-    confidence = round(conf_val, 4) if confidence_assessed else None
-
-    # Safety — numeric only when a real risk assessment exists.
-    raw_risk = float(opp.risk_score or 0.0)
-    safety_assessed = bool(raw_risk > 0.0 or real)
-    safety = round(1.0 - min(1.0, raw_risk / 100.0), 4) if safety_assessed else None
-
-    # Spread — None stays None (no 0.0 bps coercion). spread_pct is in percent.
-    spread_bps = int(round(opp.spread_pct * 100)) if opp.spread_pct is not None else None
-
-    # Economics — keep USD as USD; expose capital required under its true name.
-    expected_profit_usd = (round(float(opp.expected_profit_usd), 2)
-                           if opp.expected_profit_usd is not None else None)
-    capital_required_usd = (int(round(opp.capital_required_usd))
-                            if opp.capital_required_usd is not None else None)
-    # Real fractional return only when both figures are present and capital > 0.
-    return_pct = None
-    if (opp.expected_profit_usd is not None
-            and opp.capital_required_usd is not None
-            and float(opp.capital_required_usd) > 0):
-        return_pct = round(float(opp.expected_profit_usd)
-                           / float(opp.capital_required_usd), 4)
-
-    # Verdict — economic/safety-authoritative, never lifecycle alone.
-    if opp.status == OpportunityStatus.REJECTED:
-        verdict = "HARD_NO"
-    elif opp.status == OpportunityStatus.APPROVED and econ_valid:
-        verdict = "GO"
-    elif econ_valid:
-        verdict = "SOFT_NO"   # economically valid but not operator-approved
-    else:
-        verdict = "UNVERIFIED"  # raw / not economically validated
-
-    return {
-        "id": opp.opportunity_id,
-        "subject_id": opp.subject_id or opp.asset,
-        "opportunity_type": (opp.opportunity_type.value
-                              if hasattr(opp.opportunity_type, "value")
-                              else str(opp.opportunity_type)),
-        "chain": opp.chain or "-",
-        "verdict": verdict,
-        "economic_state": econ_state,
-        "confidence": confidence,
-        "confidence_assessed": confidence_assessed,
-        "safety": safety,
-        "safety_assessed": safety_assessed,
-        "spread_bps": spread_bps,
-        "capital_required_usd": capital_required_usd,
-        "depth_usd": None,  # real pool TVL not available on canonical rows
-        "expected_profit_usd": expected_profit_usd,
-        "return_pct": return_pct,
-        "age_s": age_s,
-        "route": opp.route,
-        "status": (opp.status.value if hasattr(opp.status, "value") else str(opp.status)),
-        "source_data_quality": _opp_provenance_str(opp),
-        "canonical": True,
-    }
+    return _opp_contract.build_display_contract(opp)
 
 
 @api_router.get("/arbicore/opportunities/{opp_id}", dependencies=[Depends(_require_operator_dep)])
@@ -1481,54 +1382,7 @@ _UI_ACTION_TO_TARGET_STATUS = {
 
 def _canonical_opp_to_discovery(opp: "CanonicalOpportunity") -> Dict[str, Any]:
     """Translate a CanonicalOpportunity into the Discovery UI contract."""
-    raw_conf = float(opp.confidence_score or 0.0)
-    conf = raw_conf / 100.0 if raw_conf > 1.0 else raw_conf
-    real = _opp_is_real_provenance(opp)
-    score_assessed = bool(raw_conf > 0.0 or real)
-    score = round(conf, 4) if score_assessed else None
-    otype = (opp.opportunity_type.value if hasattr(opp.opportunity_type, "value")
-             else str(opp.opportunity_type))
-    provenance = (opp.source_data_quality.value
-                  if hasattr(opp.source_data_quality, "value")
-                  else str(opp.source_data_quality))
-    canonical_status = (opp.status.value if hasattr(opp.status, "value")
-                        else str(opp.status))
-    # kind: venue-pair for arb strategies that carry a route; asset otherwise.
-    has_route = bool(opp.route) or bool(opp.buy_venue and opp.sell_venue)
-    kind = "venue_pair" if has_route else "asset"
-    # asset label: use canonical asset when present, else fall back to subject
-    asset_label = opp.asset or opp.subject_id or opp.opportunity_id
-    # why: a compact machine-generated explanation from the canonical row.
-    parts: List[str] = []
-    parts.append(otype.replace("_", " ").title())
-    if opp.chain:
-        parts.append(f"on {opp.chain}")
-    if opp.spread_pct is not None:
-        parts.append(f"spread {opp.spread_pct:.2f}%")
-    parts.append(f"confidence {conf:.2f}")
-    why = " · ".join(parts)
-    # signals: normalised set of tags from the canonical row.
-    signals = [
-        f"type:{otype.lower()}",
-        f"provenance:{provenance.lower()}",
-    ]
-    if opp.chain:
-        signals.append(f"chain:{opp.chain}")
-    if opp.route:
-        signals.append(f"route:{opp.route}")
-    return {
-        "id":       opp.opportunity_id,
-        "asset":    asset_label,
-        "kind":     kind,
-        "chain":    opp.chain or "-",
-        "source":   f"canonical:{provenance.lower()}",
-        "score":    score,
-        "score_assessed": score_assessed,
-        "status":   _CANONICAL_STATUS_TO_UI.get(canonical_status, "NEW"),
-        "why":      why,
-        "signals":  signals,
-        "seen_at":  opp.created_at,
-    }
+    return _opp_contract.build_discovery_contract(opp)
 
 
 def _canonical_discovery_calibration(rows: List["CanonicalOpportunity"]) -> Dict[str, Any]:

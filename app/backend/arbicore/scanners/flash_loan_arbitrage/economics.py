@@ -31,7 +31,7 @@ FLASH_LOAN_PROVIDERS: Dict[str, Dict[str, Any]] = {
         "fee_bps_default": 5,
         "source_id": "aave_v3_flashloan_real",
         "supports_chains": (
-            "ethereum", "arbitrum", "base", "optimism", "polygon"),
+            "ethereum", "arbitrum", "base", "optimism", "polygon", "bnb"),
     },
     "balancer_v2": {
         "fee_bps_default": 0,

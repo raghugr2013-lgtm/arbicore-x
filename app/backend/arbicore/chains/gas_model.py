@@ -94,6 +94,18 @@ _GAS_MODEL_FACTORIES: Dict[str, Callable[[], ChainGasModel]] = {
     "base": BaseGasModel.from_env,
 }
 
+# Phase-2 chains (Arbitrum, Optimism, Ethereum, Polygon, BNB) are served by the
+# reusable EVM gas layer (``evm_gas``). Each is chain-specific (own L1/security
+# math + native token) and fail-closed: no RPC ⇒ all_in_cost returns None (DENY).
+def _register_evm_chains() -> None:
+    from .evm_gas import CHAIN_SPECS, make_evm_gas_model
+    for _chain in CHAIN_SPECS:
+        _GAS_MODEL_FACTORIES.setdefault(
+            _chain, (lambda c=_chain: make_evm_gas_model(c)))
+
+
+_register_evm_chains()
+
 
 def get_chain_gas_model(chain: str) -> Optional[ChainGasModel]:
     """Return the gas model for ``chain`` or ``None`` when unimplemented.

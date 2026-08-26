@@ -19,7 +19,7 @@ import requests
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://base-v3-live.preview.emergentagent.com",
+    "https://arbitrum-launch-1.preview.emergentagent.com",
 ).rstrip("/")
 USERNAME = "admin"
 PASSWORD = "ArbiCore2026!"
