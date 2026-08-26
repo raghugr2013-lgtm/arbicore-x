@@ -1,0 +1,140 @@
+{
+  "chain": "polygon",
+  "shadow": true,
+  "signing": false,
+  "broadcast": false,
+  "stages": {
+    "rpc": {
+      "ok": true,
+      "latency_ms": 238.6,
+      "block": 92686194
+    },
+    "chain_identity": {
+      "chain_id": 137,
+      "expected": 137,
+      "match": true
+    },
+    "token_registry": {
+      "count": 7,
+      "tokens": {
+        "WMATIC": {
+          "address": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "WETH": {
+          "address": "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "USDC": {
+          "address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "USDC.e": {
+          "address": "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "USDT": {
+          "address": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "DAI": {
+          "address": "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "WBTC": {
+          "address": "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6",
+          "code": true,
+          "onchain_decimals": 8,
+          "registry_decimals": 8,
+          "decimals_match": true
+        }
+      }
+    },
+    "dex_registry": {
+      "uniswap_v3": {
+        "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "code": true
+      },
+      "quickswap_v3": {
+        "factory": "0x411b0fAcC3489691f28ad58c47006AF5E3Ab3A28",
+        "code": true
+      }
+    },
+    "route_discovery": {
+      "WETH/USDC@500": {
+        "dex": "uniswap_v3",
+        "pool": "0xa4d8c89f0c20efbe54cba9e7e7a7e509056228d9",
+        "pool_token_depth": {
+          "WETH": 113.69311897165696,
+          "USDC": 202110.54049
+        }
+      },
+      "WETH/USDC@3000": {
+        "dex": "uniswap_v3",
+        "pool": "0x19c5505638383337d2972ce68b493ad78e315147",
+        "pool_token_depth": {
+          "WETH": 9.263719878275548,
+          "USDC": 36304.056627
+        }
+      }
+    },
+    "native_price_usd": 0.126156,
+    "provider_liquidity": {
+      "balancer_v2": {
+        "provider": "balancer_v2",
+        "chain": "polygon",
+        "status": "ON_CHAIN_CONFIRMED",
+        "fee_bps": 0,
+        "liquidity_tokens": 259.7216034459132,
+        "liquidity_usd": 639203.4354567715,
+        "source_address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+        "reason": "confirmed"
+      },
+      "aave_v3": {
+        "provider": "aave_v3",
+        "chain": "polygon",
+        "status": "ON_CHAIN_CONFIRMED",
+        "fee_bps": 5,
+        "liquidity_tokens": 9841.331541754847,
+        "liquidity_usd": 24220599.470728274,
+        "source_address": "0xe50fa9b3c56ffb159cb0fca61f5c9d750e8128c8",
+        "reason": "confirmed"
+      }
+    },
+    "provider_choice": {
+      "feasible": true,
+      "provider": "balancer_v2",
+      "fee_bps": 0,
+      "fee_usd": 0.0,
+      "callback_extra_gas": 90000,
+      "reason": "cheapest_feasible_provider"
+    },
+    "gas_price_wei": 98733783804,
+    "all_in_cost": null
+  },
+  "fail_closed_events": [
+    "all_in_cost_denied"
+  ],
+  "rpc_url_host": "polygon-bor-rpc.publicnode.com",
+  "result": "LIVE_VALIDATED",
+  "all_in_cost_available": false,
+  "provider_feasible": true
+}

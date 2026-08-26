@@ -13,6 +13,7 @@ import {
   SafetyPill,
   FreshnessBadge,
   ProvenanceChip,
+  AnomalyChips,
   fmtBps,
   fmtUsd,
   fmtPct,
@@ -200,7 +201,7 @@ export default function OpportunitiesPage() {
             )}
             {!loading && items.map((o, i) => (
               <tr
-                key={o.id}
+                key={`${o.id}-${i}`}
                 ref={(el) => (rowRefs.current[i] = el)}
                 data-testid={`v2-opp-row-${o.id}`}
                 onClick={() => openRow(i)}
@@ -223,6 +224,11 @@ export default function OpportunitiesPage() {
                   {fmtUsd(o.expected_profit_usd)}
                   {o.return_pct != null && (
                     <span style={{ color: "var(--v2-text-muted)", marginLeft: 6 }}>({fmtPct(o.return_pct)})</span>
+                  )}
+                  {Array.isArray(o.data_quality_flags) && o.data_quality_flags.length > 0 && (
+                    <div style={{ marginTop: 3 }}>
+                      <AnomalyChips flags={o.data_quality_flags} testid={`v2-opp-dq-${o.id}`} />
+                    </div>
                   )}
                 </td>
                 <td style={{ padding: "6px 10px" }}><ProvenanceChip value={o.source_data_quality} testid={`v2-opp-prov-${o.id}`} /></td>

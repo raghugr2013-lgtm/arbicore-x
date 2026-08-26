@@ -12,6 +12,7 @@ import {
   ConfidencePill,
   SafetyPill,
   FreshnessBadge,
+  AnomalyChips,
   fmtUsd,
   fmtPct,
   fmtBps,
@@ -102,6 +103,7 @@ export function OpportunityDrawer({ id, open, onOpenChange, onActioned }) {
               <span style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 10 }}>
                 {data.opportunity_type} · {data.chain}
               </span>
+              <AnomalyChips flags={data.data_quality_flags} testid="v2-drawer-dq-flags" />
             </div>
           )}
         </div>
@@ -131,6 +133,18 @@ export function OpportunityDrawer({ id, open, onOpenChange, onActioned }) {
                 <TabHeading>Return estimate</TabHeading>
                 <Row k="Expected profit" v={fmtUsd(data.expected_profit_usd)} mono />
                 <Row k="Return %" v={data.return_pct != null ? fmtPct(data.return_pct) : "—"} mono />
+                {Array.isArray(data.data_quality_flags) && data.data_quality_flags.length > 0 && (
+                  <>
+                    <TabHeading>Data quality</TabHeading>
+                    <div data-testid="v2-drawer-dq-detail" style={{ padding: "6px 0" }}>
+                      <AnomalyChips flags={data.data_quality_flags} testid="v2-drawer-dq-flags-detail" />
+                      <div style={{ color: "var(--v2-text-muted)", fontSize: 11, marginTop: 6 }}>
+                        A flagged value is unavailable or was rejected by the backend contract
+                        (it is never shown as authoritative). Canonical backend truth is authoritative.
+                      </div>
+                    </div>
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="reasoning">

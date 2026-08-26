@@ -644,3 +644,47 @@ memory/test_credentials.md. VPS chain-by-chain live validation appended to VPS_V
 liquidity/gas/net-profit per new chain; live capability().active_ready. NO live-chain validation was
 performed or claimed. Deeper strategy route-builders (triangular/multi-hop enumerators over live pool
 graphs) and lending/LST state readers remain thin/deferred (tagging spine + economics in place).
+
+## PHASE 2 · LIVE-VALIDATION + HARDENING STAGE (2026-06) — SHADOW, fail-closed
+Public EVM RPCs (publicnode.com) are reachable from the sandbox, so this stage performed GENUINE
+live-chain validation (not offline-only). Testing agent iteration_2: 136/136 offline PASS + frontend
+anomaly-chip flow verified; 0 issues; retest_needed=false. Safety envelope unchanged (SHADOW, no
+signing/broadcast/execution, $35 gate, M3 authority, production untouched).
+
+### Step 1+5 — LIVE-VALIDATED all 5 chains (evidence: /app/reports/phase2_live_validation/*.json)
+Harness scripts/phase2_validate_chain.py runs RPC→chainId→token registry(code+decimals)→DEX factory
+code→real route discovery (factory.getPool)→real pool depth→provider on-chain liquidity→provider
+fee→gas price→L1/security fee→slippage→all-in cost→$35 gate→readiness(executable=false).
+  - arbitrum 42161: pools live (WETH/USDC 0.05% = 7378 WETH/$19.3M), Balancer $225k + Aave $47M ON_CHAIN_CONFIRMED, L1 fee via ArbGasInfo, chose Balancer 0bps.
+  - optimism 10: Balancer $65k + Aave $5.3M, OP-stack L1 fee.
+  - ethereum 1: Balancer $2.9M + Aave $770M, no L1 fee (correct for L1).
+  - polygon 137: Balancer $639k + Aave $24M, gas priced in POL; when CoinGecko POL price transiently
+    unavailable the gas model correctly FAILED CLOSED (all_in_cost_denied) instead of fabricating.
+  - bnb 56: no Balancer (correctly absent) → optimizer chose Aave 5bps ($25 real fee), gas in BNB.
+
+### Step 2 — provider liquidity is REAL (provider_liquidity.py)
+On-chain reads: Balancer V2 Vault ERC20.balanceOf; Aave V3 Pool.getReserveData→aToken→balanceOf.
+Status ladder CONFIGURED/AVAILABLE/ON_CHAIN_CONFIRMED/UNAVAILABLE/UNKNOWN; feasible_usd is non-None
+ONLY when ON_CHAIN_CONFIRMED (≥ borrow). Optimizer minimises total cost (fee+callback+gas); a 0-bps
+provider is used only when config-verified (Balancer). 13 offline tests + live confirmation.
+
+### Step 3 — triangular is REAL (triangular.py)
+enumerate_cycles + evaluate_cycle (skips any unquotable leg, fail-closed) + discover_triangular
+(true net via compute_true_net_profit; emits StrategyType.TRIANGULAR only when net ≥ $35). Live
+UniV3QuoteClient (QuoterV2 quoteExactInputSingle) proven on Arbitrum: 12 real cycles priced from live
+quotes (1 WETH=2461.8 USDC), all correctly gated out (no fabricated profit).
+
+### Step 4 — data_quality_flags in operator UI (Primitives.AnomalyChips)
+Compact amber chip on the opportunities profit cell + drawer header + Overview 'Data quality' section,
+with human-readable labels. Backend canonical contract stays authoritative; UI only surfaces its
+verdict. Verified: seeded REAL/48M/no-capital row renders UNVERIFIED · CONF — · SAFE — · CAPITAL — ·
+PROFIT — + '⚠ UNCONTEXTUALIZED LARGE PROFIT'. Also fixed a pre-existing React key collision on live rows.
+
+### Files added/changed this stage
+NEW: scanners/flash_loan_arbitrage/provider_liquidity.py, triangular.py; scripts/phase2_validate_chain.py;
+tests/test_phase2_liquidity_triangular.py; reports/phase2_live_validation/*.json. CHANGED:
+providers/rpc.py (working public RPC defaults), frontend Primitives.jsx + OpportunitiesPage.jsx +
+OpportunityDrawer.jsx (anomaly chip). Base model + M3 + $35 gate UNCHANGED.
+
+### Remaining (VPS): swap public RPCs for private archival RPCs; live triangular over more fee-tiers/pairs;
+optional per-chain price oracle so Polygon/BNB gas never fails closed on a transient price outage.

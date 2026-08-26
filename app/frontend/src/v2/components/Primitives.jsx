@@ -200,3 +200,48 @@ export function ProvenanceChip({ value, testid }) {
     </span>
   );
 }
+
+
+// Compact anomaly / provenance indicator. Renders the backend
+// `data_quality_flags` as small amber chips that EXPLAIN why an authoritative
+// value is unavailable/rejected. The backend canonical contract stays the
+// source of truth — this only surfaces its verdict, it never re-derives it.
+export const DATA_QUALITY_FLAG_LABELS = {
+  uncontextualized_large_profit: "Large profit with no capital to validate against — rejected",
+  implausible_return: "Return exceeds the plausible bound — rejected as a likely unit/mapping error",
+  invalid_negative_capital: "Capital required was negative — rejected",
+  unavailable_liquidity: "Provider liquidity could not be confirmed on-chain",
+  stale_quote: "Quote is stale / past its freshness window",
+  missing_gas: "Gas cost unavailable — economics cannot be priced",
+  invalid_economics: "Economic inputs failed validation",
+};
+
+export function AnomalyChips({ flags, testid }) {
+  const list = Array.isArray(flags) ? flags.filter(Boolean) : [];
+  if (list.length === 0) return null;
+  return (
+    <span data-testid={testid} style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+      {list.map((f) => (
+        <span
+          key={f}
+          data-testid={`v2-dq-flag-${f}`}
+          title={DATA_QUALITY_FLAG_LABELS[f] || f}
+          style={{
+            display: "inline-block",
+            padding: "1px 6px",
+            fontFamily: "var(--v2-font-mono)",
+            fontSize: 9,
+            letterSpacing: 0.5,
+            color: "#f5a623",
+            border: "1px solid #f5a623",
+            background: "rgba(245,166,35,0.08)",
+            borderRadius: 2,
+            textTransform: "uppercase",
+          }}
+        >
+          ⚠ {f.replace(/_/g, " ")}
+        </span>
+      ))}
+    </span>
+  );
+}

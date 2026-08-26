@@ -223,12 +223,12 @@ class SolanaRpcProvider:
 
 # Sensible free-tier public defaults. Consumers override via env.
 DEFAULT_RPC_URLS: Dict[str, str] = {
-    "ethereum": "https://eth.llamarpc.com",
-    "arbitrum": "https://arb1.arbitrum.io/rpc",
+    "ethereum": "https://ethereum-rpc.publicnode.com",
+    "arbitrum": "https://arbitrum-one-rpc.publicnode.com",
     "base":     "https://mainnet.base.org",
-    "polygon":  "https://polygon-rpc.com",
-    "optimism": "https://mainnet.optimism.io",
-    "bnb":      "https://bsc-dataseed.binance.org",
+    "polygon":  "https://polygon-bor-rpc.publicnode.com",
+    "optimism": "https://optimism-rpc.publicnode.com",
+    "bnb":      "https://bsc-rpc.publicnode.com",
     "solana":   "https://api.mainnet-beta.solana.com",
 }
 
