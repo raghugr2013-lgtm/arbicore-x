@@ -6,8 +6,8 @@
   "stages": {
     "rpc": {
       "ok": true,
-      "latency_ms": 238.6,
-      "block": 92686194
+      "latency_ms": 200.3,
+      "block": 92686982
     },
     "chain_identity": {
       "chain_id": 137,
@@ -83,28 +83,38 @@
         "dex": "uniswap_v3",
         "pool": "0xa4d8c89f0c20efbe54cba9e7e7a7e509056228d9",
         "pool_token_depth": {
-          "WETH": 113.69311897165696,
-          "USDC": 202110.54049
+          "WETH": 113.89141076226186,
+          "USDC": 201624.937423
         }
       },
       "WETH/USDC@3000": {
         "dex": "uniswap_v3",
         "pool": "0x19c5505638383337d2972ce68b493ad78e315147",
         "pool_token_depth": {
-          "WETH": 9.263719878275548,
-          "USDC": 36304.056627
+          "WETH": 9.270557300192687,
+          "USDC": 36287.256517
         }
       }
     },
     "native_price_usd": 0.126156,
+    "native_price_oracle": {
+      "chain": "polygon",
+      "symbol": "POL",
+      "price_usd": 0.126156,
+      "ok": true,
+      "stale": false,
+      "age_s": 0.0,
+      "source": "coingecko",
+      "reason": "live"
+    },
     "provider_liquidity": {
       "balancer_v2": {
         "provider": "balancer_v2",
         "chain": "polygon",
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 0,
-        "liquidity_tokens": 259.7216034459132,
-        "liquidity_usd": 639203.4354567715,
+        "liquidity_tokens": 259.7559290806025,
+        "liquidity_usd": 638482.6712394119,
         "source_address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
         "reason": "confirmed"
       },
@@ -114,7 +124,7 @@
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 5,
         "liquidity_tokens": 9841.331541754847,
-        "liquidity_usd": 24220599.470728274,
+        "liquidity_usd": 24190091.342948835,
         "source_address": "0xe50fa9b3c56ffb159cb0fca61f5c9d750e8128c8",
         "reason": "confirmed"
       }
@@ -127,14 +137,40 @@
       "callback_extra_gas": 90000,
       "reason": "cheapest_feasible_provider"
     },
-    "gas_price_wei": 98733783804,
-    "all_in_cost": null
+    "gas_price_wei": 280822158837,
+    "all_in_cost": {
+      "all_in_cost_usd": 150.01328527510134,
+      "net_profit_all_in_usd": -150.01328527510134,
+      "l2_fee_usd": 0.013285275101330752,
+      "l1_fee_usd": 0.0,
+      "flash_loan_fee_usd": 0.0,
+      "slippage_usd": 150.0,
+      "gas_units": 300000.0,
+      "gas_price_wei_ceiling": 351027698546.0,
+      "chain": "polygon",
+      "native_token": "POL"
+    },
+    "economics": {
+      "min_net_profit_gate_usd": 35.0,
+      "real_all_in_cost_usd": 150.0133,
+      "l2_fee_usd": 0.013285275101330752,
+      "l1_fee_usd": 0.0,
+      "slippage_usd": 150.0,
+      "flash_provider_fee_usd": 0.0,
+      "gross_edge_required_to_pass_usd": 185.0133,
+      "note": "SHADOW: no live gross edge asserted; costs are real on-chain."
+    },
+    "readiness": {
+      "m3_authority": "M3 remains final execution authority",
+      "executable": false,
+      "signing": false,
+      "broadcast": false,
+      "state": "COST_MODEL_LIVE (detection-only)"
+    }
   },
-  "fail_closed_events": [
-    "all_in_cost_denied"
-  ],
-  "rpc_url_host": "polygon-bor-rpc.publicnode.com",
+  "fail_closed_events": [],
+  "rpc_url_host": "https://***.publicnode.com",
   "result": "LIVE_VALIDATED",
-  "all_in_cost_available": false,
+  "all_in_cost_available": true,
   "provider_feasible": true
 }

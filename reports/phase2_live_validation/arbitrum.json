@@ -6,8 +6,8 @@
   "stages": {
     "rpc": {
       "ok": true,
-      "latency_ms": 227.9,
-      "block": 498525137
+      "latency_ms": 231.3,
+      "block": 498529359
     },
     "chain_identity": {
       "chain_id": 42161,
@@ -94,28 +94,38 @@
         "dex": "uniswap_v3",
         "pool": "0xc6962004f452be9203591991d15f6b388e09e8d0",
         "pool_token_depth": {
-          "WETH": 7401.332664359571,
-          "USDC": 19254207.91099
+          "WETH": 7407.34571233404,
+          "USDC": 19237073.026033
         }
       },
       "WETH/USDC@3000": {
         "dex": "uniswap_v3",
         "pool": "0xc473e2aee3441bf9240be85eb122abb059a3b57c",
         "pool_token_depth": {
-          "WETH": 759.8499895936276,
-          "USDC": 3774496.104962
+          "WETH": 762.632232329766,
+          "USDC": 3767833.81818
         }
       }
     },
-    "native_price_usd": 2461.11,
+    "native_price_usd": 2459.7,
+    "native_price_oracle": {
+      "chain": "arbitrum",
+      "symbol": "ETH",
+      "price_usd": 2459.7,
+      "ok": true,
+      "stale": false,
+      "age_s": 0.0,
+      "source": "coingecko",
+      "reason": "live"
+    },
     "provider_liquidity": {
       "balancer_v2": {
         "provider": "balancer_v2",
         "chain": "arbitrum",
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 0,
-        "liquidity_tokens": 91.57068490922751,
-        "liquidity_usd": 225365.52833694892,
+        "liquidity_tokens": 91.59177753128449,
+        "liquidity_usd": 225288.29519370044,
         "source_address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
         "reason": "confirmed"
       },
@@ -124,8 +134,8 @@
         "chain": "arbitrum",
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 5,
-        "liquidity_tokens": 19114.877973032257,
-        "liquidity_usd": 47043817.32820942,
+        "liquidity_tokens": 19135.171257030845,
+        "liquidity_usd": 47066780.74091876,
         "source_address": "0xe50fa9b3c56ffb159cb0fca61f5c9d750e8128c8",
         "reason": "confirmed"
       }
@@ -138,24 +148,24 @@
       "callback_extra_gas": 90000,
       "reason": "cheapest_feasible_provider"
     },
-    "gas_price_wei": 20046000,
+    "gas_price_wei": 20012000,
     "all_in_cost": {
-      "all_in_cost_usd": 150.01854879474993,
-      "net_profit_all_in_usd": -150.01854879474993,
-      "l2_fee_usd": 0.0185007791475,
-      "l1_fee_usd": 4.8015602429184e-05,
+      "all_in_cost_usd": 150.01849967605372,
+      "net_profit_all_in_usd": -150.01849967605372,
+      "l2_fee_usd": 0.01844775,
+      "l1_fee_usd": 5.192605372607999e-05,
       "flash_loan_fee_usd": 0.0,
       "slippage_usd": 150.0,
       "gas_units": 300000.0,
-      "gas_price_wei_ceiling": 25057500.0,
+      "gas_price_wei_ceiling": 25000000.0,
       "chain": "arbitrum",
       "native_token": "ETH"
     },
     "economics": {
       "min_net_profit_gate_usd": 35.0,
       "real_all_in_cost_usd": 150.0185,
-      "l2_fee_usd": 0.0185007791475,
-      "l1_fee_usd": 4.8015602429184e-05,
+      "l2_fee_usd": 0.01844775,
+      "l1_fee_usd": 5.192605372607999e-05,
       "slippage_usd": 150.0,
       "flash_provider_fee_usd": 0.0,
       "gross_edge_required_to_pass_usd": 185.0185,
@@ -170,7 +180,7 @@
     }
   },
   "fail_closed_events": [],
-  "rpc_url_host": "arbitrum-one-rpc.publicnode.com",
+  "rpc_url_host": "https://***.publicnode.com",
   "result": "LIVE_VALIDATED",
   "all_in_cost_available": true,
   "provider_feasible": true

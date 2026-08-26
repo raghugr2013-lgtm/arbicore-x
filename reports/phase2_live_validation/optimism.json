@@ -6,8 +6,8 @@
   "stages": {
     "rpc": {
       "ok": true,
-      "latency_ms": 259.1,
-      "block": 156067768
+      "latency_ms": 236.2,
+      "block": 156068300
     },
     "chain_identity": {
       "chain_id": 10,
@@ -90,28 +90,38 @@
         "dex": "uniswap_v3",
         "pool": "0x1fb3cf6e48f1e7b10213e7b6d87d4c073c7fdb7b",
         "pool_token_depth": {
-          "WETH": 73.1458360042635,
-          "USDC": 109054.400636
+          "WETH": 73.14929276019663,
+          "USDC": 109047.299142
         }
       },
       "WETH/USDC@3000": {
         "dex": "uniswap_v3",
         "pool": "0xc1738d90e2e26c35784a0d3e3d8a9f795074bca4",
         "pool_token_depth": {
-          "WETH": 854.7536958598038,
-          "USDC": 2859194.258227
+          "WETH": 859.5192181296942,
+          "USDC": 2847551.001434
         }
       }
     },
-    "native_price_usd": 2461.11,
+    "native_price_usd": 2459.7,
+    "native_price_oracle": {
+      "chain": "optimism",
+      "symbol": "ETH",
+      "price_usd": 2459.7,
+      "ok": true,
+      "stale": false,
+      "age_s": 0.0,
+      "source": "coingecko",
+      "reason": "live"
+    },
     "provider_liquidity": {
       "balancer_v2": {
         "provider": "balancer_v2",
         "chain": "optimism",
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 0,
-        "liquidity_tokens": 26.65446377919361,
-        "liquidity_usd": 65599.56735161119,
+        "liquidity_tokens": 26.655683412563356,
+        "liquidity_usd": 65564.98448988209,
         "source_address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
         "reason": "confirmed"
       },
@@ -121,7 +131,7 @@
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 5,
         "liquidity_tokens": 2176.2887116561565,
-        "liquidity_usd": 5356085.911144083,
+        "liquidity_usd": 5353017.344060647,
         "source_address": "0xe50fa9b3c56ffb159cb0fca61f5c9d750e8128c8",
         "reason": "confirmed"
       }
@@ -134,24 +144,24 @@
       "callback_extra_gas": 90000,
       "reason": "cheapest_feasible_provider"
     },
-    "gas_price_wei": 1000401,
+    "gas_price_wei": 1000379,
     "all_in_cost": {
-      "all_in_cost_usd": 150.00092473841264,
-      "net_profit_all_in_usd": -150.00092473841264,
-      "l2_fee_usd": 0.000923286154833,
-      "l1_fee_usd": 1.4522577914472899e-06,
+      "all_in_cost_usd": 150.00092428735118,
+      "net_profit_all_in_usd": -150.00092428735118,
+      "l2_fee_usd": 0.00092273653143,
+      "l1_fee_usd": 1.5508197605322e-06,
       "flash_loan_fee_usd": 0.0,
       "slippage_usd": 150.0,
       "gas_units": 300000.0,
-      "gas_price_wei_ceiling": 1250501.0,
+      "gas_price_wei_ceiling": 1250473.0,
       "chain": "optimism",
       "native_token": "ETH"
     },
     "economics": {
       "min_net_profit_gate_usd": 35.0,
       "real_all_in_cost_usd": 150.0009,
-      "l2_fee_usd": 0.000923286154833,
-      "l1_fee_usd": 1.4522577914472899e-06,
+      "l2_fee_usd": 0.00092273653143,
+      "l1_fee_usd": 1.5508197605322e-06,
       "slippage_usd": 150.0,
       "flash_provider_fee_usd": 0.0,
       "gross_edge_required_to_pass_usd": 185.0009,
@@ -166,7 +176,7 @@
     }
   },
   "fail_closed_events": [],
-  "rpc_url_host": "optimism-rpc.publicnode.com",
+  "rpc_url_host": "https://***.publicnode.com",
   "result": "LIVE_VALIDATED",
   "all_in_cost_available": true,
   "provider_feasible": true

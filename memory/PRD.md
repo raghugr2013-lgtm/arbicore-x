@@ -688,3 +688,41 @@ OpportunityDrawer.jsx (anomaly chip). Base model + M3 + $35 gate UNCHANGED.
 
 ### Remaining (VPS): swap public RPCs for private archival RPCs; live triangular over more fee-tiers/pairs;
 optional per-chain price oracle so Polygon/BNB gas never fails closed on a transient price outage.
+
+## PHASE 2 · FINAL HARDENING → VPS PROVING (2026-06) — SHADOW, fail-closed
+Testing: backend 157/157 (iteration_3); frontend duplicate-key retest PASS with zero warnings
+(iteration_4, retest_needed=false). Safety envelope unchanged (SHADOW, no signing/broadcast/execution,
+$35 gate, M3 authority, production untouched). FEATURE DEVELOPMENT STOPS HERE per directive; next work
+is VPS proving + revenue validation (first genuine profitable candidate → worth_m3=true → M3 GREEN →
+human-confirmed readiness). Do NOT lower thresholds or weaken filters.
+
+### A. Private RPC wiring
+resolve_rpc_url_from_env already honours ARBICORE_RPC_URL_<CHAIN> > ARBICORE_RPC_URL > <CHAIN>_RPC_URL.
+Harness now MASKS the RPC to scheme://***.<root-domain> (never logs path/query/api-key). Fresh live
+evidence re-archived in /app/reports/phase2_live_validation/*.json (all 5 chains LIVE_VALIDATED).
+
+### B. Native-price oracle (arbicore/economics/native_price.py)
+NativePriceOracle: primary→secondary sources (CoinGecko primary, Binance secondary), short TTL cache,
+stale-cache served only within max_stale window (marked stale), else FAIL-CLOSED (ok=False,price=None).
+Rejects 0/NaN/negative; never fabricates. 8 regression tests (unavailable/stale/reject/fail-closed).
+Wired into the validator harness. NOTE: Polygon/BNB gas needs per-chain ceilings
+(ARBICORE_MAX_GAS_PRICE_WEI_POLYGON/_BNB) because POL/BNB are cheap and Polygon gas can spike >50 gwei
+(observed 277 gwei live → correctly failed closed on the default ceiling; validated fully with override).
+
+### C. Wider triangular (triangular.py)
+UniV3QuoteClient now tries multiple fee tiers (500/3000/10000/100) per leg and takes best execution;
+discover_triangular_multi runs over multiple base assets, REUSING the single enumerator + same true-net
+economics + $35 gate. Only economically-valid candidates emitted. Tests added.
+
+### D. Stable live-opportunity IDs (arbicore/scanners/live/ids.py) — reported bug fixed
+stable_live_id(type,chain,symbol,buy,sell) → deterministic 'live:<type>:<chain>:<symbol>:<buy>-<sell>';
+live/cross.py + live/scanner.py now use it (uuid removed). Identity preserved across refreshes. Frontend
+composite React keys applied to ALL live-feed lists (OpportunitiesPage, OpsCenter, HomePage) → zero
+duplicate-key warnings (testing-agent verified).
+
+### Files changed this stage
+NEW: arbicore/economics/native_price.py, arbicore/scanners/live/ids.py,
+tests/test_phase2_price_oracle_triangular_wide.py. CHANGED: triangular.py (multi-tier/multi-base),
+scripts/phase2_validate_chain.py (oracle + masked RPC), scanners/live/cross.py + scanner.py (stable ids),
+frontend OpsCenter.jsx + HomePage.jsx (composite keys), VPS_VALIDATOR_RUNBOOK.md (VPS proving runbook).
+Base model + M3 + $35 gate UNCHANGED.

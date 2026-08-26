@@ -35,8 +35,23 @@ from arbicore.providers.rpc import EthJsonRpcProvider, DEFAULT_RPC_URLS  # noqa:
 from arbicore.scanners.flash_loan_arbitrage import provider_liquidity as PL  # noqa: E402
 from arbicore.scanners.flash_loan_arbitrage.flash_provider_optimizer import (  # noqa: E402
     optimize_flash_provider)
+from arbicore.economics.native_price import default_live_oracle  # noqa: E402
 
 MIN_NET_PROFIT_USD = float(os.environ.get("ARBICORE_MIN_NET_PROFIT_USD", "35"))
+_ORACLE = default_live_oracle()
+
+
+def _mask_rpc(url: str) -> str:
+    """Log ONLY scheme://host — never the path/query (may embed API keys)."""
+    try:
+        from urllib.parse import urlparse
+        u = urlparse(url)
+        host = (u.hostname or "").split(".")
+        # redact an api-key-looking subdomain (keep last two labels).
+        shown = ".".join(host[-2:]) if len(host) >= 2 else (u.hostname or "")
+        return f"{u.scheme}://***.{shown}" if len(host) > 2 else f"{u.scheme}://{u.hostname}"
+    except Exception:  # noqa
+        return "***"
 
 
 def sel(sig):
@@ -72,20 +87,11 @@ async def read_decimals(p, token):
         return None
 
 
-async def fetch_native_usd(symbol):
-    """Best-effort live native price. Unavailable ⇒ None (fail-closed downstream)."""
-    ids = {"ETH": "ethereum", "POL": "matic-network", "BNB": "binancecoin"}
-    cg = ids.get(symbol)
-    if not cg:
-        return None
-    import httpx
-    try:
-        async with httpx.AsyncClient(timeout=10) as c:
-            r = await c.get("https://api.coingecko.com/api/v3/simple/price",
-                            params={"ids": cg, "vs_currencies": "usd"})
-            return float(r.json()[cg]["usd"])
-    except Exception:  # noqa
-        return None
+async def fetch_native_usd(chain):
+    """Live native price via the fail-closed oracle (primary→secondary).
+    Returns (price_or_None, meta) — None ⇒ price unavailable ⇒ downstream DENIES."""
+    res = await _ORACLE.get_native_usd(chain)
+    return (res.price_usd if res.ok else None), res.to_dict()
 
 
 async def validate(chain):
@@ -104,7 +110,7 @@ async def validate(chain):
         report["result"] = "NO_RPC"
         report["fail_closed_events"].append("no_rpc_configured")
         return report
-    report["rpc_url_host"] = url.split("//")[-1].split("/")[0]
+    report["rpc_url_host"] = _mask_rpc(url)
     p = EthJsonRpcProvider(chain=chain, url=url)
 
     # 1) RPC connectivity + chain identity.
@@ -174,15 +180,19 @@ async def validate(chain):
                     "dex": v3["dex"], "pool": pool, "pool_token_depth": depth}
 
     # 5) Flash-provider availability + REAL on-chain liquidity.
-    native_usd = await fetch_native_usd(spec["native"])
+    native_usd, native_meta = await fetch_native_usd(chain)
     S["native_price_usd"] = native_usd
+    S["native_price_oracle"] = native_meta
     borrow_usd = 50_000.0
     liq = {}
     liquidity_by_provider = {}
     fee_by_provider = {}
-    # Balancer (WETH) where supported; Aave (WETH) everywhere it has a pool.
-    weth_price = (native_usd if spec["native"] == "ETH"
-                  else await fetch_native_usd("ETH"))
+    # Borrow-token (WETH) is priced in ETH on EVERY chain (independent of the
+    # chain's native gas token).
+    if spec["native"] == "ETH":
+        weth_price = native_usd
+    else:
+        weth_price, _ = await fetch_native_usd("ethereum")
     if weth:
         providers = adapter.flashloan_provider_registry()
         if "balancer_v2" in providers:

@@ -134,6 +134,32 @@ async def discover_triangular(
             "emitted": emitted, "details": details}
 
 
+async def discover_triangular_multi(
+    *, bases: List[Dict[str, Any]], **common) -> Dict[str, Any]:
+    """Run triangular discovery over MULTIPLE base assets (reuses the single-
+    base enumerator — no second pipeline). ``bases`` is a list of dicts, each:
+    ``{"base_token", "intermediates", "start_amount_tokens", "base_token_price_usd"}``.
+    Aggregates emitted candidates + per-base details.
+    """
+    total_eval = 0
+    total_valid = 0
+    emitted: List[Any] = []
+    per_base: Dict[str, Any] = {}
+    for b in bases:
+        res = await discover_triangular(
+            base_token=b["base_token"], intermediates=b["intermediates"],
+            start_amount_tokens=b["start_amount_tokens"],
+            base_token_price_usd=b.get("base_token_price_usd"), **common)
+        total_eval += res.get("evaluated", 0)
+        total_valid += res.get("valid", 0)
+        emitted.extend(res.get("emitted", []))
+        per_base[b["base_token"]] = {"evaluated": res.get("evaluated", 0),
+                                     "valid": res.get("valid", 0),
+                                     "denied": res.get("denied")}
+    return {"evaluated": total_eval, "valid": total_valid,
+            "emitted": emitted, "per_base": per_base}
+
+
 # --------------------------------------------------------------------------
 # Live Uniswap-V3 QuoterV2 client (read-only, fail-closed).
 # --------------------------------------------------------------------------
@@ -149,14 +175,44 @@ _SEL_QUOTE_SINGLE = "0x" + function_signature_to_4byte_selector(
 
 
 class UniV3QuoteClient:
-    """Real quoteExactInputSingle over an EVM provider. None ⇒ unquotable."""
+    """Real quoteExactInputSingle over an EVM provider, best-of-fee-tiers.
+
+    For each leg it tries every configured fee tier and returns the BEST
+    (max) amount_out — real best-execution across pools. ``None`` ⇒ no tier is
+    quotable (fail-closed; the leg/cycle is skipped, never priced with a guess).
+    """
+
+    DEFAULT_FEE_TIERS = (500, 3000, 10000, 100)
 
     def __init__(self, provider, chain: str,
-                 tokens: Dict[str, Dict[str, Any]], fee_tier: int = 500):
+                 tokens: Dict[str, Dict[str, Any]],
+                 fee_tier: Optional[int] = None,
+                 fee_tiers: Optional[List[int]] = None):
         self._p = provider
         self._quoter = UNIV3_QUOTER_V2.get((chain or "").lower())
         self._tokens = {k.upper(): v for k, v in tokens.items()}
-        self._fee = fee_tier
+        if fee_tiers:
+            self._fees = list(fee_tiers)
+        elif fee_tier is not None:
+            self._fees = [fee_tier]
+        else:
+            self._fees = list(self.DEFAULT_FEE_TIERS)
+
+    async def _quote_tier(self, ti, to, amt_wei: int, fee: int) -> Optional[float]:
+        data = (_SEL_QUOTE_SINGLE
+                + ti["address"].lower().replace("0x", "").rjust(64, "0")
+                + to["address"].lower().replace("0x", "").rjust(64, "0")
+                + f"{amt_wei:064x}" + f"{fee:064x}" + f"{0:064x}")
+        try:
+            raw = await self._p.eth_call({"to": self._quoter, "data": data})
+        except Exception:  # noqa: BLE001
+            return None
+        if not raw or raw in ("0x", "0x0"):
+            return None
+        try:
+            return int(raw[2:66], 16) / (10 ** to["decimals"])
+        except (ValueError, IndexError):
+            return None
 
     async def quote(self, sym_in: str, sym_out: str,
                     amount_in: float) -> Optional[float]:
@@ -167,24 +223,15 @@ class UniV3QuoteClient:
         if not ti or not to:
             return None
         amt_wei = int(amount_in * (10 ** ti["decimals"]))
-        data = (_SEL_QUOTE_SINGLE
-                + ti["address"].lower().replace("0x", "").rjust(64, "0")
-                + to["address"].lower().replace("0x", "").rjust(64, "0")
-                + f"{amt_wei:064x}" + f"{self._fee:064x}" + f"{0:064x}")
-        try:
-            raw = await self._p.eth_call({"to": self._quoter, "data": data})
-        except Exception:  # noqa: BLE001
-            return None
-        if not raw or raw in ("0x", "0x0"):
-            return None
-        try:
-            amount_out = int(raw[2:66], 16)  # first return word
-        except (ValueError, IndexError):
-            return None
-        return amount_out / (10 ** to["decimals"])
+        best: Optional[float] = None
+        for fee in self._fees:
+            out = await self._quote_tier(ti, to, amt_wei, fee)
+            if out is not None and (best is None or out > best):
+                best = out
+        return best
 
 
 __all__ = [
     "enumerate_cycles", "evaluate_cycle", "discover_triangular",
-    "UniV3QuoteClient", "UNIV3_QUOTER_V2",
+    "discover_triangular_multi", "UniV3QuoteClient", "UNIV3_QUOTER_V2",
 ]

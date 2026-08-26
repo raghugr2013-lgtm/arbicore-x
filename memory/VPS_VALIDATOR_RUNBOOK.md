@@ -296,3 +296,128 @@ JSON. Never flip LIMITED_LIVE/FULL_LIVE or provision a key during validation.
 (null), missing economics = "—", implausible/uncontextualized profit rejected to
 null + listed under `data_quality_flags`, and `strategy`/`chain_id` populated.
 Contract source: `arbicore/models/opportunity_contract.py` (single boundary).
+
+================================================================================
+# PHASE 2 · VPS PROVING RUNBOOK (copy-paste ready) — SHADOW / read-only
+================================================================================
+Objective: on the VPS, take each chain from git-verified code → live multi-chain
+validation → a GENUINE qualifying opportunity → worth_m3_validation=true →
+read-only M3 validation → archived evidence. NEVER enable signing/broadcast.
+
+Absolute envelope (unchanged): SHADOW · confirm=False · M3 final authority ·
+ARBICORE_MIN_NET_PROFIT_USD=$35 · LIMITED_LIVE OFF · FULL_LIVE OFF · AUTOEXEC OFF
+· NO signing key · NO broadcast · NO production deployment.
+
+## 0. Git SHA verification
+```bash
+cd /opt/arbicore-x
+git fetch --all --tags
+git rev-parse HEAD                      # MUST equal the SHA in the completion report
+git status --porcelain                  # MUST be empty (clean tree)
+```
+
+## 1. Build validator image (separate from production)
+```bash
+docker build -f deployment/validator/Dockerfile -t arbicore-validator:phase2 .
+# frontend validator image (optional, read-only operator UI)
+docker build -f deployment/validator/Dockerfile.fe -t arbicore-validator-fe:phase2 .
+```
+
+## 2. Private RPC + price config (secrets via env-file; NEVER in logs)
+```bash
+cat > /opt/arbicore-x/.env.validator <<'ENV'
+MONGO_URL=mongodb://mongo:27017
+DB_NAME=arbicore_x_validator
+JWT_SECRET=<rotate-me>
+ARBICORE_OPERATOR_USER=operator
+ARBICORE_OPERATOR_PASS=<rotate-me>
+# Private / archival RPCs (key in URL is fine; the validator masks it in logs):
+ARBICORE_RPC_URL_ARBITRUM=https://<private-arb-rpc>
+ARBICORE_RPC_URL_OPTIMISM=https://<private-op-rpc>
+ARBICORE_RPC_URL_ETHEREUM=https://<private-eth-rpc>
+ARBICORE_RPC_URL_POLYGON=https://<private-polygon-rpc>
+ARBICORE_RPC_URL_BNB=https://<private-bnb-rpc>
+# Polygon/BNB gas ceilings (POL/BNB are cheap → allow higher gwei; still bounded):
+ARBICORE_MAX_GAS_PRICE_WEI_POLYGON=2000000000000
+ARBICORE_MAX_GAS_PRICE_WEI_BNB=20000000000
+# Safety (must stay as-is):
+ARBICORE_MIN_NET_PROFIT_USD=35
+ENV
+chmod 600 /opt/arbicore-x/.env.validator
+```
+
+## 3. Validator startup
+```bash
+docker run -d --name arbicore-validator --env-file /opt/arbicore-x/.env.validator \
+  --network arbicore-validator-net arbicore-validator:phase2
+docker logs -f arbicore-validator | grep -iE "startup|ready|shadow"   # Ctrl-C when ready
+```
+
+## 4. Safety verification (must all be true BEFORE any validation)
+```bash
+API=http://localhost:8001/api
+J=/tmp/vcj.txt
+curl -s -c $J -X POST "$API/auth/login" -H 'Content-Type: application/json' \
+  -d '{"username":"operator","password":"<rotate-me>"}' -o /dev/null
+curl -s -b $J "$API/arbicore/safety/posture" | python3 -m json.tool
+# EXPECT: shadow=true, confirm=false, limited_live=false, full_live=false,
+#         autoexec=false, signing_key_present=false, min_net_profit_usd=35
+```
+
+## 5. Base watcher (Phase-1 continues independently — do NOT disturb)
+```bash
+curl -s -b $J "$API/arbicore/spread-widener/status" | python3 -m json.tool
+```
+
+## 6. Multi-chain watcher / validation (chain by chain)
+```bash
+# Runs entirely read-only; archives one JSON per chain. RPC hosts are masked.
+for CH in arbitrum optimism ethereum polygon bnb; do
+  docker exec arbicore-validator \
+    python scripts/phase2_validate_chain.py $CH \
+    > /opt/arbicore-x/reports/vps_$CH.json
+  python3 - "$CH" <<'PY'
+import json,sys; ch=sys.argv[1]; d=json.load(open(f"/opt/arbicore-x/reports/vps_{ch}.json"))
+s=d["stages"]; print(ch, d["result"], "chain_id", s["chain_identity"]["chain_id"],
+  "provider_feasible", d["provider_feasible"], "all_in", d["all_in_cost_available"],
+  "fail_closed", d["fail_closed_events"])
+PY
+done
+# PASS per chain: result=LIVE_VALIDATED, chain_id match, provider ON_CHAIN_CONFIRMED,
+# all_in_cost available (or an explicit fail_closed reason — never fabricated).
+```
+
+## 7. Genuine qualifying opportunity → worth_m3_validation=true
+```bash
+# Live triangular / DEX scan over private RPCs. Only ECONOMICALLY-VALID candidates
+# (true net ≥ $35 after fee+gas+L1+slippage) are emitted; nothing is manufactured.
+curl -s -b $J "$API/arbicore/opportunities?economic_state=ECONOMICALLY_VALID&limit=20" \
+  | python3 -m json.tool
+# When a real candidate appears, confirm the economics gate:
+curl -s -b $J "$API/arbicore/opportunities/<id>" | python3 -c \
+  "import sys,json;d=json.load(sys.stdin);print('worth_m3_validation', d.get('worth_m3_validation'), 'true_net', d.get('expected_profit_usd'))"
+```
+
+## 8. Read-only M3 validation (confirm=False — NO signing / NO broadcast)
+```bash
+curl -s -b $J -X POST "$API/arbicore/m3/validate" -H 'Content-Type: application/json' \
+  -d '{"opportunity_id":"<id>","confirm":false}' | python3 -m json.tool
+# PASS: m3_final_gates.ok=true, signed_or_broadcast=false, broadcast_sent=false, safe=true.
+```
+
+## 9. Archive evidence
+```bash
+mkdir -p /opt/arbicore-x/reports/phase2_vps_$(date +%F)
+cp /opt/arbicore-x/reports/vps_*.json /opt/arbicore-x/reports/phase2_vps_$(date +%F)/
+# Store the M3 audit JSON alongside. This is the per-chain LIVE evidence bundle.
+```
+
+## 10. Teardown (leaves production untouched)
+```bash
+docker rm -f arbicore-validator arbicore-validator-fe 2>/dev/null || true
+```
+
+NEXT (only on explicit human decision, out-of-band): controlled-live readiness
+checklist → provision a small-capital signer → first HUMAN-CONFIRMED single
+capped trade. Never flip LIMITED_LIVE/FULL_LIVE or provision a key during proving.
+Do NOT lower the $35 gate or weaken filters to manufacture a candidate.

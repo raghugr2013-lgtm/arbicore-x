@@ -15,12 +15,12 @@ import asyncio
 import logging
 import os
 import time
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ...data.mid.readers import MidReader
 from ...data.mid.writers import MidWriter
+from .ids import stable_live_id
 from ...economics import (
     compute_net_profit,
     VENUE_FEE_BPS,
@@ -144,8 +144,10 @@ class _BaseLiveXScanner:
     async def _emit(self, *, symbol: str, buy_side: Dict[str, Any],
                      sell_side: Dict[str, Any], net: Any,
                      provenance: Dict[str, Any]) -> None:
-        opp_id = (f"live:{self.opportunity_type}:"
-                  f"{symbol.replace('/','')}:{uuid.uuid4().hex[:8]}")
+        opp_id = stable_live_id(
+            opportunity_type=self.opportunity_type, chain=self.chain,
+            symbol=symbol, venue_buy=buy_side.get("venue"),
+            venue_sell=sell_side.get("venue"))
         payload = {
             "opportunity_type": self.opportunity_type,
             "chain": self.chain,

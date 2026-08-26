@@ -6,8 +6,8 @@
   "stages": {
     "rpc": {
       "ok": true,
-      "latency_ms": 235.3,
-      "block": 118162889
+      "latency_ms": 207.5,
+      "block": 118165426
     },
     "chain_identity": {
       "chain_id": 56,
@@ -76,8 +76,8 @@
         "dex": "pancakeswap_v3",
         "pool": "0x539e0ebfffd39e54a0f7e5f8fec40ade7933a664",
         "pool_token_depth": {
-          "WETH": 20.485525834581164,
-          "USDC": 56241.77257359749
+          "WETH": 20.518161793293768,
+          "USDC": 56162.236756009406
         }
       },
       "WETH/USDC@3000": {
@@ -86,7 +86,17 @@
         "pool_token_depth": {}
       }
     },
-    "native_price_usd": 698.13,
+    "native_price_usd": 697.92,
+    "native_price_oracle": {
+      "chain": "bnb",
+      "symbol": "BNB",
+      "price_usd": 697.92,
+      "ok": true,
+      "stale": false,
+      "age_s": 0.0,
+      "source": "coingecko",
+      "reason": "live"
+    },
     "provider_liquidity": {
       "aave_v3": {
         "provider": "aave_v3",
@@ -94,7 +104,7 @@
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 5,
         "liquidity_tokens": 4042.38053606686,
-        "liquidity_usd": 9948743.16111951,
+        "liquidity_usd": 9936211.781457704,
         "source_address": "0x2e94171493fabe316b6205f1585779c887771e2f",
         "reason": "confirmed"
       }
@@ -109,9 +119,9 @@
     },
     "gas_price_wei": 50000000,
     "all_in_cost": {
-      "all_in_cost_usd": 150.0130899375,
-      "net_profit_all_in_usd": -150.0130899375,
-      "l2_fee_usd": 0.0130899375,
+      "all_in_cost_usd": 150.013086,
+      "net_profit_all_in_usd": -150.013086,
+      "l2_fee_usd": 0.013085999999999999,
       "l1_fee_usd": 0.0,
       "flash_loan_fee_usd": 0.0,
       "slippage_usd": 150.0,
@@ -123,7 +133,7 @@
     "economics": {
       "min_net_profit_gate_usd": 35.0,
       "real_all_in_cost_usd": 175.0131,
-      "l2_fee_usd": 0.0130899375,
+      "l2_fee_usd": 0.013085999999999999,
       "l1_fee_usd": 0.0,
       "slippage_usd": 150.0,
       "flash_provider_fee_usd": 25.0,
@@ -139,7 +149,7 @@
     }
   },
   "fail_closed_events": [],
-  "rpc_url_host": "bsc-rpc.publicnode.com",
+  "rpc_url_host": "https://***.publicnode.com",
   "result": "LIVE_VALIDATED",
   "all_in_cost_available": true,
   "provider_feasible": true

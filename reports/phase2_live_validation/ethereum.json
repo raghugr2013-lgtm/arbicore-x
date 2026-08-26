@@ -6,8 +6,8 @@
   "stages": {
     "rpc": {
       "ok": true,
-      "latency_ms": 190.4,
-      "block": 25838307
+      "latency_ms": 213.0,
+      "block": 25838396
     },
     "chain_identity": {
       "chain_id": 1,
@@ -94,28 +94,38 @@
         "dex": "uniswap_v3",
         "pool": "0x88e6a0c2ddd26feeb64f039a2c41296fcb3f5640",
         "pool_token_depth": {
-          "WETH": 11660.315755820004,
-          "USDC": 77694109.609508
+          "WETH": 11667.65249865768,
+          "USDC": 77651623.647178
         }
       },
       "WETH/USDC@3000": {
         "dex": "uniswap_v3",
         "pool": "0x8ad599c3a0ff1de082011efddc58f1908eb6e6d8",
         "pool_token_depth": {
-          "WETH": 8302.653257650767,
-          "USDC": 21485135.517783
+          "WETH": 8309.26829835707,
+          "USDC": 21328865.588606
         }
       }
     },
-    "native_price_usd": 2461.11,
+    "native_price_usd": 2458.94,
+    "native_price_oracle": {
+      "chain": "ethereum",
+      "symbol": "ETH",
+      "price_usd": 2458.94,
+      "ok": true,
+      "stale": false,
+      "age_s": 0.0,
+      "source": "coingecko",
+      "reason": "live"
+    },
     "provider_liquidity": {
       "balancer_v2": {
         "provider": "balancer_v2",
         "chain": "ethereum",
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 0,
-        "liquidity_tokens": 1181.7022158520797,
-        "liquidity_usd": 2908299.140455712,
+        "liquidity_tokens": 1181.7178134885248,
+        "liquidity_usd": 2905773.2002994735,
         "source_address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
         "reason": "confirmed"
       },
@@ -124,8 +134,8 @@
         "chain": "ethereum",
         "status": "ON_CHAIN_CONFIRMED",
         "fee_bps": 5,
-        "liquidity_tokens": 313130.70587854483,
-        "liquidity_usd": 770649111.5447456,
+        "liquidity_tokens": 312980.3407721213,
+        "liquidity_usd": 769599879.1381999,
         "source_address": "0x4d5f47fa6a74757f35c14fd3a6ef8e3c9bc514e8",
         "reason": "confirmed"
       }
@@ -138,27 +148,27 @@
       "callback_extra_gas": 90000,
       "reason": "cheapest_feasible_provider"
     },
-    "gas_price_wei": 43794731,
+    "gas_price_wei": 39215609,
     "all_in_cost": {
-      "all_in_cost_usd": 150.04041886835054,
-      "net_profit_all_in_usd": -150.04041886835054,
-      "l2_fee_usd": 0.040418868350529,
+      "all_in_cost_usd": 150.03608012694474,
+      "net_profit_all_in_usd": -150.03608012694474,
+      "l2_fee_usd": 0.036080126944752,
       "l1_fee_usd": 0.0,
       "flash_loan_fee_usd": 0.0,
       "slippage_usd": 150.0,
       "gas_units": 300000.0,
-      "gas_price_wei_ceiling": 54743413.0,
+      "gas_price_wei_ceiling": 48910136.0,
       "chain": "ethereum",
       "native_token": "ETH"
     },
     "economics": {
       "min_net_profit_gate_usd": 35.0,
-      "real_all_in_cost_usd": 150.0404,
-      "l2_fee_usd": 0.040418868350529,
+      "real_all_in_cost_usd": 150.0361,
+      "l2_fee_usd": 0.036080126944752,
       "l1_fee_usd": 0.0,
       "slippage_usd": 150.0,
       "flash_provider_fee_usd": 0.0,
-      "gross_edge_required_to_pass_usd": 185.0404,
+      "gross_edge_required_to_pass_usd": 185.0361,
       "note": "SHADOW: no live gross edge asserted; costs are real on-chain."
     },
     "readiness": {
@@ -170,7 +180,7 @@
     }
   },
   "fail_closed_events": [],
-  "rpc_url_host": "ethereum-rpc.publicnode.com",
+  "rpc_url_host": "https://***.publicnode.com",
   "result": "LIVE_VALIDATED",
   "all_in_cost_available": true,
   "provider_feasible": true
