@@ -29,8 +29,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 from eth_utils import function_signature_to_4byte_selector  # noqa: E402
 
 from arbicore.chains.evm_adapter import EvmChainAdapter  # noqa: E402
-from arbicore.chains.gas_model import get_chain_gas_model  # noqa: E402
-from arbicore.chains.evm_gas import CHAIN_SPECS  # noqa: E402
+from arbicore.chains.evm_gas import CHAIN_SPECS, make_evm_gas_model  # noqa: E402
+
 from arbicore.providers.rpc import EthJsonRpcProvider, DEFAULT_RPC_URLS  # noqa: E402
 from arbicore.scanners.flash_loan_arbitrage import provider_liquidity as PL  # noqa: E402
 from arbicore.scanners.flash_loan_arbitrage.flash_provider_optimizer import (  # noqa: E402
@@ -226,7 +226,7 @@ async def validate(chain):
                             "reason": choice.reason}
 
     # 7) Gas price + L1/security fee + all-in cost via the chain gas model.
-    gm = get_chain_gas_model(chain)
+    gm = make_evm_gas_model(chain)
     try:
         gp = await p.eth_get_gas_price()
         S["gas_price_wei"] = gp

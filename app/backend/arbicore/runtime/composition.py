@@ -1073,12 +1073,28 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             except Exception:
                 pass
 
-        # Real Base pool universe (SAME graph the OpportunityEngine uses).
+        # Real Base pool universe (SAME graph the OpportunityEngine uses) —
+        # kept exactly as-is (regression-frozen).
         from ..discovery.base_venues import CHAIN as _BASE_CHAIN, build_pool_graph as _bpg
+        from ..discovery.multichain_venues import (
+            build_pool_graph as _mc_pool_graph, supported_discovery_chains)
+        from ..config.persistent import resolve_rpc_url_from_env
         _base_pools, _ = _bpg()
 
-        def _base_pool_loader(chain: str):
-            return _base_pools if chain == _BASE_CHAIN else []
+        def _multichain_pool_loader(chain: str):
+            """Generic multi-chain pool universe (SHADOW, fail-closed).
+
+            Base → the dedicated frozen graph. Other Phase-2 chains → the
+            verified-registry venue universe, but ONLY when an RPC is configured
+            for that chain (no RPC ⇒ empty ⇒ discovery fails closed). Concrete
+            pools/quotes/TVL are resolved on-chain downstream. Unknown chain ⇒ [].
+            """
+            c = (chain or "").lower()
+            if c == _BASE_CHAIN:
+                return _base_pools
+            if c in supported_discovery_chains() and resolve_rpc_url_from_env(c):
+                return _mc_pool_graph(c)
+            return []
 
         _flash_loan_arb_scanner = FlashLoanArbitrageScanner(
             emission_bus=get_emission_bus(),
@@ -1086,7 +1102,7 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             venue_capability_repo=get_venue_capability_repo(),
             config_loader=_load_cfg,
             state_loader=_load_state,
-            pool_loader=_base_pool_loader,
+            pool_loader=_multichain_pool_loader,
             quote_provider=None,   # set to the live provider at activation
             chain_liveness_loader=None,
             confidence_engine=get_confidence_engine(),
