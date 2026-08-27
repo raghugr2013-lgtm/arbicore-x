@@ -9,7 +9,7 @@ import json
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://arbitrum-launch-1.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://elated-banach-10.preview.emergentagent.com").rstrip("/")
 EXPECTED_ADDR = "0x998d6efF2b28b72c44f7a334c42678eb4cCaad25"
 HEX64_RE = re.compile(r"(?<![0-9a-fA-Fx])[0-9a-fA-F]{64}(?![0-9a-fA-F])")
 LEAK_TOKENS = ["private_key", "signed_tx", "raw_tx", "eth_sendTransaction",

@@ -7649,9 +7649,15 @@ async def _live_market_startup():
         notional_usd=float(os.environ.get(
             "LIVE_QUOTE_NOTIONAL_USD", "10000") or 10000),
     )
-    if os.environ.get("LIVE_MARKET_AUTOSTART", "1") == "1":
+    # LEGACY PIPELINE GATE (audit 2026-06): the LiveMarketScanner writes into the
+    # legacy MID store ("opportunities" domain), which is a SEPARATE feed from the
+    # canonical EmissionBus → arbicore_opportunities pipeline. To prevent
+    # duplicate/conflicting opportunity generation, this OBSERVE-mode scanner is
+    # now OPT-IN (default OFF). Set LIVE_MARKET_AUTOSTART=1 to re-enable. This
+    # never signs/broadcasts; it only stops a parallel opportunity feed.
+    if os.environ.get("LIVE_MARKET_AUTOSTART", "0") == "1":
         await _LIVE_SCANNER.start()
-        logger.info("live_market: autostarted")
+        logger.info("live_market: autostarted (LIVE_MARKET_AUTOSTART=1)")
 
 
 @app.on_event("shutdown")
@@ -7753,16 +7759,21 @@ async def _cross_scanner_startup():
         notional_usd=float(os.environ.get(
             "CROSS_NOTIONAL_USD", "10000") or 10000),
     )
+    # LEGACY PIPELINE GATE (audit 2026-06): CexDex/DexDex scanners feed the legacy
+    # MID store, a SEPARATE feed from the canonical EmissionBus → arbicore_opportunities
+    # pipeline. Made OPT-IN (default OFF) to prevent duplicate/conflicting opportunity
+    # generation. Set CROSS_AUTOSTART=1 to re-enable. OBSERVE-mode only; never
+    # signs/broadcasts.
     if _CEX_DEX_SCANNER is None:
         _CEX_DEX_SCANNER = CexDexScanner(**common)
-        if os.environ.get("CROSS_AUTOSTART", "1") == "1":
+        if os.environ.get("CROSS_AUTOSTART", "0") == "1":
             await _CEX_DEX_SCANNER.start()
-            logger.info("live_cex_dex: autostarted")
+            logger.info("live_cex_dex: autostarted (CROSS_AUTOSTART=1)")
     if _DEX_DEX_SCANNER is None:
         _DEX_DEX_SCANNER = DexDexScanner(**common)
-        if os.environ.get("CROSS_AUTOSTART", "1") == "1":
+        if os.environ.get("CROSS_AUTOSTART", "0") == "1":
             await _DEX_DEX_SCANNER.start()
-            logger.info("live_dex_dex: autostarted")
+            logger.info("live_dex_dex: autostarted (CROSS_AUTOSTART=1)")
 
 
 @app.on_event("shutdown")

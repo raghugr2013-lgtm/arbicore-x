@@ -115,8 +115,8 @@ class ScannerCadence:
             cross_interval_s=_env_float("CROSS_TICK_INTERVAL_SECONDS", 25),
             cross_min_net_bps=_env_float("CROSS_MIN_NET_BPS", 8),
             cross_notional_usd=_env_float("CROSS_NOTIONAL_USD", 10000),
-            autostart_live_market=_env_bool("LIVE_MARKET_AUTOSTART", True),
-            autostart_cross=_env_bool("CROSS_AUTOSTART", True),
+            autostart_live_market=_env_bool("LIVE_MARKET_AUTOSTART", False),
+            autostart_cross=_env_bool("CROSS_AUTOSTART", False),
         )
 
 
