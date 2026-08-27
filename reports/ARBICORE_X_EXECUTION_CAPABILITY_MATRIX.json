@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "artifact": "ArbiCore X — Execution Capability Matrix",
+    "date": "2026-08-27",
+    "deployed_executor": "Balancer V2 flash-loan + Uniswap V3 swaps (UniV3-only by design)",
+    "source": "arbicore/economics/opportunity_engine.py::_execution_capability / _univ3_swaphops / classify_route",
+    "principle": "A route is NEVER executable merely because economics are positive. Executable requires the deployed executor to support EVERY leg AND the full atomic simulation to pass.",
+    "safety": "Aerodrome/Slipstream/mixed routes are DISCOVERY + SETTLEMENT-SIM (intelligence) ONLY and are hard-gated NON_EXECUTABLE_BY_CURRENT_EXECUTOR."
+  },
+  "venues": {
+    "uniswap_v3": {
+      "discovery": true, "quote": true, "economics": true, "calldata": true,
+      "settlement_simulation": true, "atomic_simulation": true,
+      "executor_support": true, "final_executable_status": "EXECUTABLE_UNIV3"
+    },
+    "aerodrome_classic": {
+      "discovery": true, "quote": true, "economics": true, "calldata": true,
+      "settlement_simulation": true, "atomic_simulation": false,
+      "executor_support": false, "final_executable_status": "NON_EXECUTABLE_BY_CURRENT_EXECUTOR (intelligence-only)"
+    },
+    "aerodrome_slipstream": {
+      "discovery": true, "quote": true, "economics": true, "calldata": "partial",
+      "settlement_simulation": true, "atomic_simulation": false,
+      "executor_support": false, "final_executable_status": "NON_EXECUTABLE_BY_CURRENT_EXECUTOR (intelligence-only)"
+    },
+    "mixed_univ3_aerodrome": {
+      "discovery": true, "quote": true, "economics": true, "calldata": false,
+      "settlement_simulation": "per-leg only", "atomic_simulation": false,
+      "executor_support": false, "final_executable_status": "NON_EXECUTABLE_BY_CURRENT_EXECUTOR (intelligence-only)"
+    }
+  },
+  "answer_to_section_9": "The deployed flash-loan executor is INTENTIONALLY Uniswap-V3-only (Balancer V2 flash + UniV3 swaps). The safety gate (would_execute AND exec_capability != EXECUTABLE_UNIV3 -> non-executable) is correct and must be kept. Aerodrome adapters/settlement simulator exist for INTELLIGENCE + settlement simulation, not live execution. No Aerodrome/mixed route may be marked executable until a complete atomic executor path + full simulation tests exist."
+}
