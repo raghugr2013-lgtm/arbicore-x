@@ -175,6 +175,9 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
             mev_risk_level=mev_view["level"],
             gas_cost_usd_override=facts.get("gas_cost_usd"),
             tx_gas_units=facts.get("tx_gas_units"),
+            # Authoritative live path: gross came from the real on-chain quote
+            # (pool swap fees already embedded) → do not deduct them again.
+            gross_is_quote_inclusive=True,
         )
         ev["econ"] = econ
 

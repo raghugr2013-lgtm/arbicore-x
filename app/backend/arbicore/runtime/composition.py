@@ -672,7 +672,8 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                             gross_profit_pct=float(facts.get("gross_profit_pct") or 0.0),
                             mev_risk_level=mev_view["level"],
                             gas_cost_usd_override=facts.get("gas_cost_usd"),
-                            tx_gas_units=facts.get("tx_gas_units"))
+                            tx_gas_units=facts.get("tx_gas_units"),
+                            gross_is_quote_inclusive=True)
             stage = "head_block"
             head = None
             try:

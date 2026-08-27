@@ -91,8 +91,10 @@ See ARBICORE_X_CERTIFICATION_MATRIX.md. Base = live read-only dry-run proven (Un
 No LIMITED-LIVE certification.
 
 ## T. Known issues
-1. **DEX swap-fee DOUBLE-COUNT (CONFIRMED)** in the authoritative FlashLoan verifier path — see §4 report.
-   Direction: understates atomic_profit → OVER-rejection (fail-closed-safe, but suppresses genuine ops).
+1. **DEX swap-fee DOUBLE-COUNT — FIXED (2026-08, preview-verified; not yet promoted to VPS Shadow)**
+   in `FlashLoanEconomicsAssessor.assess` via `gross_is_quote_inclusive` (default True → per-hop
+   swap_fee legs carry fee_bps=0 in the live quote path; observed fee kept as telemetry). Estimated
+   path unchanged. Verified: testing_agent iteration_4 (8/8 new + 98/98 regression, 0 issues).
 2. Base Aerodrome/Slipstream TVL needs a non-throttled RPC to complete Gate-8 (public RPC throttles).
 3. Two parallel economics models (verifier vs triangular) — must document authoritative path (done).
 
