@@ -111,7 +111,10 @@ def make_base_all_in_cost_estimator_from_env() -> Optional[CostEstimator]:
                        eth_usd: Optional[float], tx_bytes: Optional[str] = None,
                        estimate_gas_fn: Optional[Callable[[], Awaitable[int]]] = None
                        ) -> Optional[Dict[str, float]]:
+        import logging as _lg
+        _LOG = _lg.getLogger("arbicore.m3.all_in_cost")
         if eth_usd is None or eth_usd <= 0:
+            _LOG.warning("all_in_cost DENY reason=eth_usd_unavailable value=%r", eth_usd)
             return None
         # (1) exact gas units — prefer eth_estimateGas of the constructed tx.
         if estimate_gas_fn is not None:
@@ -121,19 +124,25 @@ def make_base_all_in_cost_estimator_from_env() -> Optional[CostEstimator]:
                 return None
         if (gas_units is None or gas_units <= 0
                 or gas_units > cfg.gas_limit_ceiling):
+            _LOG.warning("all_in_cost DENY reason=gas_units_invalid value=%r ceiling=%d",
+                         gas_units, cfg.gas_limit_ceiling)
             return None
         # (2) gas price ceiling = real gas price × (1+buffer), capped.
         try:
             gp = await provider.eth_get_gas_price()
         except Exception:  # noqa: BLE001
+            _LOG.warning("all_in_cost DENY reason=gas_price_read_failed")
             return None
         if not gp or gp <= 0:
+            _LOG.warning("all_in_cost DENY reason=gas_price_unavailable value=%r", gp)
             return None
         gp_buffered = int(gp * (1.0 + cfg.gas_price_buffer_pct))
         # If the real (buffered) gas price is ABOVE our safety ceiling, gas is
         # too expensive to trade safely — DENY (never silently cap, which would
         # understate the L2 fee and could approve a loss-making trade).
         if gp_buffered > cfg.max_gas_price_wei:
+            _LOG.warning("all_in_cost DENY reason=gas_price_above_ceiling "
+                         "buffered=%d max=%d", gp_buffered, cfg.max_gas_price_wei)
             return None
         gp_ceiling = gp_buffered
         l2_fee_usd = (float(gas_units) * gp_ceiling / 1e18) * eth_usd
@@ -144,12 +153,15 @@ def make_base_all_in_cost_estimator_from_env() -> Optional[CostEstimator]:
             raw = await provider.eth_call(
                 {"to": GAS_PRICE_ORACLE, "data": _encode_get_l1_fee(n_bytes)})
         except Exception:  # noqa: BLE001
+            _LOG.warning("all_in_cost DENY reason=l1_gaspriceoracle_read_failed")
             return None
         if not raw or raw in ("0x", "0x0"):
+            _LOG.warning("all_in_cost DENY reason=l1_fee_unavailable raw=%r", raw)
             return None
         try:
             l1_wei = int(raw, 16)
         except (TypeError, ValueError):
+            _LOG.warning("all_in_cost DENY reason=l1_fee_unparseable raw=%r", raw)
             return None
         l1_fee_usd = (l1_wei / 1e18) * eth_usd
         # (4) flash-loan fee + (5) slippage/risk allowance.

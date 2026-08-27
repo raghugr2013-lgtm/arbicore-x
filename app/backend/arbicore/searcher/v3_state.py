@@ -186,6 +186,8 @@ def make_base_v3_reserves_fn(
     Fail-closed on missing meta or malformed reads.
     """
     async def reserves_fn(chain: str, pool: str):
+        import logging as _lg
+        _LOG = _lg.getLogger("arbicore.tvl.v3_reserves")
         meta = pool_meta.get((pool or "").lower())
         if meta is None:
             # Runtime-resolved pools (Aerodrome/Slipstream) are written into the
@@ -201,20 +203,29 @@ def make_base_v3_reserves_fn(
             except Exception:  # noqa: BLE001
                 cp = None
             if cp is None:
+                _LOG.warning("tvl DENY pool=%s tvl_error=pool_metadata_unresolved", pool)
                 return None
             meta = (cp.token0_symbol, cp.token0_address, cp.token0_decimals,
                     cp.token1_symbol, cp.token1_address, cp.token1_decimals)
         t0_id, t0_addr, d0, t1_id, t1_addr, d1 = meta
         raw0 = await eth_call(t0_addr, _balanceof_data(pool))
         raw1 = await eth_call(t1_addr, _balanceof_data(pool))
-        if not raw0 or not raw1:
+        if not raw0:
+            _LOG.warning("tvl DENY pool=%s tvl_error=balanceOf_token0_empty token=%s", pool, t0_id)
+            return None
+        if not raw1:
+            _LOG.warning("tvl DENY pool=%s tvl_error=balanceOf_token1_empty token=%s", pool, t1_id)
             return None
         try:
             r0 = int(raw0, 16) / (10 ** int(d0))
             r1 = int(raw1, 16) / (10 ** int(d1))
         except (ValueError, TypeError):
+            _LOG.warning("tvl DENY pool=%s tvl_error=decimals_or_balance_unparseable "
+                         "d0=%r d1=%r", pool, d0, d1)
             return None
         if r0 <= 0 or r1 <= 0:
+            _LOG.warning("tvl DENY pool=%s tvl_error=nonpositive_reserves r0=%r r1=%r",
+                         pool, r0, r1)
             return None
         return (t0_id, r0, t1_id, r1)
     return reserves_fn
