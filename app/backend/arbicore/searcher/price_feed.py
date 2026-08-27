@@ -178,7 +178,11 @@ class OnChainUsdPriceFeed:
                         "quoter": q.get("quoter"),
                         "source": "onchain_usdc_direct",
                         "path": [token, num], "pools": [direct["_pool"]]}
-            return None
+            # Direct pool exists in the registry but its on-chain quote failed
+            # (e.g. thin/absent liquidity on the direct pair — real on Base for
+            # cbETH/USDC). Do NOT fail outright: fall through to the genuine
+            # two-hop T → WETH → USDC route below. Fail-closed is preserved —
+            # if the two-hop also fails we still return None.
         # two-hop T → WETH → USDC
         if token != "WETH":
             h1 = self._hop(token, "WETH", unit)

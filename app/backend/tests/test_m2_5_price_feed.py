@@ -103,6 +103,59 @@ def test_via_weth_two_hop_pricing_for_token_without_direct_usdc_pool():
     assert prov["path"] == ["WEETH", "WETH", "USDC"]
 
 
+# ── cbETH: direct /USDC pool EXISTS in registry but is unpriceable on-chain ──
+# (real on Base — cbETH/USDC 0.05% has ~no liquidity). The direct quote must
+# NOT short-circuit to None; the feed must fall through to the genuine two-hop
+# cbETH → WETH → USDC route (deep liquidity). Regression for the live VPS
+# WETH=priced / cbETH=None blocker.
+def test_cbeth_direct_quote_fails_falls_through_to_two_hop():
+    hop_lens = []
+
+    async def route_fn(hops):
+        hop_lens.append(len(hops))
+        if len(hops) == 1:
+            return None            # direct cbETH/USDC pool exists but no liquidity
+        return _usdc_out(2493.0)   # two-hop cbETH→WETH→USDC succeeds
+
+    feed = _feed(route_fn)
+    px = _run(feed.price_source("cbETH"))
+    assert px is not None and abs(px - 2493.0) < 1e-6
+    prov = feed.provenance_for(["cbETH"])[0]
+    assert prov["source"] == "onchain_usdc_via_weth"
+    assert prov["path"] == ["CBETH", "WETH", "USDC"]
+    assert prov["status"] == "ok"
+    assert len(prov["pools"]) == 2
+    # direct attempted FIRST (1 hop), then the two-hop fallback (2 hops).
+    assert hop_lens == [1, 2]
+
+
+def test_cbeth_both_routes_fail_stays_fail_closed():
+    # Direct AND two-hop both unpriceable → None (Gate 8 fails closed as today).
+    async def route_fn(hops):
+        return None
+
+    feed = _feed(route_fn)
+    assert _run(feed.price_source("cbETH")) is None
+    assert feed.provenance_for(["cbETH"])[0]["status"] == "quote_failed"
+
+
+def test_cbeth_direct_quote_used_when_it_succeeds():
+    # Control: when the direct pool IS priceable, keep direct (no needless hop).
+    hop_lens = []
+
+    async def route_fn(hops):
+        hop_lens.append(len(hops))
+        return _usdc_out(2500.0)
+
+    feed = _feed(route_fn)
+    px = _run(feed.price_source("cbETH"))
+    assert px is not None and abs(px - 2500.0) < 1e-6
+    prov = feed.provenance_for(["cbETH"])[0]
+    assert prov["source"] == "onchain_usdc_direct"
+    assert prov["path"] == ["CBETH", "USDC"]
+    assert hop_lens == [1]  # only the direct hop is quoted
+
+
 # ── stablecoin peg guard ────────────────────────────────────────────────────
 def test_stable_in_band_passes():
     async def route_fn(hops):
