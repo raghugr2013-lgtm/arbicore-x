@@ -40,6 +40,7 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 (Note: the older MEV `congestion=None` TypeError from the handoff is ALREADY fixed at this baseline — `fresh_fn` DENYs before `mev.classify`.)
 
 ## Backlog / next (SHADOW-safe)
+- DONE (2026-06 Base SHADOW dry run): read-only dry run vs real Base RPC (public mainnet.base.org). Fixed QuoterRegistry RPC precedence (now honors ARBICORE_RPC_URL_BASE) → real quotes + genuine UniV3 Gate-8 TVL ($8.48M onchain_reserves) proven; MEV genuine (eth_feeHistory); Balancer vault 24.217 WETH; all candidates fail-closed DENIED, broadcast_sent=false. testing_agent iteration_2: 4/4 fix + 49/49 regression. Report: reports/BASE_SHADOW_DRYRUN_2026-06.md.
 - DONE (2026-06 completion pass): repaired 3 stale tests (multi-chain gas-model + shadow-cert provenance fake) without weakening production; fixed `resolved_addresses()` to include genuinely on-chain-resolved (RUNTIME_RESOLVED) Aerodrome/Slipstream addresses (fail-closed) + new test; made canonical Opportunities view the default landing (`AppShell` index → Navigate to opportunities). testing_agent iteration_1: backend 76/76 + 3/3 curl, frontend 5/5, 0 issues. See `reports/COMPLETION_ADDENDUM_2026-06.md`.
 - P1: Empirically validate Aerodrome/Slipstream address+TVL resolution on real Base RPC (Gate 8) — propagation code already present; needs live RPC (no fabrication).
 - P1: Genuinely profitable real opportunity reaching GREEN end-to-end (fail-closed dry-run) before any evidence-gated LIMITED-LIVE plan.

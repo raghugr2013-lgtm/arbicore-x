@@ -1,0 +1,419 @@
+{
+  "env": {
+    "ARBICORE_RPC_URL_BASE": "https://mainnet.\u2026",
+    "ARBICORE_RPC_URL": null,
+    "ARBICORE_USD_NUMERAIRE": "USDC",
+    "ARBICORE_AERO_CL_FACTORY_BASE": null,
+    "BASE_BALANCER_V2_VAULT": null
+  },
+  "head_block": 50516942,
+  "candidates": [
+    {
+      "name": "WETH/USDC univ3 fee-tier (500->3000)",
+      "plan": {
+        "strategy": "flash_loan_arbitrage",
+        "chain": "base",
+        "opportunity_id": "scan:WETH/USDC univ3 fee-tier (500->3000)",
+        "borrow_token": "WETH",
+        "borrow_amount_usd": 10000.0,
+        "flash_loan_provider": "balancer_v2",
+        "route_pools": [
+          "uniswap_v3:USDC:WETH:500",
+          "uniswap_v3:USDC:WETH:3000"
+        ],
+        "cycle_token_path": [
+          "WETH",
+          "USDC",
+          "WETH"
+        ],
+        "quoted_block": 50516942,
+        "deadline_ts": 1787823353.8375597
+      },
+      "real_numbers": {
+        "route_quote_status": "ok",
+        "gross_profit_pct": -0.184929845051022,
+        "min_pool_tvl_usd_in_route": 8482813.073833803,
+        "tvl_provenance": "onchain_reserves",
+        "mev": {
+          "congestion_pct": 39.222280675,
+          "congestion_source": "eth_feeHistory.gasUsedRatio",
+          "level": "MevRiskLevel.MEDIUM",
+          "label": "MEDIUM",
+          "score": 57.2,
+          "mev_ok": true
+        },
+        "flashloan_available": true,
+        "flashloan_vault_balance": 24.217037823296348
+      },
+      "aero_propagated": 0,
+      "pools": [
+        {
+          "pool_id": "uniswap_v3:USDC:WETH:500",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "uniswap_v3",
+            "fee": 500
+          },
+          "canonical_resolved": true,
+          "real_address": "0xd0b53D9277642d899DF5C87A3966A349A798F224",
+          "onchain_tvl_usd": 8482813.073833803,
+          "tvl_error": null
+        },
+        {
+          "pool_id": "uniswap_v3:USDC:WETH:3000",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "uniswap_v3",
+            "fee": 3000
+          },
+          "canonical_resolved": true,
+          "real_address": "0x6c561B446416E1A00E8E93E221854d6eA4171372",
+          "onchain_tvl_usd": 116356551.92017871,
+          "tvl_error": null
+        }
+      ],
+      "first_blocking_stage": "none - all fresh stages resolved (validation should be GREEN)",
+      "m3_final_gates": {
+        "ok": false,
+        "gates": {
+          "revalidation": "DENIED"
+        },
+        "reasons": [
+          "revalidation: fresh market read unavailable"
+        ]
+      }
+    },
+    {
+      "name": "WETH/USDC cross-DEX (univ3 500 -> aerodrome slipstream)",
+      "plan": {
+        "strategy": "flash_loan_arbitrage",
+        "chain": "base",
+        "opportunity_id": "scan:WETH/USDC cross-DEX (univ3 500 -> aerodrome slipstream)",
+        "borrow_token": "WETH",
+        "borrow_amount_usd": 10000.0,
+        "flash_loan_provider": "balancer_v2",
+        "route_pools": [
+          "uniswap_v3:USDC:WETH:500",
+          "aerodrome_slipstream:USDC:WETH:100"
+        ],
+        "cycle_token_path": [
+          "WETH",
+          "USDC",
+          "WETH"
+        ],
+        "quoted_block": 50516942,
+        "deadline_ts": 1787823367.0958111
+      },
+      "real_numbers": {
+        "route_quote_status": "ok",
+        "gross_profit_pct": -0.102256983281024,
+        "min_pool_tvl_usd_in_route": 0.0,
+        "tvl_provenance": "onchain_reserves",
+        "mev": {
+          "congestion_pct": 31.53648305,
+          "congestion_source": "eth_feeHistory.gasUsedRatio",
+          "level": "MevRiskLevel.MEDIUM",
+          "label": "MEDIUM",
+          "score": 49.5,
+          "mev_ok": true
+        },
+        "flashloan_available": "None (missing balance or borrow price)",
+        "flashloan_vault_balance": null
+      },
+      "aero_propagated": 0,
+      "pools": [
+        {
+          "pool_id": "uniswap_v3:USDC:WETH:500",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "uniswap_v3",
+            "fee": 500
+          },
+          "canonical_resolved": true,
+          "real_address": "0xd0b53D9277642d899DF5C87A3966A349A798F224",
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        },
+        {
+          "pool_id": "aerodrome_slipstream:USDC:WETH:100",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "aerodrome_slipstream",
+            "tick_spacing": 100
+          },
+          "canonical_resolved": true,
+          "real_address": null,
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        }
+      ],
+      "first_blocking_stage": "stage_7_flashloan_availability not True (None (missing balance or borrow price))",
+      "m3_final_gates": {
+        "ok": false,
+        "gates": {
+          "revalidation": "DENIED"
+        },
+        "reasons": [
+          "revalidation: fresh market read unavailable"
+        ]
+      }
+    },
+    {
+      "name": "USDC/USDT stable cross-DEX (univ3 100 -> aerodrome classic)",
+      "plan": {
+        "strategy": "flash_loan_arbitrage",
+        "chain": "base",
+        "opportunity_id": "scan:USDC/USDT stable cross-DEX (univ3 100 -> aerodrome classic)",
+        "borrow_token": "USDC",
+        "borrow_amount_usd": 10000.0,
+        "flash_loan_provider": "balancer_v2",
+        "route_pools": [
+          "uniswap_v3:USDC:USDT:100",
+          "aerodrome:USDC:USDT:stable"
+        ],
+        "cycle_token_path": [
+          "USDC",
+          "USDT",
+          "USDC"
+        ],
+        "quoted_block": 50516942,
+        "deadline_ts": 1787823378.7194161
+      },
+      "real_numbers": {
+        "route_quote_status": "ok",
+        "gross_profit_pct": -0.178152,
+        "min_pool_tvl_usd_in_route": 0.0,
+        "tvl_provenance": "onchain_reserves",
+        "mev": {
+          "congestion_pct": 29.058054825000003,
+          "congestion_source": "eth_feeHistory.gasUsedRatio",
+          "level": "MevRiskLevel.MEDIUM",
+          "label": "MEDIUM",
+          "score": 47.1,
+          "mev_ok": true
+        },
+        "flashloan_available": true,
+        "flashloan_vault_balance": 57019.314398
+      },
+      "aero_propagated": 0,
+      "pools": [
+        {
+          "pool_id": "uniswap_v3:USDC:USDT:100",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "uniswap_v3",
+            "fee": 100
+          },
+          "canonical_resolved": true,
+          "real_address": "0xD56da2B74bA826f19015E6B7Dd9Dae1903E85DA1",
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        },
+        {
+          "pool_id": "aerodrome:USDC:USDT:stable",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "aerodrome",
+            "stable": true
+          },
+          "canonical_resolved": true,
+          "real_address": null,
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        }
+      ],
+      "first_blocking_stage": "none - all fresh stages resolved (validation should be GREEN)",
+      "m3_final_gates": {
+        "ok": false,
+        "gates": {
+          "revalidation": "DENIED"
+        },
+        "reasons": [
+          "revalidation: fresh market read unavailable"
+        ]
+      }
+    },
+    {
+      "name": "WETH->USDC->cbETH->WETH triangular (univ3)",
+      "plan": {
+        "strategy": "flash_loan_arbitrage",
+        "chain": "base",
+        "opportunity_id": "scan:WETH->USDC->cbETH->WETH triangular (univ3)",
+        "borrow_token": "WETH",
+        "borrow_amount_usd": 10000.0,
+        "flash_loan_provider": "balancer_v2",
+        "route_pools": [
+          "uniswap_v3:USDC:WETH:500",
+          "uniswap_v3:USDC:cbETH:500",
+          "uniswap_v3:WETH:cbETH:500"
+        ],
+        "cycle_token_path": [
+          "WETH",
+          "USDC",
+          "cbETH",
+          "WETH"
+        ],
+        "quoted_block": 50516942,
+        "deadline_ts": 1787823381.0900521
+      },
+      "real_numbers": {
+        "route_quote_status": "partial",
+        "gross_profit_pct": -99.9999997105022,
+        "min_pool_tvl_usd_in_route": 0.0,
+        "tvl_provenance": "onchain_reserves",
+        "mev": {
+          "congestion_pct": 29.691406975,
+          "congestion_source": "eth_feeHistory.gasUsedRatio",
+          "level": "MevRiskLevel.MEDIUM",
+          "label": "MEDIUM",
+          "score": 47.7,
+          "mev_ok": true
+        },
+        "flashloan_available": "None (missing balance or borrow price)",
+        "flashloan_vault_balance": null
+      },
+      "aero_propagated": 0,
+      "pools": [
+        {
+          "pool_id": "uniswap_v3:USDC:WETH:500",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "uniswap_v3",
+            "fee": 500
+          },
+          "canonical_resolved": true,
+          "real_address": "0xd0b53D9277642d899DF5C87A3966A349A798F224",
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        },
+        {
+          "pool_id": "uniswap_v3:USDC:cbETH:500",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "uniswap_v3",
+            "fee": 500
+          },
+          "canonical_resolved": true,
+          "real_address": "0xFdebEDc97D56EDd31AbdcB887570546B257964f2",
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        },
+        {
+          "pool_id": "uniswap_v3:WETH:cbETH:500",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "uniswap_v3",
+            "fee": 500
+          },
+          "canonical_resolved": true,
+          "real_address": "0x10648BA41B8565907Cfa1496765fA4D95390aa0d",
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        }
+      ],
+      "first_blocking_stage": "stage_6 quote status != ok -> fresh_quote gate will DENY (status=partial)",
+      "m3_final_gates": {
+        "ok": false,
+        "gates": {
+          "revalidation": "DENIED"
+        },
+        "reasons": [
+          "revalidation: fresh market read unavailable"
+        ]
+      }
+    },
+    {
+      "name": "WETH/wstETH cross-DEX (univ3 100 -> aerodrome slipstream 1)",
+      "plan": {
+        "strategy": "flash_loan_arbitrage",
+        "chain": "base",
+        "opportunity_id": "scan:WETH/wstETH cross-DEX (univ3 100 -> aerodrome slipstream 1)",
+        "borrow_token": "WETH",
+        "borrow_amount_usd": 10000.0,
+        "flash_loan_provider": "balancer_v2",
+        "route_pools": [
+          "uniswap_v3:WETH:wstETH:100",
+          "aerodrome_slipstream:WETH:wstETH:1"
+        ],
+        "cycle_token_path": [
+          "WETH",
+          "wstETH",
+          "WETH"
+        ],
+        "quoted_block": 50516942,
+        "deadline_ts": 1787823398.2171812
+      },
+      "real_numbers": {
+        "route_quote_status": "ok",
+        "gross_profit_pct": -0.013254163925576,
+        "min_pool_tvl_usd_in_route": 0.0,
+        "tvl_provenance": "onchain_reserves",
+        "mev": {
+          "congestion_pct": 24.949258625000002,
+          "congestion_source": "eth_feeHistory.gasUsedRatio",
+          "level": "MevRiskLevel.MEDIUM",
+          "label": "MEDIUM",
+          "score": 42.9,
+          "mev_ok": true
+        },
+        "flashloan_available": true,
+        "flashloan_vault_balance": 24.217037823296348
+      },
+      "aero_propagated": 0,
+      "pools": [
+        {
+          "pool_id": "uniswap_v3:WETH:wstETH:100",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "uniswap_v3",
+            "fee": 100
+          },
+          "canonical_resolved": true,
+          "real_address": "0x20E068D76f9E90b90604500B84c7e19dCB923e7e",
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        },
+        {
+          "pool_id": "aerodrome_slipstream:WETH:wstETH:1",
+          "spec_found_in_graph": true,
+          "spec": {
+            "dex": "aerodrome_slipstream",
+            "tick_spacing": 1
+          },
+          "canonical_resolved": true,
+          "real_address": null,
+          "onchain_tvl_usd": null,
+          "tvl_error": null
+        }
+      ],
+      "first_blocking_stage": "none - all fresh stages resolved (validation should be GREEN)",
+      "m3_final_gates": {
+        "ok": false,
+        "gates": {
+          "revalidation": "DENIED"
+        },
+        "reasons": [
+          "revalidation: fresh market read unavailable"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "candidates_scanned": 5,
+    "green": 0,
+    "best_green_candidate": null,
+    "broadcast_sent": false,
+    "safe": true
+  },
+  "validator_constructed": true,
+  "breaker_constructed": true,
+  "broadcast_ladder": {
+    "broadcast_sent": false,
+    "denied_reasons": [
+      "mode_gate: strategy 'flash_loan_arbitrage' is 'SHADOW'",
+      "secret_resolution: BroadcastError: plan has no signer_wallet_id",
+      "calldata_encoding: ValueError: plan has no borrow step",
+      "slippage_guard: no swap hops / empty userData \u2014 refusing zero-swap flash on a live-capable path"
+    ]
+  }
+}

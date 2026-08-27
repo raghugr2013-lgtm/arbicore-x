@@ -538,8 +538,22 @@ class QuoterRegistry:
     def supported_dexes(self) -> List[str]:
         return sorted(self._backends)
 
-    def _rpc_url(self) -> Optional[str]:
-        return os.environ.get(self._rpc_url_env)
+    def _rpc_url(self, chain: Optional[str] = None) -> Optional[str]:
+        # Prefer the explicit env (default ``ARBICORE_RPC_URL``); fall back to
+        # the canonical per-chain precedence resolver
+        # (``ARBICORE_RPC_URL_<CHAIN>`` > ``ARBICORE_RPC_URL`` > ``<CHAIN>_RPC_URL``)
+        # so a Base deployment configured only with ``ARBICORE_RPC_URL_BASE``
+        # resolves the SAME RPC the TVL/aero/price paths already use
+        # (make_base_eth_call_from_env). No fabricated default — returns None
+        # when nothing is configured (⇒ fail-closed fallback hops).
+        v = os.environ.get(self._rpc_url_env)
+        if v:
+            return v
+        try:
+            from ..config.persistent import resolve_rpc_url_from_env
+            return resolve_rpc_url_from_env(chain or "base")
+        except Exception:  # noqa: BLE001
+            return None
 
     def _cache_key(self, chain: str, hop: Dict[str, Any]) -> Tuple:
         return (
@@ -574,7 +588,7 @@ class QuoterRegistry:
                         (fallback hops passthrough amountIn as amountOut)
         * ``fallback:break_even`` — the route could not be quoted at all
         """
-        rpc = rpc_url or self._rpc_url()
+        rpc = rpc_url or self._rpc_url(chain)
         results: List[HopQuote] = []
         if not rpc:
             for i, h in enumerate(hops):
