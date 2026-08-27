@@ -197,6 +197,39 @@ def _restore_registry(snap):
     reg._BY_ADDRESS.clear(); reg._BY_ADDRESS.update(by_addr)
 
 
+def test_resolved_addresses_includes_runtime_resolved_pools():
+    # Audit 2026-06: resolved_addresses() must surface BOTH deterministic
+    # (UniV3) AND genuinely on-chain-resolved (RUNTIME_RESOLVED Aerodrome/
+    # Slipstream) real addresses, while still excluding unresolved pools
+    # (fail-closed). Prevents the §4 "resolved on-chain yet real_address=null"
+    # discrepancy for any consumer of this accessor.
+    snap = _snapshot_registry()
+    try:
+        p = _slipstream_pool()
+        pid = p.canonical_id
+        # unresolved → absent from resolved_addresses (fail-closed)
+        assert pid not in reg.resolved_addresses()
+        ok = reg.set_runtime_resolved_address(
+            pid, POOL, provenance={"method": "cl_getPool"})
+        assert ok is True
+        ra = reg.resolved_addresses()
+        # now present with the genuine on-chain-resolved address
+        assert pid in ra
+        assert ra[pid].lower() == POOL.lower()
+        # deterministic UniV3 pools remain present too
+        assert any(
+            cp.address_resolution == reg.DETERMINISTIC_VERIFIED
+            and cp.canonical_id in ra
+            for cp in reg.get_canonical_pools())
+        # a still-unresolved runtime_getpool pool stays excluded
+        assert any(
+            cp.canonical_id not in ra
+            for cp in reg.get_canonical_pools()
+            if cp.address_resolution == reg.RUNTIME_GETPOOL)
+    finally:
+        _restore_registry(snap)
+
+
 def test_set_runtime_resolved_address_roundtrip_and_guards():
     snap = _snapshot_registry()
     try:

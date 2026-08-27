@@ -221,9 +221,17 @@ def canonical_pool_by_address(address: str) -> Optional[CanonicalPool]:
 
 
 def resolved_addresses() -> Dict[str, str]:
-    """{canonical_id: real_address} for every deterministically-verified pool."""
+    """{canonical_id: real_address} for every pool with a genuine, validated
+    real address — both DETERMINISTIC_VERIFIED (UniV3 create2, KAT-proven) and
+    RUNTIME_RESOLVED (Aerodrome/Slipstream resolved+validated on-chain via
+    ``set_runtime_resolved_address``). Fail-closed: RUNTIME_GETPOOL/UNRESOLVED
+    pools (address is None) are excluded, so a still-unresolved pool never
+    surfaces a fabricated/None address. Aligns this accessor with the
+    single-source-of-truth registry that ``canonical_pool_by_id`` already
+    exposes (M2.6)."""
     return {p.canonical_id: p.address for p in _POOLS
-            if p.address and p.address_resolution == DETERMINISTIC_VERIFIED}
+            if p.address and p.address_resolution in (
+                DETERMINISTIC_VERIFIED, RUNTIME_RESOLVED)}
 
 
 def unresolved_pools() -> List[CanonicalPool]:

@@ -3,7 +3,7 @@
  * Header + LeftNavRail + Content + CommandPalette + global keyboard hook.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Header } from "@/v2/components/Header";
@@ -54,7 +54,9 @@ export function AppShell() {
         </div>
         <main className="v2-app__content" data-testid="v2-content">
           <Routes>
-            <Route index element={<OpsCenter />} />
+            {/* Canonical EmissionBus Opportunities view is the default landing
+                (audit 2026-06). Legacy OpsCenter remains at /dashboard/ops. */}
+            <Route index element={<Navigate to="opportunities" replace />} />
             <Route path="control/*" element={<ControlCenterPage />} />
             <Route path="live-ops/*" element={<LiveOpsPage />} />
             <Route path="capital/*" element={<CapitalIntelligencePage />} />

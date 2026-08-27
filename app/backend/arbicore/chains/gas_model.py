@@ -87,9 +87,11 @@ class BaseGasModel:
         )
 
 
-# Registry of concrete per-chain gas models. Only Base ships in this batch;
-# Arbitrum/Ethereum/OP land as sibling entries (each with its own L1/security-fee
-# math) in a later increment. Missing chain ⇒ get_chain_gas_model returns None.
+# Registry of concrete per-chain gas models. Base ships as a dedicated
+# pass-through (BaseGasModel); the other canonical Phase-2 chains
+# (Arbitrum/Optimism/Ethereum/Polygon/BNB) are registered below via the reusable
+# evm_gas layer, each with its own L1/security-fee math. Missing chain ⇒
+# get_chain_gas_model returns None (fail-closed DENY, never a Base fallback).
 _GAS_MODEL_FACTORIES: Dict[str, Callable[[], ChainGasModel]] = {
     "base": BaseGasModel.from_env,
 }

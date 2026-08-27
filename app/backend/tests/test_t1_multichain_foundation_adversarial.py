@@ -195,15 +195,22 @@ class TestOptimizerAdversarial:
 # --------------------------------------------------------------------------
 
 class TestGasModelSeam:
-    def test_registry_only_base(self):
-        assert supported_gas_model_chains() == ["base"]
+    def test_registry_canonical_multichain(self):
+        # Reconciled (audit 2026-06): the seam now ships genuine per-chain gas
+        # models for every canonical Phase-2 chain via the evm_gas layer
+        # (own L1/security math, fail-closed without RPC), not base-only.
+        assert supported_gas_model_chains() == [
+            "arbitrum", "base", "bnb", "ethereum", "optimism", "polygon"]
 
     def test_case_insensitive_and_none_chain(self):
         assert get_chain_gas_model("BASE") is not None
         assert get_chain_gas_model("Base") is not None
         assert get_chain_gas_model(None) is None
-        assert get_chain_gas_model("polygon") is None
-        assert get_chain_gas_model("optimism") is None
+        # Genuine EVM gas models now exist for the other Phase-2 chains
+        # (fail-closed at all_in_cost time when no RPC is configured).
+        assert get_chain_gas_model("polygon") is not None
+        assert get_chain_gas_model("optimism") is not None
+        assert get_chain_gas_model("nonexistent-chain") is None
         assert get_chain_gas_model(" base ") is None  # no silent trimming
 
     def test_protocol_conformance(self):

@@ -40,7 +40,8 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 (Note: the older MEV `congestion=None` TypeError from the handoff is ALREADY fixed at this baseline — `fresh_fn` DENYs before `mev.classify`.)
 
 ## Backlog / next (SHADOW-safe)
-- P1: Resolve Aerodrome/Slipstream TVL/address resolution on real Base RPC (no fabrication).
-- P1: Reconcile the 3 stale tests to the canonical multi-chain / provenance-hardened reality (repair, not weaken).
+- DONE (2026-06 completion pass): repaired 3 stale tests (multi-chain gas-model + shadow-cert provenance fake) without weakening production; fixed `resolved_addresses()` to include genuinely on-chain-resolved (RUNTIME_RESOLVED) Aerodrome/Slipstream addresses (fail-closed) + new test; made canonical Opportunities view the default landing (`AppShell` index → Navigate to opportunities). testing_agent iteration_1: backend 76/76 + 3/3 curl, frontend 5/5, 0 issues. See `reports/COMPLETION_ADDENDUM_2026-06.md`.
+- P1: Empirically validate Aerodrome/Slipstream address+TVL resolution on real Base RPC (Gate 8) — propagation code already present; needs live RPC (no fabrication).
+- P1: Genuinely profitable real opportunity reaching GREEN end-to-end (fail-closed dry-run) before any evidence-gated LIMITED-LIVE plan.
 - P2: Wire funding_arb order-book depth_fetcher; inject cross_chain transfer/liveness providers for verification.
-- P2: OpsCenter landing page still surfaces legacy MID widgets (now honestly empty) — consider making Opportunities (canonical) the default landing.
+- P2 (UX quirk from testing_agent): hard-reload of `/dashboard/ops` re-routes via `/initialization` back to default landing; in-app SPA nav works. Pre-existing init flow; review if it bothers operators.
