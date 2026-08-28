@@ -58,13 +58,30 @@ def _quote_block_from_evidence(doc):
     if qblock is not None:
         return qblock
     route = doc.get("route") or {}
+    candidates = []
     for leg in (quotes.get("hop_legs") or route.get("hop_legs") or
                 route.get("legs") or []):
         if isinstance(leg, dict):
             qblock = _coerce(leg.get("block_number"))
             if qblock is not None:
-                return qblock
-    return None
+                candidates.append(qblock)
+    return max(candidates) if candidates else None
+
+
+def _plan_from_evidence(doc):
+    """Build the validator plan from one Mongo evidence document."""
+    route = doc.get("route") or {}
+    return {
+        "strategy": "flash_loan_arbitrage", "chain": "base",
+        "opportunity_id": doc.get("opportunity_id") or doc.get("bundle_id"),
+        "borrow_token": doc.get("borrow_token"),
+        "borrow_amount_usd": doc.get("input_amount_usd"),
+        "flash_loan_provider": doc.get("flash_loan_provider") or "balancer_v2",
+        "route_pools": route.get("route_pools"),
+        "cycle_token_path": route.get("cycle_token_path"),
+        "quoted_block": _quote_block_from_evidence(doc),
+        "deadline_ts": None,
+    }
 
 
 async def _probe_fresh_stages(plan, quoter):
@@ -503,21 +520,7 @@ async def main() -> None:
                 {"verification_status": "CONFIRMED"}, sort=[("created_at", -1)])
             doc = doc or await db.evidence_bundles.find_one({}, sort=[("created_at", -1)])
             if doc:
-                r = doc.get("route", {})
-                # ``verified_at_ts`` is wall-clock provenance, not a block
-                # number.  M3 freshness requires an integer quote block;
-                # recover it from the bundle's explicit block context or hop
-                # evidence and leave it unset when absent (fail-closed).
-                qblock = _quote_block_from_evidence(doc)
-                plan = {"strategy": "flash_loan_arbitrage", "chain": "base",
-                        "opportunity_id": doc.get("opportunity_id") or doc.get("bundle_id"),
-                        "borrow_token": doc.get("borrow_token"),
-                        "borrow_amount_usd": doc.get("input_amount_usd"),
-                        "flash_loan_provider": doc.get("flash_loan_provider") or "balancer_v2",
-                        "route_pools": r.get("route_pools"),
-                        "cycle_token_path": r.get("cycle_token_path"),
-                        "quoted_block": qblock,
-                        "deadline_ts": None}
+                plan = _plan_from_evidence(doc)
         except Exception as exc:  # noqa: BLE001
             audit["opportunity"]["load_error"] = f"{type(exc).__name__}: {exc}"
     audit["opportunity"]["plan"] = plan

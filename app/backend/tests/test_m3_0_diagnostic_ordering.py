@@ -1,6 +1,7 @@
 """Read-only M3 VPS diagnostic ordering and fail-closed attribution."""
 
-from scripts.m3_0_vps_validate import _first_blocking_stage, _quote_block_from_evidence
+from scripts.m3_0_vps_validate import (
+    _first_blocking_stage, _quote_block_from_evidence, _plan_from_evidence)
 
 
 def test_quote_block_retrieved_from_quotes_hop_evidence():
@@ -19,6 +20,19 @@ def test_quote_block_never_comes_from_timestamp():
 def test_quote_block_accepts_explicit_numeric_serialization():
     doc = {"block_context": {"block_number": "50571130"}}
     assert _quote_block_from_evidence(doc) == 50571130
+
+
+def test_evidence_to_m3_plan_preserves_hop_quote_block():
+    doc = {
+        "bundle_id": "b1", "borrow_token": "USDT", "input_amount_usd": 10_000,
+        "route": {"route_pools": ["p1", "p2", "p3"],
+                  "cycle_token_path": ["USDT", "USDC", "WETH", "USDT"]},
+        "quotes": {"hop_legs": [{"block_number": 50571615},
+                                  {"block_number": 50571619}]},
+    }
+    plan = _plan_from_evidence(doc)
+    assert plan["quoted_block"] == 50571619
+    assert plan["deadline_ts"] is None
 
 
 def _ok():
