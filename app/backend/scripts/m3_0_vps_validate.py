@@ -170,6 +170,8 @@ async def _probe_fresh_stages(plan, quoter):
             "n_hop_legs": len(facts.get("hop_legs") or []),
             "min_pool_tvl_usd_in_route": facts.get("min_pool_tvl_usd_in_route"),
             "tvl_provenance": facts.get("tvl_provenance"),
+            "gas_cost_usd": facts.get("gas_cost_usd"),
+            "tx_gas_units": facts.get("tx_gas_units"),
         })
     except Exception as exc:  # noqa: BLE001
         out["stage_6_facts"] = f"ERROR {type(exc).__name__}: {exc}"
@@ -239,6 +241,71 @@ async def _probe_fresh_stages(plan, quoter):
         mev_out = f"ERROR {type(exc).__name__}: {exc}"
     out["stage_8_mev"] = mev_out
 
+    # Stages 9-14 intentionally expose the remaining fresh_fn and execution
+    # gates as structured, read-only diagnostics.  They never sign, submit,
+    # or mutate state.  Values are derived only from the real facts collected
+    # above; unavailable inputs remain unavailable (fail-closed).
+    facts = out.get("stage_6_facts")
+    if isinstance(facts, dict):
+        gross = facts.get("gross_profit_pct")
+        gas = facts.get("gas_cost_usd")
+        out["stage_9_economics"] = {
+            "gross_profit_pct": gross,
+            "gas_cost_usd": gas,
+            "tx_gas_units": facts.get("tx_gas_units"),
+            "economics_inputs_present": (gross is not None),
+        }
+        out["stage_10_all_in_cost"] = {
+            "available": gas is not None and facts.get("tx_gas_units") is not None,
+            "net_profit_usd": None,
+            "reason": (None if gas is not None and facts.get("tx_gas_units") is not None
+                       else "gas/all-in inputs unavailable (fail-closed)"),
+        }
+    else:
+        out["stage_9_economics"] = {"economics_inputs_present": False}
+        out["stage_10_all_in_cost"] = {"available": False,
+                                        "reason": "facts unavailable"}
+
+    hb = out.get("stage_3_head_block")
+    quoted = plan.get("quoted_block")
+    deadline = plan.get("deadline_ts")
+    now_ts = __import__("time").time()
+    out["stage_11_prebroadcast_gates"] = {
+        "block_freshness": isinstance(hb, int) and (
+            quoted is None or (isinstance(quoted, int) and hb >= quoted and hb - quoted <= 5)),
+        "reorg_protection": isinstance(hb, int) and (
+            quoted is None or (isinstance(quoted, int) and hb >= quoted)),
+        "deadline": deadline is None or now_ts <= float(deadline),
+        "price_ok": isinstance(out.get("stage_4_borrow_price_usd"), (int, float)),
+        "tvl_ok": bool(isinstance(facts, dict) and
+                        (facts.get("min_pool_tvl_usd_in_route") or 0) > 0 and
+                        facts.get("tvl_provenance") == "onchain_reserves"),
+        "profit_buffer": None,
+        "duplicate_opportunity": "not_claimed (probe is read-only)",
+    }
+    # Calldata/simulation are represented explicitly so a VPS operator can
+    # distinguish missing execution prerequisites from fresh-market failures.
+    hops = plan.get("hops") or []
+    out["stage_12_calldata"] = {
+        "shape_ok": bool(route_pools and len(token_path) == len(route_pools) + 1),
+        "swap_hops_present": bool(hops) or bool(route_pools),
+        "slippage_bounds_present": all(
+            isinstance(h, dict) and int(h.get("amount_out_min_wei") or 0) > 0
+            for h in hops) if hops else None,
+    }
+    out["stage_13_atomic_simulation"] = {
+        "read_only": True,
+        "available": bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE") and
+                           os.environ.get("ARBICORE_EXECUTOR_BYTECODE")),
+        "passed": False,
+        "reason": "requires deployed executor, signer-backed simulation inputs, and a real candidate",
+    }
+    out["stage_14_confirmation"] = {
+        "confirm": False,
+        "broadcast_permitted": False,
+        "reason": "VPS harness is permanently confirm=false",
+    }
+
     # Culprit summary
     culprit = _first_blocking_stage(out)
     out["FIRST_BLOCKING_STAGE"] = culprit
@@ -287,20 +354,33 @@ def _first_blocking_stage(o: dict) -> str:
         if mev.get("mev_ok") is not True:
             return (f"stage_8_mev risk={mev.get('label')} "
                     f"(score={mev.get('score')}) -> mev_ok gate will DENY")
-    # 5. head block
+    # 5. economics (fresh_fn evaluates this before head/flash-loan reads)
+    econ = o.get("stage_9_economics", {})
+    if isinstance(econ, dict) and econ and not econ.get("economics_inputs_present", True):
+        return "stage_9_economics unavailable -> fresh_fn DENY at economics"
+    # 6. head block
     hb = o.get("stage_3_head_block")
     if not isinstance(hb, int):
         return (f"stage_3_head_block unavailable ({hb}) -> block_freshness "
                 "gate will DENY")
-    # 6. borrow-token price
+    # 7. borrow-token price
     px = o.get("stage_4_borrow_price_usd")
     if not isinstance(px, (int, float)):
         return (f"stage_4_borrow_price_usd unavailable ({px}) -> flashloan/"
                 "price gate will DENY")
-    # 7. flash-loan availability
+    # 8. flash-loan availability
     fl = o.get("stage_7_flashloan_availability", {})
     if fl.get("available") is not True:
         return f"stage_7_flashloan_availability not True ({fl.get('available')})"
+    # 9. all-in gas/economics (after head + flash-loan availability)
+    all_in = o.get("stage_10_all_in_cost", {})
+    if isinstance(all_in, dict) and all_in and all_in.get("available") is False:
+        return "stage_10_all_in_cost unavailable -> fresh_fn DENY (fail-closed)"
+    gates = o.get("stage_11_prebroadcast_gates", {})
+    if isinstance(gates, dict):
+        for key in ("block_freshness", "reorg_protection", "deadline", "price_ok", "tvl_ok"):
+            if gates.get(key) is False:
+                return f"stage_11_prebroadcast_gates.{key}=false -> PreBroadcastValidator DENY"
     return "none - all fresh stages resolved (validation should be GREEN)"
 
 
@@ -368,6 +448,17 @@ async def main() -> None:
             doc = doc or await db.evidence_bundles.find_one({}, sort=[("created_at", -1)])
             if doc:
                 r = doc.get("route", {})
+                # ``verified_at_ts`` is wall-clock provenance, not a block
+                # number.  M3 freshness requires an integer quote block;
+                # recover it from the bundle's explicit block context or hop
+                # evidence and leave it unset when absent (fail-closed).
+                bc = doc.get("block_context") or {}
+                qblock = bc.get("block_number")
+                if not isinstance(qblock, int):
+                    for leg in (r.get("hop_legs") or r.get("legs") or []):
+                        if isinstance(leg, dict) and isinstance(leg.get("block_number"), int):
+                            qblock = leg["block_number"]
+                            break
                 plan = {"strategy": "flash_loan_arbitrage", "chain": "base",
                         "opportunity_id": doc.get("opportunity_id") or doc.get("bundle_id"),
                         "borrow_token": doc.get("borrow_token"),
@@ -375,7 +466,7 @@ async def main() -> None:
                         "flash_loan_provider": doc.get("flash_loan_provider") or "balancer_v2",
                         "route_pools": r.get("route_pools"),
                         "cycle_token_path": r.get("cycle_token_path"),
-                        "quoted_block": (doc.get("block_context") or {}).get("verified_at_ts"),
+                        "quoted_block": qblock,
                         "deadline_ts": None}
         except Exception as exc:  # noqa: BLE001
             audit["opportunity"]["load_error"] = f"{type(exc).__name__}: {exc}"
