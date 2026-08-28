@@ -534,6 +534,15 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                 "flashloan_available=False stage=provider_meta provider=%r "
                 "(unknown provider or not supported on base)", provider)
             return False
+        # The deployed executor head is Balancer V2 + Uniswap V3. Other
+        # catalogued providers are not executable by this calldata/contract
+        # path, so refuse them instead of checking the wrong vault or allowing
+        # a profitable-but-unsupported route through M3.
+        if (provider or "").lower() != "balancer_v2":
+            _M3_LOG.warning(
+                "flashloan_available=False stage=executor_capability provider=%r "
+                "(current executor supports balancer_v2 only)", provider)
+            return False
         cp = None
         for p in _reg.get_canonical_pools():
             if borrow_token.upper() in (p.token0_symbol.upper(), p.token1_symbol.upper()):

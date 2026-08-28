@@ -164,6 +164,7 @@ def make_live_quote_provider(
                 "fee_bps": fee_bps,
                 "dex_protocol": getattr(h, "dex", None),
                 "status": getattr(h, "status", None),
+                "block_number": getattr(h, "block_number", None),
             })
         # attach real fee_bps per hop + REAL measured on-chain depth (M2.2).
         pool_tvls = await _resolve_pool_tvls(route_pools, tvl_provider)
@@ -175,6 +176,8 @@ def make_live_quote_provider(
         # Gate-8 input: min REAL TVL over the route. Fail-closed (0.0) unless
         # every route pool resolved to a positive, measured on-chain depth.
         min_tvl = _route_min_tvl(pool_tvls, route_pools)
+        quote_blocks = [int(h.get("block_number")) for h in hop_legs
+                        if isinstance(h.get("block_number"), int)]
 
         return {
             "hop_legs": hop_legs,
@@ -185,6 +188,7 @@ def make_live_quote_provider(
                                else "unverified"),
             "flash_loan_pool_address": "",
             "route_quote_status": rq.status,
+            "quote_block": max(quote_blocks) if quote_blocks else None,
             "verified_at_ts": time.time(),
         }
 

@@ -44,7 +44,7 @@ class _FakeRegistry:
 
 
 def _rq(final_out_wei, status="ok"):
-    hop = SimpleNamespace(dex="uniswap_v3", status="ok")
+    hop = SimpleNamespace(dex="uniswap_v3", status="ok", block_number=12345)
     return SimpleNamespace(
         status=status, final_amount_out_wei=final_out_wei,
         aggregate_gas_estimate_units=300_000, hops=[hop, hop])
@@ -63,6 +63,7 @@ def test_live_provider_returns_real_facts_with_provenance():
                for l in facts["hop_legs"])
     assert "gross_profit_pct" in facts and facts["tx_gas_units"] == 300_000
     assert facts["route_quote_status"] == "ok"
+    assert facts["quote_block"] == 12345
 
 
 def test_live_provider_gross_profit_from_real_ratio():

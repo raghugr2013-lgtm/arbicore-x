@@ -397,7 +397,10 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
             "mev": mev_view,
             # explicit per-gate outcomes + reasons (never a generic denial)
             "gates": ev["gates"],
-            "block_context": {"verified_at_ts": ts},
+            "block_context": {
+                "verified_at_ts": ts,
+                "block_number": facts.get("quote_block"),
+            },
             "provenance": "REAL",
             "broadcast": False,     # invariant: verification never broadcasts
         }

@@ -54,7 +54,7 @@ def _facts(*, gross_pct, min_tvl):
     return {"hop_legs": legs, "gross_profit_pct": gross_pct,
             "tx_gas_units": 250_000, "min_pool_tvl_usd_in_route": min_tvl,
             "tvl_provenance": "onchain_reserves", "route_quote_status": "ok",
-            "verified_at_ts": 123.0}
+            "verified_at_ts": 123.0, "quote_block": 999}
 
 
 def _mk_verifier(facts_or_none, *, sink=None, shadow=None):
@@ -106,6 +106,7 @@ def test_confirmed_bundle_all_gates_pass():
     assert all(a for a in b["route"]["route_pool_addresses"])
     assert b["liquidity"]["min_pool_tvl_usd_in_route"] == 500_000.0
     assert b["economics"]["atomic_profit_usd"] > 0
+    assert b["block_context"]["block_number"] == 999
 
 
 def test_denied_gate8_records_per_gate_outcomes():
