@@ -1,7 +1,18 @@
 """Read-only M3 VPS diagnostic ordering and fail-closed attribution."""
 
 from scripts.m3_0_vps_validate import (
-    _first_blocking_stage, _quote_block_from_evidence, _plan_from_evidence)
+    _first_blocking_stage, _quote_block_from_evidence, _plan_from_evidence,
+    _flash_loan_evidence_filter)
+
+
+def test_m3_selects_flash_loan_verifier_evidence_schema():
+    assert _flash_loan_evidence_filter("CONFIRMED") == {
+        "source_component": "flash_loan_arb_verifier",
+        "verification_status": "CONFIRMED",
+    }
+    assert _flash_loan_evidence_filter() == {
+        "source_component": "flash_loan_arb_verifier",
+    }
 
 
 def test_quote_block_retrieved_from_quotes_hop_evidence():

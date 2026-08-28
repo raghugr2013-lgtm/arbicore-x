@@ -84,6 +84,19 @@ def _plan_from_evidence(doc):
     }
 
 
+def _flash_loan_evidence_filter(verification_status=None):
+    """Restrict M3's source to the flash-loan verifier evidence schema.
+
+    ``evidence_bundles`` is shared by multiple scanners. Selecting the newest
+    CONFIRMED document globally can feed M3 a bundle without
+    ``quotes.hop_legs`` while the flash-loan verifier has genuine provenance.
+    """
+    query = {"source_component": "flash_loan_arb_verifier"}
+    if verification_status is not None:
+        query["verification_status"] = verification_status
+    return query
+
+
 async def _probe_fresh_stages(plan, quoter):
     """READ-ONLY step-by-step probe of every fresh_fn dependency for ``plan``.
 
@@ -516,11 +529,26 @@ async def main() -> None:
         try:
             from motor.motor_asyncio import AsyncIOMotorClient
             db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+            # M3 consumes the flash-loan verifier's evidence bundle, not the
+            # newest bundle across every scanner. The latter was the runtime
+            # boundary that discarded genuine flash-loan hop block provenance.
             doc = await db.evidence_bundles.find_one(
-                {"verification_status": "CONFIRMED"}, sort=[("created_at", -1)])
-            doc = doc or await db.evidence_bundles.find_one({}, sort=[("created_at", -1)])
+                _flash_loan_evidence_filter("CONFIRMED"),
+                sort=[("created_at", -1)])
+            doc = doc or await db.evidence_bundles.find_one(
+                _flash_loan_evidence_filter(), sort=[("created_at", -1)])
             if doc:
                 plan = _plan_from_evidence(doc)
+                audit["opportunity"]["evidence_bundle"] = {
+                    "bundle_id": doc.get("bundle_id"),
+                    "source_component": doc.get("source_component"),
+                    "quote_hop_blocks": [
+                        h.get("block_number") for h in
+                        ((doc.get("quotes") or {}).get("hop_legs") or [])
+                        if isinstance(h, dict) and h.get("block_number") is not None
+                    ],
+                    "selected_quote_block": plan.get("quoted_block"),
+                }
         except Exception as exc:  # noqa: BLE001
             audit["opportunity"]["load_error"] = f"{type(exc).__name__}: {exc}"
     audit["opportunity"]["plan"] = plan
