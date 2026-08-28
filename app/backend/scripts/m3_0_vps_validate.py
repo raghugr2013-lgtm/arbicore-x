@@ -84,17 +84,17 @@ def _plan_from_evidence(doc):
     }
 
 
-def _flash_loan_evidence_filter(verification_status=None):
-    """Restrict M3's source to the flash-loan verifier evidence schema.
+def _flash_loan_evidence_filter():
+    """Select only usable flash-loan verifier evidence for M3.
 
-    ``evidence_bundles`` is shared by multiple scanners. Selecting the newest
-    CONFIRMED document globally can feed M3 a bundle without
-    ``quotes.hop_legs`` while the flash-loan verifier has genuine provenance.
+    The verifier persists every candidate, including pre-quote DENIED records
+    whose facts and hop provenance are intentionally empty. M3 must never use
+    those audit records as an opportunity plan.
     """
-    query = {"source_component": "flash_loan_arb_verifier"}
-    if verification_status is not None:
-        query["verification_status"] = verification_status
-    return query
+    return {
+        "source_component": "flash_loan_arb_verifier",
+        "verification_status": "CONFIRMED",
+    }
 
 
 async def _probe_fresh_stages(plan, quoter):
@@ -529,13 +529,10 @@ async def main() -> None:
         try:
             from motor.motor_asyncio import AsyncIOMotorClient
             db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
-            # M3 consumes the flash-loan verifier's evidence bundle, not the
-            # newest bundle across every scanner. The latter was the runtime
-            # boundary that discarded genuine flash-loan hop block provenance.
+            # M3 consumes only CONFIRMED flash-loan verifier evidence. DENIED
+            # records are intentionally persisted with empty facts/hop legs;
+            # falling back to those records would erase quote provenance.
             doc = await db.evidence_bundles.find_one(
-                _flash_loan_evidence_filter("CONFIRMED"),
-                sort=[("created_at", -1)])
-            doc = doc or await db.evidence_bundles.find_one(
                 _flash_loan_evidence_filter(), sort=[("created_at", -1)])
             if doc:
                 plan = _plan_from_evidence(doc)

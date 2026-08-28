@@ -6,12 +6,9 @@ from scripts.m3_0_vps_validate import (
 
 
 def test_m3_selects_flash_loan_verifier_evidence_schema():
-    assert _flash_loan_evidence_filter("CONFIRMED") == {
-        "source_component": "flash_loan_arb_verifier",
-        "verification_status": "CONFIRMED",
-    }
     assert _flash_loan_evidence_filter() == {
         "source_component": "flash_loan_arb_verifier",
+        "verification_status": "CONFIRMED",
     }
 
 

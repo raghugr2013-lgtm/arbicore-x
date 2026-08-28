@@ -139,6 +139,11 @@ def test_denied_venue_unreadable_all_gates_not_evaluated():
     assert b["verification_status"] == "DENIED"
     for g in ("gate_7", "gate_8", "gate_9"):
         assert b["gates"][g]["status"] == "NOT_EVALUATED"
+    # The verifier persists this audit record even though no quote facts
+    # existed. M3 must not mistake it for a usable opportunity.
+    assert b["quotes"]["hop_legs"] == []
+    assert b["block_context"]["block_number"] is None
+    assert b["bundle_id"].endswith(":0")
     assert b["broadcast"] is False
 
 
