@@ -31,17 +31,39 @@ def _mask(v):
 
 
 def _quote_block_from_evidence(doc):
-    """Return only a genuine integer quote block from an evidence bundle."""
+    """Return only a genuine block-number field from an evidence bundle.
+
+    Mongo may deserialize numeric values as an integer-like/string value;
+    accept decimal representations only when they come from an explicit
+    ``block_number``/``quote_block`` field. Wall-clock timestamps are never
+    considered.
+    """
+    def _coerce(value):
+        if isinstance(value, int) and not isinstance(value, bool):
+            return value if value > 0 else None
+        if isinstance(value, str) and value.strip().isdigit():
+            n = int(value.strip())
+            return n if n > 0 else None
+        return None
+
     bc = doc.get("block_context") or {}
-    qblock = bc.get("block_number")
-    if isinstance(qblock, int):
+    qblock = _coerce(bc.get("block_number"))
+    if qblock is not None:
+        return qblock
+    qblock = _coerce(bc.get("quote_block"))
+    if qblock is not None:
         return qblock
     quotes = doc.get("quotes") or {}
+    qblock = _coerce(quotes.get("quote_block"))
+    if qblock is not None:
+        return qblock
     route = doc.get("route") or {}
     for leg in (quotes.get("hop_legs") or route.get("hop_legs") or
                 route.get("legs") or []):
-        if isinstance(leg, dict) and isinstance(leg.get("block_number"), int):
-            return leg["block_number"]
+        if isinstance(leg, dict):
+            qblock = _coerce(leg.get("block_number"))
+            if qblock is not None:
+                return qblock
     return None
 
 

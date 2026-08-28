@@ -16,6 +16,11 @@ def test_quote_block_never_comes_from_timestamp():
     assert _quote_block_from_evidence(doc) is None
 
 
+def test_quote_block_accepts_explicit_numeric_serialization():
+    doc = {"block_context": {"block_number": "50571130"}}
+    assert _quote_block_from_evidence(doc) == 50571130
+
+
 def _ok():
     return {
         "stage_1_plan_shape": {"shape_ok": True},

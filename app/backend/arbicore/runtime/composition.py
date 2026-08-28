@@ -621,6 +621,21 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                     "check evidence-bundle route.cycle_token_path persistence",
                     len(route_pools), len(token_path), len(route_pools) + 1)
                 return None
+            # The deployed flash-loan executor supports only Balancer V2
+            # borrowing plus Uniswap V3 swap hops. Aerodrome/Slipstream quotes
+            # are valid intelligence, but cannot produce executable calldata
+            # for this head; reject before economics/gas so an unset aggregate
+            # gas estimate can never be mistaken for a live candidate.
+            from ..discovery.base_venues import build_pool_graph
+            _, _pool_specs = build_pool_graph()
+            unsupported = [pid for pid in route_pools
+                           if (_pool_specs.get(pid) or {}).get("dex") not in
+                           (None, "uniswap_v3")]
+            if unsupported:
+                _M3_LOG.warning(
+                    "DENY stage=executor_capability unsupported_route_pools=%s "
+                    "(current executor supports uniswap_v3 swaps only)", unsupported)
+                return None
             stage = "resolve_pools"
             # M2.6 PROPAGATION — resolve+validate the Aerodrome/Slipstream route
             # pools on-chain and write REAL addresses into the ONE canonical
