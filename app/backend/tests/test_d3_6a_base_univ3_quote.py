@@ -109,7 +109,8 @@ def test_buy_weth_usdc_returns_real_shaped_quote(monkeypatch):
     assert res.token_in == "USDC" and res.token_out == "WETH"
     assert res.amount_in == 1000.0                        # USD-stable notional
     assert res.amount_out == pytest.approx(0.04)          # 4e16 wei / 1e18
-    assert res.effective_price == pytest.approx(0.04 / 1000.0)
+    # effective_price is normalized QUOTE-per-BASE (USDC per WETH) = the ask.
+    assert res.effective_price == pytest.approx(1000.0 / 0.04)
     assert res.fee_tier_bps == 5                          # best tier 500 ppm
     assert res.pool_address and res.pool_address.startswith("0x")
     assert res.raw["size_basis"] == "usd_stable_notional"

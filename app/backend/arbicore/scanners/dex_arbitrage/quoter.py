@@ -228,6 +228,26 @@ class EVMV3Quoter(BaseDEXQuoter):
             token_in=base_sym, token_out=quote_sym, size_in_usd=size_in_usd,
             reason=reason)
 
+    @staticmethod
+    def _quote_per_base(direction: str, amount_in: float,
+                        amount_out: float) -> Optional[float]:
+        """Normalized execution price of BASE denominated in QUOTE, so buy and
+        sell quotes are DIRECTLY comparable (the cross-venue spread reconciler).
+
+        The raw quoter ratio amount_out/amount_in is reciprocal between the two
+        directions (buy quotes QUOTE→BASE, sell quotes BASE→QUOTE). We normalize
+        both to QUOTE-per-BASE:
+          * buy  (spend QUOTE to acquire BASE): ask = quote_in / base_out
+          * sell (dispose BASE to receive QUOTE): bid = quote_out / base_in
+        With this, the verifier's ``min(buy)`` = lowest ask and ``max(sell)`` =
+        highest bid are the true arbitrage legs and the spread is well-defined.
+        Returns None on non-positive amounts (fail-closed — no fabrication).
+        """
+        if amount_in <= 0 or amount_out <= 0:
+            return None
+        return (amount_in / amount_out) if direction == "buy" else (
+            amount_out / amount_in)
+
     async def _quote_base_univ3(self, *, pair_canonical: str,
                                 size_in_usd: float, direction: str
                                 ) -> DEXQuoteResult:
@@ -312,7 +332,7 @@ class EVMV3Quoter(BaseDEXQuoter):
 
         amount_in = amount_in_wei / (10 ** dec_in)
         amount_out = best["out_wei"] / (10 ** dec_out)
-        eff = (amount_out / amount_in) if amount_in > 0 else None
+        eff = self._quote_per_base(direction, amount_in, amount_out)
         hop = best["hop"]
         return DEXQuoteResult(
             ok=True, chain=self.chain, dex=self.dex, source_id=self.source_id,
@@ -443,7 +463,7 @@ class EVMV3Quoter(BaseDEXQuoter):
 
         amount_in = amount_in_wei / (10 ** dec_in)
         amount_out = best["out_wei"] / (10 ** dec_out)
-        eff = (amount_out / amount_in) if amount_in > 0 else None
+        eff = self._quote_per_base(direction, amount_in, amount_out)
         hopq = best["hopq"]
         return DEXQuoteResult(
             ok=True, chain=self.chain, dex=self.dex, source_id=self.source_id,

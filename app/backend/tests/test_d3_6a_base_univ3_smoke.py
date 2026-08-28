@@ -41,6 +41,6 @@ def test_live_base_univ3_weth_usdc_buy_quote():
     assert res.pool_address and res.pool_address.startswith("0x")
     assert isinstance(res.raw.get("block_number"), int)
     assert res.raw.get("route_status") == "ok"
-    # Sanity: implied WETH price ≈ 1 / effective_price, in a plausible band.
-    implied_weth_usd = 1.0 / res.effective_price
+    # effective_price is normalized QUOTE-per-BASE (USDC per WETH), plausible band.
+    implied_weth_usd = res.effective_price
     assert 200.0 < implied_weth_usd < 100_000.0

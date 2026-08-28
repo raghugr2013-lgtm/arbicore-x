@@ -61,5 +61,5 @@ def test_live_wired_aerodrome_quoter_best_of_both():
     assert isinstance(res.raw.get("block_number"), int)
     # provenance records every backend attempt
     assert res.raw["backend_attempts"]
-    implied_weth_usd = 1.0 / res.effective_price
+    implied_weth_usd = res.effective_price   # normalized QUOTE-per-BASE
     assert 200.0 < implied_weth_usd < 100_000.0

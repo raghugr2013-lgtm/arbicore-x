@@ -197,19 +197,20 @@ def test_integration_verifier_consumes_aerodrome_and_runs_gates(monkeypatch):
     _clear_rpc(monkeypatch)
     monkeypatch.setenv("ARBICORE_RPC_URL_BASE", "https://mainnet.base.org")
 
-    # Distinct live-shaped outputs per dex so buy_dex != sell_dex, spread > 0.
+    # Distinct live-shaped outputs per dex so buy_dex != sell_dex, spread > 0
+    # under the normalized QUOTE-per-BASE model: UniV3 cheapest ask (most WETH
+    # per 1000 USDC), Aerodrome highest bid (most USDC per 0.05 WETH).
     async def fake(self, *, chain, hops, rpc_url=None):
         h = hops[0]; dex = h["dex"]
-        out_map = {
-            "uniswap_v3": 400_000_000_000_000_000,
-            "aerodrome": 402_000_000_000_000_000,
-            "aerodrome_slipstream": 405_000_000_000_000_000,
-        }
-        # For the WETH->USDC (sell) direction the out token is USDC (6dec).
         is_sell = h["token_out"].lower().endswith("da02913")  # USDC addr suffix
-        out = out_map[dex] if not is_sell else {"uniswap_v3": 120_000_000,
-                                                "aerodrome": 118_000_000,
-                                                "aerodrome_slipstream": 121_000_000}[dex]
+        if not is_sell:  # buy: 1000 USDC -> WETH (18dec)
+            out = {"uniswap_v3": 410_000_000_000_000_000,       # ask 2439
+                   "aerodrome": 400_000_000_000_000_000,        # ask 2500
+                   "aerodrome_slipstream": 398_000_000_000_000_000}[dex]
+        else:            # sell: 0.05 WETH -> USDC (6dec)
+            out = {"uniswap_v3": 120_000_000,                   # bid 2400
+                   "aerodrome": 126_000_000,                    # bid 2520
+                   "aerodrome_slipstream": 127_000_000}[dex]    # bid 2540
         return _route_ok(_hop(dex=dex, token_in=h["token_in"], token_out=h["token_out"],
                               amount_in_wei=h["amount_in_wei"], amount_out_wei=out))
 
