@@ -30,6 +30,21 @@ def _mask(v):
     return f"{v[:10]}…<REDACTED> (len={len(v)})"
 
 
+def _quote_block_from_evidence(doc):
+    """Return only a genuine integer quote block from an evidence bundle."""
+    bc = doc.get("block_context") or {}
+    qblock = bc.get("block_number")
+    if isinstance(qblock, int):
+        return qblock
+    quotes = doc.get("quotes") or {}
+    route = doc.get("route") or {}
+    for leg in (quotes.get("hop_legs") or route.get("hop_legs") or
+                route.get("legs") or []):
+        if isinstance(leg, dict) and isinstance(leg.get("block_number"), int):
+            return leg["block_number"]
+    return None
+
+
 async def _probe_fresh_stages(plan, quoter):
     """READ-ONLY step-by-step probe of every fresh_fn dependency for ``plan``.
 
@@ -255,12 +270,31 @@ async def _probe_fresh_stages(plan, quoter):
             "tx_gas_units": facts.get("tx_gas_units"),
             "economics_inputs_present": (gross is not None),
         }
-        out["stage_10_all_in_cost"] = {
-            "available": gas is not None and facts.get("tx_gas_units") is not None,
-            "net_profit_usd": None,
-            "reason": (None if gas is not None and facts.get("tx_gas_units") is not None
-                       else "gas/all-in inputs unavailable (fail-closed)"),
-        }
+        # Invoke the same chain gas model used by fresh_fn. This performs real
+        # gas-price and Base GasPriceOracle reads; unavailable inputs remain a
+        # structured denial rather than a placeholder cost.
+        all_in = None
+        try:
+            from arbicore.chains.gas_model import get_chain_gas_model
+            gm = get_chain_gas_model("base")
+            px = out.get("stage_4_borrow_price_usd")
+            gross_usd = borrow_usd * float(gross or 0.0) / 100.0
+            if gm is not None:
+                all_in = await gm.all_in_cost(
+                    gross_profit_usd=gross_usd,
+                    borrow_amount_usd=borrow_usd,
+                    notional_usd=borrow_usd,
+                    gas_units=facts.get("tx_gas_units"),
+                    eth_usd=px,
+                )
+        except Exception as exc:  # noqa: BLE001
+            out["stage_10_all_in_cost_error"] = f"{type(exc).__name__}: {exc}"
+        out["stage_10_all_in_cost"] = (
+            {"available": True, **all_in} if all_in is not None else {
+                "available": False,
+                "gas_units_present": facts.get("tx_gas_units") is not None,
+                "reason": "gas/all-in inputs unavailable (fail-closed)",
+            })
     else:
         out["stage_9_economics"] = {"economics_inputs_present": False}
         out["stage_10_all_in_cost"] = {"available": False,
@@ -452,13 +486,7 @@ async def main() -> None:
                 # number.  M3 freshness requires an integer quote block;
                 # recover it from the bundle's explicit block context or hop
                 # evidence and leave it unset when absent (fail-closed).
-                bc = doc.get("block_context") or {}
-                qblock = bc.get("block_number")
-                if not isinstance(qblock, int):
-                    for leg in (r.get("hop_legs") or r.get("legs") or []):
-                        if isinstance(leg, dict) and isinstance(leg.get("block_number"), int):
-                            qblock = leg["block_number"]
-                            break
+                qblock = _quote_block_from_evidence(doc)
                 plan = {"strategy": "flash_loan_arbitrage", "chain": "base",
                         "opportunity_id": doc.get("opportunity_id") or doc.get("bundle_id"),
                         "borrow_token": doc.get("borrow_token"),

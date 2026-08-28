@@ -1,6 +1,19 @@
 """Read-only M3 VPS diagnostic ordering and fail-closed attribution."""
 
-from scripts.m3_0_vps_validate import _first_blocking_stage
+from scripts.m3_0_vps_validate import _first_blocking_stage, _quote_block_from_evidence
+
+
+def test_quote_block_retrieved_from_quotes_hop_evidence():
+    doc = {
+        "block_context": {"verified_at_ts": 123.0},
+        "quotes": {"hop_legs": [{"block_number": 50570372}]},
+    }
+    assert _quote_block_from_evidence(doc) == 50570372
+
+
+def test_quote_block_never_comes_from_timestamp():
+    doc = {"block_context": {"verified_at_ts": 50570372.0}}
+    assert _quote_block_from_evidence(doc) is None
 
 
 def _ok():
