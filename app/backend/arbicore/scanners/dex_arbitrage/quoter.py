@@ -31,7 +31,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 # ============================================================================
@@ -179,16 +179,16 @@ class EVMV3Quoter(BaseDEXQuoter):
             )
         self.quoter_address = EVM_V3_QUOTER_CONTRACTS[(dex, chain)]
 
-    # D-3.6A: the ONLY wired live path. Every other (dex, chain) stays
+    # D-3.6A/B: the wired live paths. Every other (dex, chain) stays
     # explicitly not-yet-wired (we do NOT implement all venues/chains yet).
-    _WIRED_LIVE = {("uniswap_v3", "base")}
+    _WIRED_LIVE = {("uniswap_v3", "base"), ("aerodrome", "base")}
 
     @property
     def credentials_available(self) -> bool:
-        # The wired Base/UniV3 path is reachable through the SAME canonical RPC
+        # The wired Base paths are reachable through the SAME canonical RPC
         # precedence resolver the rest of the architecture uses
-        # (ARBICORE_RPC_URL_<CHAIN> > ARBICORE_RPC_URL > <CHAIN>_RPC_URL), so it
-        # is enabled whenever a Base RPC is configured — no separate key needed.
+        # (ARBICORE_RPC_URL_<CHAIN> > ARBICORE_RPC_URL > <CHAIN>_RPC_URL), so they
+        # are enabled whenever a Base RPC is configured — no separate key needed.
         # Every other (dex, chain) keeps the legacy ALCHEMY_API_KEY gate exactly.
         if (self.dex, self.chain) in self._WIRED_LIVE:
             try:
@@ -202,12 +202,17 @@ class EVMV3Quoter(BaseDEXQuoter):
     async def _quote_impl(self, *, pair_canonical: str,
                           size_in_usd: float, direction: str) -> DEXQuoteResult:
         if (self.dex, self.chain) in self._WIRED_LIVE:
-            return await self._quote_base_univ3(
-                pair_canonical=pair_canonical, size_in_usd=size_in_usd,
-                direction=direction)
+            if self.dex == "uniswap_v3":
+                return await self._quote_base_univ3(
+                    pair_canonical=pair_canonical, size_in_usd=size_in_usd,
+                    direction=direction)
+            if self.dex == "aerodrome":
+                return await self._quote_base_aerodrome(
+                    pair_canonical=pair_canonical, size_in_usd=size_in_usd,
+                    direction=direction)
         # Other venues/chains land in later D-3.6 sub-waves — explicit, tested.
         return self._fail(pair_canonical, size_in_usd,
-                          "not_yet_wired:only_base_uniswap_v3_wired_in_D-3.6A")
+                          "not_yet_wired:only_base_uniswap_v3_and_aerodrome_wired")
 
     # ----- D-3.6A live implementation (Base · Uniswap V3 · QuoterV2) --------
 
@@ -323,12 +328,147 @@ class EVMV3Quoter(BaseDEXQuoter):
                 "fee_ppm": best["fee_ppm"],
                 "size_basis": size_basis,
                 "direction": direction,
+                "winning_backend": "uniswap_v3",
                 "quoter_contract": hop.quoter_contract,
                 "rpc_host": hop.rpc_host,
                 "block_number": hop.block_number,
                 "gas_estimate_units": hop.gas_estimate_units,
                 "route_status": "ok",
                 "candidate_fee_tiers_ppm": list(tiers),
+            },
+        )
+
+    # ----- D-3.6B live implementation (Base · Aerodrome classic + SlipStream) --
+
+    async def _quote_base_aerodrome(self, *, pair_canonical: str,
+                                    size_in_usd: float, direction: str
+                                    ) -> DEXQuoteResult:
+        """Real Base → Aerodrome → amountOut across BOTH Aerodrome pool families.
+
+        For a dex="aerodrome" request we query every Aerodrome venue the
+        existing canonical registry knows for the pair — classic AMM
+        (Router.getAmountsOut) and SlipStream concentrated liquidity
+        (QuoterV2-style) — each delegated to the canonical ``QuoterRegistry``
+        backend (single source of truth: no parallel RPC / ABI / pool-address
+        resolver). The best VALID amountOut wins; provenance records which
+        Aerodrome family/backend produced it and every backend attempt.
+        Fail-closed: a quote is returned only when ≥1 authoritative backend
+        succeeds with a positive amountOut — never a synthesized fallback.
+        """
+        from ...discovery import base_venues as bv
+        from ...discovery import base_pool_registry as reg
+        from ...execution.quoter import QuoterRegistry
+
+        pair = (pair_canonical or "").split("@", 1)[0]
+        if "/" not in pair:
+            return self._fail(pair_canonical, size_in_usd, "malformed_pair")
+        base_raw, quote_raw = (s.strip() for s in pair.split("/", 1))
+        base_sym = bv.canonical_symbol(base_raw)
+        quote_sym = bv.canonical_symbol(quote_raw)
+        if not base_sym or not quote_sym:
+            return self._fail(pair_canonical, size_in_usd,
+                              f"unknown_token:{base_raw}/{quote_raw}")
+
+        if direction == "buy":
+            tin_sym, tout_sym = quote_sym, base_sym
+        else:
+            tin_sym, tout_sym = base_sym, quote_sym
+        tin_addr = bv.token_address(tin_sym)
+        tout_addr = bv.token_address(tout_sym)
+        dec_in = int(bv.TOKENS[tin_sym]["decimals"])
+        dec_out = int(bv.TOKENS[tout_sym]["decimals"])
+
+        # Size the input leg (identical policy to the UniV3 path).
+        if bv.is_stable(tin_sym):
+            amount_in_wei = int(round(float(size_in_usd) * (10 ** dec_in)))
+            size_basis = "usd_stable_notional"
+        else:
+            amount_in_wei = int(bv.probe_amount(tin_sym))
+            size_basis = "probe_notional_fallback"
+        if amount_in_wei <= 0:
+            return self._fail(pair_canonical, size_in_usd, "nonpositive_amount_in")
+
+        # Enumerate Aerodrome candidates for the pair from the canonical registry
+        # (classic + SlipStream). Neither backend needs a pre-resolved pool
+        # address (Router / QuoterV2 resolve the pool internally), so the
+        # unresolved-address blocker does not apply here.
+        want = frozenset({base_sym.upper(), quote_sym.upper()})
+        candidates: List[Tuple[str, Dict[str, Any]]] = []
+        for p in reg.get_canonical_pools():
+            if frozenset({p.token0_symbol.upper(),
+                          p.token1_symbol.upper()}) != want:
+                continue
+            if p.dex == "aerodrome":
+                candidates.append(("aerodrome_classic", {
+                    "dex": "aerodrome", "token_in": tin_addr,
+                    "token_out": tout_addr, "amount_in_wei": amount_in_wei,
+                    "stable": bool(p.stable)}))
+            elif p.dex == "aerodrome_slipstream":
+                candidates.append(("aerodrome_slipstream", {
+                    "dex": "aerodrome_slipstream", "token_in": tin_addr,
+                    "token_out": tout_addr, "amount_in_wei": amount_in_wei,
+                    "tick_spacing": int(p.tick_spacing or 0)}))
+        if not candidates:
+            return self._fail(pair_canonical, size_in_usd,
+                              f"no_aerodrome_pool_for_pair:{base_sym}/{quote_sym}")
+
+        registry = QuoterRegistry()
+        attempts: List[Dict[str, Any]] = []
+        best: Optional[Dict[str, Any]] = None
+        for label, hop in candidates:
+            rq = await registry.quote_route(chain="base", hops=[hop])
+            out_wei = int(rq.final_amount_out_wei or 0) if rq.hops else 0
+            if rq.status == "ok" and rq.hops and out_wei > 0:
+                hopq = rq.hops[0]
+                attempts.append({
+                    "backend": label, "dex": hop["dex"], "status": "ok",
+                    "amount_out_wei": str(out_wei),
+                    "quoter_contract": hopq.quoter_contract,
+                    "block_number": hopq.block_number,
+                    "stable": hop.get("stable"),
+                    "tick_spacing": hop.get("tick_spacing")})
+                if best is None or out_wei > best["out_wei"]:
+                    best = {"out_wei": out_wei, "label": label, "hop": hop,
+                            "hopq": hopq}
+            else:
+                err = (rq.hops[0].error if rq.hops else None)
+                attempts.append({
+                    "backend": label, "dex": hop["dex"],
+                    "status": rq.status, "error": err,
+                    "stable": hop.get("stable"),
+                    "tick_spacing": hop.get("tick_spacing")})
+        if best is None:
+            return self._fail(pair_canonical, size_in_usd,
+                              "quote_unavailable:all_aerodrome_backends_failed")
+
+        amount_in = amount_in_wei / (10 ** dec_in)
+        amount_out = best["out_wei"] / (10 ** dec_out)
+        eff = (amount_out / amount_in) if amount_in > 0 else None
+        hopq = best["hopq"]
+        return DEXQuoteResult(
+            ok=True, chain=self.chain, dex=self.dex, source_id=self.source_id,
+            pool_address=None,   # Aerodrome pool address is resolved on-chain by
+                                 # the Router/Quoter; not fabricated here.
+            token_in=tin_sym, token_out=tout_sym,
+            size_in_usd=float(size_in_usd),
+            amount_in=amount_in, amount_out=amount_out, effective_price=eff,
+            fee_tier_bps=None,   # Aerodrome fees are dynamic — not asserted.
+            quoted_at_ts=time.time(), reason="",
+            raw={
+                "amount_in_wei": str(amount_in_wei),
+                "amount_out_wei": str(best["out_wei"]),
+                "size_basis": size_basis,
+                "direction": direction,
+                "winning_backend": best["label"],
+                "winning_dex": best["hop"]["dex"],
+                "winning_stable": best["hop"].get("stable"),
+                "winning_tick_spacing": best["hop"].get("tick_spacing"),
+                "quoter_contract": hopq.quoter_contract,
+                "rpc_host": hopq.rpc_host,
+                "block_number": hopq.block_number,
+                "gas_estimate_units": hopq.gas_estimate_units,
+                "route_status": "ok",
+                "backend_attempts": attempts,
             },
         )
 
