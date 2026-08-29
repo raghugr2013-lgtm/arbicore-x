@@ -5,7 +5,7 @@ image reports a real deployment identity via GET /api/arbicore/version even
 without ARBICORE_GIT_* env vars. Env vars still take precedence at runtime.
 
 Usage:
-    python -m scripts.gen_build_info
+    python3 -m scripts.gen_build_info
 """
 from __future__ import annotations
 

@@ -24,15 +24,18 @@ set -euo pipefail
 # present in THIS image, without creating a host-level symlink or installing
 # anything. Fail closed with a clear message if none is available.
 PY="${ARBICORE_PYTHON:-}"
-if [ -z "${PY}" ]; then
-  if command -v python3 >/dev/null 2>&1; then
-    PY="python3"
-  elif command -v python >/dev/null 2>&1; then
-    PY="python"
-  else
-    echo "ERROR: no Python interpreter found (need python3 or python)." >&2
+if [ -n "${PY}" ]; then
+  if ! command -v "${PY}" >/dev/null 2>&1; then
+    echo "ERROR: ARBICORE_PYTHON='${PY}' is not an available interpreter." >&2
     exit 127
   fi
+elif command -v python3 >/dev/null 2>&1; then
+  PY="python3"
+elif command -v python >/dev/null 2>&1; then
+  PY="python"
+else
+  echo "ERROR: no Python interpreter found (need python3 or python)." >&2
+  exit 127
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -70,8 +73,10 @@ TESTS=(
 cd "${BACKEND_DIR}"
 echo "Running ${#TESTS[@]} deterministic regression modules..."
 echo "interpreter  : ${PY} ($(command -v "${PY}"))"
-"${PY}" -m pytest "${TESTS[@]}" -q -p no:cacheprovider
-STATUS=$?
+# Keep the pytest failure non-fatal under `set -e` so the FAIL banner below is
+# reachable; fail-closed is still enforced via the non-zero exit at the end.
+STATUS=0
+"${PY}" -m pytest "${TESTS[@]}" -q -p no:cacheprovider || STATUS=$?
 
 # ---------------------------------------------------------------------------
 # OPTIONAL LIVE PHASE (VPS only): run exactly ONE canonical scanner tick,

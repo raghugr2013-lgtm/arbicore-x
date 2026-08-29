@@ -3,8 +3,8 @@
 
 Run INSIDE the M3.0 validator container on the VPS (real Base RPC/WSS/env):
 
-    python -m scripts.m3_0_vps_validate            # uses latest CONFIRMED bundle
-    python -m scripts.m3_0_vps_validate '<plan-json>'   # explicit plan
+    python3 -m scripts.m3_0_vps_validate            # uses latest CONFIRMED bundle
+    python3 -m scripts.m3_0_vps_validate '<plan-json>'   # explicit plan
 
 It proves the controlled-live safety layer is really constructed and runs one
 opportunity through detection→verification→M3.0 final validation, STOPPING

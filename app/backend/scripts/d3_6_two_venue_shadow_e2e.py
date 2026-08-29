@@ -12,8 +12,8 @@ STRICTLY read-only: issues eth_call only. NEVER signs / broadcasts / executes.
 Does NOT enable Limited Live. Fail-closed throughout (no fabricated numbers).
 
 Run inside the validator (real ARBICORE_RPC_URL_BASE):
-    python -m scripts.d3_6_two_venue_shadow_e2e            # WETH/USDC@base
-    python -m scripts.d3_6_two_venue_shadow_e2e BASE/QUOTE # explicit pair
+    python3 -m scripts.d3_6_two_venue_shadow_e2e            # WETH/USDC@base
+    python3 -m scripts.d3_6_two_venue_shadow_e2e BASE/QUOTE # explicit pair
 """
 from __future__ import annotations
 

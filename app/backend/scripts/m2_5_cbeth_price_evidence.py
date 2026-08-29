@@ -3,7 +3,7 @@
 
 Run INSIDE the VPS container (real ARBICORE_RPC_URL[_BASE] + ARBICORE_USD_NUMERAIRE):
 
-    python -m scripts.m2_5_cbeth_price_evidence
+    python3 -m scripts.m2_5_cbeth_price_evidence
 
 Prices each token through the LIVE OnChainUsdPriceFeed (genuine on-chain quotes
 via the real QuoterRegistry) and dumps full provenance so an operator can SEE:
