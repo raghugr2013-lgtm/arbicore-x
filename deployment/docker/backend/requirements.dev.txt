@@ -1,16 +1,12 @@
 # -----------------------------------------------------------------------------
 # ArbiCore X — Development Python requirements
 # -----------------------------------------------------------------------------
-# Superset of requirements.prod.txt: adds test, lint, type-check, format tools.
+# Superset of requirements.test.txt (prod + deterministic test runner): adds
+# lint, type-check, format tooling and the Emergent-only LLM helpers.
 # Install with: pip install -r requirements.dev.txt
 # -----------------------------------------------------------------------------
 
--r requirements.prod.txt
-
-# --- Test runner ---
-iniconfig==2.3.0
-pluggy==1.6.0
-pytest==9.0.3
+-r requirements.test.txt
 
 # --- Lint + format ---
 black==26.5.1

@@ -41,6 +41,36 @@ operator documents, timestamps, and candidate-id-alone can never select records.
   `verification_status=CONFIRMED` evidence; CONFIRMED != EXECUTABLE.
 - No signing / no broadcasting anywhere in the audit path.
 
+## 2a. Disposable validation image — test tooling (fail-closed)
+The runner executes the deterministic regression suite with `python3 -m pytest`.
+`pytest.ini` declares `required_plugins = pytest-xdist`, runs `-n 2`, and sets
+`asyncio_mode = auto`, so the disposable validation image MUST expose, to its
+`python3`: `pytest`, `pytest-xdist`, `pytest-asyncio` (import names `pytest`,
+`xdist`, `pytest_asyncio`). Production images deliberately exclude these
+(`requirements.prod.txt` is the sole prod source; repo philosophy forbids pytest
+in prod). Provisioning options (neither touches the VPS host or a production
+container):
+
+1. **PREFERRED — build the disposable validation image** (explicit, pinned,
+   build-time):
+   ```
+   docker build -f deployment/docker/backend/Dockerfile.validation \
+                -t arbicore-x-validator:$(git rev-parse --short HEAD) .
+   ```
+   then run the runner inside it with the detached worktree mounted
+   (`-v "$PWD":/src -w /src`). Test deps come from the explicit pinned
+   `deployment/docker/backend/requirements.test.txt`.
+2. **Or** opt into a per-run isolated venv bootstrap (pinned, `--system-site-packages`,
+   torn down with the container):
+   ```
+   ARBICORE_VALIDATOR_BOOTSTRAP=1 bash scripts/run_vps_validator_audit.sh
+   ```
+
+Fail-closed contract: if the tooling is missing and no bootstrap is requested,
+the runner prints `TEST TOOLING UNAVAILABLE` and exits non-zero (exit 3). It
+NEVER reports PASS when the suite could not run — a missing test dependency can
+never be mistaken for a green audit.
+
 ## 3. Required VPS runtime configuration
 For a real live audit to progress past `denied:venue_unreadable`:
 - `MONGO_URL`, `DB_NAME` — evidence store.

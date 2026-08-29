@@ -1,0 +1,29 @@
+# -----------------------------------------------------------------------------
+# ArbiCore X — Test/validation Python requirements
+# -----------------------------------------------------------------------------
+# Superset of requirements.prod.txt that ADDS exactly the deterministic test
+# runner needed by the canonical regression suite (pytest.ini requires the
+# pytest-xdist and pytest-asyncio plugins).
+#
+# This file is the single source of truth for what the DISPOSABLE VPS
+# validation image needs in order to run `scripts/run_vps_validator_audit.sh`.
+# It intentionally excludes lint/format/type tooling and the Emergent-only
+# helpers (those live in requirements.dev.txt) so the validation image stays
+# lean and never ships them.
+#
+# It is NEVER installed into a production image — requirements.prod.txt is the
+# sole production dependency source (repo philosophy forbids pytest in prod).
+#
+# Install with: pip install -r requirements.test.txt
+# Import names the runner asserts: pytest, xdist, pytest_asyncio
+# -----------------------------------------------------------------------------
+
+-r requirements.prod.txt
+
+# --- Deterministic test runner (pins match app/backend/requirements.txt) ---
+execnet==2.1.2
+iniconfig==2.3.0
+pluggy==1.6.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
+pytest-xdist==3.8.0

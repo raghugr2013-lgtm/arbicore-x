@@ -70,6 +70,70 @@ TESTS=(
   "tests/test_m3_0_diagnostic_ordering.py"
 )
 
+# ---------------------------------------------------------------------------
+# TEST-TOOLING PREFLIGHT (FAIL-CLOSED). The disposable validation image must
+# expose pytest + pytest-xdist + pytest-asyncio to the selected interpreter
+# (pytest.ini declares `required_plugins = pytest-xdist`, runs `-n 2`, and sets
+# `asyncio_mode = auto`). We NEVER fake a PASS when the tooling is missing:
+#   present -> run the suite and report the REAL result;
+#   absent  -> report TEST TOOLING UNAVAILABLE and fail closed (exit 3),
+#              unless the operator opts into an isolated, pinned bootstrap.
+# The preferred provisioning path is the build-time validation image
+# (deployment/docker/backend/Dockerfile.validation + requirements.test.txt),
+# which never touches the VPS host or any production container.
+# ---------------------------------------------------------------------------
+TEST_REQ="${REPO_ROOT}/deployment/docker/backend/requirements.test.txt"
+if ! "${PY}" -c "import pytest, xdist, pytest_asyncio" >/dev/null 2>&1; then
+  if [ "${ARBICORE_VALIDATOR_BOOTSTRAP:-0}" = "1" ]; then
+    echo "Test tooling absent; ARBICORE_VALIDATOR_BOOTSTRAP=1 -> provisioning an"
+    echo "ISOLATED venv from ${TEST_REQ}"
+    echo "(pinned; no host / no global / no production-container mutation)."
+    if [ ! -f "${TEST_REQ}" ]; then
+      echo "ERROR: ${TEST_REQ} not found — cannot bootstrap test tooling." >&2
+      echo "AUDIT RESULT: FAIL (test tooling unavailable — regression suite NOT executed)"
+      exit 3
+    fi
+    VENV_DIR="$(mktemp -d)/arbicore_validator_venv"
+    if ! "${PY}" -m venv --system-site-packages "${VENV_DIR}" >/dev/null 2>&1; then
+      echo "ERROR: could not create an isolated venv with '${PY}'." >&2
+      echo "AUDIT RESULT: FAIL (test tooling unavailable — regression suite NOT executed)"
+      exit 3
+    fi
+    if ! "${VENV_DIR}/bin/python" -m pip install --no-cache-dir \
+         --disable-pip-version-check -r "${TEST_REQ}" >/tmp/arbicore_test_bootstrap.log 2>&1; then
+      echo "ERROR: pip install of test requirements failed. Tail of log:" >&2
+      tail -n 25 /tmp/arbicore_test_bootstrap.log >&2 || true
+      echo "AUDIT RESULT: FAIL (test tooling unavailable — regression suite NOT executed)"
+      exit 3
+    fi
+    PY="${VENV_DIR}/bin/python"
+    if ! "${PY}" -c "import pytest, xdist, pytest_asyncio" >/dev/null 2>&1; then
+      echo "ERROR: test tooling still unavailable after bootstrap (fail closed)." >&2
+      echo "AUDIT RESULT: FAIL (test tooling unavailable — regression suite NOT executed)"
+      exit 3
+    fi
+    echo "Isolated test venv ready: ${PY}"
+  else
+    echo "==============================================================" >&2
+    echo "ERROR: TEST TOOLING UNAVAILABLE" >&2
+    echo "  Interpreter '${PY}' cannot import: pytest / pytest-xdist / pytest-asyncio." >&2
+    echo "  This disposable validation image is NOT test-capable, so the" >&2
+    echo "  deterministic regression suite CANNOT be executed. Failing closed" >&2
+    echo "  (this is NOT a PASS and NOT a code-level test failure)." >&2
+    echo "" >&2
+    echo "  Remediation (neither option touches the VPS host or prod containers):" >&2
+    echo "   1) PREFERRED — build the disposable VALIDATION image (build-time, pinned):" >&2
+    echo "        docker build -f deployment/docker/backend/Dockerfile.validation \\" >&2
+    echo "                     -t arbicore-x-validator:\$(git rev-parse --short HEAD) ." >&2
+    echo "      then run this script inside it with the detached worktree mounted." >&2
+    echo "   2) Or opt into an isolated, pinned bootstrap venv for THIS run only:" >&2
+    echo "        ARBICORE_VALIDATOR_BOOTSTRAP=1 bash scripts/run_vps_validator_audit.sh" >&2
+    echo "==============================================================" >&2
+    echo "AUDIT RESULT: FAIL (test tooling unavailable — regression suite NOT executed)"
+    exit 3
+  fi
+fi
+
 cd "${BACKEND_DIR}"
 echo "Running ${#TESTS[@]} deterministic regression modules..."
 echo "interpreter  : ${PY} ($(command -v "${PY}"))"
