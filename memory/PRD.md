@@ -70,3 +70,11 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - testing_agent iteration_3: 133 targeted+new tests green; live phase proven end-to-end (real tick -> capture ids -> isolate run+tick -> ledger -> m3_eligible=false WAIT); strict isolation intact; no gate/economics/signing/broadcast/live change.
 - START 2cab437 -> FINAL ff28c0e. local==remote confirmed.
 - Classification: audit tooling + safety chain CODE READY; full Limited-Live BLOCKED — MISSING READINESS CONTROL (Balancer liquidity, borrow sizing, exact-tx atomic simulation not implemented offline).
+
+## Iteration 4 (2026-06) — Limited-Live eligibility decision layer
+- Added fail-closed DECISION LAYER (CONFIRMED != EXECUTABLE): executor_capability.py (SUPPORTED/UNSUPPORTED/UNVERIFIABLE, Aerodrome denied, dex normalised), borrow_sizing.py (profitable AND executable else INFEASIBLE), limited_live_eligibility.py (15 mandatory controls, any missing/unknown/failed => DENY), readiness_assessment.py (bundle->decision, exact provenance), reused provider_liquidity.read_balancer_liquidity + AtomicExecutorSimulator.
+- vps_canonical_audit.py emits per-CONFIRMED readiness + eligibility; docs/LIMITED_LIVE_READINESS.md updated (control table, DENY causes, VPS config, Codex steps).
+- Decision layer consumed ONLY by read-only audit runner; NO gate/threshold/economics/verifier/mode/kill-switch/signing/broadcast changed.
+- testing_agent iteration_4: 473 passed 0 failed; independently confirmed fail-closed (perfect CONFIRMED bundle still DENIED in read-only audit); no secrets in output; signed/broadcast/limited_live_enabled=false.
+- START 5a5cafb -> FINAL 9609830. local==remote confirmed.
+- Classification: CODE READY — VPS VALIDATION REQUIRED. Reaching ELIGIBLE needs VPS RPC + deployed executor + present signer + live Balancer confirm + freshness/mode/kill-switch — all fail closed today.
