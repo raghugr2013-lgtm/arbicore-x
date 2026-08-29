@@ -35,6 +35,81 @@ def _err(msg: str) -> None:
     print(json.dumps({"audit_error": msg}))
 
 
+async def _assess_confirmed_readiness(bundles: list) -> list:
+    """Fail-closed Limited-Live readiness for each CONFIRMED bundle.
+
+    Executor capability is PROVEN from the route venues. Balancer flash-loan
+    liquidity + exact-tx atomic simulation + freshness are read live where the
+    environment permits and DENY when unavailable/unverifiable. Borrow sizing
+    is proven feasible only when a size is profitable AND executable. Nothing
+    signs or broadcasts."""
+    from arbicore.discovery.base_venues import build_pool_graph
+    from arbicore.scanners.flash_loan_arbitrage.executor_capability import (
+        evaluate_executor_capability,
+    )
+    from arbicore.scanners.flash_loan_arbitrage.borrow_sizing import (
+        BorrowSizeEval, select_borrow_size,
+    )
+    from arbicore.scanners.flash_loan_arbitrage.readiness_assessment import (
+        ReadinessControls, assess_candidate_readiness,
+    )
+    from arbicore.execution.atomic_executor_sim import AtomicExecutorSimulator
+
+    try:
+        _, pool_specs = build_pool_graph()
+    except Exception:  # noqa: BLE001
+        pool_specs = {}
+    executor_addr = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
+    rpc_url = (os.environ.get("ARBICORE_RPC_URL_BASE")
+               or os.environ.get("ARBICORE_RPC_URL"))
+    sim = AtomicExecutorSimulator(rpc_url=rpc_url) if rpc_url else None
+    sim_readiness = sim.readiness() if sim else {"rpc_configured": False}
+
+    out = []
+    for b in bundles:
+        route = b.get("route") or {}
+        route_pools = list(route.get("route_pools") or [])
+        cap = evaluate_executor_capability(
+            route_pools=route_pools, pool_specs=pool_specs,
+            executor_address=executor_addr)
+
+        # Exact-tx atomic simulation: fail closed unless executor+signer+RPC
+        # allow a real eth_call of the exact executor calldata. We never build
+        # a signer here, so this is DENY until the operator provisions one on
+        # the VPS — surfaced honestly (available/passed False + reason).
+        atomic = {"available": False, "passed": False,
+                  "reason": "executor+signer+calldata prerequisites not "
+                            "provisioned in read-only audit",
+                  "readiness": sim_readiness}
+
+        # Borrow sizing: with only the persisted (single) size and no live
+        # per-size economics/sim, feasibility cannot be proven ⇒ fail closed.
+        econ = b.get("economics") or {}
+        size_eval = BorrowSizeEval(
+            size_usd=float(b.get("input_amount_usd") or 0.0),
+            net_profit_usd=econ.get("atomic_profit_usd"),
+            gross_spread_pct=(b.get("quotes") or {}).get("gross_profit_pct"),
+            quote_complete=(b.get("quotes") or {}).get("route_quote_status") == "ok",
+            economics_ok=isinstance(econ.get("atomic_profit_usd"), (int, float))
+            and (econ.get("atomic_profit_usd") or 0) > 0,
+            liquidity_sufficient=False,   # no confirmed Balancer read ⇒ closed
+            executor_supported=cap.is_supported,
+            atomic_sim_passed=False,
+            reason="single_persisted_size; live per-size proof unavailable")
+        size_decision = select_borrow_size([size_eval])
+
+        controls = ReadinessControls(
+            executor_capability=cap,
+            balancer_liquidity=None,      # live read not performed here ⇒ UNKNOWN
+            borrow_size=size_decision,
+            atomic_sim=atomic,
+            freshness_ok=False,           # freshness policy not proven offline
+            mode_allows=False,            # Limited-Live intentionally NOT enabled
+            kill_switch_ok=False)         # not proven in read-only audit ⇒ DENY
+        out.append(assess_candidate_readiness(b, controls))
+    return out
+
+
 async def _amain() -> int:
     mongo_url = os.environ.get("MONGO_URL")
     db_name = os.environ.get("DB_NAME")
@@ -117,6 +192,20 @@ async def _amain() -> int:
     report["candidate_ledger"] = ledger
     report["candidates_total"] = len(ledger)
     report["candidates_confirmed"] = len(confirmed_candidate_ids)
+
+    # 6b) Limited-Live READINESS for each exact-run CONFIRMED candidate. Every
+    #     control is fail-closed: executor capability is proven (not inferred),
+    #     Balancer flash-loan liquidity / atomic simulation / borrow sizing are
+    #     read live where possible and DENY when unavailable. CONFIRMED is never
+    #     treated as EXECUTABLE. Nothing here signs or broadcasts.
+    confirmed_bundles = [b for b in bundles
+                         if b.get("verification_status") == "CONFIRMED"
+                         and (b.get("diagnostics") or {}).get("candidate_id")
+                         in set(confirmed_candidate_ids)]
+    report["readiness"] = await _assess_confirmed_readiness(confirmed_bundles)
+    report["limited_live_eligible_candidates"] = [
+        r["provenance"]["candidate_id"] for r in report["readiness"]
+        if r["limited_live"]["eligible"]]
 
     # 7-8) Feed ONLY exact-run CONFIRMED evidence to M3. We hand the exact
     #      selectors to the M3 validator via env — M3 fails closed if nothing

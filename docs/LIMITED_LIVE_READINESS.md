@@ -59,23 +59,75 @@ Executor-capability / exact-simulation controls (section 4) additionally need:
 Do NOT copy the VPS `.env` wholesale; provide only the values above. Never add
 signer secrets/private keys to the repo or to any audit output.
 
-## 4. MISSING readiness controls (must exist before LIMITED-LIVE READY)
-These are intentionally NOT faked in code — implementing them without live
-validation would create false confidence (the explicit anti-goal). Each must be
-implemented as a fail-closed prerequisite and validated on the VPS:
+## 4. Limited-Live eligibility controls (implemented as fail-closed decision layer)
+`CONFIRMED != EXECUTABLE`. A single explicit decision,
+`arbicore.execution.limited_live_eligibility.evaluate_limited_live_eligibility`,
+requires **every** mandatory control below to be an explicit PASS; any missing /
+unknown / unverifiable / insufficient / stale / mismatched value ⇒ **DENY**.
+Assembled per exact-run CONFIRMED candidate by
+`scanners.flash_loan_arbitrage.readiness_assessment.assess_candidate_readiness`
+and surfaced by the audit runner. Nothing signs/broadcasts/enables Limited-Live.
 
-- **Balancer flash-loan liquidity evidence** — query the Balancer V2 Vault for
-  the borrow token's available liquidity; persist {provider, token, available,
-  requested, safety margin, sufficient?}. Route TVL is NOT a substitute; fail
-  closed if the Vault cannot be queried.
-- **Borrow-size sensitivity** — prove the chosen borrow amount is profitable AND
-  supported by pool depth + flash-loan liquidity + executor + net-of-all-costs.
-- **Exact-transaction atomic simulation** — build the exact executor calldata
-  and simulate it against fresh state (route, repayment, resulting balances,
-  gas, no revert, economic result) BEFORE any Limited-Live eligibility. Must be
-  a hard prerequisite. No signing/broadcast.
+| Control | Proves | DENY when |
+|---|---|---|
+| quote_complete | closed-cycle, all hops ok | partial/reverted/missing/malformed |
+| economics_ok / gate_7 | atomic profit ≥ floor | net ≤ 0 or Gate 7 ≠ PASS |
+| liquidity_verified / gate_8 | route TVL verified | Gate 8 ≠ PASS / unverifiable |
+| executor_capability | route venues are executor-supported (**proven**, `evaluate_executor_capability`) | any Aerodrome/unsupported venue (UNSUPPORTED) or missing venue metadata (UNVERIFIABLE) |
+| gate_9 | MEV within policy | Gate 9 ≠ PASS |
+| balancer_liquidity | candidate-level Balancer V2 Vault flash-loan liquidity ≥ borrow (`read_balancer_liquidity`, status ladder) | not ON_CHAIN_CONFIRMED (UNKNOWN/UNAVAILABLE/INSUFFICIENT) |
+| borrow_size_feasible | a size that is profitable **and** executable (`select_borrow_size`) | no feasible size |
+| atomic_simulation | exact executor calldata simulated against fresh state (`AtomicExecutorSimulator.simulate_atomic`) | unavailable / revert / missing executor/signer/calldata |
+| freshness_ok | quote/block/state within policy | stale / unproven |
+| provenance_complete | exact audit_run_id + scanner_tick_id + candidate_id | any missing |
+| verification_confirmed | source=flash_loan_arb_verifier, status=CONFIRMED | otherwise |
+| mode_allows / kill_switch_ok | operator mode ladder permits + kill switch clear | Limited-Live not enabled / kill switch engaged |
 
-Until these three controls exist and pass on the VPS, the correct classification
-is **BLOCKED — MISSING READINESS CONTROL** for full Limited-Live, even though the
-audit tooling and the discovery→quote→economics→gates→evidence→M3 safety chain
-are code-ready.
+Evidence persisted per candidate (exact provenance preserved): executor
+capability (status + pool classification), Balancer liquidity (provider, token,
+available, requested, margin, sufficient, source), borrow-size analysis
+(evaluated sizes + selection rationale), atomic-simulation result (available,
+passed, block_tag, reason, `signed=false`, `broadcast=false`), and the full
+control ledger + decision. Missing/mismatched field ⇒ fail closed.
+
+## 5. Required VPS runtime configuration
+For the eligibility controls to reach anything other than DENY on the VPS:
+- `MONGO_URL`, `DB_NAME` — evidence store.
+- `ARBICORE_RPC_URL_BASE` (or `ARBICORE_RPC_URL`) — live quoting / congestion /
+  head block / Balancer balanceOf / atomic-sim eth_call.
+- `ARBICORE_USD_NUMERAIRE` (+ price feed env) — Gate 8 TVL + Balancer USD sizing.
+- `ARBICORE_EXECUTOR_ADDRESS_BASE` + `ARBICORE_EXECUTOR_BYTECODE`
+  (`contracts/artifacts/FlashLoanReceiver.bytecode.txt`) — atomic simulation of
+  the exact executor calldata.
+- `BASE_BALANCER_V2_VAULT` — override only if different from the canonical
+  singleton `0xBA12222222228d8Ba445958a75a0704d566BF2C8`.
+- `ARBICORE_AERO_CL_FACTORY_BASE` / `ARBICORE_AERO_POOL_FACTORY_BASE` — only to
+  resolve Aerodrome pool addresses for TVL; those routes stay execution-DENIED.
+- `ARBICORE_WSS_URL_BASE` — optional streaming head.
+
+Provide ONLY these non-secret values through the protected config mechanism.
+NEVER add signer keys / private keys / API secrets to Git or to audit output.
+
+## 6. What Codex must independently verify on the VPS
+Run `ARBICORE_RUN_LIVE_AUDIT=1 bash scripts/run_vps_validator_audit.sh` and
+confirm, from the JSON report (ids/status only, no secrets):
+- exact `audit_run_id` + `scanner_tick_id` captured from one real tick;
+- candidate ledger isolated to that exact run+tick;
+- per-CONFIRMED-candidate `readiness`: executor_capability, balancer_liquidity,
+  borrow_size, atomic_simulation, and the `limited_live` decision;
+- `limited_live_eligible_candidates` — expected EMPTY until an executor+signer
+  are provisioned and atomic simulation passes (fail-closed is correct);
+- `signed=false`, `broadcast=false`, `limited_live_enabled=false` everywhere.
+
+## 7. Intentionally still disabled / remaining VPS prerequisites
+The decision layer + evaluators are implemented and fail-closed. Reaching an
+ELIGIBLE verdict additionally requires, on the VPS (NOT done here):
+- a deployed/allowlisted executor + a present execution signer so the exact-tx
+  atomic simulation can actually run (today it fails closed);
+- live Balancer Vault reads returning ON_CHAIN_CONFIRMED for the borrow token;
+- a freshness policy proof and an operator mode/kill-switch state that permits a
+  Limited-Live attempt.
+
+Until Codex proves all of the above live on the exact SHA, the classification is
+**CODE READY — VPS VALIDATION REQUIRED** (never Limited-Live ready on unit tests
+alone). Limited-Live / Full-Live / signing / broadcasting remain disabled.
