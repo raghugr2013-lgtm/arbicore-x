@@ -63,3 +63,10 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - No trading gate/threshold/economics/signing/broadcast/live-mode changed.
 - Final SHA: fab3c1b4130588212b93f59f33d37e328ff87a92 (branch complete-Base-M1-M4-live-shadow-composition). local==remote confirmed.
 - Verified by testing_agent iteration_1 (found 3 gaps) + iteration_2 (all 3 fixed, no regressions).
+
+## Iteration 3 (2026-06) — Canonical VPS audit workflow fix
+- Blocker: filter_evidence_for_audit required all 3 selectors; runner had only audit_run_id -> TypeError.
+- Fix: candidate_id OPTIONAL (audit_run_id+scanner_tick_id mandatory/exact); new run_single_canonical_flash_loan_audit_tick() (one tick, captures ACTUAL ids); scripts/vps_canonical_audit.py runner (read-only, fail-closed, no secrets); run_vps_validator_audit.sh live phase; docs/LIMITED_LIVE_READINESS.md.
+- testing_agent iteration_3: 133 targeted+new tests green; live phase proven end-to-end (real tick -> capture ids -> isolate run+tick -> ledger -> m3_eligible=false WAIT); strict isolation intact; no gate/economics/signing/broadcast/live change.
+- START 2cab437 -> FINAL ff28c0e. local==remote confirmed.
+- Classification: audit tooling + safety chain CODE READY; full Limited-Live BLOCKED — MISSING READINESS CONTROL (Balancer liquidity, borrow sizing, exact-tx atomic simulation not implemented offline).
