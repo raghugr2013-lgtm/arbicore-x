@@ -24,7 +24,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL",
-                          "https://elated-banach-10.preview.emergentagent.com").rstrip("/")
+                          "https://exec-readiness-x.preview.emergentagent.com").rstrip("/")
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "ArbiCore2026!"
 QUOTE_KEY_ENV = "ARBICORE_QUOTE_CAPTURE_KEY"

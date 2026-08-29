@@ -4,7 +4,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL",
-                          "https://elated-banach-10.preview.emergentagent.com").rstrip("/")
+                          "https://exec-readiness-x.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 USERNAME = "operator"
 PASSWORD = "ShadowOperator!2026"

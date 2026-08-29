@@ -230,7 +230,7 @@ def test_coingecko_respects_cadence_throttle():
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://elated-banach-10.preview.emergentagent.com",
+    "https://exec-readiness-x.preview.emergentagent.com",
 ).rstrip("/")
 
 

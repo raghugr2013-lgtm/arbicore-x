@@ -11,7 +11,7 @@ from arbicore.intel import EntityType, ref_id, ref_to_entity_id
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://elated-banach-10.preview.emergentagent.com",
+    "https://exec-readiness-x.preview.emergentagent.com",
 ).rstrip("/")
 
 

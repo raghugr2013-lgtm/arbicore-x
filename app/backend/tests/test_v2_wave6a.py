@@ -8,7 +8,7 @@ import requests
 
 BASE = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://elated-banach-10.preview.emergentagent.com",
+    "https://exec-readiness-x.preview.emergentagent.com",
 ).rstrip("/")
 API = f"{BASE}/api"
 
