@@ -87,7 +87,60 @@ def is_deployed(chain: Any) -> bool:
     return deployed_address(chain) is not None
 
 
+def executor_provenance(chain: Any, *, env_address: Optional[str] = None) -> Dict[str, Any]:
+    """READ-ONLY provenance reconciliation between the runtime env address and
+    the committed registry. Pure observability — it NEVER changes readiness
+    classification, NEVER writes env, and NEVER fabricates a deployment.
+
+    Surfaces the Codex-transition drift case where the VPS configures
+    ``ARBICORE_EXECUTOR_ADDRESS_BASE`` for a chain the registry still records as
+    ``not_deployed`` (address null): operators then know the configured address
+    is UNVERIFIED against repo provenance and must confirm it on-chain.
+    """
+    if env_address is None:
+        env_address = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE") or None
+    rec = get_deployment(chain) or {}
+    reg_status = rec.get("deploy_status", "absent") if rec else "absent"
+    reg_addr = rec.get("address") if isinstance(rec.get("address"), str) else None
+
+    if env_address and reg_addr:
+        matches = (env_address.lower() == reg_addr.lower())
+    elif env_address and not reg_addr:
+        matches = None  # cannot compare — registry has no recorded address
+    else:
+        matches = None
+
+    if not env_address and reg_addr:
+        source = "registry"
+    elif env_address:
+        source = "env"
+    else:
+        source = "none"
+
+    if not env_address and not reg_addr:
+        note = "no executor address configured (env) and none recorded (registry)"
+    elif env_address and reg_status != "success":
+        note = ("env executor address configured but registry has no successful "
+                f"deployment (status={reg_status}) — UNVERIFIED against repo "
+                "provenance; confirm on-chain identity before trusting")
+    elif env_address and reg_addr and matches is False:
+        note = "env executor address DIFFERS from registry-recorded address — drift"
+    elif env_address and reg_addr and matches is True:
+        note = "env executor address matches registry-recorded deployment"
+    else:
+        note = "registry-recorded deployment present; no env override"
+
+    return {
+        "env_address": env_address,
+        "registry_status": reg_status,
+        "registry_address": reg_addr,
+        "source": source,
+        "matches_registry": matches,
+        "note": note,
+    }
+
+
 __all__ = [
     "registry_path", "load_registry", "get_deployment",
-    "deployed_address", "is_deployed",
+    "deployed_address", "is_deployed", "executor_provenance",
 ]

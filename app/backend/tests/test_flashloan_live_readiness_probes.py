@@ -13,6 +13,7 @@ import pytest
 from arbicore.scanners.flash_loan_arbitrage.live_readiness_probes import (
     probe_atomic_simulation, probe_balancer_liquidity, probe_freshness,
     probe_mode_and_kill_switch, FRESH_QUOTE_MAX_AGE_S,
+    probe_executor_identity,
 )
 from arbicore.scanners.flash_loan_arbitrage.provider_liquidity import (
     ProviderStatus, BALANCER_V2_VAULT,
@@ -117,6 +118,31 @@ async def test_atomic_sim_no_rpc_is_unknown():
     assert r["available"] is False and r["passed"] is False
     assert r["status"] == "UNKNOWN" and "rpc" in r["reason"]
     assert r["signed"] is False and r["broadcast"] is False
+
+
+# --- executor identity probe: RPC rate-limit visibility (fail-closed) ------
+async def test_identity_no_executor_is_blocked():
+    r = await probe_executor_identity(executor_address=None, rpc_url="http://rpc")
+    assert r["status"] == "BLOCKED" and r["reason"] == "executor_address_absent"
+    assert r["signed"] is False and r["broadcast"] is False
+
+
+async def test_identity_no_rpc_is_unknown():
+    r = await probe_executor_identity(executor_address=EXECUTOR, rpc_url="")
+    assert r["status"] == "UNKNOWN" and "rpc_not_configured" in r["reason"]
+
+
+async def test_identity_rpc_429_surfaces_rate_limited_and_stays_unknown():
+    async def _rate_limited_inspector(rpc_url, addr):
+        raise RuntimeError("rpc_base -> 429 rate limited")
+    r = await probe_executor_identity(
+        executor_address=EXECUTOR, rpc_url="http://rpc",
+        inspector=_rate_limited_inspector)
+    assert r["status"] == "UNKNOWN"  # never fabricated READY
+    assert r["reason"].startswith("RPC_PROVIDER_RATE_LIMITED")
+    assert r.get("rpc_rate_limited") is True
+    assert r["signed"] is False and r["broadcast"] is False
+
 
 
 async def test_atomic_sim_no_executor_denies():

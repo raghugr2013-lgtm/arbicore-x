@@ -373,7 +373,15 @@ async def probe_executor_identity(
     try:
         info = await inspector(rpc_url, executor_address)
     except Exception as exc:  # noqa: BLE001
-        result["reason"] = f"inspection_error:{type(exc).__name__}"
+        # Fail-closed (status stays UNKNOWN). Surface a precise, secret-free
+        # reason code so operators can distinguish a rate-limited provider from
+        # other inspection errors. Never prints the RPC URL.
+        msg = str(exc).lower()
+        if "429" in msg or "rate limit" in msg or "too many requests" in msg:
+            result["reason"] = "RPC_PROVIDER_RATE_LIMITED (executor identity unverified)"
+            result["rpc_rate_limited"] = True
+        else:
+            result["reason"] = f"inspection_error:{type(exc).__name__}"
         return result
 
     if not info.get("ok"):

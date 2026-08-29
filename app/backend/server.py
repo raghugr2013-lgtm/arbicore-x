@@ -4263,6 +4263,7 @@ async def v2_limited_live_readiness(chain: str = "base") -> Dict[str, Any]:
             "signer_state": assembled["signer_state"],
             "executor_identity": assembled["executor_identity"],
             "executor_address_resolved": assembled["executor_address_resolved"],
+            "executor_provenance": assembled.get("executor_provenance"),
             "atomic_simulation": next(
                 (i for i in m["items"] if i["prerequisite"] == "atomic_simulation"), None),
             "signed": False, "broadcast": False, "limited_live_enabled": False,

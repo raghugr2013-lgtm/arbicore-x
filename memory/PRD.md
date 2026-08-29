@@ -154,3 +154,34 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - test_p0_iter13_signer_readiness.py = 13 live-HTTP integration tests requiring a fully-provisioned/seeded live server (preview backend cannot boot: VPS app has no local MONGO_URL/.env) — environment-dependent, NOT part of deterministic runner, NOT a 429 regression.
 - In-process readiness matrix validation: PASS. signed/broadcast/limited_live_enabled all False in every state; SHADOW denies (mode_allows False); rpc-missing->SOFTWARE_INCOMPLETE; fully-provisioned hypothetical->SOFTWARE_READY_MARKET_AND_OPERATOR_PENDING (never enabled).
 - REGRESSION STATUS: none. SIGNED=NO, BROADCAST=NO, LIMITED_LIVE_ENABLED=NO, MODE=SHADOW. No irreversible/on-chain action performed. Repository ready for Save-to-GitHub of e930a10.
+
+## Iteration 5j (2026-06) — VPS/validation drift reconciliation + read-only on-chain verification (SAFE, fail-closed)
+Base commit e930a10 (+5340960 PRD). All changes additive, read-only, fail-closed. No deploy/sign/broadcast/key/mode/gate/floor/prod-compose change.
+
+### Validation infrastructure (Codex-transition drift fix)
+- deployment/compose/docker-compose.validation.yml: REMOVED fixed `container_name: arbicore-x-validator-mongo` (collided with a pre-existing standalone container) and the fixed network `name:`. Now project-scoped -> repeatable, isolated runs. MONGO_URL uses SERVICE name `mongodb://validator-mongo:27017`. Production compose (docker-compose.yml/.shared.yml) intentionally keep fixed container names — left UNTOUCHED (correct reconciliation: prod=stable identity, validator=ephemeral).
+- NEW scripts/run_validation_stack.sh: deterministic self-cleaning wrapper — unique per-run compose project + pre/post `down -v --remove-orphans` so no stale validator container can block the next run. (Docker absent in preview; wrapper is for the VPS.)
+- Confirmed Dockerfile.validation + requirements.test.txt (`-r requirements.prod.txt` + pytest/xdist/asyncio pins) + requirements.prod.txt ALL present/correct — validation image is test-capable.
+
+### RPC reliability (verified on real backend path)
+- 429 handling present on BOTH read paths: providers/rpc.py EthJsonRpcProvider._call (readiness reads; bounded backoff, honors Retry-After, fail-closed on exhaustion) AND execution/quoter.py _eth_call (quoting; global throttle + bounded exp backoff, fails closed on exhaustion). Neither is an uncontrolled loop.
+- NEW: probe_executor_identity surfaces `RPC_PROVIDER_RATE_LIMITED` reason code + `rpc_rate_limited=True` on 429 while status stays UNKNOWN (fail-closed; no fabricated READY).
+
+### Provenance drift observability (env vs registry)
+- NEW executor_registry.executor_provenance(chain, env_address): READ-ONLY reconciliation of ARBICORE_EXECUTOR_ADDRESS_BASE vs deploy/executor_deployments.json. Observability ONLY — never changes classification, never writes env, never fabricates a deployment. Wired into gather_and_build + GET /api/arbicore/limited-live/readiness response (`executor_provenance`).
+- Registry 8453 entry remains `not_deployed`/address null by design; NOT auto-written (lacks canonical deploy_tx/block; writing success would alter the fallback resolution path — operator boundary).
+
+### READ-ONLY on-chain verification (via public Base RPC; eth_call/eth_getCode only)
+- Base mainnet executor 0x91c0bf28E32b76889BB2B61E1A2dDE9F7e4f3DE3: chainId 8453 OK, bytecode present (6664B), owner 0x998d6efF2b28b72c44f7a334c42678eb4cCaad25, router 0x2626664c... (== expected uniRouter), vault 0xBA1222...2C8 (== expected Balancer V2), entrypoint selector present, no mismatches -> identity READY (executor_identity_confirmed_onchain). => registry `not_deployed` is STALE drift; the executor IS deployed+identity-matched on-chain.
+- Base Sepolia executor 0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052 (registry-recorded): chainId 84532 OK, bytecode present (4987B), owner 0x65afB0a65Fd22F88022915F53eD48DA34fb02003, entrypoint present -> identity READY.
+- Limited-Live signer PUBLIC address must equal the Base-mainnet executor owner EOA 0x998d6efF...; VPS ARBICORE_EXECUTOR_SIGNER_ADDRESS is MISSING -> signer BLOCKED (correct fail-closed).
+
+### Tests
+- Authoritative 138-module runner: PASS (re-run at HEAD after all edits). Touched-module regression sweep: 142 passed. +6 new tests (3 provenance, 3 identity/rate-limit). In-process readiness matrix + /api readiness endpoint: PASS, signed/broadcast/limited_live_enabled all False, SHADOW denies.
+
+### Exact remaining blockers (operator/on-chain/market only — NOT software)
+- VPS RPC endpoint returns 429 (RPC_PROVIDER_RATE_LIMITED): operator to raise rate limit / use authed provider. Software already retries+fails closed.
+- ARBICORE_EXECUTOR_SIGNER_ADDRESS MISSING on VPS: operator to set signer PUBLIC address == executor owner 0x998d6efF... (private key stays in operator vault, never repo/env/logs).
+- Operator to record canonical Base-mainnet deploy_tx/block in deploy/executor_deployments.json (optional provenance completion; on-chain identity already independently verified READY).
+- Mode remains SHADOW; enabling LIMITED_LIVE is an explicit operator action.
+- Market: a genuine CONFIRMED + profitable (>= $25 floor) UniV3 candidate must appear naturally.

@@ -173,6 +173,7 @@ async def gather_and_build(
         probe_mode_and_kill_switch, probe_signer_readiness,
         probe_executor_identity, resolve_executor_address,
     )
+    from ...execution.executor_registry import executor_provenance
     if chain is None:
         import os
         chain = os.environ.get("ARBICORE_CHAIN_ID", "8453")
@@ -195,4 +196,5 @@ async def gather_and_build(
         "signer_state": signer_state, "executor_identity": identity,
         "executor_address": executor_address,
         "executor_address_resolved": bool(executor_address),
+        "executor_provenance": executor_provenance(chain, env_address=executor_address),
     }

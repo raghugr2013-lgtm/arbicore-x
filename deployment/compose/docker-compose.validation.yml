@@ -26,9 +26,17 @@
 services:
   # Dedicated, disposable evidence store. Data lives on tmpfs so nothing
   # persists and the production data anchor is never involved.
+  #
+  # NOTE (repeatability): we deliberately DO NOT pin a fixed `container_name`.
+  # A fixed name (formerly `arbicore-x-validator-mongo`) collides with any
+  # pre-existing standalone container of that exact name and makes
+  # `docker compose ... run` fail with "container name already in use".
+  # Letting Compose derive a project-scoped name (e.g.
+  # `<project>-validator-mongo-1`) guarantees repeatable, isolated runs that
+  # never clash with legacy validator containers. Peers resolve this Mongo by
+  # its SERVICE name (`validator-mongo`) over the shared Compose network.
   validator-mongo:
     image: ${MONGO_IMAGE:-mongo:4.4}
-    container_name: arbicore-x-validator-mongo
     restart: "no"
     command: ["mongod", "--bind_ip_all", "--quiet"]
     tmpfs:
@@ -54,8 +62,9 @@ services:
       validator-mongo:
         condition: service_healthy
     environment:
-      # Dedicated validator endpoint — resolved via Docker DNS on the shared net.
-      MONGO_URL: mongodb://arbicore-x-validator-mongo:27017
+      # Dedicated validator endpoint — resolved via Docker DNS by SERVICE name
+      # on the shared Compose network (no fixed container_name dependency).
+      MONGO_URL: mongodb://validator-mongo:27017
       DB_NAME: ${VALIDATION_DB_NAME:-arbicore_x_validator_shadow}
       # Explicit provenance so git_sha/git_branch are correct even though the
       # mounted worktree's .git is not resolvable inside the container.
@@ -72,6 +81,8 @@ services:
     command: ["bash", "scripts/run_vps_validator_audit.sh"]
 
 networks:
+  # Project-scoped network (no fixed `name:`) so repeated runs never reuse or
+  # collide with a stale/global validator network. Compose derives
+  # `<project>_arbicore-x-validator-net`; service-name DNS still resolves.
   arbicore-x-validator-net:
-    name: arbicore-x-validator-net
     driver: bridge
