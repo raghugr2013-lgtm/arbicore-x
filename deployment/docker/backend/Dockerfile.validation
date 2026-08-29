@@ -43,6 +43,10 @@ RUN apt-get update \
 WORKDIR /app
 
 # Explicit, pinned test/validation dependencies (prod superset + pytest stack).
+# requirements.test.txt begins with `-r requirements.prod.txt`, so BOTH files
+# must land in the SAME in-image directory (/app) with their names preserved,
+# otherwise pip fails with "Could not open requirements file: .../requirements.prod.txt".
+COPY deployment/docker/backend/requirements.prod.txt /app/requirements.prod.txt
 COPY deployment/docker/backend/requirements.test.txt /app/requirements.test.txt
 RUN pip install --no-cache-dir -r /app/requirements.test.txt \
  && apt-get purge -y build-essential \
