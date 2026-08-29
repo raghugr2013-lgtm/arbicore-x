@@ -97,6 +97,51 @@ def _flash_loan_evidence_filter():
     }
 
 
+async def _select_audit_isolated_bundle(db, audit):
+    """Diagnostic-run isolation (observability only).
+
+    When the auditor pins the exact scan via env
+    (``ARBICORE_AUDIT_RUN_ID`` + ``ARBICORE_AUDIT_SCANNER_TICK_ID`` +
+    ``ARBICORE_AUDIT_CANDIDATE_ID``), select ONLY the newest CONFIRMED bundle
+    attributable to that run using the authoritative
+    ``build_audit_evidence_query`` filter.
+
+    Returns a ``(pinned, doc)`` tuple:
+      * ``pinned=False`` when not all three selectors are provided → caller
+        keeps its normal latest-CONFIRMED path;
+      * ``pinned=True`` when the run is pinned. ``doc`` is the matching bundle
+        or ``None`` when NOTHING matches. When pinned, the caller MUST NOT fall
+        back to a foreign latest-CONFIRMED record — a pinned-but-unmatched
+        audit fails closed with an empty plan (never mixes runs, never prefers
+        newest, never keys off timestamps).
+    """
+    run_id = (os.environ.get("ARBICORE_AUDIT_RUN_ID") or "").strip()
+    tick_raw = (os.environ.get("ARBICORE_AUDIT_SCANNER_TICK_ID") or "").strip()
+    cand_id = (os.environ.get("ARBICORE_AUDIT_CANDIDATE_ID") or "").strip()
+    if not (run_id and tick_raw and cand_id):
+        return (False, None)
+    worker_id = (os.environ.get("ARBICORE_AUDIT_WORKER_ID") or "").strip() or None
+    # scanner_tick_id is stored as the scanner emits it (int); coerce a numeric
+    # env string to int so the exact-match query lines up, else keep as-is.
+    tick: object = int(tick_raw) if tick_raw.lstrip("-").isdigit() else tick_raw
+    from arbicore.evidence.audit_provenance import build_audit_evidence_query
+    q = build_audit_evidence_query(
+        audit_run_id=run_id, scanner_tick_id=tick, candidate_id=cand_id,
+        worker_id=worker_id, source_component="flash_loan_arb_verifier",
+        verification_status="CONFIRMED")
+    doc = await db.evidence_bundles.find_one(q, sort=[("created_at", -1)])
+    audit["opportunity"]["audit_isolation"] = {
+        "audit_run_id": run_id, "scanner_tick_id": tick,
+        "scanner_tick_id_raw": tick_raw,
+        "candidate_id": cand_id, "worker_id": worker_id, "query": q,
+        "matched": doc is not None,
+        # explicit: a pinned run that matches nothing fails closed; it does NOT
+        # borrow a foreign latest-CONFIRMED bundle.
+        "fail_closed_no_fallback": doc is None,
+    }
+    return (True, doc)
+
+
 async def _probe_fresh_stages(plan, quoter):
     """READ-ONLY step-by-step probe of every fresh_fn dependency for ``plan``.
 
@@ -529,16 +574,26 @@ async def main() -> None:
         try:
             from motor.motor_asyncio import AsyncIOMotorClient
             db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
-            # M3 consumes only CONFIRMED flash-loan verifier evidence. DENIED
-            # records are intentionally persisted with empty facts/hop legs;
-            # falling back to those records would erase quote provenance.
-            doc = await db.evidence_bundles.find_one(
-                _flash_loan_evidence_filter(), sort=[("created_at", -1)])
+            # Diagnostic-run isolation (observability): when the auditor pins
+            # the exact scan via ARBICORE_AUDIT_RUN_ID + _SCANNER_TICK_ID +
+            # _CANDIDATE_ID, select ONLY the CONFIRMED bundle attributable to
+            # that run. If pinned, NEVER fall back to the "latest" or a
+            # foreign/concurrent record — a pinned-but-unmatched run fails
+            # closed with an empty plan.
+            pinned, doc = await _select_audit_isolated_bundle(db, audit)
+            if not pinned:
+                # M3 consumes only CONFIRMED flash-loan verifier evidence.
+                # DENIED records are intentionally persisted with empty
+                # facts/hop legs; falling back to those records would erase
+                # quote provenance.
+                doc = await db.evidence_bundles.find_one(
+                    _flash_loan_evidence_filter(), sort=[("created_at", -1)])
             if doc:
                 plan = _plan_from_evidence(doc)
                 audit["opportunity"]["evidence_bundle"] = {
                     "bundle_id": doc.get("bundle_id"),
                     "source_component": doc.get("source_component"),
+                    "diagnostics": doc.get("diagnostics"),
                     "quote_hop_blocks": [
                         h.get("block_number") for h in
                         ((doc.get("quotes") or {}).get("hop_legs") or [])
