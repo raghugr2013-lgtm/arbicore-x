@@ -54,3 +54,12 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - P1: Genuinely profitable real opportunity reaching GREEN end-to-end (fail-closed dry-run) before any evidence-gated LIMITED-LIVE plan.
 - P2: Wire funding_arb order-book depth_fetcher; inject cross_chain transfer/liveness providers for verification.
 - P2 (UX quirk from testing_agent): hard-reload of `/dashboard/ops` re-routes via `/initialization` back to default landing; in-app SPA nav works. Pre-existing init flow; review if it bothers operators.
+
+## Iteration 2 (2026-06) — Diagnostic-run evidence attribution
+- Problem: authoritative branch exposed diagnostic provenance on evidence bundles but had no capability to isolate evidence for exactly one audit run; Codex could not run a clean attributable VPS audit.
+- Implemented (observability only): arbicore/evidence/audit_provenance.py (build_audit_evidence_query / evidence_matches_audit / filter_evidence_for_audit / AuditProvenanceError), EvidenceBundlesRepo.find_for_audit + diagnostics.* index, env-driven fail-closed isolation in scripts/m3_0_vps_validate.py.
+- Fail-closed rules enforced; NoSQL-injection safe; never mixes runs; never falls back to candidate-id/timestamp; pinned-but-unmatched -> empty plan.
+- Tests: tests/test_flashloan_audit_evidence_filter.py (16). Prior partial-quote + Gate 7/8/9 suites still green (audit runner: 111 passed).
+- No trading gate/threshold/economics/signing/broadcast/live-mode changed.
+- Final SHA: fab3c1b4130588212b93f59f33d37e328ff87a92 (branch complete-Base-M1-M4-live-shadow-composition). local==remote confirmed.
+- Verified by testing_agent iteration_1 (found 3 gaps) + iteration_2 (all 3 fixed, no regressions).
