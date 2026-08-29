@@ -107,3 +107,16 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - Verified in preview: bash -n OK; compose YAML valid; RUN A (MONGO_URL unset) -> warning + real git_sha + 138 passed; RUN B (MONGO_URL set + explicit provenance) -> mongo_target localhost:27017, git_sha/branch overridden, 138 passed; cred-stripping parse confirmed.
 - UNCHANGED: production Mongo/compose, requirements.prod.txt, gates/economics/thresholds/executor/signer/broadcast/live-mode. Fail-closed preserved.
 - NOT run on real VPS by me (Emergent preview has no Docker/RPC and is not the VPS). Codex must re-run the 138 suite on the VPS at cf7a2f2 and report exact pass/fail BEFORE the live A-L audit. No live readiness claimed.
+
+## Iteration 5e (2026-06) — Safe Limited-Live readiness provisioning (items 2-4)
+- START f787950 -> FINAL a13bebc. Additive, fail-closed only. No executor deploy, no compose/live-mode change, no threshold/gate/signer/broadcast change.
+- NEW arbicore/scanners/flash_loan_arbitrage/live_readiness_probes.py (4 read-only probes):
+  1. probe_atomic_simulation: AtomicExecutorSimulator exact-tx read-only eth_call + state override; UNKNOWN w/o RPC, DENY w/o executor/calldata/signer; never signs/broadcasts.
+  2. probe_balancer_liquidity: real Balancer V2 Vault balanceOf, AVAILABLE vs REQUESTED; None/UNKNOWN/UNAVAILABLE fail-closed; never fabricates.
+  3. probe_freshness: documented quote-age<=12s + block-lag<=ARBICORE_PRICE_MAX_BLOCK_LAG(5); fail closed on missing/stale/reorg; threshold unchanged.
+  4. probe_mode_and_kill_switch: honest ControlStateRepo mode + KillSwitchRepo; mode_allows only LIMITED_LIVE/FULL_AUTOMATION; engaged/unknown => DENY; never enables anything.
+- WIRED into scripts/vps_canonical_audit.py _assess_confirmed_readiness (replaced hardcoded stubs) + report["operator_state"]. Signature backward-compatible (kw defaults).
+- TESTS NEW tests/test_flashloan_live_readiness_probes.py (25 passed): missing RPC/executor/calldata/signer, passing sim, balancer confirmed/insufficient/unknown/unresolved, freshness fresh/missing/stale/reorg/lag, disabled mode, engaged kill-switch, eligibility integration (all-pass eligible; disabled-mode/kill/stale => DENY).
+- Verified: 138-module runner green; 25 new tests green; audit script imports OK; safety files (limited_live_eligibility, pre_broadcast, executor_capability, readiness_assessment) UNCHANGED. Broad `pytest tests/` failures are PRE-EXISTING/environmental (need live server:8001/RPC/DB) — not caused by this change.
+- Eligibility posture now HONEST: DENY via real reads (SHADOW mode => mode_allows False; no deployed executor => atomic_sim/executor DENY). A genuine ELIGIBLE is reachable only after operator deploys+verifies executor, provisions signer, confirms Balancer liquidity, a profitable UniV3 closed cycle clears $25 floor, and mode is enabled. signed=false/broadcast=false everywhere.
+- STOPPED per instruction: awaiting explicit approval before any on-chain executor deployment.
