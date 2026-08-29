@@ -1,0 +1,272 @@
+"""Live, read-only Limited-Live readiness probes (additive, STRICTLY fail-closed).
+
+Each probe performs a genuine read (RPC / DB) where possible and returns a
+result that maps onto the mandatory eligibility controls in
+``limited_live_eligibility.MANDATORY_CONTROLS``. Every probe fails closed:
+missing RPC / executor / DB, absent calldata, missing signer, stale data,
+unverifiable liquidity, a disabled operator mode, or an engaged kill switch all
+produce an explicit DENY / UNKNOWN — NEVER a fabricated PASS.
+
+Nothing here signs, broadcasts, deploys, or enables any live mode. Every RPC
+read is a read-only ``eth_call`` / ``eth_getCode`` / ``eth_blockNumber``.
+
+Documented freshness policy (unchanged — not loosened here):
+  * quote age    ≤ 12.0 s   (ranking.quote_max_age_sec)
+  * block lag    ≤ ARBICORE_PRICE_MAX_BLOCK_LAG (default 5; pre_broadcast policy)
+"""
+from __future__ import annotations
+
+import os
+from typing import Any, Callable, Dict, Optional
+
+from ...discovery.base_venues import TOKENS, canonical_symbol
+from .provider_liquidity import (
+    ProviderLiquidity, ProviderStatus, read_balancer_liquidity,
+)
+
+# Documented freshness policy constants (see module docstring).
+FRESH_QUOTE_MAX_AGE_S = 12.0
+
+# Operator modes that permit a Limited-Live execution ATTEMPT. Anything else
+# (SHADOW / PAPER / PROFIT_ENGINE / UNKNOWN) ⇒ mode_allows = False (DENY).
+LIMITED_LIVE_MODES = frozenset({"LIMITED_LIVE", "FULL_AUTOMATION"})
+
+
+def _cfg_i(name: str, default: int) -> int:
+    try:
+        return int(str(os.environ.get(name, default)).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+# ---------------------------------------------------------------------------
+# 1) Exact-transaction atomic simulation (read-only eth_call + state override)
+# ---------------------------------------------------------------------------
+async def probe_atomic_simulation(
+    *, bundle: Dict[str, Any], executor_address: Optional[str],
+    rpc_url: Optional[str], signer_present: bool = False,
+    sim_factory: Optional[Callable[..., Any]] = None,
+) -> Dict[str, Any]:
+    """Run the exact-tx atomic simulation via ``AtomicExecutorSimulator``.
+
+    Uses the real configured Base executor address when available. Read-only:
+    it NEVER signs or broadcasts. Fail-closed ladder:
+      * no RPC                 → UNKNOWN
+      * no executor address    → DENY (operator prerequisite absent)
+      * no exact calldata      → DENY (read-only audit builds no calldata)
+      * no vault signer        → DENY (simulate_atomic gates on signer_present)
+      * executor reverts       → DENY
+    """
+    if sim_factory is None:
+        from ...execution.atomic_executor_sim import AtomicExecutorSimulator
+        sim_factory = AtomicExecutorSimulator
+
+    if not rpc_url:
+        return {"available": False, "passed": False, "status": "UNKNOWN",
+                "reason": "rpc_not_configured", "signed": False, "broadcast": False}
+    if not executor_address:
+        return {"available": False, "passed": False, "status": "DENY",
+                "reason": "executor_address_absent (ARBICORE_EXECUTOR_ADDRESS_BASE unset)",
+                "signed": False, "broadcast": False}
+
+    sim = sim_factory(rpc_url=rpc_url, executor_address=executor_address)
+    readiness = sim.readiness() if hasattr(sim, "readiness") else {}
+    try:
+        cap = await sim.capability_self_test()
+    except Exception as exc:  # noqa: BLE001 — never fabricate a green
+        cap = {"code_injection": False, "reason": f"{type(exc).__name__}: {exc}"}
+
+    plan = bundle.get("execution_plan") or {}
+    entry_calldata = (plan.get("executor_entry_calldata")
+                      or bundle.get("executor_entry_calldata"))
+    if not entry_calldata:
+        return {"available": False, "passed": False, "status": "DENY",
+                "reason": "exact_executor_calldata_absent (read-only audit builds none)",
+                "readiness": readiness, "capability_self_test": cap,
+                "signed": False, "broadcast": False}
+
+    res = dict(await sim.simulate_atomic(
+        entry_calldata=entry_calldata, signer_present=signer_present,
+        block_tag="latest"))
+    res.setdefault("readiness", readiness)
+    res["capability_self_test"] = cap
+    res["signed"] = False
+    res["broadcast"] = False
+    return res
+
+
+# ---------------------------------------------------------------------------
+# 2) Balancer V2 Vault flash-loan liquidity (AVAILABLE vs REQUESTED borrow)
+# ---------------------------------------------------------------------------
+def _borrow_symbol(bundle: Dict[str, Any]) -> Optional[str]:
+    route = bundle.get("route") or {}
+    return (route.get("borrow_token")
+            or (route.get("cycle_token_path") or [None])[0]
+            or (bundle.get("quotes") or {}).get("borrow_token"))
+
+
+async def probe_balancer_liquidity(
+    *, bundle: Dict[str, Any], rpc_url: Optional[str], chain: str = "base",
+    provider_factory: Optional[Callable[[], Any]] = None,
+    price_lookup: Optional[Callable[[str], Optional[float]]] = None,
+) -> Optional[ProviderLiquidity]:
+    """Read the REAL Balancer V2 Vault liquidity for the borrow token and
+    compare AVAILABLE vs REQUESTED borrow. Never fabricates liquidity:
+      * no RPC                 → None (mapped to UNKNOWN downstream)
+      * unresolved token       → UNKNOWN
+      * read error / no price  → UNKNOWN
+      * liquidity < borrow     → UNAVAILABLE
+      * liquidity ≥ borrow     → ON_CHAIN_CONFIRMED
+    """
+    if not rpc_url:
+        return None
+
+    symbol = _borrow_symbol(bundle)
+    canon = canonical_symbol(symbol) if symbol else None
+    if not canon or canon not in TOKENS:
+        return ProviderLiquidity(
+            provider="balancer_v2", chain=chain,
+            status=ProviderStatus.UNKNOWN, reason="borrow_token_unresolved")
+
+    addr = TOKENS[canon]["address"]
+    dec = int(TOKENS[canon]["decimals"])
+    econ = bundle.get("economics") or {}
+    price = econ.get("borrow_token_price_usd")
+    if price is None and price_lookup is not None:
+        price = price_lookup(canon)
+    borrow_usd = bundle.get("input_amount_usd")
+
+    if provider_factory is None:
+        from ...providers.rpc import EthJsonRpcProvider
+        provider_factory = lambda: EthJsonRpcProvider(chain=chain, url=rpc_url)  # noqa: E731
+
+    provider = provider_factory()
+    try:
+        return await read_balancer_liquidity(
+            provider, chain=chain, token_address=addr, token_decimals=dec,
+            token_price_usd=(float(price) if isinstance(price, (int, float)) else None),
+            borrow_amount_usd=(float(borrow_usd) if isinstance(borrow_usd, (int, float)) else None))
+    except Exception as exc:  # noqa: BLE001 — never fabricate liquidity
+        return ProviderLiquidity(
+            provider="balancer_v2", chain=chain,
+            status=ProviderStatus.UNKNOWN,
+            reason=f"balancer_read_error:{type(exc).__name__}")
+    finally:
+        close = getattr(provider, "close", None)
+        if close is not None:
+            try:
+                await close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+# ---------------------------------------------------------------------------
+# 3) Freshness (quote age + block lag) — documented policy, fail-closed
+# ---------------------------------------------------------------------------
+def probe_freshness(
+    *, bundle: Dict[str, Any], current_block: Optional[int], now_ts: float,
+    max_quote_age_s: float = FRESH_QUOTE_MAX_AGE_S,
+    max_block_lag: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Evaluate quote/block freshness against the documented policy. Fails
+    closed on any missing timestamp/block, future-dated quote, reorg, or a
+    quote/block older than the (unchanged) policy threshold."""
+    if max_block_lag is None:
+        max_block_lag = _cfg_i("ARBICORE_PRICE_MAX_BLOCK_LAG", 5)
+
+    quotes = bundle.get("quotes") or {}
+    verified_at = quotes.get("verified_at_ts")
+    quote_block = quotes.get("quote_block")
+
+    def deny(reason: str, **extra: Any) -> Dict[str, Any]:
+        return {"ok": False, "reason": reason,
+                "max_quote_age_s": max_quote_age_s,
+                "max_block_lag": max_block_lag, **extra}
+
+    if verified_at is None:
+        return deny("quote_timestamp_missing")
+    try:
+        age = float(now_ts) - float(verified_at)
+    except (TypeError, ValueError):
+        return deny("quote_timestamp_invalid")
+    if age < 0:
+        return deny("quote_timestamp_in_future", quote_age_s=round(age, 3))
+    if age > max_quote_age_s:
+        return deny(f"quote_stale:{age:.2f}s>{max_quote_age_s}s", quote_age_s=round(age, 3))
+
+    if quote_block is None:
+        return deny("quote_block_missing", quote_age_s=round(age, 3))
+    if current_block is None:
+        return deny("current_block_unavailable", quote_age_s=round(age, 3))
+    try:
+        lag = int(current_block) - int(quote_block)
+    except (TypeError, ValueError):
+        return deny("block_numbers_invalid", quote_age_s=round(age, 3))
+    if lag < 0:
+        return deny(f"reorg:head_{current_block}<quoted_{quote_block}",
+                    quote_age_s=round(age, 3), block_lag=lag)
+    if lag > max_block_lag:
+        return deny(f"block_stale:lag_{lag}>{max_block_lag}",
+                    quote_age_s=round(age, 3), block_lag=lag)
+
+    return {"ok": True, "reason": "fresh", "quote_age_s": round(age, 3),
+            "block_lag": lag, "max_quote_age_s": max_quote_age_s,
+            "max_block_lag": max_block_lag}
+
+
+# ---------------------------------------------------------------------------
+# 4) Honest operator mode + kill-switch state (never enables anything)
+# ---------------------------------------------------------------------------
+async def probe_mode_and_kill_switch(
+    *, db: Any,
+    mode_repo_factory: Optional[Callable[[Any], Any]] = None,
+    kill_repo_factory: Optional[Callable[[Any], Any]] = None,
+) -> Dict[str, Any]:
+    """Report the ACTUAL operator mode and kill-switch state (read-only).
+
+    ``mode_allows`` is True only when the persisted operator mode is
+    LIMITED_LIVE/FULL_AUTOMATION; a disabled mode or unknown mode ⇒ False.
+    ``kill_switch_ok`` is True only when the switch is explicitly disengaged;
+    engaged or unreadable ⇒ False. This NEVER changes mode or the kill switch.
+    """
+    if mode_repo_factory is None:
+        from ...control.readiness import ControlStateRepo
+        mode_repo_factory = ControlStateRepo
+    if kill_repo_factory is None:
+        from ...execution.kill_switch import KillSwitchRepo
+        kill_repo_factory = KillSwitchRepo
+
+    result: Dict[str, Any] = {
+        "mode": "UNKNOWN", "mode_allows": False,
+        "kill_switch_engaged": None, "kill_switch_ok": False, "reason": "",
+    }
+    if db is None:
+        result["reason"] = "db_unavailable"
+        return result
+
+    try:
+        mode = await mode_repo_factory(db).get_mode()
+    except Exception as exc:  # noqa: BLE001
+        result["reason"] = f"mode_read_failed:{type(exc).__name__}"
+        return result
+    result["mode"] = mode
+    result["mode_allows"] = mode in LIMITED_LIVE_MODES
+
+    try:
+        ks = await kill_repo_factory(db).state()
+        result["kill_switch_engaged"] = bool(ks.engaged)
+        result["kill_switch_ok"] = (ks.engaged is False)
+    except Exception as exc:  # noqa: BLE001
+        result["kill_switch_engaged"] = None
+        result["kill_switch_ok"] = False
+        extra = f"kill_read_failed:{type(exc).__name__}"
+        result["reason"] = f"{result['reason']};{extra}".strip(";")
+
+    return result
+
+
+__all__ = [
+    "FRESH_QUOTE_MAX_AGE_S", "LIMITED_LIVE_MODES",
+    "probe_atomic_simulation", "probe_balancer_liquidity",
+    "probe_freshness", "probe_mode_and_kill_switch",
+]

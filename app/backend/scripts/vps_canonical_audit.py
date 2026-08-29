@@ -35,14 +35,19 @@ def _err(msg: str) -> None:
     print(json.dumps({"audit_error": msg}))
 
 
-async def _assess_confirmed_readiness(bundles: list) -> list:
+async def _assess_confirmed_readiness(
+    bundles: list, *, db=None, rpc_url: str = "",
+    executor_addr=None, chain: str = "base", operator_state=None,
+) -> list:
     """Fail-closed Limited-Live readiness for each CONFIRMED bundle.
 
     Executor capability is PROVEN from the route venues. Balancer flash-loan
-    liquidity + exact-tx atomic simulation + freshness are read live where the
-    environment permits and DENY when unavailable/unverifiable. Borrow sizing
-    is proven feasible only when a size is profitable AND executable. Nothing
-    signs or broadcasts."""
+    liquidity, exact-tx atomic simulation and freshness are READ LIVE (read-only
+    eth_call/eth_getCode/eth_blockNumber) via live_readiness_probes and DENY when
+    unavailable/unverifiable/stale. Operator mode + kill switch are read honestly
+    from the DB. Borrow sizing is feasible only when profitable AND executable.
+    Nothing signs, broadcasts, or enables any live mode."""
+    import time as _time
     from arbicore.discovery.base_venues import build_pool_graph
     from arbicore.scanners.flash_loan_arbitrage.executor_capability import (
         evaluate_executor_capability,
@@ -53,17 +58,33 @@ async def _assess_confirmed_readiness(bundles: list) -> list:
     from arbicore.scanners.flash_loan_arbitrage.readiness_assessment import (
         ReadinessControls, assess_candidate_readiness,
     )
-    from arbicore.execution.atomic_executor_sim import AtomicExecutorSimulator
+    from arbicore.scanners.flash_loan_arbitrage.provider_liquidity import (
+        ProviderStatus,
+    )
+    from arbicore.scanners.flash_loan_arbitrage.live_readiness_probes import (
+        probe_atomic_simulation, probe_balancer_liquidity, probe_freshness,
+    )
 
     try:
         _, pool_specs = build_pool_graph()
     except Exception:  # noqa: BLE001
         pool_specs = {}
-    executor_addr = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
-    rpc_url = (os.environ.get("ARBICORE_RPC_URL_BASE")
-               or os.environ.get("ARBICORE_RPC_URL"))
-    sim = AtomicExecutorSimulator(rpc_url=rpc_url) if rpc_url else None
-    sim_readiness = sim.readiness() if sim else {"rpc_configured": False}
+
+    op = operator_state or {"mode_allows": False, "kill_switch_ok": False}
+
+    # Current head block once (read-only) for the freshness policy.
+    current_block = None
+    if rpc_url:
+        try:
+            from arbicore.providers.rpc import EthJsonRpcProvider
+            _p = EthJsonRpcProvider(chain=chain, url=rpc_url)
+            try:
+                current_block = await _p.eth_get_block_number()
+            finally:
+                await _p.close()
+        except Exception:  # noqa: BLE001 — freshness fails closed on None
+            current_block = None
+    now_ts = _time.time()
 
     out = []
     for b in bundles:
@@ -73,17 +94,20 @@ async def _assess_confirmed_readiness(bundles: list) -> list:
             route_pools=route_pools, pool_specs=pool_specs,
             executor_address=executor_addr)
 
-        # Exact-tx atomic simulation: fail closed unless executor+signer+RPC
-        # allow a real eth_call of the exact executor calldata. We never build
-        # a signer here, so this is DENY until the operator provisions one on
-        # the VPS — surfaced honestly (available/passed False + reason).
-        atomic = {"available": False, "passed": False,
-                  "reason": "executor+signer+calldata prerequisites not "
-                            "provisioned in read-only audit",
-                  "readiness": sim_readiness}
+        # 1) Exact-tx atomic simulation (read-only; never signs/broadcasts).
+        atomic = await probe_atomic_simulation(
+            bundle=b, executor_address=executor_addr, rpc_url=rpc_url)
 
-        # Borrow sizing: with only the persisted (single) size and no live
-        # per-size economics/sim, feasibility cannot be proven ⇒ fail closed.
+        # 2) Balancer V2 Vault liquidity (AVAILABLE vs REQUESTED borrow).
+        bal = await probe_balancer_liquidity(
+            bundle=b, rpc_url=rpc_url, chain=chain)
+        bal_confirmed = (bal is not None
+                         and bal.status == ProviderStatus.ON_CHAIN_CONFIRMED)
+
+        # 3) Freshness (documented quote-age + block-lag policy).
+        fresh = probe_freshness(
+            bundle=b, current_block=current_block, now_ts=now_ts)
+
         econ = b.get("economics") or {}
         size_eval = BorrowSizeEval(
             size_usd=float(b.get("input_amount_usd") or 0.0),
@@ -92,21 +116,23 @@ async def _assess_confirmed_readiness(bundles: list) -> list:
             quote_complete=(b.get("quotes") or {}).get("route_quote_status") == "ok",
             economics_ok=isinstance(econ.get("atomic_profit_usd"), (int, float))
             and (econ.get("atomic_profit_usd") or 0) > 0,
-            liquidity_sufficient=False,   # no confirmed Balancer read ⇒ closed
+            liquidity_sufficient=bool(bal_confirmed),
             executor_supported=cap.is_supported,
-            atomic_sim_passed=False,
-            reason="single_persisted_size; live per-size proof unavailable")
+            atomic_sim_passed=bool(atomic.get("passed")),
+            reason="live per-size proof from Balancer liquidity + atomic sim")
         size_decision = select_borrow_size([size_eval])
 
         controls = ReadinessControls(
             executor_capability=cap,
-            balancer_liquidity=None,      # live read not performed here ⇒ UNKNOWN
+            balancer_liquidity=bal,
             borrow_size=size_decision,
             atomic_sim=atomic,
-            freshness_ok=False,           # freshness policy not proven offline
-            mode_allows=False,            # Limited-Live intentionally NOT enabled
-            kill_switch_ok=False)         # not proven in read-only audit ⇒ DENY
-        out.append(assess_candidate_readiness(b, controls))
+            freshness_ok=bool(fresh.get("ok")),
+            mode_allows=bool(op.get("mode_allows")),
+            kill_switch_ok=bool(op.get("kill_switch_ok")))
+        rec = assess_candidate_readiness(b, controls)
+        rec["freshness"] = fresh
+        out.append(rec)
     return out
 
 
@@ -202,7 +228,21 @@ async def _amain() -> int:
                          if b.get("verification_status") == "CONFIRMED"
                          and (b.get("diagnostics") or {}).get("candidate_id")
                          in set(confirmed_candidate_ids)]
-    report["readiness"] = await _assess_confirmed_readiness(confirmed_bundles)
+
+    # Honest operator mode + kill-switch state (read-only; never enables/changes
+    # anything). Reported regardless of confirmed count for diagnosability.
+    from arbicore.scanners.flash_loan_arbitrage.live_readiness_probes import (
+        probe_mode_and_kill_switch,
+    )
+    operator_state = await probe_mode_and_kill_switch(db=db)
+    report["operator_state"] = operator_state
+
+    executor_addr = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
+    rpc_url = (os.environ.get("ARBICORE_RPC_URL_BASE")
+               or os.environ.get("ARBICORE_RPC_URL") or "")
+    report["readiness"] = await _assess_confirmed_readiness(
+        confirmed_bundles, db=db, rpc_url=rpc_url,
+        executor_addr=executor_addr, operator_state=operator_state)
     report["limited_live_eligible_candidates"] = [
         r["provenance"]["candidate_id"] for r in report["readiness"]
         if r["limited_live"]["eligible"]]
