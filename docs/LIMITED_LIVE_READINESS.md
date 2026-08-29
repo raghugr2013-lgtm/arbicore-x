@@ -222,3 +222,13 @@ quote age ≤ 12.0s; block lag ≤ `ARBICORE_PRICE_MAX_BLOCK_LAG` (default 5).
 5. A genuine CONFIRMED candidate: UniV3-only route, Gate 7 (≥ $25) + Gate 8 + Gate 9 pass, Balancer AVAILABLE ≥ REQUESTED, fresh, atomic simulation PASS.
 6. Explicit operator authorization flips the mode ladder to LIMITED_LIVE.
 Code readiness is NOT Limited-Live operational; enabling remains operator-gated.
+
+## RPC reliability policy (fail-closed)
+`EthJsonRpcProvider` uses bounded exponential backoff with jitter. Retryable:
+HTTP 429 (honors numeric `Retry-After`), HTTP 5xx, network/timeout, malformed
+JSON. Non-retryable: other 4xx, JSON-RPC error objects, missing `result`. On
+retry exhaustion a `ProviderError` is raised so callers FAIL CLOSED — a
+rate-limited/unavailable RPC is NEVER treated as valid market data. `verify_chain_id`
+returns False on any error/mismatch. No URLs/secrets are logged (host-only id).
+Config (public, optional): `ARBICORE_RPC_MAX_RETRIES` (3), `ARBICORE_RPC_BACKOFF_BASE_MS`
+(200), `ARBICORE_RPC_BACKOFF_CAP_MS` (4000), request timeout 8s.
