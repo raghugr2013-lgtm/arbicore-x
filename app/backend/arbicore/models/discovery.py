@@ -48,6 +48,11 @@ class VerifiedOutcome(str):
     DENIED_VENUE_UNREADABLE = "denied:venue_unreadable"
     DENIED_NO_VERIFIER = "denied:no_verifier_registered"
     DENIED_GATE_PREFIX = "denied:gate_rejection:"  # denied:gate_rejection:<gate_name>
+    # denied:quote_invalid:<reason> — quote integrity failure (partial /
+    # reverted hop / missing output / malformed gross / non-cyclic route).
+    # A quote that is not economically calculable MUST fail closed here and
+    # never reach economics, Gate 7 or CONFIRMED.
+    DENIED_QUOTE_INVALID_PREFIX = "denied:quote_invalid:"
     ERROR_PREFIX = "error:"
     EXPIRED_UNCLAIMED = "expired_unclaimed"
 

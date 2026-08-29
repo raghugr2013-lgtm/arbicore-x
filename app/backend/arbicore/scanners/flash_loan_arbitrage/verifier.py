@@ -8,6 +8,7 @@ never propagated.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
@@ -72,6 +73,8 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
                      Awaitable[None]]] = None,
         price_provenance_fn: Optional[
             Callable[[List[str]], List[Dict[str, Any]]]] = None,
+        diagnostic_provenance_fn: Optional[
+            Callable[[DiscoveryCandidate], Dict[str, Any]]] = None,
     ) -> None:
         self.quote_provider = quote_provider
         self.economics = economics_assessor
@@ -88,6 +91,11 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
         self.shadow_sink = shadow_sink
         # M2.5 — per-token USD price provenance for the evidence bundle.
         self.price_provenance_fn = price_provenance_fn
+        # Diagnostic provenance (observability ONLY — never alters the verdict).
+        # Stamps audit_run_id / scanner_tick_id / worker_id / claim identity so
+        # a persisted bundle can be traced back to the exact scan that produced
+        # it. Kept strictly separate from trading logic.
+        self.diagnostic_provenance_fn = diagnostic_provenance_fn
 
     async def verify(self, candidate: DiscoveryCandidate,
                      ) -> Tuple[Optional[CanonicalOpportunity], str]:
@@ -134,6 +142,20 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
             return await self._finalize(
                 ev, status="DENIED", canonical=None,
                 outcome=VerifiedOutcome.DENIED_VENUE_UNREADABLE)
+
+        # QUOTE INTEGRITY (defense-in-depth, FAIL CLOSED) — the verifier is the
+        # canonical CONFIRMED-construction point and must NEVER build
+        # economics, pass Gate 7, or CONFIRM on a quote that is partial,
+        # reverted, missing its output, or malformed. The live provider already
+        # refuses to emit facts for a non-"ok" route; this second boundary
+        # guarantees the invariant even for any other/future quote provider.
+        # (audit 2026-06 partial-quote economic-correctness defect.)
+        q_err = _quote_integrity_error(facts, hop_facts)
+        if q_err is not None:
+            return await self._finalize(
+                ev, status="DENIED", canonical=None,
+                outcome=(f"{VerifiedOutcome.DENIED_QUOTE_INVALID_PREFIX}"
+                         f"{q_err}"))
 
         # Chain congestion read (optional).
         cong = self._chain_congestion(chain)
@@ -403,6 +425,8 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
             },
             "provenance": "REAL",
             "broadcast": False,     # invariant: verification never broadcasts
+            # Diagnostic provenance (observability only; never a verdict input).
+            "diagnostics": self._diagnostics(candidate),
         }
         if econ is not None:
             bundle["fees"] = {
@@ -419,6 +443,19 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
                 "borrow_amount_usd": econ.borrow_amount_usd,
             }
         return bundle
+
+    def _diagnostics(self, candidate: DiscoveryCandidate) -> Dict[str, Any]:
+        """Fail-safe diagnostic provenance for the audit bundle. Never raises
+        and never influences the returned verdict — pure observability."""
+        base: Dict[str, Any] = {"candidate_id": candidate.candidate_id}
+        if self.diagnostic_provenance_fn is None:
+            return base
+        try:
+            extra = self.diagnostic_provenance_fn(candidate) or {}
+            base.update(extra)
+        except Exception:  # noqa: BLE001 — diagnostics never break verify
+            pass
+        return base
 
     def _price_provenance(self, hm: Dict[str, Any]) -> List[Dict[str, Any]]:
         """M2.5 — per-token USD price provenance for the route (audit only)."""
@@ -445,6 +482,37 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
             return float(snap.get("congestion_score", 30.0))
         except Exception:  # noqa: BLE001
             return 30.0
+
+
+def _quote_integrity_error(facts: Dict[str, Any],
+                           hop_facts: List[Dict[str, Any]],
+                           ) -> Optional[str]:
+    """Return a short reason iff the quote is NOT economically calculable
+    (fail closed), else ``None``.
+
+    A route is economically calculable ONLY if every required hop has a valid
+    quote and the final output asset/amount is valid. A ``route_quote_status``
+    or per-hop ``status`` field is enforced WHEN PRESENT — the real live
+    provider always sets it; trusted synthetic test providers may omit it.
+    See the partial-quote defect note in ``live_quote_provider.py``.
+    """
+    status = facts.get("route_quote_status")
+    if status is not None and status != "ok":
+        return f"route_status:{status}"
+    for i, h in enumerate(hop_facts):
+        hs = h.get("status")
+        if hs is not None and hs != "ok":
+            return f"hop_{i}_status:{hs}"
+    gp = facts.get("gross_profit_pct")
+    if gp is None:
+        return "gross_profit_missing"
+    try:
+        gpf = float(gp)
+    except (TypeError, ValueError):
+        return "gross_profit_malformed"
+    if not math.isfinite(gpf):
+        return "gross_profit_nonfinite"
+    return None
 
 
 def _fold_metadata(*, hm: Dict[str, Any], facts: Dict[str, Any],

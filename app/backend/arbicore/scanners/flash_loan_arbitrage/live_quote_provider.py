@@ -140,12 +140,29 @@ def make_live_quote_provider(
             rq = await quoter_registry.quote_route(chain=CHAIN, hops=hops)
         except Exception:  # noqa: BLE001
             return None
-        if rq is None or rq.status == "fallback:break_even":
-            return None  # could not price the route on-chain
+        # QUOTE INTEGRITY — FAIL CLOSED (audit 2026-06 partial-quote defect).
+        # ``final_amount_out_wei`` is a valid round-trip output ONLY when the
+        # route was quoted end-to-end AND the cycle genuinely closes on the
+        # borrow token (so in/out share decimals). ``quote_route`` PASSES
+        # THROUGH ``amountIn`` as ``amountOut`` for any reverted/degraded hop,
+        # which leaves ``final_amount_out_wei`` denominated in an INTERMEDIATE
+        # token's units. Treating that as the final borrow-token amount
+        # fabricated absurd gross profits (~3.6e10%). Any of the following
+        # therefore fails closed (returns None → denied:venue_unreadable):
+        #   * route status != "ok"          (partial / break_even / fallback)
+        #   * any hop status != "ok"        (a leg reverted or degraded)
+        #   * token path is not a closed cycle (in token != out token)
+        #   * non-positive amount_in / final_out
+        if rq is None or rq.status != "ok":
+            return None
+        if any(getattr(h, "status", None) not in (None, "ok") for h in rq.hops):
+            return None
+        if token_path[0] != token_path[-1]:
+            return None  # not a closed cycle → the wei ratio is meaningless
 
         amount_in = int(hops[0].get("amount_in_wei") or 0)
         final_out = int(rq.final_amount_out_wei or 0)
-        if amount_in <= 0:
+        if amount_in <= 0 or final_out <= 0:
             return None
         # Cycle closes on the borrow token → in/out share decimals, so a raw
         # wei ratio is the honest gross round-trip result (before flash fee,
