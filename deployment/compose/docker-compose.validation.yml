@@ -1,0 +1,77 @@
+# ArbiCore X — DISPOSABLE validation stack (independent VPS audit).
+# ---------------------------------------------------------------------------
+# Purpose: run the repository's 138 deterministic regression tests (and, if the
+# operator opts in, the read-only live phase) inside a throwaway environment
+# that has:
+#   * a DEDICATED, ephemeral validator Mongo (NEVER production Mongo), and
+#   * MONGO_URL / DB_NAME correctly propagated to the pytest process, and
+#   * the two services on the SAME docker network so Docker DNS resolves the
+#     Mongo hostname (fixes the four Mongo-backed tests that otherwise fall
+#     back to localhost:27017 -> Connection refused).
+#
+# It touches NO production container, NO production compose, NO production Mongo,
+# and bakes NO source (the audited detached worktree is bind-mounted read-only,
+# so exactly the checked-out SHA is validated).
+#
+# Usage (from repo root; $PWD must be the detached worktree at the target SHA):
+#   VALIDATION_GIT_SHA=$(git rev-parse HEAD) \
+#   VALIDATION_GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD) \
+#   docker compose -f deployment/compose/docker-compose.validation.yml \
+#     run --rm --build validator
+#
+# To also run the read-only live phase, add the live env (optional):
+#   -e ARBICORE_RUN_LIVE_AUDIT=1 -e ARBICORE_RPC_URL_BASE=...  (never secrets in git)
+# ---------------------------------------------------------------------------
+
+services:
+  # Dedicated, disposable evidence store. Data lives on tmpfs so nothing
+  # persists and the production data anchor is never involved.
+  validator-mongo:
+    image: ${MONGO_IMAGE:-mongo:4.4}
+    container_name: arbicore-x-validator-mongo
+    restart: "no"
+    command: ["mongod", "--bind_ip_all", "--quiet"]
+    tmpfs:
+      - /data/db
+    networks:
+      - arbicore-x-validator-net
+    healthcheck:
+      test: ["CMD", "sh", "-c", "mongosh --quiet --eval \"db.adminCommand('ping').ok\"\
+            \ 2>/dev/null || mongo --quiet --eval \"db.adminCommand('ping').ok\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  # Test-capable disposable image (built from Dockerfile.validation). Runs the
+  # canonical runner against the mounted worktree with the validator Mongo.
+  validator:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/backend/Dockerfile.validation
+    image: ${VALIDATION_IMAGE_TAG:-arbicore-x-validator:local}
+    depends_on:
+      validator-mongo:
+        condition: service_healthy
+    environment:
+      # Dedicated validator endpoint — resolved via Docker DNS on the shared net.
+      MONGO_URL: mongodb://arbicore-x-validator-mongo:27017
+      DB_NAME: ${VALIDATION_DB_NAME:-arbicore_x_validator_shadow}
+      # Explicit provenance so git_sha/git_branch are correct even though the
+      # mounted worktree's .git is not resolvable inside the container.
+      ARBICORE_VALIDATION_GIT_SHA: ${VALIDATION_GIT_SHA:-}
+      ARBICORE_VALIDATION_GIT_BRANCH: ${VALIDATION_GIT_BRANCH:-}
+      # Optional read-only live phase (off by default; never commit secrets).
+      ARBICORE_RUN_LIVE_AUDIT: ${ARBICORE_RUN_LIVE_AUDIT:-0}
+    volumes:
+      # The audited detached worktree — read-only so the tree is never mutated.
+      - ../..:/src:ro
+    working_dir: /src
+    networks:
+      - arbicore-x-validator-net
+    command: ["bash", "scripts/run_vps_validator_audit.sh"]
+
+networks:
+  arbicore-x-validator-net:
+    name: arbicore-x-validator-net
+    driver: bridge
