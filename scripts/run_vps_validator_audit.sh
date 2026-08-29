@@ -12,10 +12,28 @@
 #   scripts/run_vps_validator_audit.sh
 #
 # On the VPS, Codex may additionally run the live validators
-# (python -m scripts.m3_0_vps_validate) which require real Base RPC / Mongo;
+# (python3 -m scripts.m3_0_vps_validate) which require real Base RPC / Mongo;
 # those are intentionally NOT invoked here to keep this runner hermetic.
 # ---------------------------------------------------------------------------
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Interpreter selection. The disposable validation image ships Python 3 as
+# ``python3`` (Ubuntu provides no bare ``python`` alias). Prefer an explicit
+# override, then ``python3``, then ``python`` — using whichever is actually
+# present in THIS image, without creating a host-level symlink or installing
+# anything. Fail closed with a clear message if none is available.
+PY="${ARBICORE_PYTHON:-}"
+if [ -z "${PY}" ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    PY="python3"
+  elif command -v python >/dev/null 2>&1; then
+    PY="python"
+  else
+    echo "ERROR: no Python interpreter found (need python3 or python)." >&2
+    exit 127
+  fi
+fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKEND_DIR="${REPO_ROOT}/app/backend"
@@ -51,7 +69,8 @@ TESTS=(
 
 cd "${BACKEND_DIR}"
 echo "Running ${#TESTS[@]} deterministic regression modules..."
-python -m pytest "${TESTS[@]}" -q -p no:cacheprovider
+echo "interpreter  : ${PY} ($(command -v "${PY}"))"
+"${PY}" -m pytest "${TESTS[@]}" -q -p no:cacheprovider
 STATUS=$?
 
 # ---------------------------------------------------------------------------
@@ -68,7 +87,7 @@ if [ "${STATUS}" -eq 0 ] \
   echo "--------------------------------------------------------------"
   echo "LIVE PHASE: single canonical audit tick (read-only)"
   # The Python runner emits ONLY ids/status/counts (no secrets).
-  python -m scripts.vps_canonical_audit || echo "live audit phase reported an error (fail closed)"
+  "${PY}" -m scripts.vps_canonical_audit || echo "live audit phase reported an error (fail closed)"
   echo "--------------------------------------------------------------"
 fi
 

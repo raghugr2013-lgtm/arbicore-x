@@ -19,7 +19,7 @@ signs, NEVER broadcasts, NEVER enables any live mode, and NEVER prints
 secrets (only ids/status/counts are emitted).
 
 Usage (on the VPS, with Base RPC + Mongo configured):
-    python -m scripts.vps_canonical_audit
+    python3 -m scripts.vps_canonical_audit
 Requires: MONGO_URL, DB_NAME, and the Base RPC / quoter env used by the
 canonical scanner. Absent those, it fails closed with a clear message.
 """

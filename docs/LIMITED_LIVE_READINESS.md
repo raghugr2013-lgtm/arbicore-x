@@ -10,7 +10,7 @@ No signer secrets or private keys are documented here, by policy.
 ## 1. Attributable audit workflow (fixed)
 The canonical VPS audit is driven by `scripts/run_vps_validator_audit.sh`
 (hermetic guards) with an optional live phase (`ARBICORE_RUN_LIVE_AUDIT=1`,
-requires `MONGO_URL`+`DB_NAME`) that runs `python -m scripts.vps_canonical_audit`:
+requires `MONGO_URL`+`DB_NAME`) that runs `python3 -m scripts.vps_canonical_audit`:
 
 1. wire the canonical scanner (live quote provider + fail-closed Gate-8 TVL +
    evidence sink) via `run_single_canonical_flash_loan_audit_tick()`;
