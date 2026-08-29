@@ -78,3 +78,15 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - testing_agent iteration_4: 473 passed 0 failed; independently confirmed fail-closed (perfect CONFIRMED bundle still DENIED in read-only audit); no secrets in output; signed/broadcast/limited_live_enabled=false.
 - START 5a5cafb -> FINAL 9609830. local==remote confirmed.
 - Classification: CODE READY — VPS VALIDATION REQUIRED. Reaching ELIGIBLE needs VPS RPC + deployed executor + present signer + live Balancer confirm + freshness/mode/kill-switch — all fail closed today.
+
+## Iteration 5 (2026-06) — VPS validator runner: python3 alias + test-tooling (fail-closed)
+- Part A (SHA e74b1fa): fixed `python: command not found` in scripts/run_vps_validator_audit.sh via dynamic interpreter detection (ARBICORE_PYTHON -> python3 -> python) + python3 docstrings across backend scripts. 138 deterministic tests green.
+- Part B (this session, START e74b1fa -> FINAL 0cd1cf1): made the DISPOSABLE VPS validation image test-capable (VPS reported `/usr/bin/python3: No module named pytest`). Additive/validation-only; production untouched:
+  * NEW deployment/docker/backend/requirements.test.txt — explicit pinned test deps (prod superset + pytest==9.1.1, pytest-xdist==3.8.0, pytest-asyncio==1.4.0, execnet==2.1.2, iniconfig==2.3.0, pluggy==1.6.0). Import names asserted: pytest, xdist, pytest_asyncio.
+  * NEW deployment/docker/backend/Dockerfile.validation — dedicated disposable test-capable image (build-time install of requirements.test.txt; source MOUNTED at runtime, not baked; git+curl present for SHA stamping). Production Dockerfile/compose/requirements.prod.txt verified byte-identical (no default-target drift).
+  * FIX requirements.dev.txt (was missing xdist/asyncio/execnet) -> now `-r requirements.test.txt`.
+  * HARDEN run_vps_validator_audit.sh: fail-closed test-tooling preflight. present -> run + report REAL result; absent -> `TEST TOOLING UNAVAILABLE` + exit 3 (NEVER a fake PASS); opt-in isolated pinned bootstrap via ARBICORE_VALIDATOR_BOOTSTRAP=1 (--system-site-packages venv, no host/global/prod mutation).
+  * DOCS: LIMITED_LIVE_READINESS.md §2a + deployment/README tree.
+- Verified locally (preview, no Docker/RPC/Mongo): TEST1 deps present -> 138 passed exit 0; TEST2 clean interpreter w/o pytest -> exit 3 + clear UNAVAILABLE (never PASS); TEST3 opt-in bootstrap -> isolated venv provisioned from pinned file -> 138 passed exit 0.
+- NO trading logic / Gate 7-8-9 / thresholds / signer / live-mode / broadcast changed. LIMITED_LIVE + FULL_LIVE still 0.
+- NOTE: preview container is NOT the VPS (no Docker/RPC/Mongo) — full live A-L VPS audit still pending on real VPS by Codex against SHA 0cd1cf1.
