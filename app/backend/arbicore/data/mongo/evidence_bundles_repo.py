@@ -68,7 +68,8 @@ class EvidenceBundlesRepo:
         return await self._collection.find_one({"bundle_id": bundle_id}, {"_id": 0})
 
     async def find_for_audit(
-        self, *, audit_run_id: str, scanner_tick_id: Any, candidate_id: str,
+        self, *, audit_run_id: str, scanner_tick_id: Any,
+        candidate_id: Optional[str] = None,
         worker_id: Optional[str] = None,
         source_component: Optional[str] = "flash_loan_arb_verifier",
         verification_status: Optional[str] = None,
@@ -76,11 +77,13 @@ class EvidenceBundlesRepo:
     ) -> List[Dict[str, Any]]:
         """Return evidence bundles belonging to EXACTLY one audit run.
 
-        Observability only. Requires exact, non-empty ``audit_run_id`` /
-        ``scanner_tick_id`` / ``candidate_id`` (raises ``AuditProvenanceError``
-        otherwise). Never falls back to candidate id or timestamps and never
-        mixes concurrent scanner records. Sorted newest-first purely for
-        display — the timestamp is NOT a selector.
+        Observability only. ``audit_run_id`` + ``scanner_tick_id`` are
+        mandatory and exact (raises ``AuditProvenanceError`` otherwise);
+        ``candidate_id`` is OPTIONAL — omit it to retrieve every candidate of
+        the run+tick, or pass it to pin one candidate. Never falls back to
+        candidate id alone or timestamps and never mixes concurrent scanner
+        records. Sorted newest-first purely for display — the timestamp is NOT
+        a selector.
         """
         from ...evidence.audit_provenance import build_audit_evidence_query
         q = build_audit_evidence_query(

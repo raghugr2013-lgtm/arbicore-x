@@ -16,9 +16,14 @@ Fail-closed attribution rules — a diagnostic run MUST be unambiguously
 identifiable, so this reader:
   * REQUIRES an exact, non-empty ``audit_run_id``;
   * REQUIRES a non-empty ``scanner_tick_id``;
-  * REQUIRES a non-empty ``candidate_id``;
+  * treats ``candidate_id`` as OPTIONAL — omit it to retrieve every candidate
+    of an ``audit_run_id + scanner_tick_id`` run (then enforce candidate-level
+    matching), or supply an exact non-empty ``candidate_id`` to pin one; a
+    blank/typed-wrong candidate selector is rejected and candidate id ALONE is
+    never sufficient (run + tick stay mandatory);
   * REJECTS foreign ``audit_run_id`` records;
-  * REJECTS records missing any required provenance field;
+  * REJECTS records missing candidate provenance even when no candidate is
+    pinned;
   * NEVER falls back to ``candidate_id`` alone;
   * NEVER falls back to timestamps / ``created_at`` / ``persisted_at``;
   * NEVER selects arbitrary flash-loan evidence;
@@ -96,25 +101,45 @@ def _optional_str(name: str, value: Any) -> Optional[str]:
     return value if value.strip() != "" else None
 
 
+def _optional_id(name: str, value: Any) -> Optional[str]:
+    """An OPTIONAL identifier selector. ``None`` ⇒ no constraint (used to
+    retrieve every candidate of an ``audit_run_id + scanner_tick_id`` run and
+    THEN enforce candidate-level matching). A blank string, non-string, or a
+    Mongo operator document is rejected — an explicitly-supplied selector must
+    be an exact, non-empty string (fail closed; never widen)."""
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, str) \
+            or value.strip() == "":
+        raise AuditProvenanceError(
+            f"audit selector '{name}' must be a non-empty string when provided "
+            f"(got {type(value).__name__}={value!r})")
+    return value
+
+
 def build_audit_evidence_query(
     *,
     audit_run_id: str,
     scanner_tick_id: Any,
-    candidate_id: str,
+    candidate_id: Optional[str] = None,
     worker_id: Optional[str] = None,
     source_component: Optional[str] = DEFAULT_SOURCE_COMPONENT,
     verification_status: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build the exact-match Mongo filter that isolates one audit run.
 
-    All three of ``audit_run_id`` / ``scanner_tick_id`` / ``candidate_id`` are
-    mandatory and non-empty (else :class:`AuditProvenanceError`). The filter
-    matches ONLY the nested diagnostic provenance — it never keys off
-    timestamps and never widens to "any flash-loan evidence".
+    ``audit_run_id`` and ``scanner_tick_id`` are ALWAYS mandatory and non-empty
+    (else :class:`AuditProvenanceError`). ``candidate_id`` is OPTIONAL: omit it
+    to retrieve EVERY candidate of that exact run+tick (then enforce
+    candidate-level matching downstream), or supply an exact non-empty string
+    to pin one candidate. The filter matches ONLY the nested diagnostic
+    provenance — it never keys off timestamps and never widens to "any
+    flash-loan evidence". ``candidate_id`` ALONE is never sufficient because
+    run+tick remain mandatory.
     """
     audit_run_id = _require_id("audit_run_id", audit_run_id)
     scanner_tick_id = _require_tick(scanner_tick_id)
-    candidate_id = _require_id("candidate_id", candidate_id)
+    candidate_id = _optional_id("candidate_id", candidate_id)
     worker_id = _optional_str("worker_id", worker_id)
     source_component = _optional_str("source_component", source_component)
     verification_status = _optional_str("verification_status", verification_status)
@@ -122,8 +147,9 @@ def build_audit_evidence_query(
     q: Dict[str, Any] = {
         f"diagnostics.{_AUDIT_RUN_ID}": audit_run_id,
         f"diagnostics.{_SCANNER_TICK_ID}": scanner_tick_id,
-        f"diagnostics.{_CANDIDATE_ID}": candidate_id,
     }
+    if candidate_id is not None:
+        q[f"diagnostics.{_CANDIDATE_ID}"] = candidate_id
     if worker_id is not None:
         q[f"diagnostics.{_WORKER_ID}"] = worker_id
     if source_component is not None:
@@ -138,7 +164,7 @@ def evidence_matches_audit(
     *,
     audit_run_id: str,
     scanner_tick_id: Any,
-    candidate_id: str,
+    candidate_id: Optional[str] = None,
     worker_id: Optional[str] = None,
     source_component: Optional[str] = DEFAULT_SOURCE_COMPONENT,
     verification_status: Optional[str] = None,
@@ -146,14 +172,15 @@ def evidence_matches_audit(
     """In-memory mirror of :func:`build_audit_evidence_query`.
 
     Returns ``True`` ONLY when ``bundle`` carries diagnostic provenance whose
-    ``audit_run_id`` / ``scanner_tick_id`` / ``candidate_id`` all match exactly
-    (plus optional ``worker_id`` / ``source_component`` / ``verification_status``
-    constraints). A bundle missing any required provenance field is rejected —
-    there is no fall-back to candidate id, timestamps, or "latest".
+    ``audit_run_id`` and ``scanner_tick_id`` match exactly. ``candidate_id`` is
+    optional: when supplied it must ALSO match exactly; when omitted the bundle
+    still must carry a non-empty ``candidate_id`` in its provenance (a record
+    with missing provenance is always rejected — never a fall-back to
+    candidate id, timestamps, or "latest").
     """
     audit_run_id = _require_id("audit_run_id", audit_run_id)
     scanner_tick_id = _require_tick(scanner_tick_id)
-    candidate_id = _require_id("candidate_id", candidate_id)
+    candidate_id = _optional_id("candidate_id", candidate_id)
     worker_id = _optional_str("worker_id", worker_id)
     source_component = _optional_str("source_component", source_component)
     verification_status = _optional_str("verification_status", verification_status)
@@ -164,16 +191,19 @@ def evidence_matches_audit(
     if not isinstance(diag, dict):
         return False  # missing provenance → reject (fail closed)
 
-    # Required provenance must be present AND exactly equal.
-    for key, want in (
-        (_AUDIT_RUN_ID, audit_run_id),
-        (_SCANNER_TICK_ID, scanner_tick_id),
-        (_CANDIDATE_ID, candidate_id),
-    ):
+    # Mandatory provenance (run + tick) must be present AND exactly equal.
+    required = [(_AUDIT_RUN_ID, audit_run_id), (_SCANNER_TICK_ID, scanner_tick_id)]
+    if candidate_id is not None:
+        required.append((_CANDIDATE_ID, candidate_id))
+    for key, want in required:
         if key not in diag or _is_empty(diag.get(key)):
             return False
         if diag.get(key) != want:
             return False
+    # Even when not pinning a candidate, the bundle MUST identify its candidate
+    # (fail closed on a record with no candidate provenance).
+    if candidate_id is None and _is_empty(diag.get(_CANDIDATE_ID)):
+        return False
 
     if worker_id is not None:
         if diag.get(_WORKER_ID) != worker_id:
@@ -192,7 +222,7 @@ def filter_evidence_for_audit(
     *,
     audit_run_id: str,
     scanner_tick_id: Any,
-    candidate_id: str,
+    candidate_id: Optional[str] = None,
     worker_id: Optional[str] = None,
     source_component: Optional[str] = DEFAULT_SOURCE_COMPONENT,
     verification_status: Optional[str] = None,
@@ -200,13 +230,15 @@ def filter_evidence_for_audit(
     """Authoritative in-memory selector: return ONLY the bundles that belong
     to exactly the requested audit run. Order-preserving.
 
-    Raises :class:`AuditProvenanceError` if the request is ambiguous (any of
-    the three mandatory selectors missing/empty). Never mixes concurrent
-    runs; never selects arbitrary evidence.
+    ``audit_run_id`` + ``scanner_tick_id`` are mandatory (else
+    :class:`AuditProvenanceError`). ``candidate_id`` is optional — omit it to
+    retrieve every candidate of the run+tick, or supply it to pin one. Never
+    mixes concurrent runs; never selects arbitrary evidence; candidate id alone
+    is never sufficient.
     """
     _require_id("audit_run_id", audit_run_id)
     _require_tick(scanner_tick_id)
-    _require_id("candidate_id", candidate_id)
+    _optional_id("candidate_id", candidate_id)
     return [
         b for b in bundles
         if evidence_matches_audit(

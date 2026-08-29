@@ -101,12 +101,49 @@ def test_bundle_missing_scanner_tick_id_is_rejected():
         is False
 
 
-def test_request_missing_candidate_id_raises():
+def test_blank_candidate_id_raises_but_none_is_allowed():
+    # A blank/whitespace candidate selector is a caller error -> raise.
     b = _bundle(run_id="RUN-A", tick=3, cand="cand-1")
-    for bad in (None, "", "   "):
+    for bad in ("", "   "):
         try:
             filter_evidence_for_audit([b], audit_run_id="RUN-A",
                                       scanner_tick_id=3, candidate_id=bad)
+            assert False, "expected AuditProvenanceError"
+        except AuditProvenanceError:
+            pass
+    # candidate_id=None (omitted) is ALLOWED: retrieve every candidate of the
+    # exact run+tick (run+tick remain mandatory, so this is NOT candidate-alone).
+    assert filter_evidence_for_audit(
+        [b], audit_run_id="RUN-A", scanner_tick_id=3) == [b]
+
+
+def test_retrieve_all_candidates_for_run_tick_then_isolate():
+    # Two candidates in the SAME run+tick, one foreign run, one missing cand.
+    a1 = _bundle(run_id="RUN-A", tick=5, cand="cand-1")
+    a2 = _bundle(run_id="RUN-A", tick=5, cand="cand-2")
+    foreign = _bundle(run_id="RUN-B", tick=5, cand="cand-3")
+    other_tick = _bundle(run_id="RUN-A", tick=6, cand="cand-4")
+    no_cand = _bundle(run_id="RUN-A", tick=5, cand="cand-x")
+    no_cand["diagnostics"].pop("candidate_id")  # missing provenance -> excluded
+    pool = [a1, foreign, a2, other_tick, no_cand]
+
+    # Omitting candidate_id returns EVERY candidate of RUN-A/tick5 only.
+    got = filter_evidence_for_audit(pool, audit_run_id="RUN-A", scanner_tick_id=5)
+    assert got == [a1, a2]
+
+    # Then candidate-level exact isolation narrows to exactly one.
+    assert filter_evidence_for_audit(
+        pool, audit_run_id="RUN-A", scanner_tick_id=5,
+        candidate_id="cand-2") == [a2]
+
+
+def test_run_and_tick_remain_mandatory_even_without_candidate():
+    b = _bundle(run_id="RUN-A", tick=5, cand="cand-1")
+    for kwargs in ({"audit_run_id": "", "scanner_tick_id": 5},
+                   {"audit_run_id": "RUN-A", "scanner_tick_id": None},
+                   {"audit_run_id": "RUN-A", "scanner_tick_id": ""}):
+        try:
+            filter_evidence_for_audit([b], **kwargs)
             assert False, "expected AuditProvenanceError"
         except AuditProvenanceError:
             pass
@@ -118,6 +155,10 @@ def test_bundle_missing_candidate_id_is_rejected():
     assert evidence_matches_audit(
         b, audit_run_id="RUN-A", scanner_tick_id=3, candidate_id="cand-1") \
         is False
+    # Even without pinning a candidate, a record with no candidate provenance
+    # is rejected (fail closed).
+    assert evidence_matches_audit(
+        b, audit_run_id="RUN-A", scanner_tick_id=3) is False
 
 
 def test_bundle_missing_diagnostics_is_rejected():
