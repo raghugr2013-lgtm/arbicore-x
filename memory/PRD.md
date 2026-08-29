@@ -120,3 +120,12 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - Verified: 138-module runner green; 25 new tests green; audit script imports OK; safety files (limited_live_eligibility, pre_broadcast, executor_capability, readiness_assessment) UNCHANGED. Broad `pytest tests/` failures are PRE-EXISTING/environmental (need live server:8001/RPC/DB) — not caused by this change.
 - Eligibility posture now HONEST: DENY via real reads (SHADOW mode => mode_allows False; no deployed executor => atomic_sim/executor DENY). A genuine ELIGIBLE is reachable only after operator deploys+verifies executor, provisions signer, confirms Balancer liquidity, a profitable UniV3 closed cycle clears $25 floor, and mode is enabled. signed=false/broadcast=false everywhere.
 - STOPPED per instruction: awaiting explicit approval before any on-chain executor deployment.
+
+## Iteration 5f (2026-06) — Complete Limited-Live readiness track (software)
+- START 42a4397 -> FINAL f7443d2. Additive, fail-closed, non-broadcast. No deploy/sign/broadcast/mode/gate/floor/compose change.
+- Executor: FlashLoanReceiver already deployed on Base Sepolia (84532) 0x99c0b64e...1052 (success); NO mainnet (8453). Registry (deploy/executor_deployments.json) + read-only loader added earlier.
+- NEW resolve_executor_address (env ARBICORE_EXECUTOR_ADDRESS_BASE -> registry[ARBICORE_CHAIN_ID|8453]); probe_signer_readiness (PUBLIC addr vs executor owner; no keys).
+- NEW limited_live_readiness_matrix.py: classifies every prereq READY/BLOCKED/UNKNOWN/MARKET-DEPENDENT (categories software/onchain_operator/operator/market). Wired into vps_canonical_audit report (+ operator_state, signer_state, executor_address_resolved).
+- Executor capability: UniV3-only SUPPORTED, Aerodrome DENIED, unknown UNVERIFIABLE (tested). Atomic sim BLOCKED until signer authorized. Balancer AVAILABLE>=REQUESTED. Freshness <=12s + block-lag<=5 (unchanged). SHADOW stays SHADOW; kill switch honest.
+- Tests: +13 (test_limited_live_readiness_matrix.py); 55 across new suites; 138-runner green. signed=false/broadcast=false.
+- REMAINING (operator/on-chain boundary): deploy+verify Base MAINNET executor; provision signer (ARBICORE_EXECUTOR_SIGNER_ADDRESS public == owner + vault key out-of-band); set ARBICORE_EXECUTOR_ADDRESS_BASE; enable mode; then wait for a genuine CONFIRMED+profitable(>=$25) UniV3 candidate. STOP at irreversible boundary.
