@@ -90,3 +90,11 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - Verified locally (preview, no Docker/RPC/Mongo): TEST1 deps present -> 138 passed exit 0; TEST2 clean interpreter w/o pytest -> exit 3 + clear UNAVAILABLE (never PASS); TEST3 opt-in bootstrap -> isolated venv provisioned from pinned file -> 138 passed exit 0.
 - NO trading logic / Gate 7-8-9 / thresholds / signer / live-mode / broadcast changed. LIMITED_LIVE + FULL_LIVE still 0.
 - NOTE: preview container is NOT the VPS (no Docker/RPC/Mongo) — full live A-L VPS audit still pending on real VPS by Codex against SHA 0cd1cf1.
+
+## Iteration 5c (2026-06) — Validation image dependency-layout fix
+- VPS build reached Dockerfile.validation but failed: `Could not open requirements file: /app/requirements.prod.txt`. Cause: it COPYed only requirements.test.txt, which starts with `-r requirements.prod.txt` (resolved relative to the file's in-image dir).
+- Smallest fix: Dockerfile.validation now `COPY requirements.prod.txt /app/requirements.prod.txt` before `COPY requirements.test.txt` and the pip install. Same in-image dir, basename preserved.
+- Added deterministic guard tests/test_validation_image_requirements_layout.py (3 tests): asserts Dockerfile.validation COPYs every local `-r` include of requirements.test.txt into the pip-install dir. NOT in the 12-module runner list -> the 138 count is unchanged; collected by full `pytest tests/`.
+- Verified in preview (no Docker): pip-parse repro reproduced the exact VPS error with only the test file, and resolved cleanly with both files colocated; guard 3/3 passed and provably fails on the pre-fix Dockerfile; full runner 138 passed exit 0.
+- UNCHANGED: requirements.prod.txt, production Dockerfile/compose, run_vps_validator_audit.sh, gates/economics/thresholds/executor/signer/broadcast/live-mode.
+- START 587b0cb -> FINAL bd01ae9 (branch complete-Base-M1-M4-live-shadow-composition). local==remote confirmed. Not VPS-live-ready; this only unblocks the validation-image build.
