@@ -129,3 +129,13 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - Executor capability: UniV3-only SUPPORTED, Aerodrome DENIED, unknown UNVERIFIABLE (tested). Atomic sim BLOCKED until signer authorized. Balancer AVAILABLE>=REQUESTED. Freshness <=12s + block-lag<=5 (unchanged). SHADOW stays SHADOW; kill switch honest.
 - Tests: +13 (test_limited_live_readiness_matrix.py); 55 across new suites; 138-runner green. signed=false/broadcast=false.
 - REMAINING (operator/on-chain boundary): deploy+verify Base MAINNET executor; provision signer (ARBICORE_EXECUTOR_SIGNER_ADDRESS public == owner + vault key out-of-band); set ARBICORE_EXECUTOR_ADDRESS_BASE; enable mode; then wait for a genuine CONFIRMED+profitable(>=$25) UniV3 candidate. STOP at irreversible boundary.
+
+## Iteration 5g (2026-06) — Executor identity probe + readiness API (software complete)
+- START e3b790e -> FINAL 610a617. Additive, fail-closed, non-broadcast. No deploy/sign/key/mode/gate/floor/prod-compose change.
+- probe_executor_identity (read-only inspect_executor): bytecode present, owner/ROUTER/VAULT, entrypoint selector, router/vault vs registry ctor args. absent->BLOCKED, no-rpc->UNKNOWN, mismatch->BLOCKED, match->READY. Feeds owner to signer probe.
+- gather_and_build: SINGLE canonical readiness assembler reused by VPS audit + API (no competing impl).
+- NEW GET /api/arbicore/limited-live/readiness -> canonical matrix + operator/signer/executor-identity/atomic-sim; signed/broadcast/limited_live_enabled all false. Verified in-process (ASGI) HTTP 200: mode=SHADOW, mode_allows False, kill_ok True, executor(mainnet) BLOCKED, signer BLOCKED, atomic BLOCKED, market items MARKET-DEPENDENT.
+- Atomic sim confirmed fail-closed. Docs: full matrix + provisioning + owner/signer + boundary + identity + atomic + freshness + mode ladder + exact enable conditions.
+- Tests: +9 (test_executor_identity_probe.py); 54 combined readiness; 138-runner green.
+- NOTE: preview backend cannot boot (no MONGO_URL — VPS app, not preview scaffold); endpoint validated via in-process ASGI. Real VPS live audit is Codex's step.
+- Remaining = operator/on-chain only: mainnet executor deploy+verify, signer provisioning, mode enable, + natural market eligibility.
