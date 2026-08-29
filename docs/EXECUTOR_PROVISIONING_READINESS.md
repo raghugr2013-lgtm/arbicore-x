@@ -91,3 +91,18 @@ RPC (no `--broadcast`, no private key needed for verify/inspection). Then, only
 with explicit approval, proceed to a mainnet deployment transaction.
 
 **No on-chain deployment transaction will be attempted without explicit approval.**
+
+## 10. End-to-end readiness matrix (in every audit report)
+The canonical audit now emits `report["limited_live_readiness_matrix"]` classifying
+every prerequisite as READY / BLOCKED / UNKNOWN / MARKET-DEPENDENT, plus
+`report["operator_state"]`, `report["signer_state"]`, `report["executor_address_resolved"]`.
+Categories: `software` (repo-provisionable), `onchain_operator` (deploy/verify
+executor + provision signer — irreversible), `operator` (mode ladder / kill
+switch), `market` (a naturally-discovered CONFIRMED + profitable candidate).
+
+Signer authorization (no keys ever): set the PUBLIC address
+`ARBICORE_EXECUTOR_SIGNER_ADDRESS` equal to the executor owner EOA. The private
+key lives ONLY in the operator vault out-of-band — never in repo / env / logs.
+Executor address resolution: env `ARBICORE_EXECUTOR_ADDRESS_BASE` first, else the
+read-only registry for `ARBICORE_CHAIN_ID` (default 8453). `atomic_simulation`
+stays BLOCKED until the signer is authorized, then becomes per-candidate MARKET.

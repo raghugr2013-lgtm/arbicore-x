@@ -265,8 +265,67 @@ async def probe_mode_and_kill_switch(
     return result
 
 
+# ---------------------------------------------------------------------------
+# Executor address resolution + signer readiness (read-only; no keys)
+# ---------------------------------------------------------------------------
+def resolve_executor_address(chain: Any = None) -> Optional[str]:
+    """Resolve the executor address: environment FIRST
+    (ARBICORE_EXECUTOR_ADDRESS_BASE — the sole runtime source), else the
+    READ-ONLY deployment registry for ``chain`` (default ARBICORE_CHAIN_ID or
+    Base mainnet 8453). Returns None (fail closed) when neither is available.
+    Never writes any environment variable and never enables anything."""
+    env = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
+    if env:
+        return env
+    if chain is None:
+        chain = os.environ.get("ARBICORE_CHAIN_ID", "8453")
+    try:
+        from ...execution.executor_registry import deployed_address
+    except Exception:  # noqa: BLE001
+        return None
+    return deployed_address(chain)
+
+
+def probe_signer_readiness(*, executor_owner: Optional[str] = None) -> Dict[str, Any]:
+    """Report Limited-Live signer/authorization readiness WITHOUT any secret.
+
+    The executor is owner-gated, so the Limited-Live signer's PUBLIC address must
+    equal the executor owner EOA. We read only a PUBLIC address from
+    ``ARBICORE_EXECUTOR_SIGNER_ADDRESS`` and (when the on-chain owner is known)
+    compare them. ``ready`` reflects only that the PUBLIC authorization identity
+    is configured and matches — it does NOT mean a private key exists or that
+    signing/broadcast is enabled (those remain out-of-band + operator-gated).
+    NEVER reads, prints, or stores a private key."""
+    signer_addr = os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS")
+    present = bool(signer_addr and signer_addr.startswith("0x") and len(signer_addr) == 42)
+    owner_match: Optional[bool] = None
+    if present and executor_owner:
+        owner_match = (signer_addr.lower() == executor_owner.lower())
+
+    if not present:
+        reason = "signer_public_address_absent (ARBICORE_EXECUTOR_SIGNER_ADDRESS unset)"
+    elif executor_owner is None:
+        reason = "signer_present_but_owner_unverified (executor owner not read)"
+    elif owner_match is False:
+        reason = "signer_does_not_match_executor_owner"
+    else:
+        reason = "signer_public_address_matches_executor_owner"
+
+    return {
+        "ready": bool(present and owner_match is True),
+        "signer_present": present,
+        "owner_match": owner_match,
+        "reason": reason,
+        "requires": ("Limited-Live signer PUBLIC address == executor owner EOA; "
+                     "private key held only in the operator vault out-of-band "
+                     "(never in repo / env / logs)."),
+        "signed": False, "broadcast": False,
+    }
+
+
 __all__ = [
     "FRESH_QUOTE_MAX_AGE_S", "LIMITED_LIVE_MODES",
     "probe_atomic_simulation", "probe_balancer_liquidity",
     "probe_freshness", "probe_mode_and_kill_switch",
+    "resolve_executor_address", "probe_signer_readiness",
 ]
