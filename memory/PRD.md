@@ -139,3 +139,18 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - Tests: +9 (test_executor_identity_probe.py); 54 combined readiness; 138-runner green.
 - NOTE: preview backend cannot boot (no MONGO_URL — VPS app, not preview scaffold); endpoint validated via in-process ASGI. Real VPS live audit is Codex's step.
 - Remaining = operator/on-chain only: mainnet executor deploy+verify, signer provisioning, mode enable, + natural market eligibility.
+
+## Iteration 5h (2026-06) — Final software pass: RPC reliability (429) + full gap audit
+- Local commit e930a10 (on 64b8b57). RPC reliability: EthJsonRpcProvider._call bounded-backoff retry for 429(+Retry-After)/5xx/network/malformed; non-retryable 4xx/rpc-error/missing-result; exhaustion->ProviderError (fail closed); verify_chain_id fail-closed; no secret logging. +tests/test_rpc_reliability.py (11). Env: ARBICORE_RPC_MAX_RETRIES/BACKOFF_BASE_MS/BACKOFF_CAP_MS.
+- Validated: 11 RPC + 65 readiness/RPC combined + 138-runner all green; existing RPC callers 14 passed. No mode/gate/floor/signer/broadcast/compose change.
+- PUSH BLOCKED: direct-push token invalid ("Password authentication not supported"). Commit e930a10 is LOCAL; needs Save-to-GitHub or platform auto-sync to reach remote (remote tip still 64b8b57).
+- Software pipeline classification: all software-dependent readiness items COMPLETE. Remaining = VPS config (RPC url/rate-limit, MONGO/env), on-chain operator (mainnet executor deploy+verify, signer provisioning), operator (mode enable), market (genuine CONFIRMED+profitable UniV3 candidate).
+
+## Iteration 5i (2026-06) — Pre-push re-verification of HEAD e930a10 (RE-VERIFY HEALTH FIRST)
+- HEAD confirmed e930a10 on branch complete-Base-M1-M4-live-shadow-composition; worktree clean except this memory doc (no tracked source changes from verification).
+- 429 FIX PRESENT: YES (verified via `git show HEAD:.../providers/rpc.py` — bounded-backoff 429/5xx/network + verify_chain_id fail-closed).
+- Authoritative deterministic audit runner (scripts/run_vps_validator_audit.sh): 138 passed, AUDIT RESULT: PASS, exit 0.
+- Targeted readiness/RPC unit suites: 83 passed (rpc_reliability, limited_live_readiness_matrix, live_readiness_probes, flashloan_limited_live_readiness, d5_2 rpc chain liveness, quoter rpc precedence). 
+- test_p0_iter13_signer_readiness.py = 13 live-HTTP integration tests requiring a fully-provisioned/seeded live server (preview backend cannot boot: VPS app has no local MONGO_URL/.env) — environment-dependent, NOT part of deterministic runner, NOT a 429 regression.
+- In-process readiness matrix validation: PASS. signed/broadcast/limited_live_enabled all False in every state; SHADOW denies (mode_allows False); rpc-missing->SOFTWARE_INCOMPLETE; fully-provisioned hypothetical->SOFTWARE_READY_MARKET_AND_OPERATOR_PENDING (never enabled).
+- REGRESSION STATUS: none. SIGNED=NO, BROADCAST=NO, LIMITED_LIVE_ENABLED=NO, MODE=SHADOW. No irreversible/on-chain action performed. Repository ready for Save-to-GitHub of e930a10.
