@@ -229,25 +229,23 @@ async def _amain() -> int:
                          and (b.get("diagnostics") or {}).get("candidate_id")
                          in set(confirmed_candidate_ids)]
 
-    # Honest operator mode + kill-switch state (read-only; never enables/changes
-    # anything). Reported regardless of confirmed count for diagnosability.
-    from arbicore.scanners.flash_loan_arbitrage.live_readiness_probes import (
-        probe_mode_and_kill_switch, probe_signer_readiness,
-        resolve_executor_address,
-    )
+    # Honest operator/executor/signer state + readiness matrix via the CANONICAL
+    # assembler (same code path the readiness API uses). Read-only; never enables
+    # anything. Reported regardless of confirmed count for diagnosability.
     from arbicore.scanners.flash_loan_arbitrage.limited_live_readiness_matrix import (
-        build_readiness_matrix,
+        gather_and_build,
     )
-    operator_state = await probe_mode_and_kill_switch(db=db)
-    report["operator_state"] = operator_state
-
-    # Executor address: env first (sole runtime source), else read-only registry.
-    executor_addr = resolve_executor_address()
     rpc_url = (os.environ.get("ARBICORE_RPC_URL_BASE")
                or os.environ.get("ARBICORE_RPC_URL") or "")
-    signer_state = probe_signer_readiness(executor_owner=None)
-    report["signer_state"] = signer_state
-    report["executor_address_resolved"] = bool(executor_addr)
+    assembled = await gather_and_build(
+        db=db, rpc_url=rpc_url, confirmed_count=len(confirmed_candidate_ids))
+    operator_state = assembled["operator_state"]
+    executor_addr = assembled["executor_address"]
+    report["operator_state"] = operator_state
+    report["signer_state"] = assembled["signer_state"]
+    report["executor_identity"] = assembled["executor_identity"]
+    report["executor_address_resolved"] = assembled["executor_address_resolved"]
+    report["limited_live_readiness_matrix"] = assembled["matrix"]
 
     report["readiness"] = await _assess_confirmed_readiness(
         confirmed_bundles, db=db, rpc_url=rpc_url,
@@ -255,13 +253,6 @@ async def _amain() -> int:
     report["limited_live_eligible_candidates"] = [
         r["provenance"]["candidate_id"] for r in report["readiness"]
         if r["limited_live"]["eligible"]]
-
-    # End-to-end readiness matrix (READY / BLOCKED / UNKNOWN / MARKET-DEPENDENT).
-    report["limited_live_readiness_matrix"] = build_readiness_matrix(
-        rpc_configured=bool(rpc_url), mongo_ok=True,
-        executor_address=executor_addr, executor_identity_ok=None,
-        signer=signer_state, operator_state=operator_state,
-        confirmed_count=len(confirmed_candidate_ids))
 
     # 7-8) Feed ONLY exact-run CONFIRMED evidence to M3. We hand the exact
     #      selectors to the M3 validator via env — M3 fails closed if nothing

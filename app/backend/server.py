@@ -4241,6 +4241,38 @@ async def v2_executor_verify(address: Optional[str] = None,
                 "generated_at": _iso_now()}
 
 
+@api_router.get("/arbicore/limited-live/readiness")
+async def v2_limited_live_readiness(chain: str = "base") -> Dict[str, Any]:
+    """Canonical Limited-Live readiness matrix (same assembler the VPS audit
+    uses). Read-only: never signs/broadcasts/enables anything."""
+    try:
+        from arbicore.scanners.flash_loan_arbitrage.limited_live_readiness_matrix import (
+            gather_and_build,
+        )
+        rpc_url = (os.environ.get("ARBICORE_RPC_URL_BASE")
+                   or os.environ.get("ARBICORE_RPC_URL") or "")
+        chain_id = {"base": "8453", "base_mainnet": "8453",
+                    "base_sepolia": "84532", "sepolia": "84532"}.get(chain, chain)
+        assembled = await gather_and_build(db=db, rpc_url=rpc_url, chain=chain_id)
+        m = assembled["matrix"]
+        return {
+            "overall": m["overall"], "counts": m["counts"], "items": m["items"],
+            "blocked": m["blocked"], "unknown": m["unknown"],
+            "market_dependent": m["market_dependent"],
+            "operator_state": assembled["operator_state"],
+            "signer_state": assembled["signer_state"],
+            "executor_identity": assembled["executor_identity"],
+            "executor_address_resolved": assembled["executor_address_resolved"],
+            "atomic_simulation": next(
+                (i for i in m["items"] if i["prerequisite"] == "atomic_simulation"), None),
+            "signed": False, "broadcast": False, "limited_live_enabled": False,
+            "generated_at": _iso_now(),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {exc}",
+                "generated_at": _iso_now()}
+
+
 @api_router.get("/arbicore/rpc/check")
 async def v2_rpc_check() -> Dict[str, Any]:
     try:

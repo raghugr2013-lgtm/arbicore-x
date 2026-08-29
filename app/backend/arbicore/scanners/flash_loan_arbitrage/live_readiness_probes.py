@@ -17,7 +17,7 @@ Documented freshness policy (unchanged — not loosened here):
 from __future__ import annotations
 
 import os
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from ...discovery.base_venues import TOKENS, canonical_symbol
 from .provider_liquidity import (
@@ -323,9 +323,93 @@ def probe_signer_readiness(*, executor_owner: Optional[str] = None) -> Dict[str,
     }
 
 
+# ---------------------------------------------------------------------------
+# Read-only on-chain executor identity probe
+# ---------------------------------------------------------------------------
+async def probe_executor_identity(
+    *, executor_address: Optional[str], rpc_url: Optional[str],
+    chain: Any = None, expected: Optional[Dict[str, str]] = None,
+    inspector: Optional[Any] = None,
+) -> Dict[str, Any]:
+    """READ-ONLY on-chain identity check of the deployed executor via
+    ``inspect_executor`` (eth_getCode + owner()/ROUTER()/VAULT()). Verifies the
+    contract exists, has bytecode, exposes the expected entrypoint selector, and
+    that its router/vault match the expected (registry) constructor args. Never
+    signs/broadcasts, never fabricates READY:
+      * no executor address → BLOCKED (executor_address_absent)
+      * no RPC              → UNKNOWN (cannot inspect)
+      * no bytecode         → BLOCKED
+      * router/vault or entrypoint mismatch → BLOCKED
+      * all match           → READY (status only; not eligibility)
+    """
+    result: Dict[str, Any] = {
+        "status": "UNKNOWN", "exists": None, "bytecode_present": None,
+        "owner": None, "router": None, "vault": None,
+        "entrypoint_selector_present": None, "mismatches": [],
+        "chain": (str(chain) if chain is not None else None),
+        "reason": "", "signed": False, "broadcast": False,
+    }
+    if not executor_address:
+        result.update(status="BLOCKED", exists=False,
+                      reason="executor_address_absent")
+        return result
+    result["executor"] = executor_address
+    if not rpc_url:
+        result["reason"] = "rpc_not_configured (cannot inspect on-chain)"
+        return result
+
+    if inspector is None:
+        from ...execution.executor_entrypoint import inspect_executor
+        inspector = inspect_executor
+    if expected is None:
+        try:
+            from ...execution.executor_registry import get_deployment
+            rec = get_deployment(chain) or {}
+            ca = rec.get("constructor_args") or rec.get("constructor_args_expected") or {}
+            expected = {"vault": ca.get("balancerVault"), "router": ca.get("uniRouter")}
+        except Exception:  # noqa: BLE001
+            expected = {}
+
+    try:
+        info = await inspector(rpc_url, executor_address)
+    except Exception as exc:  # noqa: BLE001
+        result["reason"] = f"inspection_error:{type(exc).__name__}"
+        return result
+
+    if not info.get("ok"):
+        result.update(status="BLOCKED", exists=False, bytecode_present=False,
+                      reason=info.get("reason") or "executor_inspection_failed")
+        return result
+
+    result.update(exists=True, bytecode_present=True,
+                  bytecode_size_bytes=info.get("bytecode_size_bytes"),
+                  owner=info.get("owner"), router=info.get("router"),
+                  vault=info.get("vault"),
+                  entrypoint_selector_present=info.get("entrypoint_selector_present"))
+
+    mismatches: List[str] = []
+    exp_vault = (expected or {}).get("vault")
+    exp_router = (expected or {}).get("router")
+    if exp_vault and info.get("vault") and info["vault"].lower() != exp_vault.lower():
+        mismatches.append("vault")
+    if exp_router and info.get("router") and info["router"].lower() != exp_router.lower():
+        mismatches.append("router")
+    result["mismatches"] = mismatches
+
+    if info.get("entrypoint_selector_present") is False:
+        result.update(status="BLOCKED", reason="expected_entrypoint_selector_absent")
+    elif mismatches:
+        result.update(status="BLOCKED",
+                      reason=f"identity_mismatch:{','.join(mismatches)}")
+    else:
+        result.update(status="READY", reason="executor_identity_confirmed_onchain")
+    return result
+
+
 __all__ = [
     "FRESH_QUOTE_MAX_AGE_S", "LIMITED_LIVE_MODES",
     "probe_atomic_simulation", "probe_balancer_liquidity",
     "probe_freshness", "probe_mode_and_kill_switch",
     "resolve_executor_address", "probe_signer_readiness",
+    "probe_executor_identity",
 ]

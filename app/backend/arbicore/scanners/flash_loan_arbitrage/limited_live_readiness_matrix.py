@@ -152,4 +152,47 @@ def build_readiness_matrix(
     }
 
 
-__all__ = ["READY", "BLOCKED", "UNKNOWN", "MARKET", "build_readiness_matrix"]
+__all__ = ["READY", "BLOCKED", "UNKNOWN", "MARKET", "build_readiness_matrix",
+           "gather_and_build"]
+
+
+async def gather_and_build(
+    *, db: Any, rpc_url: str = "", chain: Any = None,
+    confirmed_count: int = 0, mongo_ok: bool = True,
+    inspector: Any = None,
+) -> Dict[str, Any]:
+    """CANONICAL readiness assembler reused by the VPS audit AND the readiness
+    API — the single source of truth. Runs the read-only probes (operator mode +
+    kill switch, executor identity, signer authorization) and builds the matrix.
+    Never signs/broadcasts/enables anything.
+
+    Returns: {matrix, operator_state, signer_state, executor_identity,
+              executor_address, executor_address_resolved}.
+    """
+    from .live_readiness_probes import (
+        probe_mode_and_kill_switch, probe_signer_readiness,
+        probe_executor_identity, resolve_executor_address,
+    )
+    if chain is None:
+        import os
+        chain = os.environ.get("ARBICORE_CHAIN_ID", "8453")
+
+    operator_state = await probe_mode_and_kill_switch(db=db)
+    executor_address = resolve_executor_address(chain)
+    identity = await probe_executor_identity(
+        executor_address=executor_address, rpc_url=rpc_url, chain=chain,
+        inspector=inspector)
+    signer_state = probe_signer_readiness(executor_owner=identity.get("owner"))
+
+    identity_ok = {"READY": True, "BLOCKED": False}.get(identity.get("status"))
+    matrix = build_readiness_matrix(
+        rpc_configured=bool(rpc_url), mongo_ok=mongo_ok,
+        executor_address=executor_address, executor_identity_ok=identity_ok,
+        signer=signer_state, operator_state=operator_state,
+        confirmed_count=confirmed_count)
+    return {
+        "matrix": matrix, "operator_state": operator_state,
+        "signer_state": signer_state, "executor_identity": identity,
+        "executor_address": executor_address,
+        "executor_address_resolved": bool(executor_address),
+    }

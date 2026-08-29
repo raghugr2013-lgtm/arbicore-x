@@ -161,3 +161,64 @@ ELIGIBLE verdict additionally requires, on the VPS (NOT done here):
 Until Codex proves all of the above live on the exact SHA, the classification is
 **CODE READY — VPS VALIDATION REQUIRED** (never Limited-Live ready on unit tests
 alone). Limited-Live / Full-Live / signing / broadcasting remain disabled.
+
+## Limited-Live readiness API + prerequisite matrix
+
+`GET /api/arbicore/limited-live/readiness?chain=base` returns the CANONICAL
+readiness matrix (same assembler `limited_live_readiness_matrix.gather_and_build`
+the VPS audit emits as `report["limited_live_readiness_matrix"]`). Read-only —
+never signs/broadcasts/enables anything. Fields: `overall`, `counts`, `items`
+(each `prerequisite`/`status`/`category`/`detail`), `blocked`, `unknown`,
+`market_dependent`, `operator_state`, `signer_state`, `executor_identity`,
+`atomic_simulation`, and `signed=false`/`broadcast=false`/`limited_live_enabled=false`.
+
+Status vocabulary: READY (software/config satisfied now) · BLOCKED (needs an
+irreversible on-chain/operator action) · UNKNOWN (undetermined → fail closed) ·
+MARKET-DEPENDENT (needs a genuine CONFIRMED + profitable candidate).
+
+### Prerequisite matrix
+| Prerequisite | Category | Current (SHADOW, no signer, mainnet executor absent) |
+|---|---|---|
+| rpc_base | software | READY when RPC configured (BLOCKED without) |
+| mongo_provenance | software | READY |
+| executor_deployed | onchain_operator | Sepolia READY / **mainnet BLOCKED (not deployed)** |
+| executor_onchain_identity | onchain_operator | READY only when on-chain owner/router/vault + entrypoint match expected; mismatch → BLOCKED; no RPC → UNKNOWN |
+| signer_authorization | onchain_operator | BLOCKED until `ARBICORE_EXECUTOR_SIGNER_ADDRESS` (public) == executor owner |
+| operator_mode_allows | operator | BLOCKED (SHADOW; READY only for LIMITED_LIVE/FULL_AUTOMATION) |
+| kill_switch_ok | operator | READY (disengaged) |
+| atomic_simulation | onchain_operator | BLOCKED until signer authorized, then per-candidate MARKET |
+| executor_capability_route | market | UniV3-only SUPPORTED; Aerodrome/unsupported DENIED |
+| economics_gate7 ($25) / gate8 / gate9 / balancer_liquidity / freshness | market | per genuine candidate |
+| confirmed_candidate | market | 0 → WAIT |
+
+### Executor provisioning + owner/signer relationship
+- Contract: `contracts/contracts/core/FlashLoanReceiver.sol` (owner-gated).
+- Existing deployment: Base Sepolia (84532) `0x99c0b64e…1052` (see
+  `deploy/executor_deployments.json`). **No Base mainnet (8453) deploy exists.**
+- The Limited-Live signer's PUBLIC address MUST equal the executor `owner()`.
+  The PRIVATE KEY lives only in the operator vault out-of-band — never in
+  repo / env / logs. `ARBICORE_EXECUTOR_ADDRESS_BASE` (env) is the sole runtime
+  executor source; the registry is a read-only fallback.
+
+### Read-only identity checks
+`probe_executor_identity` → `inspect_executor` (eth_getCode + owner()/ROUTER()/
+VAULT()): asserts bytecode present, entrypoint selector present, router/vault
+match the expected constructor args. Never fabricates READY.
+
+### Atomic simulation requirements (fail-closed)
+Exact-tx read-only `eth_call` + state override via `AtomicExecutorSimulator`.
+DENY when: executor absent · signer authorization absent · calldata incomplete ·
+RPC/state-override unavailable · candidate not genuinely eligible. Never signs/
+broadcasts.
+
+### Freshness policy (unchanged)
+quote age ≤ 12.0s; block lag ≤ `ARBICORE_PRICE_MAX_BLOCK_LAG` (default 5).
+
+### Exact conditions required BEFORE Limited-Live can be enabled
+1. Base **mainnet** executor deployed + BaseScan-verified; `executor_onchain_identity` READY.
+2. `ARBICORE_EXECUTOR_ADDRESS_BASE` set to that address; RPC configured.
+3. Signer public address == executor owner; vault holds the key out-of-band.
+4. Kill switch disengaged (`kill_switch_ok` READY).
+5. A genuine CONFIRMED candidate: UniV3-only route, Gate 7 (≥ $25) + Gate 8 + Gate 9 pass, Balancer AVAILABLE ≥ REQUESTED, fresh, atomic simulation PASS.
+6. Explicit operator authorization flips the mode ladder to LIMITED_LIVE.
+Code readiness is NOT Limited-Live operational; enabling remains operator-gated.
