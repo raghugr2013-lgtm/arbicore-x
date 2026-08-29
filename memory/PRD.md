@@ -98,3 +98,12 @@ No signer, no broadcast, SHADOW pipeline built with no broadcaster/mode_repo →
 - Verified in preview (no Docker): pip-parse repro reproduced the exact VPS error with only the test file, and resolved cleanly with both files colocated; guard 3/3 passed and provably fails on the pre-fix Dockerfile; full runner 138 passed exit 0.
 - UNCHANGED: requirements.prod.txt, production Dockerfile/compose, run_vps_validator_audit.sh, gates/economics/thresholds/executor/signer/broadcast/live-mode.
 - START 587b0cb -> FINAL bd01ae9 (branch complete-Base-M1-M4-live-shadow-composition). local==remote confirmed. Not VPS-live-ready; this only unblocks the validation-image build.
+
+## Iteration 5d (2026-06) — Validator Mongo networking/env + git provenance
+- Problem on VPS: 4 Mongo-backed deterministic tests (2 in test_flashloan_canonical_audit_runner.py, 2 in test_flashloan_audit_evidence_filter.py) connected to localhost:27017 -> Connection refused, because MONGO_URL was not reaching the pytest process; also git_sha/git_branch reported "unknown" (mounted worktree's .git unresolvable inside the container + dubious-ownership).
+- Fix (START c5aa0c8 -> FINAL cf7a2f2):
+  * run_vps_validator_audit.sh: explicitly `export MONGO_URL`/`DB_NAME` so xdist workers inherit the dedicated validator endpoint; print `mongo_target host:port` (no creds) or a clear WARNING when unset. Provenance now env-first: ARBICORE_VALIDATION_GIT_SHA/_BRANCH -> git (with `safe.directory` best-effort) -> unknown.
+  * NEW deployment/compose/docker-compose.validation.yml: disposable stack = ephemeral tmpfs `arbicore-x-validator-mongo` + Dockerfile.validation runner on one bridge net, MONGO_URL=mongodb://arbicore-x-validator-mongo:27017 + DB_NAME injected, worktree bind-mounted :ro, VALIDATION_GIT_SHA/_BRANCH passthrough. Never touches production Mongo/compose.
+- Verified in preview: bash -n OK; compose YAML valid; RUN A (MONGO_URL unset) -> warning + real git_sha + 138 passed; RUN B (MONGO_URL set + explicit provenance) -> mongo_target localhost:27017, git_sha/branch overridden, 138 passed; cred-stripping parse confirmed.
+- UNCHANGED: production Mongo/compose, requirements.prod.txt, gates/economics/thresholds/executor/signer/broadcast/live-mode. Fail-closed preserved.
+- NOT run on real VPS by me (Emergent preview has no Docker/RPC and is not the VPS). Codex must re-run the 138 suite on the VPS at cf7a2f2 and report exact pass/fail BEFORE the live A-L audit. No live readiness claimed.
