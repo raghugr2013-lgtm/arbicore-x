@@ -18,14 +18,8 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, List, Optional, Awaitable
 
-from ...discovery.base_venues import (
-    CHAIN, build_pool_graph, token_address, probe_amount,
-)
-
-
-def _tvl_by_pool() -> Dict[str, float]:
-    pools, _specs = build_pool_graph()
-    return {p.pool_address: float(getattr(p, "tvl_usd", 0.0) or 0.0) for p in pools}
+from ...discovery.base_venues import CHAIN, token_address, probe_amount
+from ...discovery.base_pool_registry import canonical_pool_specs
 
 
 # Map a route DEX to its REGISTERED REAL provenance source id (see
@@ -96,7 +90,7 @@ def make_live_quote_provider(
     pool's depth is unverifiable, ``min_pool_tvl_usd_in_route`` is ``0.0`` so
     Gate 8 fails closed — depth is NEVER fabricated.
     """
-    _pools, specs = build_pool_graph()
+    specs = canonical_pool_specs()
 
     async def _provider(cycle_metadata: Dict[str, Any],
                         borrow_amount_usd: float) -> Optional[Dict[str, Any]]:
@@ -129,7 +123,8 @@ def make_live_quote_provider(
             # backends fall back to a break-even passthrough (amount_out ==
             # amount_in) — a fabricated leg that corrupts gross_profit_pct and
             # (for M3.0 fresh_fn) leaves the route unpriceable. No data is
-            # invented here: the values come straight from build_pool_graph().
+            # invented here: the values come straight from the canonical
+            # registry venue specs (canonical_pool_specs()).
             if "tick_spacing" in spec:
                 hop["tick_spacing"] = spec["tick_spacing"]
             if "stable" in spec:

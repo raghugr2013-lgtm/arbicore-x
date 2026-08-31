@@ -289,6 +289,65 @@ def registry_summary() -> Dict[str, Any]:
     }
 
 
+# ── Canonical → FlashLoan RouteSearchEngine adapter (Z8/Z9 integration) ─────
+def _quote_spec_for(p: CanonicalPool) -> Dict[str, Any]:
+    """Venue-specific quote-hop spec (dex + fee/tick_spacing/stable) derived
+    from the ONE canonical record. Mirrors the legacy ``base_venues`` spec dict
+    1:1 (keyed by ``canonical_id``) so every downstream consumer is unchanged,
+    but sourced from the canonical registry instead of a parallel venue list."""
+    spec: Dict[str, Any] = {"dex": p.dex}
+    if p.dex == "uniswap_v3":
+        spec["fee"] = p.fee_ppm
+    elif p.dex == "aerodrome_slipstream":
+        spec["tick_spacing"] = p.tick_spacing
+    elif p.dex == "aerodrome":
+        spec["stable"] = bool(p.stable)
+    return spec
+
+
+def canonical_pool_specs() -> Dict[str, Dict[str, Any]]:
+    """``{canonical_id: quote_hop_spec}`` for EVERY canonical pool.
+
+    Venue metadata (dex/fee/tick_spacing/stable) is ALWAYS available regardless
+    of on-chain address resolution, so this map covers all pools. It is the
+    single source of the venue specs the live quote provider + executor-
+    capability checks consume — replacing ``base_venues.build_pool_graph()[1]``
+    so there is no parallel spec authority to drift."""
+    return {p.canonical_id: _quote_spec_for(p) for p in _POOLS}
+
+
+def build_canonical_pool_graph(*, resolved_only: bool = True
+                               ) -> Tuple[List[Any], Dict[str, Dict[str, Any]]]:
+    """Canonical replacement for ``base_venues.build_pool_graph()`` feeding the
+    ``FlashLoanArbitrageScanner``'s ``RouteSearchEngine``.
+
+    Returns ``(pool_nodes, specs)`` DERIVED FROM the canonical registry (single
+    source of truth), NOT the legacy parallel venue graph. Each ``PoolNode``
+    keeps ``pool_address == canonical_id`` — the stable identity the whole
+    flash-loan pipeline already keys on (specs, TVL/Gate-8, executor capability,
+    audit). This is an IDENTITY-PRESERVING integration, never a string-swap of
+    the real address into that field.
+
+    FAIL-CLOSED: with ``resolved_only=True`` (default) ONLY pools carrying a
+    genuine resolved on-chain address (``deterministic_verified`` UniV3 today +
+    ``runtime_resolved`` Aerodrome/Slipstream after the VPS getPool mutation)
+    enter the route universe. A pool still awaiting on-chain resolution
+    (``address is None``) is EXCLUDED, so a synthetic-only / unresolved pool can
+    never reach the live quote or execution path. ``tvl_usd`` is left 0.0 (never
+    fabricated); real depth is measured later at Gate 8."""
+    from ..scanners.flash_loan_arbitrage.route_search import PoolNode
+    nodes: List[Any] = []
+    for p in _POOLS:
+        if resolved_only and not p.address:
+            continue
+        fee_bps = p.fee_bps if p.fee_bps is not None else 5
+        nodes.append(PoolNode(
+            pool_address=p.canonical_id, dex_protocol=p.dex, chain=p.chain,
+            token_a=p.token0_symbol, token_b=p.token1_symbol,
+            tvl_usd=0.0, fee_bps=int(fee_bps)))
+    return nodes, canonical_pool_specs()
+
+
 __all__ = [
     "CHAIN", "CanonicalPool",
     "BASE_UNIV3_FACTORY", "UNIV3_POOL_INIT_CODE_HASH", "UNIV3_GET_POOL_SELECTOR",
@@ -296,5 +355,5 @@ __all__ = [
     "compute_univ3_pool_address", "build_canonical_pools",
     "get_canonical_pools", "canonical_pool_by_id", "canonical_pool_by_address",
     "resolved_addresses", "unresolved_pools", "set_runtime_resolved_address",
-    "registry_summary",
+    "registry_summary", "canonical_pool_specs", "build_canonical_pool_graph",
 ]

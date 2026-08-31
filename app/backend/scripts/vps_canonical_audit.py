@@ -48,7 +48,7 @@ async def _assess_confirmed_readiness(
     from the DB. Borrow sizing is feasible only when profitable AND executable.
     Nothing signs, broadcasts, or enables any live mode."""
     import time as _time
-    from arbicore.discovery.base_venues import build_pool_graph
+    from arbicore.discovery.base_pool_registry import canonical_pool_specs
     from arbicore.scanners.flash_loan_arbitrage.executor_capability import (
         evaluate_executor_capability,
     )
@@ -66,7 +66,7 @@ async def _assess_confirmed_readiness(
     )
 
     try:
-        _, pool_specs = build_pool_graph()
+        pool_specs = canonical_pool_specs()
     except Exception:  # noqa: BLE001
         pool_specs = {}
 

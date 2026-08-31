@@ -626,8 +626,8 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
             # are valid intelligence, but cannot produce executable calldata
             # for this head; reject before economics/gas so an unset aggregate
             # gas estimate can never be mistaken for a live candidate.
-            from ..discovery.base_venues import build_pool_graph
-            _, _pool_specs = build_pool_graph()
+            from ..discovery.base_pool_registry import canonical_pool_specs
+            _pool_specs = canonical_pool_specs()
             unsupported = [pid for pid in route_pools
                            if (_pool_specs.get(pid) or {}).get("dex") not in
                            (None, "uniswap_v3")]
@@ -1098,25 +1098,32 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             except Exception:
                 pass
 
-        # Real Base pool universe (SAME graph the OpportunityEngine uses) —
-        # kept exactly as-is (regression-frozen).
-        from ..discovery.base_venues import CHAIN as _BASE_CHAIN, build_pool_graph as _bpg
+        # Base route universe is sourced from the ONE canonical registry
+        # (Z8/Z9 fix): canonical pool identity → resolved real addresses →
+        # PoolNode. Built fresh per search so Aerodrome/Slipstream pools that
+        # become runtime_resolved on the VPS (M2.6) enter the graph; unresolved
+        # (address-less) pools are excluded (fail-closed) so a synthetic-only
+        # id can never reach the live quote/execution path. base_venues stays
+        # regression-frozen for the separate OpportunityEngine.
+        from ..discovery.base_venues import CHAIN as _BASE_CHAIN
+        from ..discovery.base_pool_registry import (
+            build_canonical_pool_graph as _canonical_base_graph)
         from ..discovery.multichain_venues import (
             build_pool_graph as _mc_pool_graph, supported_discovery_chains)
         from ..config.persistent import resolve_rpc_url_from_env
-        _base_pools, _ = _bpg()
 
         def _multichain_pool_loader(chain: str):
             """Generic multi-chain pool universe (SHADOW, fail-closed).
 
-            Base → the dedicated frozen graph. Other Phase-2 chains → the
-            verified-registry venue universe, but ONLY when an RPC is configured
-            for that chain (no RPC ⇒ empty ⇒ discovery fails closed). Concrete
-            pools/quotes/TVL are resolved on-chain downstream. Unknown chain ⇒ [].
+            Base → the canonical registry graph (resolved addresses only).
+            Other Phase-2 chains → the verified-registry venue universe, but
+            ONLY when an RPC is configured for that chain (no RPC ⇒ empty ⇒
+            discovery fails closed). Concrete pools/quotes/TVL are resolved
+            on-chain downstream. Unknown chain ⇒ [].
             """
             c = (chain or "").lower()
             if c == _BASE_CHAIN:
-                return _base_pools
+                return _canonical_base_graph(resolved_only=True)[0]
             if c in supported_discovery_chains() and resolve_rpc_url_from_env(c):
                 return _mc_pool_graph(c)
             return []
@@ -1306,8 +1313,10 @@ def flash_loan_quote_readiness(*, quote_provider_is_default: bool,
 
 
 def _base_pools_size():
-    from ..discovery.base_venues import build_pool_graph as _bpg
-    pools, _ = _bpg()
+    # Reflect the ACTUAL Base route universe the scanner loads: the canonical
+    # registry graph, resolved addresses only (fail-closed).
+    from ..discovery.base_pool_registry import build_canonical_pool_graph
+    pools, _ = build_canonical_pool_graph(resolved_only=True)
     return pools
 
 
