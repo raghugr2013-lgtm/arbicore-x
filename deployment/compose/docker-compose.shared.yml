@@ -60,7 +60,7 @@ x-log-defaults: &log-defaults
 #   stack, not by ArbiCore X.
 networks:
   shared:
-    name: ${NETWORK_NAME:?NETWORK_NAME must be set in .env.shared — see .env.shared.example (typical values: vqb-network for factory-mongo co-tenancy, or arbicore-x-net for self-owned).}
+    name: "${NETWORK_NAME:?NETWORK_NAME must be set in .env.shared — see .env.shared.example (typical values: vqb-network for factory-mongo co-tenancy, or arbicore-x-net for self-owned).}"
     external: true
 
 # ---------------------------------------------------------------- Volumes
