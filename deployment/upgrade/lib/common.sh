@@ -81,6 +81,75 @@ detect_one(){ # detect_one "<grep -E pattern>" ; echoes single container name or
     | grep -iE "$1" | awk '{print $1}' | sort -u
 }
 
+# select_backend_container <candidate-lines> <explicit-or-empty>
+#
+# Deterministic, pure backend selection:
+#   1. Explicit BACKEND_OLD must be present among candidates.
+#   2. Otherwise an exact authoritative container name is preferred.
+#   3. Otherwise exactly one candidate is required.
+#
+# IMPORTANT:
+# Candidate discovery must be performed using container metadata rather than
+# backend image/port matching. Validator/livehunt containers intentionally use
+# the same backend image and therefore must never be mistaken for production.
+select_backend_container(){
+  local candidates="$1"
+  local explicit="${2:-}"
+  local authoritative="${ARBICORE_DEFAULT_BACKEND:-arbicore-x-backend}"
+  local c
+  local n
+
+  if [ -n "$explicit" ]; then
+    while IFS= read -r c; do
+      [ -n "$c" ] || continue
+      if [ "$c" = "$explicit" ]; then
+        printf '%s\n' "$explicit"
+        return 0
+      fi
+    done <<EOF
+$candidates
+EOF
+    return 2
+  fi
+
+  while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    if [ "$c" = "$authoritative" ]; then
+      printf '%s\n' "$authoritative"
+      return 0
+    fi
+  done <<EOF
+$candidates
+EOF
+
+  n="$(printf '%s\n' "$candidates" | grep -c . || true)"
+
+  if [ "$n" = "1" ]; then
+    printf '%s\n' "$candidates"
+    return 0
+  fi
+
+  return 3
+}
+
+# detect_backend_candidates — discover the canonical production backend.
+#
+# Production identity is intentionally narrow.
+#
+# The VPS contains disposable validator/livehunt containers which reuse the
+# ArbiCore backend image and may also carry arbicore.role=backend. Those
+# containers must never participate in production detection.
+#
+# Therefore the canonical production container name is the strongest and
+# primary discovery signal. If it exists, return only that container.
+detect_backend_candidates(){
+  local canonical="${ARBICORE_DEFAULT_BACKEND:-arbicore-x-backend}"
+
+  docker ps -a \
+    --filter "name=^${canonical}$" \
+    --format '{{.Names}}'
+}
+
 # Authoritative ArbiCore Mongo container name (override via MONGO_CONTAINER env
 # or deploy.env). Used to disambiguate when several Mongo containers coexist on
 # the host (e.g. other apps' Mongos). Never touches data.

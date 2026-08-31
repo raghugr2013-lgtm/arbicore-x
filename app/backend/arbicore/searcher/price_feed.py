@@ -306,9 +306,9 @@ def build_base_price_feed_from_env(quoter_registry=None):
     native-only source (Gate 8 stays fail-closed)."""
     if not m2_5_enabled():
         return None
-    from ..config.persistent import resolve_rpc_url_from_env
-    url = resolve_rpc_url_from_env("base")
-    if not url:
+    from ..providers.rpc_failover import get_registry_rpc_provider
+
+    if get_registry_rpc_provider("base") is None:
         return None
     if quoter_registry is None:
         from ..execution.quoter import QuoterRegistry
@@ -325,8 +325,13 @@ def build_base_price_feed_from_env(quoter_registry=None):
                 "quoter": (rq.hops[0].quoter_contract if rq.hops else None)}
 
     async def head_block_fn():
-        from ..providers.rpc import EthJsonRpcProvider
-        return await EthJsonRpcProvider(chain=CHAIN, url=url).eth_get_block_number()
+        from ..providers.rpc_failover import get_registry_rpc_provider
+
+        provider = get_registry_rpc_provider(CHAIN)
+        if provider is None:
+            raise RuntimeError("registry RPC unavailable")
+
+        return await provider.eth_get_block_number()
 
     stables = tuple(s.strip().upper() for s in
                     (os.environ.get("ARBICORE_STABLES") or "USDC,USDT,DAI,USDbC").split(",")

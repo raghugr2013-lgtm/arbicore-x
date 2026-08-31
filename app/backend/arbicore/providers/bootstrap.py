@@ -49,33 +49,99 @@ def _csv(name: str, default: str) -> List[str]:
     return [x.strip() for x in raw.split(",") if x.strip()]
 
 
+def _rpc_urls(chain: str) -> List[str]:
+    """Return configured RPC endpoints for a chain.
+
+    Preferred:
+        PROVIDER_RPC_URLS_<CHAIN>  (comma-separated)
+
+    Backward compatible:
+        PROVIDER_RPC_URL_<CHAIN>   (single endpoint)
+
+    If neither is configured, use the existing public default.
+    """
+    urls = _csv(f"PROVIDER_RPC_URLS_{chain.upper()}", "")
+    if urls:
+        return urls
+
+    single = os.environ.get(f"PROVIDER_RPC_URL_{chain.upper()}")
+    if single:
+        return [single.strip()]
+
+    default = DEFAULT_RPC_URLS.get(chain)
+    return [default] if default else []
+
+
+from .rpc_failover import set_default_registry
+
+
 def bootstrap(registry: ProviderRegistry) -> Dict[str, Any]:
     """Register every enabled provider. Returns a summary of what landed.
 
     Idempotent — safe to call multiple times if registry is fresh; will
     silently overwrite prior instances with the same provider_id.
     """
+    set_default_registry(registry)
     summary: Dict[str, Any] = {
         "rpc": [], "dex": [], "cex": [], "quote": [],
         "gas": [], "metadata": [], "errors": [],
     }
-
     # ---- RPC (EVM) ----------------------------------------------------
+    # Register EVERY configured endpoint independently.
+    #
+    # Preferred:
+    #   PROVIDER_RPC_URLS_<CHAIN> = comma-separated endpoints
+    #
+    # Backward compatible:
+    #   PROVIDER_RPC_URL_<CHAIN> = single endpoint
+    #
+    # If neither is configured, use DEFAULT_RPC_URLS.
     rpc_by_chain: Dict[str, EthJsonRpcProvider] = {}
+
     for chain in _EVM_CHAINS:
-        url = os.environ.get(f"PROVIDER_RPC_URL_{chain.upper()}") \
-              or DEFAULT_RPC_URLS.get(chain)
-        if not url:
-            continue
-        try:
-            p = EthJsonRpcProvider(chain=chain, url=url)
-            registry.register(p, chain=chain, priority=100)
-            rpc_by_chain[chain] = p
-            summary["rpc"].append({"chain": chain,
-                                     "provider_id": p.provider_id})
-        except Exception as e:                                       # noqa
-            summary["errors"].append({"provider": f"rpc:{chain}",
-                                        "error": str(e)})
+        urls = _rpc_urls(chain)
+
+        for index, url in enumerate(urls):
+            if not url:
+                continue
+
+            try:
+                host = (
+                    url.split("//", 1)[-1]
+                       .split("/", 1)[0]
+                       .replace(".", "_")[:24]
+                )
+
+                provider_id = f"rpc_{chain}_{index}_{host}"
+
+                p = EthJsonRpcProvider(
+                    chain=chain,
+                    url=url,
+                    provider_id=provider_id,
+                )
+
+                registry.register(
+                    p,
+                    chain=chain,
+                    priority=100 + index,
+                )
+
+                summary["rpc"].append({
+                    "chain": chain,
+                    "index": index,
+                    "provider_id": p.provider_id,
+                })
+
+                # Existing DEX/gas providers use the primary RPC.
+                if chain not in rpc_by_chain:
+                    rpc_by_chain[chain] = p
+
+            except Exception as e:                                   # noqa
+                summary["errors"].append({
+                    "provider": f"rpc:{chain}:{index}",
+                    "error": str(e),
+                })
+
 
     # ---- RPC (Solana) -------------------------------------------------
     sol_url = os.environ.get("PROVIDER_RPC_URL_SOLANA") \

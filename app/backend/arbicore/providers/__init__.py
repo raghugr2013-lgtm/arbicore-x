@@ -24,6 +24,7 @@ from .base import (
     WalletCustodyProvider, SecretProvider,
 )
 from .registry import ProviderRegistry, CircuitBreaker
+from .rpc_failover import RegistryRpcProvider, get_registry_rpc_provider
 
 __all__ = [
     "ProviderKind", "ProviderStatus", "ProviderHealth", "HealthEvent",
@@ -31,4 +32,5 @@ __all__ = [
     "TokenMetadataProvider", "LiquidityProvider", "GasProvider",
     "FlashLoanProvider", "WalletCustodyProvider", "SecretProvider",
     "ProviderRegistry", "CircuitBreaker",
+    "RegistryRpcProvider", "get_registry_rpc_provider",
 ]

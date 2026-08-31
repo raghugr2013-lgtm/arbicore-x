@@ -98,12 +98,11 @@ CostEstimator = Callable[..., Awaitable[Optional[Dict[str, float]]]]
 def make_base_all_in_cost_estimator_from_env() -> Optional[CostEstimator]:
     """Return an async all-in-cost estimator, or None when no Base RPC is
     configured (⇒ the M3 all-in gate will DENY, fail-closed)."""
-    from ..config.persistent import resolve_rpc_url_from_env
-    url = resolve_rpc_url_from_env("base")
-    if not url:
+    from ..providers.rpc_failover import get_registry_rpc_provider
+
+    provider = get_registry_rpc_provider("base")
+    if provider is None:
         return None
-    from ..providers.rpc import EthJsonRpcProvider
-    provider = EthJsonRpcProvider(chain="base", url=url)
     cfg = BaseAllInCostConfig.from_env()
 
     async def estimate(*, gross_profit_usd: float, borrow_amount_usd: float,

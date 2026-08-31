@@ -6,47 +6,135 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
 need_cmd docker
 
 log "Detecting production backend container..."
-BACKEND_CANDIDATES="$(detect_one 'arbicore.*back|:8001->|:8001/')"
-BACKEND_COUNT="$(printf '%s\n' "$BACKEND_CANDIDATES" | grep -c . || true)"
-[ "$BACKEND_COUNT" = "1" ] || die "expected exactly 1 backend container, found [$BACKEND_COUNT]: $BACKEND_CANDIDATES
-  -> set BACKEND_OLD=<name> in deploy.env manually and re-run preflight."
-BACKEND_OLD="$(printf '%s' "$BACKEND_CANDIDATES" | tr -d '[:space:]')"
-ok "backend container: $BACKEND_OLD"
+
+# Do NOT identify the backend by image name or port.
+# Disposable validator/livehunt containers intentionally reuse the same
+# arbicore-x-backend image and may expose/use port 8001.
+BACKEND_CANDIDATES="$(detect_backend_candidates)"
+
+# Preserve an operator-provided backend selection if one exists in the
+# environment or in the previously generated deploy.env.
+EXPLICIT_BACKEND="${BACKEND_OLD:-}"
+if [ -z "$EXPLICIT_BACKEND" ] && [ -f "$DEPLOY_ENV" ]; then
+  EXPLICIT_BACKEND="$(
+    (
+      set -a
+      source "$DEPLOY_ENV"
+      printf '%s' "${BACKEND_OLD:-}"
+    )
+  )"
+fi
+
+set +e
+BACKEND_OLD="$(select_backend_container "$BACKEND_CANDIDATES" "$EXPLICIT_BACKEND")"
+_sel_backend_rc=$?
+set -e
+
+BACKEND_ONE_LINE="$(printf '%s' "$BACKEND_CANDIDATES" | tr '\n' ' ')"
+
+case "$_sel_backend_rc" in
+  0)
+    ;;
+  2)
+    die "configured BACKEND_OLD='$EXPLICIT_BACKEND' not found among authoritative backend candidates: [$BACKEND_ONE_LINE]
+  -> correct BACKEND_OLD or remove the stale override and re-run."
+    ;;
+  *)
+    die "expected exactly one authoritative production backend; found [$BACKEND_ONE_LINE]
+  -> candidates are selected only by the canonical production container name.
+  -> set BACKEND_OLD=<name> in deploy.env or environment only when operator-authoritative."
+    ;;
+esac
+
+ok "backend container: $BACKEND_OLD (authoritative candidate selection)"
 
 log "Detecting production Mongo container..."
-MONGO_CANDIDATES="$(detect_one 'mongo')"
-MONGO_COUNT="$(printf '%s\n' "$MONGO_CANDIDATES" | grep -c . || true)"
-[ "$MONGO_COUNT" -ge 1 ] || die "no Mongo container found — is the production Mongo running?"
 
-# Deterministic selection (does NOT require exactly one Mongo on the host):
-#   1. explicit MONGO_CONTAINER (env), else preserved from an existing deploy.env
-#   2. the single candidate when only one exists
-#   3. the authoritative default ($ARBICORE_DEFAULT_MONGO, e.g. arbicore-x-mongo)
+# Production Mongo authority:
+#
+# 1. Explicit MONGO_CONTAINER is operator-authoritative.
+# 2. Otherwise derive Mongo from the LIVE production backend's MONGO_URL.
+#    This preserves the actual production topology even when multiple Mongo
+#    containers exist on the VPS.
+# 3. Only fall back to the historical candidate/default selector when the
+#    running backend has no usable MONGO_URL.
+#
+# IMPORTANT:
+# Do not blindly prefer ARBICORE_DEFAULT_MONGO. On this VPS the historical
+# arbicore-x-mongo container exists but is NOT the Mongo used by production.
+
+OLD_ENV="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$BACKEND_OLD" 2>/dev/null || true)"
+get_old(){ printf '%s\n' "$OLD_ENV" | grep -E "^$1=" | head -n1 | cut -d= -f2-; }
+
 EXPLICIT_MONGO="${MONGO_CONTAINER:-}"
-if [ -z "$EXPLICIT_MONGO" ] && [ -f "$DEPLOY_ENV" ]; then
-  EXPLICIT_MONGO="$(
-  (
-    set -a
-    source "$DEPLOY_ENV"
-    printf '%s' "${MONGO_CONTAINER:-}"
-  )
-)"
+
+# If the operator explicitly exported MONGO_CONTAINER, honor it.
+if [ -n "$EXPLICIT_MONGO" ]; then
+  MONGO_CONTAINER="$EXPLICIT_MONGO"
+  ok "mongo container: $MONGO_CONTAINER (explicit environment configuration)"
+else
+  # The running production backend is the source of truth for the
+  # currently deployed database topology.
+  OLD_MONGO_URL="$(get_old MONGO_URL)"
+  OLD_HOST="$(mongo_url_host "$OLD_MONGO_URL")"
+
+  if [ -n "$OLD_HOST" ] && docker inspect "$OLD_HOST" >/dev/null 2>&1; then
+    MONGO_CONTAINER="$OLD_HOST"
+    ok "mongo container: $MONGO_CONTAINER (derived from live backend MONGO_URL)"
+  else
+    # Only use deploy.env as a fallback when the live backend cannot
+    # identify its Mongo container.
+    EXPLICIT_MONGO="$(
+      if [ -f "$DEPLOY_ENV" ]; then
+        (
+          set -a
+          source "$DEPLOY_ENV"
+          printf '%s' "${MONGO_CONTAINER:-}"
+        )
+      fi
+    )"
+
+    if [ -n "$EXPLICIT_MONGO" ]; then
+      MONGO_CONTAINER="$EXPLICIT_MONGO"
+      ok "mongo container: $MONGO_CONTAINER (deploy.env fallback)"
+    else
+      log "Live backend MONGO_URL did not resolve and deploy.env has no Mongo override; using candidate/default fallback..."
+
+      MONGO_CANDIDATES="$(detect_one 'mongo')"
+      MONGO_COUNT="$(printf '%s\n' "$MONGO_CANDIDATES" | grep -c . || true)"
+      [ "$MONGO_COUNT" -ge 1 ] ||
+        die "no Mongo container found — is the production Mongo running?"
+
+      set +e
+      MONGO_CONTAINER="$(choose_mongo_container \
+        "$MONGO_CANDIDATES" \
+        "" \
+        "$ARBICORE_DEFAULT_MONGO")"
+      _sel_rc=$?
+      set -e
+
+      CAND_ONE_LINE="$(printf '%s' "$MONGO_CANDIDATES" | tr '\n' ' ')"
+
+      case "$_sel_rc" in
+        0)
+          ok "mongo container: $MONGO_CONTAINER (fallback authoritative selection)"
+          ;;
+        *)
+          die "multiple Mongo containers found and live backend MONGO_URL could not identify one: [$CAND_ONE_LINE]
+-> set MONGO_CONTAINER=<name> (environment or deploy.env), or fix the live backend MONGO_URL and re-run."
+          ;;
+      esac
+    fi
+  fi
 fi
-set +e
-MONGO_CONTAINER="$(choose_mongo_container "$MONGO_CANDIDATES" "$EXPLICIT_MONGO" "$ARBICORE_DEFAULT_MONGO")"
-_sel_rc=$?
-set -e
-CAND_ONE_LINE="$(printf '%s' "$MONGO_CANDIDATES" | tr '\n' ' ')"
-case "$_sel_rc" in
-  0) : ;;
-  2) die "configured MONGO_CONTAINER='$EXPLICIT_MONGO' not found among Mongo containers: [$CAND_ONE_LINE]
-  -> correct MONGO_CONTAINER (env or deploy.env) and re-run." ;;
-  *) die "multiple Mongo containers found and none match the authoritative default '$ARBICORE_DEFAULT_MONGO': [$CAND_ONE_LINE]
-  -> set MONGO_CONTAINER=<name> (env or deploy.env), or export ARBICORE_DEFAULT_MONGO=<name>, and re-run." ;;
-esac
+
 validate_mongo_container "$MONGO_CONTAINER" \
   || die "selected Mongo container '$MONGO_CONTAINER' is not running or is unhealthy — refusing to proceed."
-ok "mongo container: $MONGO_CONTAINER (selected from [$CAND_ONE_LINE])"
+
+MONGO_CANDIDATES="$(detect_one 'mongo' || true)"
+CAND_ONE_LINE="$(printf '%s' "$MONGO_CANDIDATES" | tr '\n' ' ')"
+
+log "Detecting Docker network (shared with Mongo)..."
 
 log "Detecting Docker network (shared with Mongo)..."
 NETWORK_NAME="$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' "$MONGO_CONTAINER" | grep -v '^$' | head -n1)"

@@ -209,37 +209,36 @@ def build_base_searcher_runtime(*, eth_call=None, price_source=None,
 
 # ── Env-driven real-infra adapters (VPS); all fail-closed to None ───────────
 def make_base_eth_call_from_env():
-    """Return ``async (to, data) -> hex`` over the configured Base RPC, or None
-    when no RPC is configured. Reuses the canonical EthJsonRpcProvider (no new
-    network abstraction)."""
-    from ..config.persistent import resolve_rpc_url_from_env
-    url = resolve_rpc_url_from_env("base")
-    if not url:
+    """Return ``async (to, data) -> hex`` over the registry-backed Base RPC.
+
+    Returns None when no application ProviderRegistry is available. The
+    registry performs provider health tracking and automatic failover.
+    """
+    from ..providers.rpc_failover import get_registry_rpc_provider
+
+    provider = get_registry_rpc_provider("base")
+    if provider is None:
         return None
-    from ..providers.rpc import EthJsonRpcProvider
-    provider = EthJsonRpcProvider(chain="base", url=url)
 
     async def eth_call(to: str, data: str):
         try:
             return await provider.eth_call({"to": to, "data": data})
         except Exception:  # noqa: BLE001 — fail-closed
             return None
+
     return eth_call
 
 
 def make_base_congestion_source_from_env():
-    """Return ``async () -> congestion_pct(0..100) | None`` derived from GENUINE
-    Base network state — the mean ``gasUsedRatio`` over the most recent blocks
-    via ``eth_feeHistory`` (a real, per-block network-load measure straight from
-    the chain). Returns None on ANY RPC/format/availability failure so the M3.0
-    MEV gate fails CLOSED rather than inventing a congestion value. Returns None
-    (→ no source) when no Base RPC is configured (preview)."""
-    from ..config.persistent import resolve_rpc_url_from_env
-    url = resolve_rpc_url_from_env("base")
-    if not url:
+    """Return a genuine Base congestion source using registry failover.
+
+    Returns None when the application ProviderRegistry is unavailable.
+    """
+    from ..providers.rpc_failover import get_registry_rpc_provider
+
+    provider = get_registry_rpc_provider("base")
+    if provider is None:
         return None
-    from ..providers.rpc import EthJsonRpcProvider
-    provider = EthJsonRpcProvider(chain="base", url=url)
 
     async def congestion_source():
         try:
@@ -293,31 +292,65 @@ def make_base_v3_state_initializer_from_env():
     from .v3_state import make_v3_state_initializer
 
     async def _get_block():
-        from ..config.persistent import resolve_rpc_url_from_env
-        from ..providers.rpc import EthJsonRpcProvider
-        url = resolve_rpc_url_from_env("base")
-        return await EthJsonRpcProvider(chain="base", url=url).eth_get_block_number()
+        from ..providers.rpc_failover import get_registry_rpc_provider
+        provider = get_registry_rpc_provider("base")
+        if provider is None:
+            return None
+        return await provider.eth_get_block_number()
     return make_v3_state_initializer(eth_call, get_block=_get_block)
 
 
-def maybe_build_base_searcher() -> Optional[BaseSearcherRuntime]:
+def maybe_build_base_searcher(
+    *,
+    quoter_registry=None,
+) -> Optional[BaseSearcherRuntime]:
     """Flag-gated factory (SHADOW-only; never broadcasts/promotes).
 
-    Now performs the FULL canonical composition: registry → graph + cache +
-    real (fail-closed) TVL provider when Base RPC + a genuine price source are
-    configured. Eliminates the previous empty-graph / tvl_provider=None blocker
-    through genuine wiring; Gate 8 remains fail-closed."""
+    Canonical M2.5 composition:
+      registry → Base RPC → OnChainUsdPriceFeed → TVL provider.
+
+    The M2.5 feed is preferred whenever ARBICORE_USD_NUMERAIRE is configured.
+    The legacy native-only source remains the fail-closed fallback. No price
+    is fabricated and Gate 8 remains fail-closed.
+    """
     if not searcher_enabled():
         return None
+
     try:
         eth_call = make_base_eth_call_from_env()
     except Exception:  # noqa: BLE001
         eth_call = None
+
+    price_source = None
+
+    # M2.5 — use the canonical on-chain multi-token USD price feed.
+    # This requires the application ProviderRegistry to be initialized first.
     try:
-        price_source = make_base_price_source_from_env()
-    except Exception:  # noqa: BLE001
+        from .price_feed import build_base_price_feed_from_env
+
+        if quoter_registry is None:
+            from ..execution.quoter import QuoterRegistry
+            quoter_registry = QuoterRegistry()
+
+        price_feed = build_base_price_feed_from_env(quoter_registry)
+
+        if price_feed is not None:
+            price_source = price_feed.price_source
+    except Exception:  # noqa: BLE001 — fail closed
         price_source = None
-    return build_base_searcher_runtime(eth_call=eth_call, price_source=price_source)
+
+    # Legacy native-only fallback. This remains operator-configured and
+    # fail-closed; it is used only when M2.5 cannot be constructed.
+    if price_source is None:
+        try:
+            price_source = make_base_price_source_from_env()
+        except Exception:  # noqa: BLE001
+            price_source = None
+
+    return build_base_searcher_runtime(
+        eth_call=eth_call,
+        price_source=price_source,
+    )
 
 
 __all__ = ["BaseSearcherRuntime", "ScanMetrics", "searcher_enabled",

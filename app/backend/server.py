@@ -7066,7 +7066,9 @@ async def _canonical_flash_loan_scanner_startup():
     global _BASE_SEARCHER_RUNTIME, _T2_WSS_MANAGER
     try:
         from arbicore.searcher.runtime import maybe_build_base_searcher
-        _BASE_SEARCHER_RUNTIME = maybe_build_base_searcher()
+        _BASE_SEARCHER_RUNTIME = maybe_build_base_searcher(
+            quoter_registry=_QUOTER_REGISTRY
+        )
         if _BASE_SEARCHER_RUNTIME is not None:
             logger.info("searcher: T2 Base runtime constructed (SHADOW, "
                         "no-broadcast, flag ARBICORE_T2_SEARCHER_ENABLED=on)")
@@ -7560,6 +7562,13 @@ try:
     _PROVIDER_REGISTRY.register(NoOpWalletProvider(), priority=1000)
     _PROVIDER_REGISTRY.register(EnvSecretProvider(),  priority=1000)
     _PROVIDER_BOOTSTRAP_SUMMARY = _bootstrap_providers(_PROVIDER_REGISTRY)
+
+    # Make the canonical application ProviderRegistry available to all
+    # registry-backed read-only RPC consumers.  This does NOT affect
+    # transaction signing/broadcasting.
+    from arbicore.providers.rpc_failover import set_default_registry
+    set_default_registry(_PROVIDER_REGISTRY)
+
     _PROVIDERS_AVAILABLE = True
     logger.info(
         "providers: Phase 5 registry activated (%d providers total)",
