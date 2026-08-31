@@ -156,3 +156,63 @@ def test_building_graph_is_pure_readonly():
     a = reg.build_canonical_pool_graph()[0]
     b = reg.build_canonical_pool_graph()[0]
     assert [n.pool_address for n in a] == [n.pool_address for n in b]
+
+
+
+# ── G2×Z8 end-to-end: on-chain IDENTITY validation gates loader admission ───
+# Proves the intersection of the Z8 loader fix and the G2 resolver: a runtime
+# Aerodrome/Slipstream pool enters the canonical live-path loader ONLY after the
+# resolver's on-chain token0/token1 + pool-type identity checks pass; an
+# identity MISMATCH keeps it out (fail-closed). Uses a mocked eth_call — no RPC,
+# no signing, no broadcast.
+from arbicore.searcher import aero_resolver as _ar  # noqa: E402
+
+
+def _slipstream_target():
+    return next(p for p in reg.get_canonical_pools()
+                if p.dex == "aerodrome_slipstream"
+                and p.address_resolution == reg.RUNTIME_GETPOOL)
+
+
+def _mk_eth_call(*, t0_addr, t1_addr, tick_spacing, pool="0x" + "cd" * 20):
+    enc_a = lambda a: "0x" + a.lower().replace("0x", "").rjust(64, "0")
+    enc_u = lambda n: "0x" + ("%x" % int(n)).rjust(64, "0")
+
+    async def eth_call(to, data):
+        if data.startswith(_ar.SEL_GETPOOL_INT24):
+            return enc_a(pool)
+        if data == _ar.SEL_TOKEN0:
+            return enc_a(t0_addr)
+        if data == _ar.SEL_TOKEN1:
+            return enc_a(t1_addr)
+        if data == _ar.SEL_TICK_SPACING:
+            return enc_u(tick_spacing)
+        return None
+    return eth_call
+
+
+def test_identity_validated_pool_enters_loader():
+    p = _slipstream_target()
+    ok_call = _mk_eth_call(t0_addr=p.token0_address, t1_addr=p.token1_address,
+                           tick_spacing=p.tick_spacing)
+    n = asyncio.new_event_loop().run_until_complete(
+        _ar.resolve_and_propagate(ok_call, [p.canonical_id]))
+    assert n == 1
+    cp = reg.canonical_pool_by_id(p.canonical_id)
+    assert cp.address_resolution == reg.RUNTIME_RESOLVED and cp.address
+    assert p.canonical_id in {x.pool_address
+                              for x in reg.build_canonical_pool_graph()[0]}
+
+
+def test_identity_mismatch_blocks_loader_admission():
+    p = _slipstream_target()
+    wrong = "0x" + "11" * 20  # token0 != canonical → identity check fails
+    bad_call = _mk_eth_call(t0_addr=wrong, t1_addr=p.token1_address,
+                            tick_spacing=p.tick_spacing)
+    n = asyncio.new_event_loop().run_until_complete(
+        _ar.resolve_and_propagate(bad_call, [p.canonical_id]))
+    assert n == 0                                   # rejected, fail-closed
+    cp = reg.canonical_pool_by_id(p.canonical_id)
+    assert cp.address is None                       # no fabricated address
+    assert p.canonical_id not in {x.pool_address
+                                  for x in reg.build_canonical_pool_graph()[0]}
