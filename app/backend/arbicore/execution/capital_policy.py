@@ -38,6 +38,9 @@ DEFAULT_POLICY: Dict[str, Any] = {
     "daily_notional_usd":      10_000.0,   # $10k rolling daily notional
     "max_concurrent_plans":    3,
     "min_net_profit_usd":      0.50,       # abort if net < 50c
+    "max_daily_loss_usd":      100.0,      # STOP-LOSS: halt strategy once
+                                           # cumulative realized loss today
+                                           # (e.g. reverted-tx gas) hits this
 }
 
 
@@ -50,7 +53,7 @@ class AllocationDecision:
     strategy: str
     proposed_usd: float
     approved_usd: float
-    binding_constraint: str      # "pool" | "wallet" | "per_plan_cap" | "daily_notional" | "min_profit" | "policy_missing"
+    binding_constraint: str      # "pool" | "wallet" | "per_plan_cap" | "daily_notional" | "min_profit" | "daily_loss_limit" | "policy_missing"
     pool_limit_usd: float
     wallet_limit_usd: float
     per_plan_cap_usd: float
@@ -62,6 +65,10 @@ class AllocationDecision:
     approved: bool
     deterministic: bool
     generated_at: str
+    # Stop-loss (additive; defaulted for backward-compatible construction).
+    max_daily_loss_usd: float = 0.0
+    daily_loss_used_usd: float = 0.0
+    daily_loss_remaining_usd: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -163,6 +170,37 @@ class CapitalAllocator:
         except Exception:  # noqa: BLE001
             return 0.0
 
+    async def _daily_realized_loss_usd(self, strategy: str) -> Optional[float]:
+        """Cumulative REALIZED loss (USD) booked today for ``strategy``.
+
+        Sums ``realized_loss_usd`` from plans created today (a reverted atomic
+        flash-loan loses only gas — booked here as realized loss). Returns:
+          * 0.0  when there is no plans repo (no execution capability yet ⇒
+            nothing has been lost);
+          * the summed loss when readable;
+          * ``None`` when a repo IS present but the read fails — the caller
+            treats None as a FAIL-CLOSED stop (deny), never as zero-loss.
+        """
+        if self._plans_repo is None:
+            return 0.0
+        start = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).isoformat()
+        try:
+            cur = self._plans_repo._coll.find(  # noqa: SLF001 — controlled access
+                {"strategy": strategy, "created_at": {"$gte": start}},
+                {"realized_loss_usd": 1, "_id": 0},
+            )
+            total = 0.0
+            async for d in cur:
+                try:
+                    total += float(d.get("realized_loss_usd") or 0)
+                except (TypeError, ValueError):
+                    pass
+            return round(total, 2)
+        except Exception:  # noqa: BLE001 — fail closed: unknown loss ⇒ deny
+            return None
+
     async def evaluate(self, *,
                        strategy: str,
                        proposed_usd: float,
@@ -189,6 +227,7 @@ class CapitalAllocator:
         per_cap = float(policy.get("max_per_plan_usd") or DEFAULT_POLICY["max_per_plan_usd"])
         daily_cap = float(policy.get("daily_notional_usd") or DEFAULT_POLICY["daily_notional_usd"])
         min_profit = float(policy.get("min_net_profit_usd") or DEFAULT_POLICY["min_net_profit_usd"])
+        max_loss = float(policy.get("max_daily_loss_usd") or DEFAULT_POLICY["max_daily_loss_usd"])
 
         pool_limit = max(0.0, available_liquidity_usd * pool_pct)
         wallet_limit = max(0.0, reference_capital_usd * wallet_pct)
@@ -219,6 +258,28 @@ class CapitalAllocator:
                 reasons.append(
                     f"expected net profit ${expected_net_profit_usd:.2f} below floor ${min_profit:.2f}"
                 )
+        # STOP-LOSS (final, overriding safety gate). Once cumulative realized
+        # loss today reaches the operator cap, the strategy is halted regardless
+        # of notional/profit. Fail-closed: an unreadable loss ledger ⇒ deny.
+        loss_read = await self._daily_realized_loss_usd(strategy)
+        if loss_read is None:
+            loss_used = max_loss
+            loss_remaining = 0.0
+            approved = False
+            approved_usd = 0.0
+            binding = "daily_loss_limit"
+            reasons.append("realized-loss ledger unreadable — halted (fail-closed)")
+        else:
+            loss_used = loss_read
+            loss_remaining = max(0.0, max_loss - loss_used)
+            if max_loss > 0 and loss_used >= max_loss:
+                approved = False
+                approved_usd = 0.0
+                binding = "daily_loss_limit"
+                reasons.append(
+                    f"daily realized loss ${loss_used:.2f} reached stop-loss "
+                    f"${max_loss:.2f} — strategy halted"
+                )
         return AllocationDecision(
             strategy=strategy, proposed_usd=float(proposed_usd),
             approved_usd=round(approved_usd, 2),
@@ -234,4 +295,7 @@ class CapitalAllocator:
             approved=approved,
             deterministic=True,
             generated_at=_now_iso(),
+            max_daily_loss_usd=round(max_loss, 2),
+            daily_loss_used_usd=round(loss_used, 2),
+            daily_loss_remaining_usd=round(loss_remaining, 2),
         )
