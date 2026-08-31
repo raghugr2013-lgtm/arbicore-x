@@ -117,5 +117,14 @@ def get_registry_rpc_provider(
 ) -> Optional[RegistryRpcProvider]:
     reg = registry or _default_registry
     if reg is None:
+        # Deterministic lifecycle: idempotently bootstrap the process-default
+        # registry (real providers, real failover) instead of returning None
+        # in a fresh process. Lazy import avoids a circular import at load time.
+        try:
+            from .bootstrap import ensure_default_registry
+            reg = ensure_default_registry()
+        except Exception:  # noqa: BLE001 — fail closed to None if bootstrap fails
+            reg = None
+    if reg is None:
         return None
     return RegistryRpcProvider(chain=chain, registry=reg)

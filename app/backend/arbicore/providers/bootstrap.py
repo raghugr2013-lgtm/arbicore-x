@@ -322,4 +322,24 @@ def bootstrap(registry: ProviderRegistry) -> Dict[str, Any]:
     return summary
 
 
-__all__ = ["bootstrap"]
+__all__ = ["bootstrap", "ensure_default_registry"]
+
+
+def ensure_default_registry() -> ProviderRegistry:
+    """Idempotently return the process-default ProviderRegistry, bootstrapping
+    it once if nothing has initialized it yet.
+
+    Root-cause fix for the P0 lifecycle bug: ``_default_registry`` in
+    ``rpc_failover`` is process-local and is only populated when ``bootstrap()``
+    runs *in that process*. A fresh Python process (a one-off probe, a worker,
+    or any runtime entrypoint that didn't call bootstrap) therefore saw
+    ``get_registry_rpc_provider() -> None`` even though env/providers were
+    correctly configured. This makes initialization deterministic without
+    weakening the failover architecture, bypassing the registry, hardcoding an
+    endpoint, or fabricating a provider — it performs the *real* bootstrap."""
+    from .rpc_failover import get_default_registry
+    reg = get_default_registry()
+    if reg is None:
+        reg = ProviderRegistry()
+        bootstrap(reg)          # registers real providers + set_default_registry
+    return reg
