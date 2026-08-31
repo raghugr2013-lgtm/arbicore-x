@@ -17,7 +17,9 @@ fabricated or hard-coded.
 """
 from __future__ import annotations
 
+import asyncio
 import os
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional
@@ -193,14 +195,48 @@ class AerodromePoolResolver:
     async def resolve_all(self, pools) -> Dict[str, ResolutionResult]:
         """Resolve every Aerodrome/Slipstream ``runtime_getpool`` pool. Pools
         that fail any check are simply omitted (stay unresolved → Gate 8 keeps
-        failing closed)."""
+        failing closed).
+
+        Client-side pacing: every underlying eth_call is throttled to a shared
+        minimum interval (``ARBICORE_AERO_RESOLVE_MIN_INTERVAL_MS``, default
+        150ms) for the duration of the batch. Resolution issues ~4 serial calls
+        per pool (getPool + token0 + token1 + tickSpacing/stable); without
+        pacing the ~40+ back-to-back calls exceed free-tier/public RPC rate
+        limits and return HTTP 429. Pacing spreads the load so the configured
+        providers (with the existing backoff + failover) can serve it. This does
+        NOT weaken fail-closed behavior — a pool that still cannot be validated
+        stays unresolved."""
         out: Dict[str, ResolutionResult] = {}
-        for p in pools:
-            if p.dex not in ("aerodrome", "aerodrome_slipstream"):
-                continue
-            res = await self.resolve(p)
-            if res is not None:
-                out[res.canonical_id] = res
+        interval = max(0.0, float(
+            os.environ.get("ARBICORE_AERO_RESOLVE_MIN_INTERVAL_MS", "150")) / 1000.0)
+        base_call = self._call
+        state = {"t": 0.0}
+
+        async def _paced_call(*args, **kwargs):
+            if interval > 0.0:
+                gap = interval - (time.monotonic() - state["t"])
+                if gap > 0:
+                    await asyncio.sleep(gap)
+            try:
+                return await base_call(*args, **kwargs)
+            finally:
+                state["t"] = time.monotonic()
+
+        had_own = "_call" in self.__dict__
+        prev = self.__dict__.get("_call")
+        self._call = _paced_call
+        try:
+            for p in pools:
+                if p.dex not in ("aerodrome", "aerodrome_slipstream"):
+                    continue
+                res = await self.resolve(p)
+                if res is not None:
+                    out[res.canonical_id] = res
+        finally:
+            if had_own:
+                self._call = prev
+            else:
+                del self.__dict__["_call"]   # restore the class method cleanly
         return out
 
 
