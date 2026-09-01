@@ -250,3 +250,21 @@ Limited-Live scanning (~800-1,200 CU/s safe floor) — use paid PAYG/Growth (10k
 Alchemy primary + free public failovers + throttling. Signer/broadcast/executor/live-mode untouched.
 Only code file changed: `app/backend/arbicore/execution/quoter.py`.
 
+
+## 2026-06 — Pre-Limited-Live hardening audit (no production code change)
+Audited the full Limited-Live surface (execution engine, quote/profitability/gas/slippage,
+flash-fee accounting, signer/broadcast ladder, mode ladder, executor validation, emergency
+stop, RPC failover, quote cache/staleness, concurrency/duplicate-exec via pre_broadcast
+revalidation + circuit breaker, Mongo safety, observability). Conclusion: the fail-closed
+gates already hold; added `app/backend/tests/test_pre_limited_live_hardening.py` (37 tests)
+to PROVE and lock them — mode SHADOW can't broadcast; only LIMITED_LIVE/FULL_LIVE may; net
+profitability/EV gate (gross alone can't authorize); gas/slippage/min-output/stale-quote/
+allowlist fail-closed; RPC failover (429/transport→failover, genuine revert→no failover,
+all-down→fail-closed, only-ok cached); missing/unset executor blocks; signer not ready
+without owner. Deterministic suites green: hardening 37; core (quote/verify/z8) 27; mode+
+signer (wave6a/6d) 35. Pre-existing API/DB integration tests still require a running
+server+Mongo (unchanged, not affected). RDE/RFW/REA items (P3 identity, atomic sim, signer,
+broadcast, LIMITED_LIVE) remain BLOCKED pending executor deploy + funded wallet + explicit
+authorization. Full matrix: READINESS_MATRIX.md. No executor deployed, no tx broadcast, no
+signer enabled, no live mode; SHADOW enforced.
+

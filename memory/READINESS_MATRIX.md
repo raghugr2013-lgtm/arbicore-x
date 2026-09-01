@@ -163,3 +163,51 @@ primary→failover ok; comma-list→ok; **all-dead→fail-closed `fallback:break
 fabrication, error surfaced)**. Verifier with a dead primary auto-fails over → **P1 PASS**
 (`rpc_host=base.publicnode.com`). Quoter tests 12 passed. Signer/broadcast/executor/live-mode untouched.
 
+
+## 2026-06 — Pre-Limited-Live engineering hardening audit + FINAL MATRIX
+Full audit of the Limited-Live surface. Conclusion: the safety gates already hold;
+the deliverable is a regression suite that PROVES and locks them
+(`tests/test_pre_limited_live_hardening.py`, 37 tests). No production code change was
+required (the failover fix already landed in 7aea7c0). Legend:
+PASS | BLOCKED | REQUIRES DEPLOYED EXECUTOR (RDE) | REQUIRES FUNDED WALLET (RFW) |
+REQUIRES EXPLICIT AUTHORIZATION (REA).
+
+| Item | Status | Evidence | Remaining blocker |
+|---|---|---|---|
+| P0 canonical registry | PASS | verifier 30/30, 11/11 resolved, 0 leaks | — |
+| P1 live quoting | PASS | verifier live UniV3 quote + block/provenance | — |
+| P1 RPC failover | PASS | `test_pre_limited_live_hardening` failover cases; verifier dead-primary→failover | — |
+| P1 bad-fee fail-closed | PASS | P1_BADFEE + `test_sim_gate_fails_closed` | — |
+| P2 Balancer vault | PASS | verifier real vault depth; addr from Deploy.s.sol | operator sets env |
+| P3 executor bytecode | BLOCKED (RFW→RDE) | registry `8453=not_deployed`; deployer wallet unfunded | fund wallet + deploy |
+| P3 executor identity | BLOCKED (RDE) | probe fail-closes w/o bytecode (`test_missing_executor_address_blocks`) | needs deployed executor |
+| P3 atomic simulation | BLOCKED (RDE) | preflight `eth_call` needs a real executor | needs deployed executor |
+| Profitability gate | PASS | net_profit accounts flash-fee/DEX-fee/gas/slippage; `would_execute` needs EV>0 (net) — gross alone can't authorize (tests) | — |
+| Gas accounting | PASS | sim gate `gas_ok` requires 0<gas≤cap → missing gas fails closed (tests) | — |
+| Slippage gate | PASS | sim gate `slippage_ok` + `min_output_nonzero` (unbounded-slippage refused) (tests) | — |
+| Risk limits | PASS (code) | capital_policy caps + max_daily_loss stop-loss (policy_missing→approved=False); env knobs exist | operator sets values |
+| Signer gate | DISABLED by design (REA) | `live_signer` signed=False stub; wave6d unit tests | human auth |
+| Broadcast gate | DISABLED by design (REA) | broadcast.py 6-gate ladder; mode SHADOW ⇒ can't fire; `is_broadcast_allowed` tests | human auth |
+| Duplicate-exec protection | PASS (code) | pre_broadcast revalidation + circuit breaker in broadcast.py; mode/confirm gates | proven live only after executor |
+| Emergency stop | PASS (code) | kill_switch guard (fail-closed) + mode=KILLED; onlyOwner executor | — |
+| RPC failover | PASS | ordered candidates, transient-only failover, genuine-revert no-failover, all-down fail-closed, only-ok cached (tests) | — |
+| Monitoring/observability | PASS | verifier RESULT lines + hop rpc_host/hop_error diagnostics; broadcast RPC-dispatch logs | — |
+| Database safety | PASS | Mongo untouched; no down -v; volumes preserved | — |
+| SHADOW protection | PASS | flash_loan default SHADOW; broadcast requires LIMITED_LIVE/FULL_LIVE (tests) | — |
+
+### Phase-2..8 audit notes
+- **Economic fail-closed** is enforced at the executable gate `run_simulation_gate`
+  (quote_fresh=REAL, min_output>0, 0<gas≤cap, slippage≤cap, router/token allowlist,
+  provider∈{aave_v3,balancer_v2}) + `would_execute` requires net-based EV>0. `compute_net_profit`
+  is advisory/pure (a missing-gas $0 there never authorizes execution — the gate rejects gas≤0).
+- **Payload can't bypass limits:** caps/allowlists are applied by the gate to the opportunity's
+  own hop fields; a hostile payload that sets a huge size/slippage/gas trips the caps (tested).
+- **Failover can't mask a real revert** (`test_genuine_revert_does_not_failover`).
+- **RDE items cannot be PASSED without the deployed Base executor — deliberately left BLOCKED.**
+
+### Bottom line
+All software/engineering blockers for Limited-Live are resolved and locked by tests. The ONLY
+remaining gates are external: (1) fund the Base deployer wallet, (2) deploy FlashLoanReceiver
+(P3), (3) explicit written human authorization to enable signer/broadcast/LIMITED_LIVE. SHADOW
+remains enforced.
+
