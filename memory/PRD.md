@@ -202,3 +202,16 @@ not code. No code changed. Signer/broadcast/Limited-Live remain DISABLED by desi
 Full matrix: `/app/memory/READINESS_MATRIX.md`. Repro + go-live steps:
 `/app/memory/VPS_PROOF_PLAYBOOK.md`.
 
+
+## 2026-06 — P1 root cause resolved (config) + quoter error-surfacing fix
+VPS P1 `fallback:break_even` root-caused to a **dead keyless RPC**: `https://rpc.ankr.com/base`
+now returns `-32000 Unauthorized: API key required`. The quote path (`execution/quoter.py`)
+uses a single `ARBICORE_RPC_URL_BASE` (no failover by design), so that dead endpoint forced
+fallback. Fix = point `ARBICORE_RPC_URL_BASE` at a working endpoint (free Ankr WITH key, or
+keyless publicnode/drpc/mainnet.base.org). Verified: full verifier with Ankr-primary +
+public-fallback → **P0/P1/P1_BADFEE/P2 PASS**, P3 BLOCKED (executor not deployed).
+Code change: `_eth_call` batch parser now surfaces a provider's single top-level error
+(null `id`) instead of mis-reporting a downstream "decode error" — accurate operator
+diagnostics, fail-closed preserved, no fabrication. Dedicated quoter tests 12 passed.
+Backlog: optionally give the quote path multi-endpoint failover (deferred — broadcast-adjacent).
+

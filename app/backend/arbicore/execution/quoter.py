@@ -247,8 +247,18 @@ async def _eth_call(
             raise
         if not isinstance(body, list):
             body = [body]
-        call_resp = next((b for b in body if b.get("id") == 1), None) or {}
-        block_resp = next((b for b in body if b.get("id") == 2), None) or {}
+        call_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 1), None)
+        if call_resp is None:
+            # Provider returned a non-batch / mismatched-id response — many
+            # free public endpoints answer a batch with a single top-level
+            # error object whose id is null (e.g. Ankr keyless "Unauthorized",
+            # or a global rate-limit). Surface that error verbatim instead of
+            # silently dropping it (which previously mis-reported a downstream
+            # "decode error"). Fail-closed + accurate operator diagnostics.
+            call_resp = next(
+                (b for b in body if isinstance(b, dict) and "error" in b), None
+            ) or (body[0] if body and isinstance(body[0], dict) else {})
+        block_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 2), None) or {}
         if "error" in call_resp:
             err = call_resp["error"]
             if _is_rate_limited(err) and attempt < _RPC_MAX_RETRIES:

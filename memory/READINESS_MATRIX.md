@@ -43,7 +43,7 @@ The operator's earlier "5/11 pools resolve" was **purely RPC rate-limiting**
 | # | Item | Status | Reason | Evidence | What remains | Blocker class |
 |---|------|--------|--------|----------|--------------|---------------|
 | 1 | **P0 Discovery/Resolution** | **PASS** | 30 canonical pools: 19 deterministic (CREATE2 KAT) + 11 Aerodrome resolved on-chain via factory `getPool`, token0/1 + pool-type validated; loader sources canonical registry; 0 leaks, 0 unresolved | Verifier P0 PASS; `test_z8_...` 13/13; negative control shows no fabrication | Nothing (logic complete) | — (RPC-capacity only for full 11/11 at once) |
-| 2 | **P1 Quote/Economics** | **PASS** | Live Uniswap V3 QuoterV2 quote returns real out_wei with block + quoter provenance; invalid fee tier degrades to `fallback:break_even` (fail-closed) | Verifier P1 PASS (100 WETH→245,943 USDC @ blk 50716840) + P1_BADFEE PASS | Nothing (logic complete) | — |
+| 2 | **P1 Quote/Economics** | **PASS (logic)** | Live UniV3 QuoterV2 quote returns real out_wei + block + quoter provenance; invalid fee tier → `fallback:break_even` (fail-closed). VPS P1 FAIL was **RPC config**, not code: `ARBICORE_RPC_URL_BASE` pointed at the **keyless Ankr endpoint which now returns `-32000 Unauthorized: API key required`** → every quote fell back. See "P1 root cause" below | Verifier P1 PASS (100 WETH→245,790 USDC @ blk 50717672) with working endpoint; P1_BADFEE PASS | Operator points `ARBICORE_RPC_URL_BASE` at a working Base RPC (free Ankr **with API key**, or keyless publicnode/drpc/mainnet.base.org) | config (dead keyless endpoint) |
 | 3 | **P2 Balancer Vault depth** | **PASS** (was BLOCKED) | Authoritative Balancer V2 Vault on Base = `0xBA12222222228d8Ba445958a75a0704d566BF2C8` (canonical singleton per Balancer deployment docs + BaseScan). Real `balanceOf(vault)` read succeeds | Verifier P2 PASS (vault WETH bal 24.9e18) | Operator sets `BASE_BALANCER_V2_VAULT` in VPS `.env` (value confirmed above) | config |
 | 4 | **P3 Executor Identity** | **BLOCKED** | No FlashLoanReceiver deployed on Base mainnet (8453). Registry `deploy/executor_deployments.json` records `8453: address=null, deploy_status="not_deployed"`. Address with no bytecode ⇒ correct fail-closed BLOCK | `probe_executor_identity` logic verified; registry file | Operator DEPLOYS executor to Base (out of scope: no deploy/broadcast) then sets `ARBICORE_EXECUTOR_ADDRESS_BASE`. Expected constructor args recorded (vault ✓, aavePool `0xA238Dd80…`, uniRouter `0x2626664c…`) | environment (deployment) |
 | 5 | **Shadow execution path** | **PASS** | Full read-only pipeline (discover → resolve → quote → economics/gates → shadow route) exercised; only read-only `eth_call`/`eth_blockNumber` used; no signer touched | Verifier is read-only end-to-end; mode pin `flash_loan_arbitrage=SHADOW` | Nothing | — |
@@ -52,6 +52,33 @@ The operator's earlier "5/11 pools resolve" was **purely RPC rate-limiting**
 | 8 | **Signer readiness** | **DISABLED (by design)** | Autonomous signer `live_signer.py` is a gate-only stub — `signed=False` invariant, emits no signed bytes. Public signer-address probe available but no key path | live_signer code; `probe_signer_readiness` | **Keep disabled** until explicit written operator authorization | INTENTIONALLY GATED (human auth) |
 | 9 | **Broadcast gate** | **DISABLED (by design)** | `broadcast.py` has the sole `eth_sendRawTransaction` call site behind 6 gates (circuit-breaker, kill-switch, mode=LIMITED_LIVE, capital, secret, preflight, operator-confirm). Mode pinned SHADOW ⇒ cannot fire | broadcast gate ladder; mode pin | **Keep disabled** until explicit written operator authorization | INTENTIONALLY GATED (human auth) |
 | 10 | **Limited-Live gate** | **NO-GO (by design)** | Requires items 4/8/9 + operator eligibility wizard + explicit mode change. Not enabled | `limited_live_eligibility`, `operator_wizard` | Human authorization + executor deploy + signer provisioning | INTENTIONALLY GATED (human auth) |
+
+## P1 root cause (exact) & fix
+- **Cause (configuration):** the keyless Ankr Base endpoint `https://rpc.ankr.com/base`
+  now rejects all calls with `{"code":-32000,"message":"Unauthorized: You must
+  authenticate your request with an API key ..."}`. The P1 quoter
+  (`execution/quoter.py`, `QuoterRegistry`) reads a **single** endpoint from
+  `ARBICORE_RPC_URL_BASE` (no failover in the quote path, by design — it mirrors
+  the read-only URL the broadcaster validates). With that endpoint dead, every
+  hop degrades → route `fallback:break_even`. Proven by direct A/B against 5
+  endpoints: Ankr-keyless → Unauthorized; publicnode/drpc/meowrpc/mainnet.base.org
+  → live quote `out_wei≈2.457e11` (100 WETH → ~245,790 USDC).
+- **Code defect fixed (fail-closed preserved):** `_eth_call`'s batch parser only
+  matched `id==1`; when a provider answers a batch with a single top-level error
+  whose `id` is null (Ankr's behaviour), the error was dropped and the hop
+  mis-reported `fallback:rpc_error: decode error: NoneType` instead of the real
+  reason. Fixed to surface the actual RPC error (now `fallback:revert code=-32000
+  Unauthorized...`), so rate-limit vs auth vs revert are correctly classified for
+  the operator. No fabrication; still falls back.
+- **Operator fix for P1 green:** set `ARBICORE_RPC_URL_BASE` to a working Base RPC —
+  either a **free Ankr account key** (`https://rpc.ankr.com/base/<API_KEY>`) or a
+  keyless public endpoint (`https://base.publicnode.com`, `https://base.drpc.org`,
+  `https://mainnet.base.org`). Keep the failover list in `PROVIDER_RPC_URLS_BASE`
+  for the P0 path (Ankr primary → public fallback is fine there).
+- **Backlog (not done, not required for readiness):** give the quote path the same
+  multi-endpoint failover the resolver has, so a single dead `ARBICORE_RPC_URL_BASE`
+  can't force fallback. Deferred to avoid changing a broadcast-adjacent module
+  without need.
 
 ## Bottom line
 All **non-RPC-capacity, non-deployment application blockers are resolved**. P0/P1/P2

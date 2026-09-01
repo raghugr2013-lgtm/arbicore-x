@@ -22,6 +22,14 @@ These public endpoints are free/community Base RPCs (verified reachable, chainId
 `0x2105`). They are development/verification aids for small read-only workloads —
 NOT a production capacity guarantee.
 
+> **P1 pitfall (root cause of the VPS P1 fallback):** the keyless Ankr endpoint
+> `https://rpc.ankr.com/base` now returns `-32000 Unauthorized: API key required`.
+> The quote path reads a SINGLE endpoint from `ARBICORE_RPC_URL_BASE` (no failover),
+> so if that points at keyless Ankr, P1 always falls back. Point `ARBICORE_RPC_URL_BASE`
+> at a working endpoint — free Ankr **with an API key** (`https://rpc.ankr.com/base/<API_KEY>`)
+> or a keyless public one (publicnode/drpc/mainnet.base.org). Ankr may remain primary
+> in `PROVIDER_RPC_URLS_BASE` for the P0 failover path.
+
 ## B. Remaining blockers
 1. RPC capacity — full-workload P0/P1 need more throughput than a single free
    endpoint. (Not a code bug: rate-limited RPC → fail-closed, never fabricated.)
