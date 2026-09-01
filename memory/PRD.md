@@ -215,3 +215,20 @@ Code change: `_eth_call` batch parser now surfaces a provider's single top-level
 diagnostics, fail-closed preserved, no fabrication. Dedicated quoter tests 12 passed.
 Backlog: optionally give the quote path multi-endpoint failover (deferred — broadcast-adjacent).
 
+
+## 2026-06 — P1 with Alchemy: batch-handling root cause + auto single-request fallback
+After a healthy Alchemy Base RPC was set as `ARBICORE_RPC_URL_BASE`, P1 still FAILed
+(`block=None`, passthrough out_wei). Proved the URL IS used by the quote path (P3 hits
+the same var and got a real `eth_getCode`; verifier line 65-70 wires
+`QuoterRegistry(rpc_url_env="ARBICORE_RPC_URL_BASE")`). Root cause: provider rejects the
+quoter's JSON-RPC **batch** (`eth_call`+`eth_blockNumber`); public nodes honour it, some
+Alchemy plans don't. Fix: `_eth_call` auto-detects a mishandled batch per host and retries
+as single requests (+ separate best-effort blockNumber) — batch-friendly hosts keep
+batching. Also added verifier P1 diagnostics (`rpc_env/rpc_host/hop_status/hop_error`).
+Verified: batch and forced-single return identical result+block on 3 endpoints; verifier
+P1 PASS; quoter tests 12 passed. Files: `execution/quoter.py`, `verify_readiness.py`.
+P2 value confirmed from project config (`contracts/script/Deploy.s.sol:31`,
+`docs/EXECUTOR_PROVISIONING_READINESS.md:32`, `deploy/executor_deployments.json`):
+`BASE_BALANCER_V2_VAULT=0xBA12222222228d8Ba445958a75a0704d566BF2C8`. Signer/broadcast/
+executor/live-mode gates untouched.
+

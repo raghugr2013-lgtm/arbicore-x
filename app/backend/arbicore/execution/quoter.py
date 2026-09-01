@@ -189,6 +189,21 @@ _RPC_MAX_RETRIES = int(os.environ.get("ARBICORE_RPC_MAX_RETRIES", "4"))
 _RPC_LOCK = asyncio.Lock()
 _RPC_LAST_TS = {"t": 0.0}
 
+# Per-host batch-capability cache. Some providers (e.g. Alchemy on certain
+# plans) reject or mishandle JSON-RPC batch arrays even though they answer
+# single requests fine. When we detect a mishandled batch for a host we flip
+# it to single-request mode for the rest of the process. Provenance
+# (block_number) then comes from a separate best-effort eth_blockNumber.
+_HOST_BATCH_OK: Dict[str, bool] = {}
+
+
+def _host_key(url: str) -> str:
+    try:
+        from urllib.parse import urlparse as _up
+        return (_up(url).hostname or url).lower()
+    except Exception:  # noqa: BLE001
+        return url
+
 
 def _is_rate_limited(err: Optional[Dict[str, Any]]) -> bool:
     if not err:
@@ -208,67 +223,144 @@ async def _throttle() -> None:
         _RPC_LAST_TS["t"] = asyncio.get_event_loop().time()
 
 
+async def _post_json(rpc_url: str, payload: Any, timeout: float):
+    async with httpx.AsyncClient(timeout=timeout) as c:
+        return await c.post(rpc_url, json=payload)
+
+
+async def _single_call(
+    rpc_url: str, *, to: str, data: str, block: str, timeout: float,
+    want_block: bool,
+) -> Tuple[Optional[str], Optional[int], Optional[Dict[str, Any]]]:
+    """eth_call as a SINGLE (non-array) request + a separate best-effort
+    eth_blockNumber for provenance. Used for providers that mishandle
+    batch arrays. Never fabricates: a failed block probe just leaves
+    ``block_number=None`` while the quote result stands."""
+    r = await _post_json(
+        rpc_url,
+        {"jsonrpc": "2.0", "id": 1, "method": "eth_call",
+         "params": [{"to": to, "data": data}, block]},
+        timeout,
+    )
+    if getattr(r, "status_code", 200) == 429:
+        return None, None, {"code": -32016, "message": "HTTP 429 rate limited"}
+    r.raise_for_status()
+    body = r.json()
+    if isinstance(body, list):
+        body = body[0] if body else {}
+    if not isinstance(body, dict):
+        return None, None, {"code": -32000, "message": f"unexpected response type {type(body).__name__}"}
+    if "error" in body:
+        return None, None, body["error"]
+    result = body.get("result")
+    block_number: Optional[int] = None
+    if want_block and result is not None:
+        try:
+            rb = await _post_json(
+                rpc_url,
+                {"jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": []},
+                timeout,
+            )
+            bb = rb.json()
+            if isinstance(bb, list):
+                bb = bb[0] if bb else {}
+            bn_hex = (bb or {}).get("result") if isinstance(bb, dict) else None
+            block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
+        except Exception:  # noqa: BLE001 — provenance is non-critical
+            block_number = None
+    return result, block_number, None
+
+
 async def _eth_call(
     rpc_url: str, *, to: str, data: str, block: str = "latest", timeout: float = 12.0,
     with_block_number: bool = True,
 ) -> Tuple[Optional[str], Optional[int], Optional[Dict[str, Any]]]:
-    """One-shot read-only ``eth_call`` — returns (result_hex, block_number, error_dict).
+    """Read-only ``eth_call`` — returns (result_hex, block_number, error_dict).
 
-    Applies a global throttle and retries on RPC rate-limit (-32016 / HTTP 429)
-    with exponential backoff. ``block_number`` provenance is batched in the same
-    request (no extra round-trip)."""
-    if with_block_number:
+    Prefers a JSON-RPC batch (eth_call + eth_blockNumber in one round-trip) but
+    AUTO-FALLS BACK to single requests for any host that mishandles batches
+    (e.g. Alchemy plans that answer a batch with a single object or an empty
+    array). Applies a global throttle and retries on rate-limit (-32016 / HTTP
+    429). Fail-closed: on any unrecovered error it returns an ``error_dict`` and
+    never a fabricated quote."""
+    host = _host_key(rpc_url)
+    last_err: Optional[Dict[str, Any]] = None
+    for attempt in range(_RPC_MAX_RETRIES + 1):
+        await _throttle()
+        use_batch = with_block_number and _HOST_BATCH_OK.get(host, True)
+
+        # ---- Single-request mode (host known batch-averse, or no block wanted)
+        if not use_batch:
+            try:
+                result, bn, err = await _single_call(
+                    rpc_url, to=to, data=data, block=block, timeout=timeout,
+                    want_block=with_block_number)
+            except httpx.HTTPStatusError as exc:
+                if exc.response is not None and exc.response.status_code == 429:
+                    last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                raise
+            if err and _is_rate_limited(err) and attempt < _RPC_MAX_RETRIES:
+                last_err = err
+                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+            return result, bn, err
+
+        # ---- Batch mode ------------------------------------------------------
         payload = [
             {"jsonrpc": "2.0", "id": 1, "method": "eth_call",
              "params": [{"to": to, "data": data}, block]},
             {"jsonrpc": "2.0", "id": 2, "method": "eth_blockNumber", "params": []},
         ]
-    else:
-        payload = [{"jsonrpc": "2.0", "id": 1, "method": "eth_call",
-                    "params": [{"to": to, "data": data}, block]}]
-
-    last_err: Optional[Dict[str, Any]] = None
-    for attempt in range(_RPC_MAX_RETRIES + 1):
-        await _throttle()
         try:
-            async with httpx.AsyncClient(timeout=timeout) as c:
-                r = await c.post(rpc_url, json=payload)
+            r = await _post_json(rpc_url, payload, timeout)
             if getattr(r, "status_code", 200) == 429:
                 last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                await asyncio.sleep(0.3 * (2 ** attempt))
-                continue
+                await asyncio.sleep(0.3 * (2 ** attempt)); continue
             r.raise_for_status()
             body = r.json()
         except httpx.HTTPStatusError as exc:
             if exc.response is not None and exc.response.status_code == 429:
                 last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                await asyncio.sleep(0.3 * (2 ** attempt))
-                continue
+                await asyncio.sleep(0.3 * (2 ** attempt)); continue
             raise
-        if not isinstance(body, list):
-            body = [body]
-        call_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 1), None)
-        if call_resp is None:
-            # Provider returned a non-batch / mismatched-id response — many
-            # free public endpoints answer a batch with a single top-level
-            # error object whose id is null (e.g. Ankr keyless "Unauthorized",
-            # or a global rate-limit). Surface that error verbatim instead of
-            # silently dropping it (which previously mis-reported a downstream
-            # "decode error"). Fail-closed + accurate operator diagnostics.
-            call_resp = next(
-                (b for b in body if isinstance(b, dict) and "error" in b), None
-            ) or (body[0] if body and isinstance(body[0], dict) else {})
-        block_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 2), None) or {}
-        if "error" in call_resp:
-            err = call_resp["error"]
+
+        if isinstance(body, list):
+            call_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 1), None)
+            if call_resp is not None:
+                if "error" in call_resp:
+                    err = call_resp["error"]
+                    if _is_rate_limited(err) and attempt < _RPC_MAX_RETRIES:
+                        last_err = err
+                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    return None, None, err
+                block_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 2), None) or {}
+                bn_hex = (block_resp or {}).get("result")
+                block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
+                return call_resp.get("result"), block_number, None
+            # Array returned but our id==1 is missing. If it carries a surfaced
+            # error, honour it; otherwise the provider mishandled the batch —
+            # switch this host to single mode and retry.
+            err = next((b.get("error") for b in body if isinstance(b, dict) and "error" in b), None)
+            if err:
+                if _is_rate_limited(err) and attempt < _RPC_MAX_RETRIES:
+                    last_err = err
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                return None, None, err
+            logger.info("quoter: host %s mishandled JSON-RPC batch (array) — switching to single-request mode", host)
+            _HOST_BATCH_OK[host] = False
+            continue
+        # Non-array response to a batch: a single object. Honour an error, else
+        # mark the host batch-averse and retry in single mode.
+        if isinstance(body, dict) and "error" in body:
+            err = body["error"]
             if _is_rate_limited(err) and attempt < _RPC_MAX_RETRIES:
                 last_err = err
-                await asyncio.sleep(0.3 * (2 ** attempt))
-                continue
+                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+            # A real auth/other error (e.g. Ankr keyless "Unauthorized"): surface it.
             return None, None, err
-        bn_hex = (block_resp or {}).get("result")
-        block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
-        return call_resp.get("result"), block_number, None
+        logger.info("quoter: host %s answered batch with a non-array — switching to single-request mode", host)
+        _HOST_BATCH_OK[host] = False
+        continue
     return None, None, (last_err or {"code": -32016, "message": "rate limited (retries exhausted)"})
 
 

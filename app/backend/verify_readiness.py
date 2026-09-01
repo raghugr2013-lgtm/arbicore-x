@@ -74,7 +74,10 @@ async def _run() -> None:
         result("P1", "PASS" if ok else "FAIL", pool=p.canonical_id,
                 quote_status=q.status, out_wei=q.final_amount_out_wei,
                 quoter=getattr(h0, "quoter_contract", None),
-                block=getattr(h0, "block_number", None))
+                block=getattr(h0, "block_number", None),
+                rpc_env=envk, rpc_host=getattr(h0, "rpc_host", None),
+                hop_status=getattr(h0, "status", None),
+                hop_error=getattr(h0, "error", None))
         qb = await QuoterRegistry(rpc_url_env=envk).quote_route(
             chain="base", hops=[dict(hop, fee=1234567)])
         result("P1_BADFEE", "PASS" if str(qb.status).startswith("fallback") else "FAIL",

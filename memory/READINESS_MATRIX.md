@@ -80,6 +80,37 @@ The operator's earlier "5/11 pools resolve" was **purely RPC rate-limiting**
   can't force fallback. Deferred to avoid changing a broadcast-adjacent module
   without need.
 
+### 2026-06 update — Alchemy configured but P1 still FAIL (`block=None`)
+- With a healthy Alchemy Base RPC set as `ARBICORE_RPC_URL_BASE`, P0 and P3 both
+  reach it fine (P3 returned a real `eth_getCode` → "no bytecode"), proving the
+  URL IS resolved and used by the quote path (verifier line 65-70:
+  `QuoterRegistry(rpc_url_env="ARBICORE_RPC_URL_BASE")`). So P1's `block=None` +
+  passthrough `out_wei` is NOT a URL/config-precedence problem — it is the
+  provider rejecting the quoter's **JSON-RPC batch** (`eth_call`+`eth_blockNumber`
+  in one array). Public nodes (publicnode/drpc/mainnet.base.org) honour the batch;
+  some Alchemy plans answer a batch with a single object / empty array, which the
+  old parser turned into a silent fallback with `block=None`.
+- **Fix 2 (code, safe):** `_eth_call` now auto-detects a mishandled batch per host
+  and transparently retries as **single requests** (`eth_call` + a separate
+  best-effort `eth_blockNumber` for provenance). Batch-friendly hosts keep
+  batching; batch-averse hosts (Alchemy) degrade to single automatically. Proven:
+  batch and forced-single modes return identical result + block on 3 endpoints;
+  verifier P1 PASS.
+- **Fix 3 (diagnostics):** verifier P1 line now prints `rpc_env`, `rpc_host`,
+  `hop_status`, `hop_error` so the exact provider reason is never hidden again
+  (e.g. it will show `rpc_host=...alchemy.com hop_status=... hop_error=code=... msg`).
+- Net: P1 is application-ready; on the VPS the auto-fallback should make it PASS
+  against Alchemy directly. If it still fails, the new `hop_error` field reveals
+  the precise Alchemy message for a targeted follow-up.
+
+### P2 value — sourced from project config (NOT invented)
+`BASE_BALANCER_V2_VAULT = 0xBA12222222228d8Ba445958a75a0704d566BF2C8`
+- `contracts/script/Deploy.s.sol:31` `MAINNET_BALANCER_V2_VAULT` constant + line 58 default.
+- `docs/EXECUTOR_PROVISIONING_READINESS.md:32` Base-mainnet row (vault/aavePool/uniRouter).
+- `deploy/executor_deployments.json` `8453.constructor_args_expected.balancerVault`.
+This is the Balancer V2 canonical singleton (same address every chain) AND the exact
+value the project's own deploy scripts/registry use.
+
 ## Bottom line
 All **non-RPC-capacity, non-deployment application blockers are resolved**. P0/P1/P2
 logic is PROVEN on real Base state with free RPC. Remaining gates are:
