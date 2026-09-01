@@ -118,3 +118,48 @@ logic is PROVEN on real Base state with free RPC. Remaining gates are:
 (b) **executor deployment** on Base mainnet (items 3-config/4/7),
 (c) **explicit human authorization** for signer/broadcast/Limited-Live (items 8/9/10),
 which MUST remain BLOCKED until commanded in writing.
+
+## 2026-06 — Alchemy 429 diagnosis, RPC capacity, and P1 failover
+### Exact 429 cause (from live diagnostics)
+VPS P1 showed `hop_error=code=-32016 HTTP 429 rate limited`, `rpc_host=base-mainnet.g.alchemy.com`.
+Note the asymmetry: **P0 PASSED, P1 FAILED on the same Alchemy** — because P0 goes through
+the failover registry (routes around a 429) while the quote path had NO failover.
+Root cause = Alchemy **free-tier throughput saturation**: free = ~300 CU/s measured over a
+**10-second rolling window**; `eth_call` = 26 CU → ~11.5 eth_calls/s. P0 resolution bursts
+~44 eth_calls (11 Aerodrome pools × ~4 calls) which saturates that 10s window; P1's quote
+lands in the saturated window and 429s through all client retries. Not a code/URL bug —
+`ARBICORE_RPC_URL_BASE` IS used by the quote path (P3 uses the same var and reached Alchemy).
+
+### Minimum RPC capacity for Limited-Live (eth_call @ 26 CU)
+| Workload | eth_calls | CU | Verdict on Alchemy FREE (300 CU/s, 30M CU/mo) |
+|---|---|---|---|
+| Verifier one-shot P0+P1+P2 | ~50 | ~1.3k | Marginal — bursts trip 429; **failover fixes it** |
+| One scan tick (~40-80 quotes+TVL+gas) | 40-80 | ~1.3-2.9k | Peak burst 2-4× avg → exceeds 300 CU/s |
+| Continuous scan, tick 3-5s | — | ~330-970 CU/s sustained | **INSUFFICIENT** (need ~800-1,200 CU/s safe floor) |
+| 24/7 monthly | — | ~2.0B CU/mo | Free 30M/mo ≈ <1h of scanning; PAYG ≈ $0.45/1M CU |
+- **Safe floor for Limited-Live: ~800-1,200 CU/s (≈30-45 eth_calls/s).**
+- **Alchemy plan verdict:** FREE tier is sufficient only for one-shot verification (with
+  failover); it is **NOT sufficient for continuous Limited-Live scanning**. A paid tier
+  (PAYG/Growth base **10,000 CU/s** ≈ 384 eth_calls/s) gives ~8-12× headroom and is
+  more than enough. Alternatively run Alchemy primary + 2-3 free public failovers with
+  client throttling for development.
+
+### Controlled throttling knobs (already in code)
+- `ARBICORE_RPC_MIN_INTERVAL_MS` (quoter global throttle, default 140 ms ≈ 7 calls/s ≈ 182 CU/s — under free ceiling).
+- `ARBICORE_AERO_RESOLVE_MIN_INTERVAL_MS` (P0 resolution pacing, default 150 ms).
+- `ARBICORE_RPC_MAX_RETRIES` (default 4). Recommend keeping ≥2 with failover.
+
+### Fix — P1 (and whole quote path) RPC failover [implemented, tested]
+`QuoterRegistry.quote_route` now tries an ORDERED endpoint list and fails over per-hop on
+transient/provider faults (429, transport, empty), stopping only on a genuine DEX
+`execution reverted` (another RPC returns the same) or no-adapter. Endpoint precedence:
+`ARBICORE_RPC_URL_<CHAIN>` (may be comma-list) → `PROVIDER_RPC_URLS_<CHAIN>`/`PROVIDER_RPC_URLS`
+→ legacy vars. Non-final candidates get a 1-retry budget so a rate-limited primary yields
+fast to the failover; the last candidate keeps the full retry budget. Only a clean `ok`
+quote is cached (never a transient fallback). Benefits ALL callers (`live_quote_provider`,
+`dex_arbitrage/quoter`, `searcher/runtime`), not just the verifier.
+Proven (free public RPC): healthy-primary→ok; dead-primary→failover ok; Ankr-unauthorized
+primary→failover ok; comma-list→ok; **all-dead→fail-closed `fallback:break_even` (no
+fabrication, error surfaced)**. Verifier with a dead primary auto-fails over → **P1 PASS**
+(`rpc_host=base.publicnode.com`). Quoter tests 12 passed. Signer/broadcast/executor/live-mode untouched.
+

@@ -232,3 +232,21 @@ P2 value confirmed from project config (`contracts/script/Deploy.s.sol:31`,
 `BASE_BALANCER_V2_VAULT=0xBA12222222228d8Ba445958a75a0704d566BF2C8`. Signer/broadcast/
 executor/live-mode gates untouched.
 
+
+## 2026-06 — Alchemy 429 root cause + P1 RPC failover implemented
+Live diagnostics: VPS P1 `code=-32016 HTTP 429`, host=Alchemy. P0 passed / P1 failed on the
+same endpoint because P0 uses the failover registry and the quote path did not. Root cause =
+Alchemy free-tier throughput (~300 CU/s over a 10s rolling window; eth_call=26 CU ≈ 11.5/s):
+P0's ~44-call resolution burst saturates the window and P1's quote 429s through retries.
+Fix: added ordered multi-endpoint failover to `QuoterRegistry.quote_route`
+(`ARBICORE_RPC_URL_<CHAIN>` comma-list → `PROVIDER_RPC_URLS_<CHAIN>` → legacy), per-hop
+failover on transient faults (429/transport/empty), stop on genuine execution revert; only
+`ok` quotes cached; 1-retry budget on non-final candidates for fast yield. Plumbed
+`max_retries` through `_eth_call` + the 3 backends. Benefits all quote callers. Tested:
+dead/unauthorized/comma-list primaries all fail over to healthy free RPC → P1 PASS;
+all-dead → fail-closed (no fabrication). Verifier P1 PASS via failover. Quoter tests 12 passed.
+Capacity verdict: Alchemy FREE OK for one-shot verify (with failover) but NOT for continuous
+Limited-Live scanning (~800-1,200 CU/s safe floor) — use paid PAYG/Growth (10k CU/s base) or
+Alchemy primary + free public failovers + throttling. Signer/broadcast/executor/live-mode untouched.
+Only code file changed: `app/backend/arbicore/execution/quoter.py`.
+
