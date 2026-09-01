@@ -185,3 +185,20 @@ Base commit e930a10 (+5340960 PRD). All changes additive, read-only, fail-closed
 - Operator to record canonical Base-mainnet deploy_tx/block in deploy/executor_deployments.json (optional provenance completion; on-chain identity already independently verified READY).
 - Mode remains SHADOW; enabling LIMITED_LIVE is an explicit operator action.
 - Market: a genuine CONFIRMED + profitable (>= $25 floor) UniV3 candidate must appear naturally.
+
+---
+
+## 2026-06 — Application readiness proven on free RPC (P0/P1/P2 PASS)
+Branch `fix/canonical-scanner-pool-loader-integration` @ `f9f6c90` aligned into `/app`.
+Ran the in-image `verify_readiness.py` against a **free public Base RPC failover set**
+(publicnode + drpc + meowrpc + 1rpc + mainnet.base.org) to separate app-readiness from
+RPC capacity. Results: **P0 PASS** (30/30 real, 11 Aerodrome resolved, 0 leaks),
+**P1 PASS** (live UniV3 quote 100 WETH→245,943 USDC @ blk 50716840) + **P1_BADFEE PASS**
+(fail-closed fallback), **P2 PASS** (Balancer vault `0xBA12222222228d8Ba445958a75a0704d566BF2C8`
+depth read), **P3 BLOCKED** (no executor deployed on Base 8453 — registry `not_deployed`).
+Negative control (unreachable RPC) → P0 FAIL loader_nodes=19/real=19/leaks=0 (no fabrication),
+P1 fallback:break_even. Conclusion: earlier "5/11" was **Alchemy free-tier 429 (RPC capacity)**,
+not code. No code changed. Signer/broadcast/Limited-Live remain DISABLED by design.
+Full matrix: `/app/memory/READINESS_MATRIX.md`. Repro + go-live steps:
+`/app/memory/VPS_PROOF_PLAYBOOK.md`.
+
