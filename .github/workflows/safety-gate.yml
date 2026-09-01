@@ -1,0 +1,53 @@
+name: Safety Gate
+
+# Mandatory deterministic safety gate for ArbiCore X.
+# Runs the 99 offline/deterministic pre-Limited-Live safety tests and FAILS the
+# build if any of them fail. These prove the fail-closed invariants
+# (SHADOW cannot broadcast, net-profit/gas/slippage/allowlist gates, RPC
+# failover semantics, executor/signer readiness). It runs NO trading, NO
+# signer, NO broadcast, NO executor deploy, and needs NO Mongo or Base RPC —
+# the 3 network-dependent live-quote smoke tests auto-skip (skipif: no Base RPC)
+# and are therefore non-blocking.
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  safety-gate:
+    name: Deterministic safety gate (99 tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/backend
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: app/backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run deterministic safety tests (mandatory)
+        run: |
+          python -m pytest \
+            tests/test_pre_limited_live_hardening.py \
+            tests/test_d3_6a_base_univ3_quote.py \
+            tests/test_d3_6b_aerodrome_smoke.py \
+            tests/test_verify_readiness_script.py \
+            tests/test_z8_canonical_scanner_loader_integration.py \
+            tests/test_wave6a_mode_unit.py \
+            tests/test_wave6d_unit.py \
+            --tb=short -q
