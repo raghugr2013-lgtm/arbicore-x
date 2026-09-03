@@ -218,3 +218,19 @@ Derived from what was reconstructable vs blocked. **Not built now** — this is 
 net-profit and ArbiCore capturable-profit remain honestly **DATA INSUFFICIENT**.
 
 *No deployment. No live execution. No safety changes. No Mongo writes. Stopping for approval.*
+
+---
+
+## ADDENDUM (correction) — Balancer executor support
+
+A follow-up read-only review of `arbicore/execution/calldata.py` +
+`scanners/flash_loan_arbitrage/executor_capability.py` corrects the "executor limitation"
+wording above: **ArbiCore's executor already supports Balancer V2 flash borrow** in code
+(`FlashLoanReceiver.execute()` + `encode_plan_head_call` handles both `balancer_v2` and
+`aave_v3`). The real limits are (1) swap hops are **Uniswap V3 only** and (2) the on-chain
+self-test is **Aave-only** (Balancer path code-complete but UNPROVEN on-chain).
+
+Re-mapped against today's 7 samples: **6 of 7** (Balancer + 2× Uniswap V3) match the shape the
+current executor **can encode**; only **1 of 7** (with a Uniswap V2 leg) is executor-incompatible.
+See `docs/BALANCER_EXECUTOR_AND_CERT_PREP.md`. Profit reconstruction remains DATA INSUFFICIENT
+(no trace RPC); nothing fabricated.
