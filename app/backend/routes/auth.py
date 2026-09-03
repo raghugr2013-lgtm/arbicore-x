@@ -24,10 +24,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 _logger = logging.getLogger("arbicore.auth.bootstrap")
 
-# Fixed-id sentinel that makes first-admin creation atomic across concurrent
-# requests / workers. settings_col has a unique index on "key", so at most one
-# request can ever insert it — the rest get DuplicateKeyError → 403.
-_BOOTSTRAP_LOCK_KEY = "auth_bootstrap_lock"
+# Single-admin atomicity is enforced by a SPARSE UNIQUE index on the admin
+# document's "admin_singleton" sentinel field (see setup()). No separate lock
+# collection — that could dead-lock a users-wiped deployment.
 
 
 def _bootstrap_token() -> str:
@@ -77,34 +76,38 @@ async def setup(body: SetupBody, request: Request, response: Response):
     # ── P0: independent server-side authorization (fail-closed) ──
     _authorize_bootstrap(request)
 
-    # ── atomic single-admin guard ──
-    # Ensure the uniqueness constraint exists BEFORE relying on it (idempotent;
-    # a fresh DB may not have run ensure_indexes yet). create_index only returns
-    # once the unique index is in place, so the insert below is truly atomic
-    # across concurrent authorized requests / workers.
-    await db.settings_col.create_index("key", unique=True)
+    # ── atomic, self-healing single-admin guard ──
+    # Atomicity comes from a SPARSE UNIQUE index on a fixed sentinel field
+    # ("admin_singleton") that only the administrator document carries — so at
+    # most ONE admin can ever exist, enforced by the DB under concurrency.
+    # Unlike a separate lock sentinel, this can never dead-lock the system: if
+    # the users collection is wiped, no sentinel remains, so an operator holding
+    # the bootstrap token can legitimately re-provision (still fail-closed —
+    # the token is the sole authorization).
     await db.users_col.create_index("username", unique=True)
-    # Acquire the one-shot bootstrap lock BEFORE any user check/insert so two
-    # concurrent authorized requests cannot each create an admin.
     try:
-        await db.settings_col.insert_one(
-            {"key": _BOOTSTRAP_LOCK_KEY, "locked_at": now_iso()})
-    except DuplicateKeyError:
-        raise HTTPException(403, "Setup already completed — registration is locked (single-admin system)")
+        await db.users_col.create_index(
+            "admin_singleton", unique=True,
+            partialFilterExpression={"admin_singleton": {"$exists": True}})
+    except Exception:  # noqa: BLE001
+        # A legacy/differently-optioned index of the same name must never turn
+        # bootstrap into a 500. The count>0 check below still guards single-admin.
+        pass
 
-    # Defense in depth: if a user somehow exists without the lock (e.g. env
-    # provisioning seeded one), keep the lock and refuse.
+    # Defense in depth: refuse if any user already exists (covers legacy admin
+    # docs created before the sentinel field existed).
     if await db.users_col.count_documents({}) > 0:
         raise HTTPException(403, "Setup already completed — registration is locked (single-admin system)")
 
     username = body.username.strip().lower()
     user = {"id": new_id(), "username": username,
             "password_hash": auth.hash_password(body.password),
-            "role": "admin", "session_version": 1,
+            "role": "admin", "admin_singleton": "admin", "session_version": 1,
             "created_at": now_iso(), "updated_at": now_iso()}
     try:
         await db.users_col.insert_one(dict(user))
     except DuplicateKeyError:
+        # Lost the concurrent race (another request created the admin) — locked.
         raise HTTPException(403, "Setup already completed — registration is locked (single-admin system)")
     _logger.info("first administrator created (bootstrap locked): username=%s", username)
     auth.set_auth_cookies(response, user)

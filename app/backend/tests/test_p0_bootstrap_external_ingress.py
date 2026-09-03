@@ -43,7 +43,8 @@ class TestAuthStatus:
         assert d["setup_complete"] is True
         assert d["auth_required"] is True
         assert d["bootstrap_requires_token"] is True
-        assert isinstance(d.get("bootstrap_available"), bool)
+        # bootstrap_available is intentionally NOT disclosed (info-leak hardening)
+        assert "bootstrap_available" not in d
 
     def test_status_never_leaks_token(self):
         r = requests.get(f"{BASE}/api/auth/status", timeout=TIMEOUT)

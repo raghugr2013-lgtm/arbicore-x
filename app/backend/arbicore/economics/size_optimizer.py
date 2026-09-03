@@ -47,8 +47,11 @@ class SizeCandidate:
 
 def _impact_bps(notional_usd: float, pool_liquidity_usd: float,
                 impact_k: float) -> float:
-    if pool_liquidity_usd <= 0:
-        return 10_000.0  # no liquidity → treat as fully impacted
+    # Missing OR non-positive liquidity is UNKNOWN, not zero-cost: treat as
+    # fully impacted so the candidate fails closed (never crashes, never
+    # silently becomes profitable on absent evidence).
+    if pool_liquidity_usd is None or pool_liquidity_usd <= 0:
+        return 10_000.0  # no/unknown liquidity → treat as fully impacted
     return impact_k * (notional_usd / pool_liquidity_usd) * 10_000.0
 
 
@@ -80,7 +83,7 @@ def _score_size(
     # if the round-trip reverts (gas is always spent; fees only on partial).
     max_loss = float(gas_cost_usd) + npr.slippage_cost_usd * 0.5
 
-    liq_ratio = (notional_usd / pool_liquidity_usd) if pool_liquidity_usd > 0 else 1.0
+    liq_ratio = (notional_usd / pool_liquidity_usd) if (pool_liquidity_usd and pool_liquidity_usd > 0) else 1.0
     ev = evaluate_expected_value(
         net_profit_usd=net, maximum_loss_usd=max_loss,
         liquidity_ratio=liq_ratio, **prob_kwargs)

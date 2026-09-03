@@ -382,19 +382,35 @@ class NetworkConfigRepo:
 # Env-fallback resolver — used by legacy call sites during migration
 # ============================================================================
 
+def first_rpc_endpoint(raw: Optional[str]) -> Optional[str]:
+    """Select the FIRST usable endpoint from a (possibly comma-separated) RPC
+    value. A comma-separated ``ARBICORE_RPC_URL`` must NEVER be POSTed as one
+    URL — doing so yields a malformed request and false "no bytecode" /
+    "endpoint down" results. Single canonical selector for every consumer."""
+    if not raw:
+        return None
+    for part in str(raw).split(","):
+        part = part.strip()
+        if part:
+            return part
+    return None
+
+
 def resolve_rpc_url_from_env(chain: str = "base") -> Optional[str]:
     """T0-5 canonical *synchronous* RPC precedence resolver (no DB).
 
     Precedence (deterministic):
         ARBICORE_RPC_URL_<CHAIN>  >  ARBICORE_RPC_URL  >  legacy <CHAIN>_RPC_URL
 
+    A comma-separated value is reduced to its first endpoint (never used whole).
     Returns None when unset — callers fail fast; no fabricated default.
     """
     c = chain.upper()
-    return (os.environ.get(f"ARBICORE_RPC_URL_{c}")
-            or os.environ.get("ARBICORE_RPC_URL")
-            or os.environ.get(f"{c}_RPC_URL")
-            or None)
+    raw = (os.environ.get(f"ARBICORE_RPC_URL_{c}")
+           or os.environ.get("ARBICORE_RPC_URL")
+           or os.environ.get(f"{c}_RPC_URL")
+           or None)
+    return first_rpc_endpoint(raw)
 
 
 async def resolve_rpc_url(*, network_repo: NetworkConfigRepo,
@@ -408,7 +424,7 @@ async def resolve_rpc_url(*, network_repo: NetworkConfigRepo,
     except Exception:
         pass
     return (os.environ.get(f"ARBICORE_RPC_URL_{chain.upper()}")
-            or os.environ.get("ARBICORE_RPC_URL")
+            or first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL"))
             or None)
 
 

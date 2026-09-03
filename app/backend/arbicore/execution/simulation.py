@@ -226,7 +226,8 @@ class EthCallSimulator:
                  rpc_url: Optional[str] = None,
                  timeout_s: float = 8.0,
                  fallback: Optional[SimulatorBackend] = None):
-        self._rpc_url = rpc_url or os.environ.get("ARBICORE_RPC_URL")
+        from ..config.persistent import first_rpc_endpoint
+        self._rpc_url = rpc_url or first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL"))
         self._timeout = float(timeout_s)
         self._fallback = fallback or NoopSimulator()
 

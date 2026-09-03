@@ -52,7 +52,7 @@ from arbicore.execution.operator_wizard import (
 )
 from arbicore.execution.operator_journey import build_journey
 from arbicore.config.persistent import (
-    ConfigRepo, NetworkConfigRepo, NETWORK_KIND,
+    ConfigRepo, NetworkConfigRepo, NETWORK_KIND, first_rpc_endpoint,
 )
 from arbicore.config.env_sync import sync_env_from_network_config
 from arbicore.config.stubs_migration import (
@@ -364,10 +364,10 @@ _BASE_SEARCHER_RUNTIME = None
 _T2_WSS_MANAGER = None
 
 from arbicore.execution.settlement_simulator import SettlementSimulator
-_SETTLEMENT_SIM = SettlementSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
+_SETTLEMENT_SIM = SettlementSimulator(rpc_url=(first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL")) or ""))
 _OPPORTUNITY_ENGINE._settlement_sim = _SETTLEMENT_SIM   # mandatory settlement gate
 from arbicore.execution.atomic_executor_sim import AtomicExecutorSimulator
-_ATOMIC_SIM = AtomicExecutorSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
+_ATOMIC_SIM = AtomicExecutorSimulator(rpc_url=(first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL")) or ""))
 
 
 async def _atomic_sim_runner(*, route, univ3_hops, borrow_token, amount_wei):
@@ -414,7 +414,7 @@ _OPPORTUNITY_ENGINE._atomic_runner = _atomic_sim_runner   # mandatory atomic gat
 # ---------------------------------------------------------------------------
 from arbicore.capital import WalletIntelligenceEngine
 _CAPITAL_ENGINE = WalletIntelligenceEngine(
-    rpc_url=os.environ.get("ARBICORE_RPC_URL", ""),
+    rpc_url=(first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL")) or ""),
     balance_reader=_WALLET_BALANCE_READER,
     eth_price_provider=_OPPORTUNITY_ENGINE._eth_price_usd)
 # Cached, VERIFIED (not assumed) RPC capabilities + simulator self-test,
@@ -4459,7 +4459,7 @@ async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict
         }
         try:
             _probe = TechnicalValidator(
-                rpc_url=os.environ.get("ARBICORE_RPC_URL", ""),
+                rpc_url=(first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL")) or ""),
                 executor_address=executor_addr, signer_key=None, db=db)
             observed_chain_id = await _probe._chain_id()  # noqa: SLF001
         except Exception as exc:  # noqa: BLE001
@@ -4487,7 +4487,7 @@ async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict
 
     try:
         validator = TechnicalValidator(
-            rpc_url=os.environ.get("ARBICORE_RPC_URL", ""),
+            rpc_url=(first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL")) or ""),
             executor_address=os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE", ""),
             signer_key=os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY") or None,
             db=db,
@@ -8142,12 +8142,31 @@ async def postval_exec_summary(sample_limit: int = 2000) -> Dict[str, Any]:
 async def safety_status() -> Dict[str, Any]:
     if not _SAFETY_AVAILABLE:
         return {"available": False, "generated_at": _iso_now()}
+    # Truth reconciliation: there are two kill-switch stores — the in-memory
+    # Phase-8 `_KILL` (guards the autoexecutor + this endpoint) and the
+    # persistent `_KILL_SWITCH_REPO` (guards the executor `execute` path and the
+    # /execution/kill-switch/* API). Report BOTH and compute a fail-closed union:
+    # the system is considered engaged if EITHER store is engaged.
+    mem_engaged = bool(_KILL.is_engaged())
+    persistent = None
+    persistent_engaged = False
+    try:
+        ks = await _KILL_SWITCH_REPO.state()
+        persistent_engaged = bool(getattr(ks, "engaged", False))
+        persistent = {"engaged": persistent_engaged,
+                      "reason": getattr(ks, "reason", None)}
+    except Exception as exc:  # noqa: BLE001
+        # Unknown persistent state must NOT be read as "safe" — treat as engaged.
+        persistent = {"engaged": True, "reason": f"state_unavailable: {type(exc).__name__}"}
+        persistent_engaged = True
     return {
         "available":                True,
         "live_execution_enabled":   _POLICY.live_execution_enabled,
         "require_approval_gate":    _POLICY.require_approval_gate,
         "require_paper_validation": _POLICY.require_paper_validation,
         "kill":                     _KILL.to_dict(),
+        "kill_switch_persistent":   persistent,
+        "effective_kill_engaged":   bool(mem_engaged or persistent_engaged),
         "capital_policy":           _CAPITAL.to_dict(),
         "generated_at":             _iso_now(),
     }

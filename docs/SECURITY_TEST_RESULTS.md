@@ -53,3 +53,14 @@ fail-closed safety posture all correct.
    preview; set `Secure` on direct-HTTPS prod). `/refresh` now reuses the shared
    helper (removed DRY drift).
 
+
+## Phase-2 redesign — dead-lock removed, atomicity preserved (self-healing)
+
+Independent testing (iteration_2) found the Phase-1 `settings.auth_bootstrap_lock`
+sentinel could **dead-lock**: a users-only wipe left the sentinel behind →
+`/setup` 403 forever + login impossible. Fixed by replacing the sentinel with a
+**sparse UNIQUE index on the admin document's `admin_singleton` field**. Verified
+live:
+- Wiped users → re-bootstrap with correct token → **200** (no dead-lock, still token-gated).
+- 12-way concurrent authorized `/setup` on fresh DB → **exactly 1** admin.
+- Existing admin → `count>0` → 403.

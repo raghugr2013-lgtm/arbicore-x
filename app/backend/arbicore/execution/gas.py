@@ -194,7 +194,8 @@ class RpcGasOracle:
 
     @property
     def _rpc_url(self) -> Optional[str]:
-        return self._explicit_rpc_url or os.environ.get("ARBICORE_RPC_URL")
+        from ..config.persistent import first_rpc_endpoint
+        return self._explicit_rpc_url or first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL"))
 
     def is_available(self) -> bool:
         return bool(self._rpc_url)
