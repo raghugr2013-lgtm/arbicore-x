@@ -78,3 +78,23 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
   F5 provenance tests (~60-90). None touch execution/safety.
 - STOPPED after report per directive. Safety unchanged: SHADOW=READY; PAPER/LIMITED_LIVE/
   FULL_AUTOMATION=BLOCKED. main/execution/signer/kill-switch/Mongo/learning/Strategy IR untouched.
+
+## Provenance governance F1-F4 + F5 tests (2026-06) — commit aaafbd1 (APPROVED, DONE)
+- F1: SourceClass extended (PUBLIC_RESEARCH/INTERNAL/GENERATED/MUTATED/HYBRID/
+  PROPRIETARY_EXTERNAL,RESTRICTED); external-origin classes require provenance.source_ref
+  (fail-closed 422); restricted/proprietary quarantined on ingest (lifecycle=QUARANTINED)
+  and refused by adapter/preview (409). schema.validate_provenance_policy()/is_restricted().
+- F2: StrategyIR.public_view() identity-only projection (no params/constraints/route_hints/
+  capabilities); candidate rows tagged confidential=true; adapter output tagged confidential.
+- F3: fingerprint ingest log INFO->DEBUG. F4: forbidden-content route returns generic 422
+  (no echoed key/path); detail to server log only.
+- F5: tests/test_phase3_strategy_ir_provenance.py (16 cases). Additive only; NO change to
+  execution/signer/broadcast/kill-switch/allowlists/profitability/simulation gates/learning/
+  existing Mongo data. Two additive collections unchanged in shape (added lifecycle_state/
+  restricted/confidential fields only).
+- Tests: provenance 16 + IR unit 21 = 37 pass; Strategy IR API 65 pass; economics/RPC/optimizer
+  29 pass; control_readiness + limited_live matrix pass. (P0 auth EmptyDbFailClosed tests fail
+  ONLY due to dev DB already having a provisioned admin — pre-existing env state, unrelated.)
+- Live re-verified: kill engaged, live_execution_enabled=false, effective_kill_engaged=true;
+  readiness matrix SHADOW=GREEN(READY), LIMITED_LIVE/FULL_AUTOMATION=RED (readiness.py untouched).
+- P0 RPC/fork/on-chain proofs remain honestly BLOCKED (no RPC/archive/anvil) — not attempted.
