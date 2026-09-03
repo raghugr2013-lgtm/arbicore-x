@@ -152,6 +152,12 @@ export default function LoginPage() {
                 placeholder="Provisioned server-side (ARBICORE_BOOTSTRAP_TOKEN)"
                 data-testid="login-bootstrap-token-input"
               />
+              <span className="arbicore-login__hint" data-testid="login-bootstrap-hint"
+                    style={{ display: "block", marginTop: "6px", fontSize: "11px",
+                             lineHeight: 1.4, opacity: 0.6 }}>
+                Required. Creating the administrator needs the server-side bootstrap
+                token — the absence of an admin does not authorize registration.
+              </span>
             </label>
           )}
 
@@ -165,6 +171,8 @@ export default function LoginPage() {
             type="submit"
             className="arbicore-login__submit"
             disabled={!canSubmit}
+            style={{ opacity: canSubmit ? 1 : 0.45,
+                     cursor: canSubmit ? "pointer" : "not-allowed" }}
             data-testid="login-submit-button"
           >
             {submitLabel}
