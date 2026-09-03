@@ -240,6 +240,18 @@ _CONTINUOUS_DISCOVERY = ContinuousDiscovery(
     plans_repo=_EXECUTION_PLANS_REPO,
     interval_s=60.0,
 )
+def _controlled_live_safety_or_none():
+    """M3.0 · build (validator, breaker) fail-closed. Any error / missing dep
+    → (None, None); with require_revalidation=True the broadcaster then DENIES
+    before signing (never a silent broadcast)."""
+    try:
+        from arbicore.runtime.composition import build_controlled_live_safety
+        return build_controlled_live_safety(_QUOTER_REGISTRY,
+                                            kill_switch=_KILL_SWITCH_REPO)
+    except Exception:  # noqa: BLE001
+        return (None, None)
+
+
 _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     kill_switch=_KILL_SWITCH_REPO,
     mode_repo=_EXECUTION_MODE_REPO,
@@ -248,6 +260,17 @@ _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     capital_allocator=_CAPITAL_ALLOCATOR,
     evidence_signer=_EVIDENCE_SIGNER,
     balance_reader=_WALLET_BALANCE_READER,
+    # M3.0 · controlled-live safety wiring. The pre-broadcast validator
+    # (fresh M2.1 quote + M2.5 price + M2.6 TVL + economics + flash-loan
+    # liquidity) and circuit breaker are built from the operator env; when the
+    # env lacks a Base RPC both are None. require_revalidation=True means a
+    # None/failing validator DENIES before signing — fail-closed, never a
+    # silent broadcast. Signing/LIMITED_LIVE remain OFF (mode gate unchanged).
+    **dict(zip(
+        ("pre_broadcast_validator", "circuit_breaker"),
+        _controlled_live_safety_or_none(),
+    )),
+    require_revalidation=True,
 )
 
 # ---------------------------------------------------------------------------
@@ -333,6 +356,12 @@ _CONTINUOUS_SCANNER = ContinuousScanner(
     engine=_OPPORTUNITY_ENGINE, history_repo=_DECISION_HISTORY_REPO,
     recurrence_repo=_ROUTE_RECURRENCE_REPO, alert_repo=_PROFIT_ALERT_REPO,
     interval_s=90.0, routes_per_scan=12)
+
+# T2 Base searcher (SHADOW) runtime + live WSS ingestion manager. Constructed +
+# started at app startup only when ARBICORE_T2_SEARCHER_ENABLED and a WSS url are
+# configured. SHADOW-only; never signs/broadcasts.
+_BASE_SEARCHER_RUNTIME = None
+_T2_WSS_MANAGER = None
 
 from arbicore.execution.settlement_simulator import SettlementSimulator
 _SETTLEMENT_SIM = SettlementSimulator(rpc_url=os.environ.get("ARBICORE_RPC_URL", ""))
@@ -790,17 +819,7 @@ async def v2_deck(limit: int = 5) -> Dict[str, Any]:
         rows = []
 
     def _row(o) -> Dict[str, Any]:
-        c = float(o.confidence_score or 0)
-        conf = c / 100.0 if c > 1.0 else c
-        return {
-            "id":                o.opportunity_id,
-            "opportunity_type":  o.opportunity_type.value if hasattr(o.opportunity_type, "value") else str(o.opportunity_type),
-            "subject_id":        o.subject_id or o.asset or o.opportunity_id,
-            "chain":             o.chain,
-            "confidence":        round(conf, 4),
-            "status":            o.status.value if hasattr(o.status, "value") else str(o.status),
-            "created_at":        o.created_at,
-        }
+        return _opp_contract.build_deck_row(o)
 
     validated = OpportunityStatus.VALIDATED.value
     candidate = OpportunityStatus.CANDIDATE.value
@@ -888,16 +907,54 @@ async def v2_opportunities_summary(
     }
 
 
-@api_router.get("/arbicore/roi-probability")
+@api_router.get("/arbicore/roi-probability", dependencies=[Depends(_require_operator_dep)])
 async def v2_roi_probability(
 route_id: str) -> Dict[str, Any]:
+    """Route ROI statistics from the authoritative learning store.
+
+    Reads realized outcomes from ``arbicore_opportunity_journal`` for the
+    given route. When no authoritative samples exist we report
+    ``available=False`` with null statistics — never fabricated win-rates.
+    """
+    sample_size = 0
+    wins = 0
+    outcome_sum = 0.0
+    try:
+        cur = db["arbicore_opportunity_journal"].find(
+            {"route": route_id}, {"_id": 0})
+        async for row in cur:
+            outcome = row.get("realized_outcome")
+            if outcome is None:
+                continue
+            sample_size += 1
+            outcome_sum += float(outcome)
+            if float(outcome) > 0:
+                wins += 1
+    except Exception:
+        logger.debug("roi-probability: journal read unavailable")
+
+    if sample_size == 0:
+        return {
+            "route_id": route_id,
+            "available": False,
+            "model": None,
+            "sample_size": 0,
+            "win_rate": None,
+            "realized_outcome_mean": None,
+            "realized_outcome_sum": None,
+            "last_outcome_at": None,
+            "note": "No authoritative realized-outcome samples for this route yet.",
+            "generated_at": _iso_now(),
+        }
     return {
         "route_id": route_id,
-        "sample_size": 42,
-        "win_rate": 0.643,
-        "realized_outcome_mean": 0.012,
-        "realized_outcome_sum": 0.517,
-        "last_outcome_at": _iso_now(),
+        "available": True,
+        "model": "opportunity-journal-realized@v1",
+        "sample_size": sample_size,
+        "win_rate": round(wins / sample_size, 4),
+        "realized_outcome_mean": round(outcome_sum / sample_size, 6),
+        "realized_outcome_sum": round(outcome_sum, 6),
+        "last_outcome_at": None,
         "generated_at": _iso_now(),
     }
 
@@ -960,7 +1017,9 @@ async def v2_opportunities_list(
             continue
         if verdict and verdict != "ALL" and o["verdict"] != verdict:
             continue
-        if o["confidence"] < min_confidence:
+        # None confidence is UNAVAILABLE — only filter rows that HAVE a score.
+        if min_confidence and (o.get("confidence") is None
+                               or o["confidence"] < min_confidence):
             continue
         out.append(o)
 
@@ -981,43 +1040,40 @@ async def v2_opportunities_list(
     }
 
 
+from arbicore.models import opportunity_contract as _opp_contract
+
+
+def _opp_provenance_str(opp: "CanonicalOpportunity") -> str:
+    return _opp_contract.provenance_str(opp)
+
+
+def _opp_is_real_provenance(opp: "CanonicalOpportunity") -> bool:
+    """True only when the row is backed by REAL / VERIFIED_REAL data."""
+    return _opp_contract.is_real_provenance(opp)
+
+
+def _opp_economic_state(opp: "CanonicalOpportunity") -> str:
+    """Honest lifecycle-vs-economics state (see opportunity_contract)."""
+    return _opp_contract.economic_state(opp)
+
+
 def _canonical_opp_to_contract(opp: "CanonicalOpportunity") -> Dict[str, Any]:
-    """Translate a CanonicalOpportunity into the frontend v2 contract."""
-    from datetime import datetime as _dt, timezone as _tz
-    now = _dt.now(_tz.utc)
-    try:
-        created = _dt.fromisoformat(opp.created_at.replace("Z", "+00:00"))
-        age_s = max(0, int((now - created).total_seconds()))
-    except Exception:
-        age_s = 0
-    conf = float(opp.confidence_score or 0)
-    if conf > 1.0:  # tolerate 0-100 scale
-        conf = conf / 100.0
-    verdict = "GO" if opp.status in (OpportunityStatus.APPROVED,
-                                       OpportunityStatus.VALIDATED) \
-        else ("HARD_NO" if opp.status == OpportunityStatus.REJECTED else "SOFT_NO")
-    return {
-        "id": opp.opportunity_id,
-        "subject_id": opp.subject_id or opp.asset,
-        "opportunity_type": (opp.opportunity_type.value
-                              if hasattr(opp.opportunity_type, "value")
-                              else str(opp.opportunity_type)),
-        "chain": opp.chain or "-",
-        "verdict": verdict,
-        "confidence": round(conf, 4),
-        "safety": round(1.0 - min(1.0, float(opp.risk_score or 0) / 100.0), 4),
-        "spread_bps": int(round((opp.spread_pct or 0) * 100)),
-        "depth_usd": int(round(opp.capital_required_usd or 0)),
-        "return_low": round((opp.expected_profit_usd or 0) * 0.9, 2),
-        "return_high": round((opp.expected_profit_usd or 0) * 1.1, 2),
-        "age_s": age_s,
-        "route": opp.route,
-        "status": (opp.status.value if hasattr(opp.status, "value") else str(opp.status)),
-        "source_data_quality": (opp.source_data_quality.value
-                                 if hasattr(opp.source_data_quality, "value")
-                                 else str(opp.source_data_quality)),
-        "canonical": True,
-    }
+    """Translate a CanonicalOpportunity into the frontend v2 contract.
+
+    Truth rules (no silent zero coercion):
+      * Missing economics stay ``None`` (frontend renders "—"/UNAVAILABLE).
+      * A genuine confirmed zero (present + real provenance) stays 0.
+      * ``safety`` / ``confidence`` are numeric ONLY when backed by a real
+        assessment (a positive score OR REAL/VERIFIED_REAL provenance);
+        otherwise ``None`` with ``*_assessed=False``.
+      * USD stays USD (``expected_profit_usd``, ``capital_required_usd``);
+        ``return_pct`` is a genuine fraction (profit/capital) or ``None`` —
+        never ``expected_profit_usd`` reinterpreted as a percentage.
+      * ``verdict=="GO"`` ONLY when APPROVED **and** ECONOMICALLY_VALID; a raw
+        or merely-validated candidate is never GO. M3 remains the final
+        execution authority — this verdict is advisory display only.
+    """
+    return _opp_contract.build_display_contract(opp)
 
 
 @api_router.get("/arbicore/opportunities/{opp_id}", dependencies=[Depends(_require_operator_dep)])
@@ -1031,19 +1087,31 @@ async def v2_opportunity_detail(
         canonical = None
     if canonical is not None:
         base = _canonical_opp_to_contract(canonical)
+        # Honest reasoning — NO fabricated confidence breakdown / gate lists.
+        # Surface only what the canonical row genuinely provides.
+        econ_state = base["economic_state"]
+        note = None
+        if econ_state != "ECONOMICALLY_VALID":
+            note = ("Lifecycle record only — no live quote / economics attached. "
+                    "Not economically validated; M3 remains the execution authority.")
         base["reasoning"] = {
-            "confidence_breakdown": [
-                {"factor": "Route confidence", "delta": int(base["confidence"] * 10),
-                 "notes": f"Canonical score {base['confidence']:.2%}"},
-            ],
-            "gates_passed": ["provenance", "lifecycle"],
+            "economic_state": econ_state,
+            "provenance": base["source_data_quality"],
+            "confidence_assessed": base["confidence_assessed"],
+            "safety_assessed": base["safety_assessed"],
+            "note": note,
+            # Real per-factor breakdown / gate ledger is only available from an
+            # evidence bundle; empty here rather than fabricated.
+            "confidence_breakdown": [],
+            "gates_passed": [],
             "gates_dropped": [],
         }
+        # Verification — do not claim a quote source when none was taken.
         base["verification"] = {
-            "quote_source": "canonical_opp_repo",
+            "quote_source": None,
             "last_verified_at": canonical.updated_at,
             "fresh_window_s": 60,
-            "stale": base["age_s"] > 60,
+            "stale": (base["age_s"] is None or base["age_s"] > 60),
         }
         base["evidence"] = {"cycle_id": None,
                               "download_endpoint": f"/api/arbicore/opportunities/{opp_id}/evidence",
@@ -1314,51 +1382,7 @@ _UI_ACTION_TO_TARGET_STATUS = {
 
 def _canonical_opp_to_discovery(opp: "CanonicalOpportunity") -> Dict[str, Any]:
     """Translate a CanonicalOpportunity into the Discovery UI contract."""
-    conf = float(opp.confidence_score or 0)
-    if conf > 1.0:  # tolerate 0-100 scale
-        conf = conf / 100.0
-    otype = (opp.opportunity_type.value if hasattr(opp.opportunity_type, "value")
-             else str(opp.opportunity_type))
-    provenance = (opp.source_data_quality.value
-                  if hasattr(opp.source_data_quality, "value")
-                  else str(opp.source_data_quality))
-    canonical_status = (opp.status.value if hasattr(opp.status, "value")
-                        else str(opp.status))
-    # kind: venue-pair for arb strategies that carry a route; asset otherwise.
-    has_route = bool(opp.route) or bool(opp.buy_venue and opp.sell_venue)
-    kind = "venue_pair" if has_route else "asset"
-    # asset label: use canonical asset when present, else fall back to subject
-    asset_label = opp.asset or opp.subject_id or opp.opportunity_id
-    # why: a compact machine-generated explanation from the canonical row.
-    parts: List[str] = []
-    parts.append(otype.replace("_", " ").title())
-    if opp.chain:
-        parts.append(f"on {opp.chain}")
-    if opp.spread_pct is not None:
-        parts.append(f"spread {opp.spread_pct:.2f}%")
-    parts.append(f"confidence {conf:.2f}")
-    why = " · ".join(parts)
-    # signals: normalised set of tags from the canonical row.
-    signals = [
-        f"type:{otype.lower()}",
-        f"provenance:{provenance.lower()}",
-    ]
-    if opp.chain:
-        signals.append(f"chain:{opp.chain}")
-    if opp.route:
-        signals.append(f"route:{opp.route}")
-    return {
-        "id":       opp.opportunity_id,
-        "asset":    asset_label,
-        "kind":     kind,
-        "chain":    opp.chain or "-",
-        "source":   f"canonical:{provenance.lower()}",
-        "score":    round(conf, 4),
-        "status":   _CANONICAL_STATUS_TO_UI.get(canonical_status, "NEW"),
-        "why":      why,
-        "signals":  signals,
-        "seen_at":  opp.created_at,
-    }
+    return _opp_contract.build_discovery_contract(opp)
 
 
 def _canonical_discovery_calibration(rows: List["CanonicalOpportunity"]) -> Dict[str, Any]:
@@ -1422,7 +1446,7 @@ async def v2_discovery_candidates(
             continue
         if kind and kind != "ALL" and c["kind"] != kind:
             continue
-        if c["score"] < min_score:
+        if min_score and (c.get("score") is None or c["score"] < min_score):
             continue
         out.append(c)
     out.sort(key=lambda c: c.get("score") or 0, reverse=True)
@@ -2787,8 +2811,10 @@ async def v2_positions(venue: Optional[str] = None,
     → empty items + zero totals.
     """
     _ = venue, side  # noqa: F841 — contract preserved for UI filter chips
-    return {"items": [], "total": 0, "total_size_usd": 0.0,
-            "total_upnl_usd": 0.0, "generated_at": _iso_now()}
+    return {"items": [], "total": None, "total_size_usd": None,
+            "total_upnl_usd": None, "available": False, "source": "unwired",
+            "unavailable_reason": "execution position source not wired yet",
+            "generated_at": _iso_now()}
 
 
 @api_router.get(
@@ -2803,7 +2829,9 @@ async def v2_balances(venue: Optional[str] = None) -> Dict[str, Any]:
     milestone). No canonical source exists today → empty.
     """
     _ = venue  # noqa: F841
-    return {"items": [], "total": 0, "total_usd": 0.0,
+    return {"items": [], "total": None, "total_usd": None,
+            "available": False, "source": "unwired",
+            "unavailable_reason": "per-venue balance polling not enabled yet",
             "generated_at": _iso_now()}
 
 
@@ -2820,7 +2848,9 @@ async def v2_transfers(status: Optional[str] = None,
     → empty.
     """
     _ = status, limit  # noqa: F841
-    return {"items": [], "total": 0, "generated_at": _iso_now()}
+    return {"items": [], "total": None, "available": False, "source": "unwired",
+            "unavailable_reason": "treasury transfer ledger not wired yet",
+            "generated_at": _iso_now()}
 
 
 @api_router.get(
@@ -2836,11 +2866,14 @@ async def v2_deployable() -> Dict[str, Any]:
     executor + balance-polling wiring. Empty per-venue → zero totals.
     """
     return {
-        "total_deployable_usd": 0.0,
-        "total_utilised_usd": 0.0,
-        "total_capital_usd": 0.0,
-        "utilisation_pct": 0.0,
+        "total_deployable_usd": None,
+        "total_utilised_usd": None,
+        "total_capital_usd": None,
+        "utilisation_pct": None,
         "per_venue": [],
+        "available": False,
+        "source": "unwired",
+        "unavailable_reason": "runtime deployable/utilised state not wired yet",
         "generated_at": _iso_now(),
     }
 
@@ -2855,7 +2888,10 @@ async def v2_treasury() -> Dict[str, Any]:
     TODO: wire ``TreasuryLedger.vault_snapshot()``. No canonical source
     exists today → empty vaults + zero total.
     """
-    return {"vaults": [], "total_usd": 0.0, "generated_at": _iso_now()}
+    return {"vaults": [], "total_usd": None, "available": False,
+            "source": "unwired",
+            "unavailable_reason": "treasury vault ledger not wired yet",
+            "generated_at": _iso_now()}
 
 
 @api_router.get(
@@ -2870,7 +2906,9 @@ async def v2_ledger(kind: Optional[str] = None,
     source exists today → empty.
     """
     _ = kind, limit  # noqa: F841
-    return {"items": [], "total": 0, "generated_at": _iso_now()}
+    return {"items": [], "total": None, "available": False, "source": "unwired",
+            "unavailable_reason": "treasury ledger not wired yet",
+            "generated_at": _iso_now()}
 
 
 @api_router.get(
@@ -2883,7 +2921,9 @@ async def v2_exposure() -> Dict[str, Any]:
     TODO: wire ``ExposureAnalyzer.breakdown()``. Derives from
     balances + positions once those canonical sources exist. Empty today.
     """
-    return {"by_asset": [], "by_chain": [], "total_usd": 0.0,
+    return {"by_asset": [], "by_chain": [], "total_usd": None,
+            "available": False, "source": "unwired",
+            "unavailable_reason": "exposure derives from balances/positions (unwired)",
             "generated_at": _iso_now()}
 
 
@@ -2898,8 +2938,10 @@ async def v2_allocation() -> Dict[str, Any]:
     ledger + capital router substrate. No canonical source today → empty
     items + zero totals.
     """
-    return {"items": [], "total_target_usd": 0.0,
-            "total_actual_usd": 0.0, "generated_at": _iso_now()}
+    return {"items": [], "total_target_usd": None,
+            "total_actual_usd": None, "available": False, "source": "unwired",
+            "unavailable_reason": "allocation derives from treasury/capital router (unwired)",
+            "generated_at": _iso_now()}
 
 # ---------------------------------------------------------------------------
 # UI v2 · Slice 5 preview endpoints — Settings (account, vault, execution,
@@ -4199,6 +4241,39 @@ async def v2_executor_verify(address: Optional[str] = None,
                 "generated_at": _iso_now()}
 
 
+@api_router.get("/arbicore/limited-live/readiness")
+async def v2_limited_live_readiness(chain: str = "base") -> Dict[str, Any]:
+    """Canonical Limited-Live readiness matrix (same assembler the VPS audit
+    uses). Read-only: never signs/broadcasts/enables anything."""
+    try:
+        from arbicore.scanners.flash_loan_arbitrage.limited_live_readiness_matrix import (
+            gather_and_build,
+        )
+        rpc_url = (os.environ.get("ARBICORE_RPC_URL_BASE")
+                   or os.environ.get("ARBICORE_RPC_URL") or "")
+        chain_id = {"base": "8453", "base_mainnet": "8453",
+                    "base_sepolia": "84532", "sepolia": "84532"}.get(chain, chain)
+        assembled = await gather_and_build(db=db, rpc_url=rpc_url, chain=chain_id)
+        m = assembled["matrix"]
+        return {
+            "overall": m["overall"], "counts": m["counts"], "items": m["items"],
+            "blocked": m["blocked"], "unknown": m["unknown"],
+            "market_dependent": m["market_dependent"],
+            "operator_state": assembled["operator_state"],
+            "signer_state": assembled["signer_state"],
+            "executor_identity": assembled["executor_identity"],
+            "executor_address_resolved": assembled["executor_address_resolved"],
+            "executor_provenance": assembled.get("executor_provenance"),
+            "atomic_simulation": next(
+                (i for i in m["items"] if i["prerequisite"] == "atomic_simulation"), None),
+            "signed": False, "broadcast": False, "limited_live_enabled": False,
+            "generated_at": _iso_now(),
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"error": f"{type(exc).__name__}: {exc}",
+                "generated_at": _iso_now()}
+
+
 @api_router.get("/arbicore/rpc/check")
 async def v2_rpc_check() -> Dict[str, Any]:
     try:
@@ -5131,6 +5206,7 @@ def _resolve_build_identity() -> Dict[str, Any]:
     if _BUILD_IDENTITY:
         return _BUILD_IDENTITY
     import subprocess
+    import json as _json
 
     def _git(args: List[str]) -> Optional[str]:
         try:
@@ -5141,19 +5217,32 @@ def _resolve_build_identity() -> Dict[str, Any]:
         except Exception:  # noqa: BLE001
             return None
 
-    git_sha = (os.environ.get("ARBICORE_GIT_SHA") or _git(["rev-parse", "HEAD"]) or "unknown")
-    git_tag = (os.environ.get("ARBICORE_GIT_TAG")
-               or _git(["describe", "--tags", "--always", "--dirty"]) or "unknown")
+    # Build-time stamp file (written by CI / image build). Used as a fallback
+    # so a deployed image with no .git dir still reports a real identity.
+    stamp: Dict[str, Any] = {}
+    try:
+        _p = Path(os.path.dirname(__file__)) / "BUILD_INFO.json"
+        if _p.exists():
+            stamp = _json.loads(_p.read_text()) or {}
+    except Exception:  # noqa: BLE001
+        stamp = {}
+
+    def _pick(env_key: str, stamp_key: str, live: Optional[str], default: str) -> str:
+        return (os.environ.get(env_key) or stamp.get(stamp_key) or live or default)
+
+    git_sha = _pick("ARBICORE_GIT_SHA", "git_sha", _git(["rev-parse", "HEAD"]), "unknown")
+    git_tag = _pick("ARBICORE_GIT_TAG", "git_tag",
+                    _git(["describe", "--tags", "--always", "--dirty"]), "unknown")
     _BUILD_IDENTITY = {
         "application": "arbicore-x",
-        "app_version": os.environ.get("ARBICORE_VERSION") or git_tag,
+        "app_version": _pick("ARBICORE_VERSION", "app_version", git_tag, git_tag),
         "git_sha": git_sha,
         "git_sha_short": git_sha[:12] if git_sha and git_sha != "unknown" else "unknown",
         "git_tag": git_tag,
-        "image_digest": os.environ.get("ARBICORE_IMAGE_DIGEST") or "unset",
-        "image_ref": os.environ.get("ARBICORE_IMAGE_REF") or "unset",
-        "build_time": os.environ.get("ARBICORE_BUILD_TIME") or "unset",
-        "runtime_env": os.environ.get("ARBICORE_ENV") or "unset",
+        "image_digest": _pick("ARBICORE_IMAGE_DIGEST", "image_digest", None, "unset"),
+        "image_ref": _pick("ARBICORE_IMAGE_REF", "image_ref", None, "unset"),
+        "build_time": _pick("ARBICORE_BUILD_TIME", "build_time", None, "unset"),
+        "runtime_env": _pick("ARBICORE_ENV", "runtime_env", None, "unset"),
         "dirty": git_tag.endswith("-dirty") if git_tag else False,
     }
     return _BUILD_IDENTITY
@@ -5279,6 +5368,106 @@ async def v2_capital_overview(address: Optional[str] = None) -> Dict[str, Any]:
                 dependencies=[Depends(_require_operator_dep)])
 async def v2_engine_scanner_status() -> Dict[str, Any]:
     return _CONTINUOUS_SCANNER.status()
+
+
+@api_router.get("/arbicore/engine/flash-loan/readiness",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_flash_loan_readiness() -> Dict[str, Any]:
+    """T0-1 · canonical flash-loan scanner quote-provider readiness.
+
+    Proves the canonical scanner is NOT silently running the noop quote
+    provider in an analysis mode. Live-computed against the current
+    flash_loan_arbitrage execution mode.
+    """
+    from arbicore.runtime import composition as _composition
+    activation = dict(_CANONICAL_FL_ACTIVATION)
+    readiness = activation.get("readiness")
+    try:
+        scanner = _composition.get_flash_loan_arb_scanner()
+        fl_row = await _EXECUTION_MODE_REPO.get("flash_loan_arbitrage")
+        fl_mode = (fl_row or {}).get("mode") or "OBSERVE"
+        readiness = _composition.flash_loan_quote_readiness(
+            quote_provider_is_default=scanner.quote_provider_is_default,
+            mode=fl_mode)
+        activation["mode"] = fl_mode
+        activation["readiness"] = readiness
+    except Exception as exc:  # noqa: BLE001
+        activation["readiness_error"] = f"{type(exc).__name__}: {exc}"
+    return {"activation": activation, "readiness": readiness,
+            "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/engine/base-live-shadow/readiness",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_base_live_shadow_readiness() -> Dict[str, Any]:
+    """T2 · Base live-SHADOW readiness. Evidence-based per-dependency status +
+    categorized blockers. tx_builder is now WIRED (SOFTWARE self-test against
+    the canonical execute() encoder). SHADOW-only; never signs/broadcasts."""
+    from arbicore.searcher import live_base as _lb
+    readiness = _lb.base_live_readiness()          # tx_builder auto self-tested
+    return {"readiness": readiness,
+            "tx_builder_selftest": _lb.tx_builder_selftest(),
+            "mode": "SHADOW", "broadcast": False, "generated_at": _iso_now()}
+
+
+@api_router.get("/arbicore/engine/base-live-shadow/audit",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_base_live_shadow_audit() -> Dict[str, Any]:
+    """T2 · Full Base live-SHADOW software audit — every path item classified as
+    SOFTWARE / CONFIGURATION / VALIDATION / MARKET / SAFETY with evidence-based
+    status. Read-only; changes nothing; never signs/broadcasts."""
+    from arbicore.searcher import live_base as _lb
+    audit = _lb.base_live_shadow_audit()
+    audit["generated_at"] = _iso_now()
+    return audit
+
+
+@api_router.get("/arbicore/engine/base-live-shadow/dry-run",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_base_live_shadow_dry_run() -> Dict[str, Any]:
+    """T2 · SHADOW dry-run transaction audit — builds the canonical executor tx
+    for a representative Base route via the wired tx_builder and DECODES it
+    (selector, borrow, hops, profit-recipient) for operator review.
+
+    READ-ONLY: value=0x0, eth_call/fork-sim only. NEVER signs or broadcasts."""
+    from arbicore.searcher import live_base as _lb
+    audit = _lb.shadow_dry_run_audit()
+    audit["generated_at"] = _iso_now()
+    return audit
+
+
+@api_router.get("/arbicore/engine/base-live-shadow/wss-status",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_base_live_shadow_wss_status() -> Dict[str, Any]:
+    """T2 · Live Base WSS ingestion telemetry (SHADOW). Reflects ONLY real
+    events — a live connection does NOT flip any readiness gate to PASSED."""
+    mgr = _T2_WSS_MANAGER
+    if mgr is None:
+        from arbicore.searcher.wss_ingest import resolve_base_wss_url
+        return {"enabled": False, "running": False, "mode": "SHADOW",
+                "broadcast": False,
+                "wss_url_present": bool(resolve_base_wss_url()),
+                "reason": "T2 WSS manager not started (flag off or WSS unconfigured)",
+                "generated_at": _iso_now()}
+    st = mgr.status()
+    st["generated_at"] = _iso_now()
+    return st
+
+
+@api_router.get("/arbicore/certification/provenance-split",
+                dependencies=[Depends(_require_operator_dep)])
+async def v2_certification_provenance_split() -> Dict[str, Any]:
+    """T0-7 · REAL vs SYNTHETIC provenance partition of the latest evidence
+    delta. Executable metrics count REAL/VERIFIED_REAL only; synthetic
+    executable evidence is reported here but excluded from executable_rate."""
+    split = {"real": 0, "synthetic": 0,
+             "synthetic_executable_excluded": 0, "executable_real": 0}
+    if _SHADOW_CERT_ENGINE is not None:
+        try:
+            split = _SHADOW_CERT_ENGINE.last_provenance_split()
+        except Exception:  # noqa: BLE001
+            pass
+    return {"provenance_split": split, "generated_at": _iso_now()}
 
 
 @api_router.post("/arbicore/engine/scanner/start",
@@ -6852,11 +7041,56 @@ async def _canonical_flash_loan_scanner_startup():
         _CANONICAL_FL_ACTIVATION = await _composition.activate_canonical_flash_loan_scanner(
             _QUOTER_REGISTRY)
         _CANONICAL_FL_SCANNER = _composition.get_flash_loan_arb_scanner()
+        # T0-1: surface an explicit readiness verdict so a canonical scanner
+        # in an analysis mode on the default noop quote provider is visible
+        # (never a silent synthetic production quote path).
+        try:
+            _fl_row = await _EXECUTION_MODE_REPO.get("flash_loan_arbitrage")
+            _fl_mode = (_fl_row or {}).get("mode") or "OBSERVE"
+            _readiness = _composition.flash_loan_quote_readiness(
+                quote_provider_is_default=_CANONICAL_FL_SCANNER.quote_provider_is_default,
+                mode=_fl_mode)
+            _CANONICAL_FL_ACTIVATION = {**_CANONICAL_FL_ACTIVATION,
+                                        "mode": _fl_mode,
+                                        "readiness": _readiness}
+        except Exception as _re:  # noqa: BLE001
+            logger.warning("flash-loan readiness snapshot failed: %s", _re)
         logger.info("scanners: canonical FlashLoanArbitrageScanner ACTIVE — %s",
                     _CANONICAL_FL_ACTIVATION)
     except Exception as exc:  # noqa: BLE001
         _CANONICAL_FL_ACTIVATION = {"instantiated": False, "error": f"{type(exc).__name__}: {exc}"}
         logger.exception("scanners: canonical flash-loan activation failed: %s", exc)
+
+    # T2 · flag-gated Base searcher runtime (SHADOW, construction-only; never
+    # broadcasts, never promotes). Default OFF → zero runtime impact.
+    global _BASE_SEARCHER_RUNTIME, _T2_WSS_MANAGER
+    try:
+        from arbicore.searcher.runtime import maybe_build_base_searcher
+        _BASE_SEARCHER_RUNTIME = maybe_build_base_searcher(
+            quoter_registry=_QUOTER_REGISTRY
+        )
+        if _BASE_SEARCHER_RUNTIME is not None:
+            logger.info("searcher: T2 Base runtime constructed (SHADOW, "
+                        "no-broadcast, flag ARBICORE_T2_SEARCHER_ENABLED=on)")
+            # Start the live Base WSS ingestion lifecycle (newHeads → scan_block,
+            # Sync logs → cache) when a WSS url is configured. SHADOW-only.
+            try:
+                from arbicore.searcher.wss_ingest import maybe_build_t2_wss_manager
+                _T2_WSS_MANAGER = maybe_build_t2_wss_manager(_BASE_SEARCHER_RUNTIME)
+                if _T2_WSS_MANAGER is not None:
+                    await _T2_WSS_MANAGER.start()
+                    logger.info("searcher: T2 Base WSS manager started (SHADOW)")
+                else:
+                    logger.info("searcher: T2 WSS manager not started "
+                                "(no ARBICORE_WSS_URL_BASE/ARBICORE_RPC_WSS_BASE)")
+            except Exception as exc:  # noqa: BLE001
+                _T2_WSS_MANAGER = None
+                logger.warning("searcher: T2 WSS manager start skipped: %s", exc)
+        else:
+            logger.info("searcher: T2 Base runtime disabled (flag off)")
+    except Exception as exc:  # noqa: BLE001
+        _BASE_SEARCHER_RUNTIME = None
+        logger.warning("searcher: T2 runtime construction skipped: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -7328,6 +7562,13 @@ try:
     _PROVIDER_REGISTRY.register(NoOpWalletProvider(), priority=1000)
     _PROVIDER_REGISTRY.register(EnvSecretProvider(),  priority=1000)
     _PROVIDER_BOOTSTRAP_SUMMARY = _bootstrap_providers(_PROVIDER_REGISTRY)
+
+    # Make the canonical application ProviderRegistry available to all
+    # registry-backed read-only RPC consumers.  This does NOT affect
+    # transaction signing/broadcasting.
+    from arbicore.providers.rpc_failover import set_default_registry
+    set_default_registry(_PROVIDER_REGISTRY)
+
     _PROVIDERS_AVAILABLE = True
     logger.info(
         "providers: Phase 5 registry activated (%d providers total)",
@@ -7450,9 +7691,15 @@ async def _live_market_startup():
         notional_usd=float(os.environ.get(
             "LIVE_QUOTE_NOTIONAL_USD", "10000") or 10000),
     )
-    if os.environ.get("LIVE_MARKET_AUTOSTART", "1") == "1":
+    # LEGACY PIPELINE GATE (audit 2026-06): the LiveMarketScanner writes into the
+    # legacy MID store ("opportunities" domain), which is a SEPARATE feed from the
+    # canonical EmissionBus → arbicore_opportunities pipeline. To prevent
+    # duplicate/conflicting opportunity generation, this OBSERVE-mode scanner is
+    # now OPT-IN (default OFF). Set LIVE_MARKET_AUTOSTART=1 to re-enable. This
+    # never signs/broadcasts; it only stops a parallel opportunity feed.
+    if os.environ.get("LIVE_MARKET_AUTOSTART", "0") == "1":
         await _LIVE_SCANNER.start()
-        logger.info("live_market: autostarted")
+        logger.info("live_market: autostarted (LIVE_MARKET_AUTOSTART=1)")
 
 
 @app.on_event("shutdown")
@@ -7554,16 +7801,21 @@ async def _cross_scanner_startup():
         notional_usd=float(os.environ.get(
             "CROSS_NOTIONAL_USD", "10000") or 10000),
     )
+    # LEGACY PIPELINE GATE (audit 2026-06): CexDex/DexDex scanners feed the legacy
+    # MID store, a SEPARATE feed from the canonical EmissionBus → arbicore_opportunities
+    # pipeline. Made OPT-IN (default OFF) to prevent duplicate/conflicting opportunity
+    # generation. Set CROSS_AUTOSTART=1 to re-enable. OBSERVE-mode only; never
+    # signs/broadcasts.
     if _CEX_DEX_SCANNER is None:
         _CEX_DEX_SCANNER = CexDexScanner(**common)
-        if os.environ.get("CROSS_AUTOSTART", "1") == "1":
+        if os.environ.get("CROSS_AUTOSTART", "0") == "1":
             await _CEX_DEX_SCANNER.start()
-            logger.info("live_cex_dex: autostarted")
+            logger.info("live_cex_dex: autostarted (CROSS_AUTOSTART=1)")
     if _DEX_DEX_SCANNER is None:
         _DEX_DEX_SCANNER = DexDexScanner(**common)
-        if os.environ.get("CROSS_AUTOSTART", "1") == "1":
+        if os.environ.get("CROSS_AUTOSTART", "0") == "1":
             await _DEX_DEX_SCANNER.start()
-            logger.info("live_dex_dex: autostarted")
+            logger.info("live_dex_dex: autostarted (CROSS_AUTOSTART=1)")
 
 
 @app.on_event("shutdown")

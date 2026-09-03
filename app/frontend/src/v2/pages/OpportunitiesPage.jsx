@@ -12,6 +12,8 @@ import {
   ConfidencePill,
   SafetyPill,
   FreshnessBadge,
+  ProvenanceChip,
+  AnomalyChips,
   fmtBps,
   fmtUsd,
   fmtPct,
@@ -20,7 +22,7 @@ import { OpportunityDrawer } from "@/v2/components/OpportunityDrawer";
 import { toast } from "sonner";
 
 const FAMILY_OPTS = ["ALL", "CEX_ARBITRAGE", "DEX_ARBITRAGE", "FUNDING_ARBITRAGE", "CROSS_CHAIN_ARBITRAGE", "FLASH_LOAN_ARBITRAGE", "LAUNCH_ARBITRAGE"];
-const VERDICT_OPTS = ["ALL", "GO", "SOFT_NO", "HARD_NO"];
+const VERDICT_OPTS = ["ALL", "GO", "SOFT_NO", "HARD_NO", "UNVERIFIED"];
 
 function Chip({ active, children, onClick, testid }) {
   return (
@@ -137,6 +139,22 @@ export default function OpportunitiesPage() {
         <span className="v2-kbd">Enter</span> to open, <span className="v2-kbd">A</span>/<span className="v2-kbd">R</span> to approve / reject.
       </p>
 
+      <div data-testid="v2-opp-verdict-legend" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: "8px 12px", marginBottom: 14, border: "1px solid var(--v2-border-subtle)", background: "var(--v2-bg-surface)", borderRadius: 2, fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 0.5 }}>
+        <span style={{ color: "var(--v2-text-muted)", textTransform: "uppercase", letterSpacing: 1 }}>Economic state ladder</span>
+        {[
+          { k: "DISCOVERED", c: "var(--v2-text-muted)", d: "Raw candidate — nothing priced" },
+          { k: "LIVE_QUOTED", c: "var(--v2-conf-mid)", d: "Live spread / venue price exists" },
+          { k: "VERIFIED", c: "var(--v2-accent-base)", d: "REAL provenance + economics" },
+          { k: "ECONOMICALLY_VALID", c: "var(--v2-verdict-go)", d: "REAL + positive profit + spread → GO-eligible" },
+          { k: "M3_GREEN", c: "var(--v2-verdict-go)", d: "M3 execution authority (not enabled)" },
+        ].map((s, i, arr) => (
+          <span key={s.k} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <span title={s.d} style={{ color: s.c, border: `1px solid ${s.c}`, padding: "1px 6px", borderRadius: 2 }}>{s.k}</span>
+            {i < arr.length - 1 && <span style={{ color: "var(--v2-text-muted)" }}>→</span>}
+          </span>
+        ))}
+      </div>
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14, alignItems: "center" }} data-testid="v2-opp-filters">
         <span style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", marginRight: 4 }}>Family</span>
         {FAMILY_OPTS.map((f) => (
@@ -165,17 +183,17 @@ export default function OpportunitiesPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "var(--v2-font-mono)", fontSize: 12 }} data-testid="v2-opp-table">
           <thead>
             <tr style={{ background: "var(--v2-bg-panel)" }}>
-              {["Asset", "Family", "Chain", "Verdict", "Confidence", "Safety", "Spread", "Depth", "Est. return", "Age"].map((h) => (
+              {["Asset", "Family", "Chain", "Verdict", "Confidence", "Safety", "Spread", "Capital req.", "Est. profit", "Provenance", "Age"].map((h) => (
                 <th key={h} style={{ textAlign: "left", padding: "8px 10px", color: "var(--v2-text-muted)", fontWeight: 500, fontSize: 10, letterSpacing: 1, textTransform: "uppercase", borderBottom: "1px solid var(--v2-border-subtle)" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={10} style={{ padding: 16, color: "var(--v2-text-muted)" }}>Loading…</td></tr>
+              <tr><td colSpan={11} style={{ padding: 16, color: "var(--v2-text-muted)" }}>Loading…</td></tr>
             )}
             {!loading && items.length === 0 && (
-              <tr><td colSpan={10} style={{ padding: 0 }}>
+              <tr><td colSpan={11} style={{ padding: 0 }}>
                 <div className="v2-empty" style={{ margin: 12 }}>
                   {`> 0 opportunities match the current filters.\n> Try widening Family, Chain, or lowering Min Confidence.\n> Full gate reasoning arrives in Slice 3 (Operations · Scanners).`}
                 </div>
@@ -183,7 +201,7 @@ export default function OpportunitiesPage() {
             )}
             {!loading && items.map((o, i) => (
               <tr
-                key={o.id}
+                key={`${o.id}-${i}`}
                 ref={(el) => (rowRefs.current[i] = el)}
                 data-testid={`v2-opp-row-${o.id}`}
                 onClick={() => openRow(i)}
@@ -201,10 +219,19 @@ export default function OpportunitiesPage() {
                 <td style={{ padding: "6px 10px" }}><ConfidencePill value={o.confidence} /></td>
                 <td style={{ padding: "6px 10px" }}><SafetyPill value={o.safety} /></td>
                 <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }}>{fmtBps(o.spread_bps)}</td>
-                <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }}>{fmtUsd(o.depth_usd)}</td>
-                <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }}>
-                  {fmtPct(o.return_low)} – {fmtPct(o.return_high)}
+                <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }}>{fmtUsd(o.capital_required_usd)}</td>
+                <td style={{ padding: "6px 10px", color: "var(--v2-text-primary)" }} data-testid={`v2-opp-profit-${o.id}`}>
+                  {fmtUsd(o.expected_profit_usd)}
+                  {o.return_pct != null && (
+                    <span style={{ color: "var(--v2-text-muted)", marginLeft: 6 }}>({fmtPct(o.return_pct)})</span>
+                  )}
+                  {Array.isArray(o.data_quality_flags) && o.data_quality_flags.length > 0 && (
+                    <div style={{ marginTop: 3 }}>
+                      <AnomalyChips flags={o.data_quality_flags} testid={`v2-opp-dq-${o.id}`} />
+                    </div>
+                  )}
                 </td>
+                <td style={{ padding: "6px 10px" }}><ProvenanceChip value={o.source_data_quality} testid={`v2-opp-prov-${o.id}`} /></td>
                 <td style={{ padding: "6px 10px" }}><FreshnessBadge ageSeconds={o.age_s} /></td>
               </tr>
             ))}

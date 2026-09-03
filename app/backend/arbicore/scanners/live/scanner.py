@@ -25,12 +25,12 @@ import asyncio
 import logging
 import os
 import time
-import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from ...data.mid.readers import MidReader
 from ...data.mid.writers import MidWriter
+from .ids import stable_live_id
 from ...providers.base import ProviderKind
 from ...providers.registry import ProviderRegistry
 from ...scanners.wave1b.bridge import ScannerEvidenceBridge
@@ -223,7 +223,9 @@ class LiveMarketScanner:
             slippage_bps=5.0,
             liquidity_impact_bps=2.0,
         )
-        opp_id = f"live:cex_spot_arb:{symbol.replace('/','')}:{uuid.uuid4().hex[:8]}"
+        opp_id = stable_live_id(
+            opportunity_type="cex_spot_arbitrage", chain="cex",
+            symbol=symbol, venue_buy=buy_venue, venue_sell=sell_venue)
         payload = {
             "opportunity_type": "cex_spot_arbitrage",
             "chain": "cex",

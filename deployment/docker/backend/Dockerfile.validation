@@ -1,0 +1,58 @@
+# ArbiCore X — DISPOSABLE VPS validation image (test-capable).
+# ---------------------------------------------------------------------------
+# READ THIS FIRST:
+#   * This image is NEVER used in production. It exists ONLY so the independent
+#     VPS validator (Codex) can run the repository's deterministic/readiness
+#     pytest suite via `scripts/run_vps_validator_audit.sh`.
+#   * The production backend image (deployment/docker/backend/Dockerfile) and
+#     every production compose file are UNCHANGED by this file — production
+#     never installs pytest (requirements.prod.txt remains the sole prod source).
+#   * Test dependencies come from the EXPLICIT, pinned requirements.test.txt
+#     (build time — not arbitrary runtime installs).
+#   * No secrets, no signer material, no source baked. The audited SOURCE (the
+#     exact detached worktree / SHA under validation) is MOUNTED at run time so
+#     the runner validates precisely the SHA the operator checked out, e.g.:
+#
+#       docker build -f deployment/docker/backend/Dockerfile.validation \
+#                    -t arbicore-x-validator:$(git rev-parse --short HEAD) .
+#
+#       docker run --rm \
+#         -v "$PWD":/src -w /src \
+#         -e ARBICORE_RUN_LIVE_AUDIT=1 \
+#         -e MONGO_URL -e DB_NAME -e ARBICORE_RPC_URL_BASE \
+#         arbicore-x-validator:$(git rev-parse --short HEAD) \
+#         bash scripts/run_vps_validator_audit.sh
+#
+#     (Mount is read-only-friendly; the runner never writes to the tree. The
+#      live-phase env vars are optional and remain fully fail-closed if absent.)
+# ---------------------------------------------------------------------------
+FROM python:3.11-slim AS validation
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    ARBICORE_ENV=validation
+
+# git: so the runner can stamp the exact validated SHA/branch.
+# build-essential: some pinned deps (e.g. ckzg) build native wheels; purged after.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends git curl ca-certificates build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Explicit, pinned test/validation dependencies (prod superset + pytest stack).
+# requirements.test.txt begins with `-r requirements.prod.txt`, so BOTH files
+# must land in the SAME in-image directory (/app) with their names preserved,
+# otherwise pip fails with "Could not open requirements file: .../requirements.prod.txt".
+COPY deployment/docker/backend/requirements.prod.txt /app/requirements.prod.txt
+COPY deployment/docker/backend/requirements.test.txt /app/requirements.test.txt
+RUN pip install --no-cache-dir -r /app/requirements.test.txt \
+ && apt-get purge -y build-essential \
+ && apt-get autoremove -y \
+ && rm -rf /var/lib/apt/lists/*
+
+# The source under validation is mounted at run time (see header). Default to a
+# shell so the operator drives the exact runner invocation + env they intend.
+CMD ["bash"]

@@ -13,6 +13,7 @@ from .enums import (
     OpportunityStatus,
     OpportunityType,
     RouteHealth,
+    StrategyType,
 )
 
 __all__ = [
@@ -26,6 +27,7 @@ __all__ = [
     "OpportunityStatus",
     "OpportunityType",
     "RouteHealth",
+    "StrategyType",
     "reset_unknown_key_warnings",
     "unknown_key_warnings",
     "validate_category_metadata",

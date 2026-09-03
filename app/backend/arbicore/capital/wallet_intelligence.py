@@ -168,6 +168,7 @@ class WalletIntelligenceEngine:
                 "price_usd": price, "value_usd": usd,
                 "priced": price is not None,
             })
+        ok = bool(native_d.get("ok"))
         return {
             "address": address, "chain": self._chain,
             "native": {"symbol": native_d.get("symbol"),
@@ -177,11 +178,17 @@ class WalletIntelligenceEngine:
                        "is_gas_balance": True},
             "gas_balance_eth": native_d.get("balance_native"),
             "tokens": tokens_out,
-            "total_value_usd": round(total_usd, 4),
+            # Truth rule: when the on-chain source is unavailable (RPC not
+            # configured / unreachable) total value is UNKNOWN → None (UI "—"),
+            # NOT a coerced $0. A genuine confirmed zero (source ok) stays 0.
+            "total_value_usd": round(total_usd, 4) if ok else None,
             "eth_price_usd": eth_usd,
             "block_number": native_d.get("block_number"),
             "rpc": native_d.get("rpc_endpoint_redacted"),
-            "ok": bool(native_d.get("ok")),
+            "ok": ok,
+            "available": ok,
+            "unavailable_reason": None if ok else (
+                "on-chain balance source unavailable (RPC not configured or unreachable)"),
             "last_sync": _now_iso(),
         }
 

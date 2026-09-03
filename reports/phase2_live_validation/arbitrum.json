@@ -1,0 +1,187 @@
+{
+  "chain": "arbitrum",
+  "shadow": true,
+  "signing": false,
+  "broadcast": false,
+  "stages": {
+    "rpc": {
+      "ok": true,
+      "latency_ms": 231.3,
+      "block": 498529359
+    },
+    "chain_identity": {
+      "chain_id": 42161,
+      "expected": 42161,
+      "match": true
+    },
+    "token_registry": {
+      "count": 8,
+      "tokens": {
+        "WETH": {
+          "address": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "USDC": {
+          "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "USDC.e": {
+          "address": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "USDT": {
+          "address": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "DAI": {
+          "address": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "WBTC": {
+          "address": "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
+          "code": true,
+          "onchain_decimals": 8,
+          "registry_decimals": 8,
+          "decimals_match": true
+        },
+        "ARB": {
+          "address": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "wstETH": {
+          "address": "0x5979D7b546E38E414F7E9822514be443A4800529",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        }
+      }
+    },
+    "dex_registry": {
+      "uniswap_v3": {
+        "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "code": true
+      },
+      "sushiswap_v3": {
+        "factory": "0x1af415a1EbA07a4986a52B6f2e7dE7003D82231e",
+        "code": true
+      },
+      "camelot_v3": {
+        "factory": "0x1a3c9B1d2F0529D97f2afC5136Cc23e58f1FD35B",
+        "code": true
+      }
+    },
+    "route_discovery": {
+      "WETH/USDC@500": {
+        "dex": "uniswap_v3",
+        "pool": "0xc6962004f452be9203591991d15f6b388e09e8d0",
+        "pool_token_depth": {
+          "WETH": 7407.34571233404,
+          "USDC": 19237073.026033
+        }
+      },
+      "WETH/USDC@3000": {
+        "dex": "uniswap_v3",
+        "pool": "0xc473e2aee3441bf9240be85eb122abb059a3b57c",
+        "pool_token_depth": {
+          "WETH": 762.632232329766,
+          "USDC": 3767833.81818
+        }
+      }
+    },
+    "native_price_usd": 2459.7,
+    "native_price_oracle": {
+      "chain": "arbitrum",
+      "symbol": "ETH",
+      "price_usd": 2459.7,
+      "ok": true,
+      "stale": false,
+      "age_s": 0.0,
+      "source": "coingecko",
+      "reason": "live"
+    },
+    "provider_liquidity": {
+      "balancer_v2": {
+        "provider": "balancer_v2",
+        "chain": "arbitrum",
+        "status": "ON_CHAIN_CONFIRMED",
+        "fee_bps": 0,
+        "liquidity_tokens": 91.59177753128449,
+        "liquidity_usd": 225288.29519370044,
+        "source_address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+        "reason": "confirmed"
+      },
+      "aave_v3": {
+        "provider": "aave_v3",
+        "chain": "arbitrum",
+        "status": "ON_CHAIN_CONFIRMED",
+        "fee_bps": 5,
+        "liquidity_tokens": 19135.171257030845,
+        "liquidity_usd": 47066780.74091876,
+        "source_address": "0xe50fa9b3c56ffb159cb0fca61f5c9d750e8128c8",
+        "reason": "confirmed"
+      }
+    },
+    "provider_choice": {
+      "feasible": true,
+      "provider": "balancer_v2",
+      "fee_bps": 0,
+      "fee_usd": 0.0,
+      "callback_extra_gas": 90000,
+      "reason": "cheapest_feasible_provider"
+    },
+    "gas_price_wei": 20012000,
+    "all_in_cost": {
+      "all_in_cost_usd": 150.01849967605372,
+      "net_profit_all_in_usd": -150.01849967605372,
+      "l2_fee_usd": 0.01844775,
+      "l1_fee_usd": 5.192605372607999e-05,
+      "flash_loan_fee_usd": 0.0,
+      "slippage_usd": 150.0,
+      "gas_units": 300000.0,
+      "gas_price_wei_ceiling": 25000000.0,
+      "chain": "arbitrum",
+      "native_token": "ETH"
+    },
+    "economics": {
+      "min_net_profit_gate_usd": 35.0,
+      "real_all_in_cost_usd": 150.0185,
+      "l2_fee_usd": 0.01844775,
+      "l1_fee_usd": 5.192605372607999e-05,
+      "slippage_usd": 150.0,
+      "flash_provider_fee_usd": 0.0,
+      "gross_edge_required_to_pass_usd": 185.0185,
+      "note": "SHADOW: no live gross edge asserted; costs are real on-chain."
+    },
+    "readiness": {
+      "m3_authority": "M3 remains final execution authority",
+      "executable": false,
+      "signing": false,
+      "broadcast": false,
+      "state": "COST_MODEL_LIVE (detection-only)"
+    }
+  },
+  "fail_closed_events": [],
+  "rpc_url_host": "https://***.publicnode.com",
+  "result": "LIVE_VALIDATED",
+  "all_in_cost_available": true,
+  "provider_feasible": true
+}

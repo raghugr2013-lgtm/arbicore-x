@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/apiBase";
 /**
  * ArbiCore X — UI v2 · Wallet & Capital Intelligence
  *
@@ -9,7 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = API_BASE;
 const MONO = "var(--v2-font-mono, ui-monospace, monospace)";
 
 const C = {
@@ -143,6 +144,11 @@ export default function CapitalIntelligencePage() {
       {/* Live balances */}
       <Panel title="Live Balances" testid="capital-balances-panel"
         right={<span style={{ color: C.muted, fontSize: 11, fontFamily: MONO }}>block {bal?.block_number ?? "—"} · synced {bal?.last_sync ? new Date(bal.last_sync).toLocaleTimeString() : "—"}</span>}>
+        {bal && bal.available === false && (
+          <div data-testid="capital-balances-unavailable" style={{ border: `1px dashed ${C.yellow}`, background: "#1c1a10", color: C.yellow, padding: "8px 12px", borderRadius: 6, marginBottom: 12, fontFamily: MONO, fontSize: 12 }}>
+            UNAVAILABLE — {bal.unavailable_reason || "on-chain balance source unavailable"}. Total value shown as "—" (not $0).
+          </div>
+        )}
         <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 12 }}>
           <Stat label="Address" value={<span data-testid="capital-address" style={{ fontSize: 13 }}>{shortAddr(bal?.address)}</span>} />
           <Stat label="Gas / Native (ETH)" value={<span data-testid="capital-native-balance">{fmtNum(bal?.native?.balance, 8)}</span>} sub={fmtUsd(bal?.native?.value_usd)} color={C.green} />

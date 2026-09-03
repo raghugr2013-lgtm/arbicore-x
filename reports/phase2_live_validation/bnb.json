@@ -1,0 +1,156 @@
+{
+  "chain": "bnb",
+  "shadow": true,
+  "signing": false,
+  "broadcast": false,
+  "stages": {
+    "rpc": {
+      "ok": true,
+      "latency_ms": 207.5,
+      "block": 118165426
+    },
+    "chain_identity": {
+      "chain_id": 56,
+      "expected": 56,
+      "match": true
+    },
+    "token_registry": {
+      "count": 6,
+      "tokens": {
+        "WBNB": {
+          "address": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "WETH": {
+          "address": "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "USDC": {
+          "address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "USDT": {
+          "address": "0x55d398326f99059fF775485246999027B3197955",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "DAI": {
+          "address": "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "BTCB": {
+          "address": "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        }
+      }
+    },
+    "dex_registry": {
+      "pancakeswap_v3": {
+        "factory": "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
+        "code": true
+      },
+      "uniswap_v3": {
+        "factory": "0xdB1d10011AD0Ff90774D0C6Bb92e5C5c8b4461F7",
+        "code": true
+      }
+    },
+    "route_discovery": {
+      "WETH/USDC@500": {
+        "dex": "pancakeswap_v3",
+        "pool": "0x539e0ebfffd39e54a0f7e5f8fec40ade7933a664",
+        "pool_token_depth": {
+          "WETH": 20.518161793293768,
+          "USDC": 56162.236756009406
+        }
+      },
+      "WETH/USDC@3000": {
+        "dex": "pancakeswap_v3",
+        "pool": null,
+        "pool_token_depth": {}
+      }
+    },
+    "native_price_usd": 697.92,
+    "native_price_oracle": {
+      "chain": "bnb",
+      "symbol": "BNB",
+      "price_usd": 697.92,
+      "ok": true,
+      "stale": false,
+      "age_s": 0.0,
+      "source": "coingecko",
+      "reason": "live"
+    },
+    "provider_liquidity": {
+      "aave_v3": {
+        "provider": "aave_v3",
+        "chain": "bnb",
+        "status": "ON_CHAIN_CONFIRMED",
+        "fee_bps": 5,
+        "liquidity_tokens": 4042.38053606686,
+        "liquidity_usd": 9936211.781457704,
+        "source_address": "0x2e94171493fabe316b6205f1585779c887771e2f",
+        "reason": "confirmed"
+      }
+    },
+    "provider_choice": {
+      "feasible": true,
+      "provider": "aave_v3",
+      "fee_bps": 5,
+      "fee_usd": 25.0,
+      "callback_extra_gas": 120000,
+      "reason": "cheapest_feasible_provider"
+    },
+    "gas_price_wei": 50000000,
+    "all_in_cost": {
+      "all_in_cost_usd": 150.013086,
+      "net_profit_all_in_usd": -150.013086,
+      "l2_fee_usd": 0.013085999999999999,
+      "l1_fee_usd": 0.0,
+      "flash_loan_fee_usd": 0.0,
+      "slippage_usd": 150.0,
+      "gas_units": 300000.0,
+      "gas_price_wei_ceiling": 62500000.0,
+      "chain": "bnb",
+      "native_token": "BNB"
+    },
+    "economics": {
+      "min_net_profit_gate_usd": 35.0,
+      "real_all_in_cost_usd": 175.0131,
+      "l2_fee_usd": 0.013085999999999999,
+      "l1_fee_usd": 0.0,
+      "slippage_usd": 150.0,
+      "flash_provider_fee_usd": 25.0,
+      "gross_edge_required_to_pass_usd": 210.0131,
+      "note": "SHADOW: no live gross edge asserted; costs are real on-chain."
+    },
+    "readiness": {
+      "m3_authority": "M3 remains final execution authority",
+      "executable": false,
+      "signing": false,
+      "broadcast": false,
+      "state": "COST_MODEL_LIVE (detection-only)"
+    }
+  },
+  "fail_closed_events": [],
+  "rpc_url_host": "https://***.publicnode.com",
+  "result": "LIVE_VALIDATED",
+  "all_in_cost_available": true,
+  "provider_feasible": true
+}

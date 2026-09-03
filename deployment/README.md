@@ -7,7 +7,7 @@ Everything needed to run ArbiCore X in production. Independent of the applicatio
 ```
 deployment/
 ├── docker/                Dockerfiles + build-time assets, indexed by service
-│   ├── backend/           Dockerfile + .dockerignore + requirements.prod.txt + requirements.dev.txt
+│   ├── backend/           Dockerfile + Dockerfile.validation + .dockerignore + requirements.prod.txt + requirements.test.txt + requirements.dev.txt
 │   ├── frontend/          Dockerfile + nginx-spa.conf (CRA -> nginx-alpine)
 │   └── opportunity_center/  Dockerfile + nginx-spa.conf (Vite -> nginx-alpine)
 │

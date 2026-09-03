@@ -1,3 +1,4 @@
+import { BACKEND_ORIGIN } from "@/lib/apiBase";
 /**
  * ArbiCore X — Live Operations Center (Stage 3 · v2.6.0)
  *
@@ -17,7 +18,7 @@
 import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 
-const API = process.env.REACT_APP_BACKEND_URL;
+const API = BACKEND_ORIGIN;
 const POLL_MS = 6000;
 
 const fmtUsd = (n) =>
@@ -544,11 +545,11 @@ export default function OpsCenter() {
             <th>Verdict</th>
           </tr></thead>
           <tbody>
-            {(opps?.opportunities || []).slice(0, 8).map((o) => {
+            {(opps?.opportunities || []).slice(0, 8).map((o, i) => {
               const p = o.payload || {};
               const profitable = (p.net_profit_usd || 0) > 0;
               return (
-                <tr key={o.opp_id} data-testid={`opp-row-${o.opp_id}`}
+                <tr key={`${o.opp_id}-${i}`} data-testid={`opp-row-${o.opp_id}`}
                     style={{
                       borderBottom: "1px solid var(--v2-border-subtle)",
                       color: "var(--v2-text-primary)",

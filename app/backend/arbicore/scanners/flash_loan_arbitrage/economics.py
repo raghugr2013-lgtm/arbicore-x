@@ -31,7 +31,7 @@ FLASH_LOAN_PROVIDERS: Dict[str, Dict[str, Any]] = {
         "fee_bps_default": 5,
         "source_id": "aave_v3_flashloan_real",
         "supports_chains": (
-            "ethereum", "arbitrum", "base", "optimism", "polygon"),
+            "ethereum", "arbitrum", "base", "optimism", "polygon", "bnb"),
     },
     "balancer_v2": {
         "fee_bps_default": 0,
@@ -47,6 +47,12 @@ FLASH_LOAN_PROVIDERS: Dict[str, Dict[str, Any]] = {
         "source_id": "uniswap_v3_flashloan_real",
         "supports_chains": (
             "ethereum", "arbitrum", "base", "optimism", "polygon"),
+    },
+    "morpho_blue": {
+        # T1: 0-fee, gas-efficient singleton flash loans. Ethereum + Base.
+        "fee_bps_default": 0,
+        "source_id": "morpho_blue_flashloan_real",
+        "supports_chains": ("ethereum", "base"),
     },
 }
 
@@ -136,6 +142,7 @@ class FlashLoanEconomicsAssessor:
         mev_risk_level: MevRiskLevel = MevRiskLevel.MEDIUM,
         gas_cost_usd_override: Optional[float] = None,
         tx_gas_units: Optional[int] = None,
+        gross_is_quote_inclusive: bool = True,
     ) -> FlashLoanEconomicsResult:
         """Build the multi-hop economics surface.
 
@@ -163,12 +170,31 @@ class FlashLoanEconomicsAssessor:
             gas_cost = gas_cost * (float(tx_gas_units) / 250_000.0)
 
         # Build per-hop LegCost objects + flash-loan premium leg.
+        #
+        # DEX SWAP-FEE ACCOUNTING (audit 2026-08 — double-count fix):
+        # ``gross_is_quote_inclusive=True`` (the authoritative live-quote path:
+        # FlashLoan verifier + M3 fresh-revalidation) means ``gross_profit_pct``
+        # already reflects the REAL on-chain round-trip output, i.e. pool swap
+        # fees AND price impact are ALREADY embedded in the quote. In that case
+        # the per-hop pool swap fee must NOT be financially deducted a second
+        # time, so the swap_fee legs carry fee_bps=0. The OBSERVED pool fee is
+        # still preserved as telemetry (``total_swap_fee_pct`` below).
+        # ``gross_is_quote_inclusive=False`` is the ESTIMATED / non-quoted path:
+        # ``gross_profit_pct`` is a raw spread with NO fees embedded, so the pool
+        # swap fees ARE deducted here (unchanged behaviour). Slippage is left as
+        # supplied per hop (0.0 in the live path — the quote already contains
+        # price impact) — this fix never adds or removes slippage.
+        quote_inclusive = bool(gross_is_quote_inclusive)
+        observed_swap_fee_bps: List[int] = []
         legs: List[LegCost] = []
         for i, hop in enumerate(hop_legs):
+            hop_fee_bps = int(hop.get("fee_bps", 30))
+            observed_swap_fee_bps.append(hop_fee_bps)
+            deducted_fee_bps = 0 if quote_inclusive else hop_fee_bps
             legs.append(LegCost(
                 leg_role=f"hop_{i}",
                 venue_id=str(hop.get("venue_id", f"hop_{i}")),
-                fee_bps=int(hop.get("fee_bps", 30)),
+                fee_bps=deducted_fee_bps,
                 slippage_pct=float(hop.get("slippage_pct", 0.0)),
                 gas_estimate_usd=0.0,  # gas applied once on the loan leg
                 fee_kind="swap_fee",
@@ -194,8 +220,10 @@ class FlashLoanEconomicsAssessor:
             synthetic_outcomes=synthetic_outcomes,
         )
         atomic = econ.expected_profit_usd
-        total_swap_fee_pct = sum((leg.fee_bps for leg in legs[:-1]),
-                                  0) / 100.0
+        # Telemetry reflects the OBSERVED pool swap fee regardless of whether it
+        # was financially deducted (it is embedded in the quote when
+        # quote_inclusive) — provenance must remain truthful.
+        total_swap_fee_pct = sum(observed_swap_fee_bps, 0) / 100.0
         rationale: List[str] = [
             f"borrow ${borrow:.0f} on {provider_n} @ {fee_bps} bps "
             f"(${flash_fee_usd:.2f})",

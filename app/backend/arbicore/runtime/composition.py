@@ -8,8 +8,16 @@ Wired from server.py lifespan AFTER existing services start.
 """
 from __future__ import annotations
 
+import logging as _logging
 import time as _time
 from typing import Optional
+
+# M3.0 diagnostics — per-stage fail-closed visibility for the controlled-live
+# fresh revalidation (build_controlled_live_safety.fresh_fn). Emits WARNING with
+# the EXACT stage + underlying value/exception so the VPS validation harness and
+# the live loop show precisely which dependency blocked. Behaviour unchanged:
+# every failure still fails closed (returns None ⇒ DENY).
+_M3_LOG = _logging.getLogger("arbicore.m3_0.fresh_fn")
 
 from ..data.metrics_repo import MetricsRepository
 from ..data.mongo.arbicore_collections import ensure_indexes as _ensure_indexes
@@ -469,7 +477,356 @@ def get_scanner_state_repo() -> ScannerStateRepository:
 
 
 # v2.11.8 — Paper Validation Framework repo (canonical evidence store).
+def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
+    """M3.0 wiring — build (PreBroadcastValidator, CircuitBreaker) for the
+    controlled-live broadcaster, reusing the EXISTING M2.1 live quote provider,
+    M2.5 price feed, M2.6-resolved TVL, and the flash-loan economics assessor.
+
+    Returns (None, None) when the operator environment lacks a Base RPC — the
+    broadcaster is wired with require_revalidation=True, so a None validator
+    forces a fail-closed DENY before signing (never a silent broadcast)."""
+    from ..execution.pre_broadcast import (
+        PreBroadcastValidator, CircuitBreaker, RevalidationInputs)
+    from ..searcher.runtime import (
+        make_base_eth_call_from_env, build_base_tvl_provider,
+        make_base_congestion_source_from_env)
+    from ..searcher.price_feed import build_base_price_feed_from_env
+    from ..scanners.flash_loan_arbitrage.live_quote_provider import (
+        make_live_quote_provider)
+    from ..scanners.flash_loan_arbitrage.economics import (
+        FlashLoanEconomicsAssessor, FLASH_LOAN_PROVIDERS)
+    from ..scanners.cross_chain_arbitrage.bridge_intelligence import MevRiskScorer
+    from ..intelligence.roi_probability import ROIProbabilityEngine
+    from ..discovery import base_pool_registry as _reg
+
+    eth_call = make_base_eth_call_from_env()
+    if eth_call is None:
+        return None, None
+    price_feed = build_base_price_feed_from_env(quoter_registry)
+    if price_feed is None:
+        return None, None
+    tvl_provider = build_base_tvl_provider(eth_call, price_feed.price_source)
+    quote_provider = make_live_quote_provider(quoter_registry,
+                                              tvl_provider=tvl_provider)
+    econ = FlashLoanEconomicsAssessor(
+        roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05))
+    mev = MevRiskScorer()
+    congestion_source = make_base_congestion_source_from_env()
+    from ..chains.gas_model import get_chain_gas_model
+    # Base all-in cost is now priced through the chain-neutral gas-model seam.
+    # BaseGasModel is a pass-through over make_base_all_in_cost_estimator_from_env
+    # → behaviour is identical to the previous direct wiring (fail-closed when no RPC).
+    gas_model = get_chain_gas_model("base")
+    import os as _os
+    vault = (_os.environ.get("BASE_BALANCER_V2_VAULT")
+             or "0xBA12222222228d8Ba445958a75a0704d566BF2C8")
+
+    async def _flashloan_available(provider, borrow_token, borrow_amount_usd):
+        """Real-time genuine check: Balancer V2 Vault must actually hold at
+        least the borrow amount of the borrow token. Any read failure → None.
+
+        Instrumented: every None/False path logs the exact reason so the VPS
+        harness shows whether the balanceOf read, price read, or provider/token
+        mapping is the blocker. Return semantics are UNCHANGED (fail-closed)."""
+        meta = FLASH_LOAN_PROVIDERS.get((provider or "").lower())
+        if not meta or "base" not in meta.get("supports_chains", ()):
+            _M3_LOG.warning(
+                "flashloan_available=False stage=provider_meta provider=%r "
+                "(unknown provider or not supported on base)", provider)
+            return False
+        # The deployed executor head is Balancer V2 + Uniswap V3. Other
+        # catalogued providers are not executable by this calldata/contract
+        # path, so refuse them instead of checking the wrong vault or allowing
+        # a profitable-but-unsupported route through M3.
+        if (provider or "").lower() != "balancer_v2":
+            _M3_LOG.warning(
+                "flashloan_available=False stage=executor_capability provider=%r "
+                "(current executor supports balancer_v2 only)", provider)
+            return False
+        cp = None
+        for p in _reg.get_canonical_pools():
+            if borrow_token.upper() in (p.token0_symbol.upper(), p.token1_symbol.upper()):
+                cp = p
+                break
+        if cp is None:
+            _M3_LOG.warning(
+                "flashloan_available=None stage=token_registry borrow_token=%r "
+                "(no canonical pool exposes this token)", borrow_token)
+            return None
+        if cp.token0_symbol.upper() == borrow_token.upper():
+            taddr, tdec = cp.token0_address, cp.token0_decimals
+        else:
+            taddr, tdec = cp.token1_address, cp.token1_decimals
+        data = "0x70a08231" + vault.lower().replace("0x", "").rjust(64, "0")
+        try:
+            raw = await eth_call(taddr, data)
+        except Exception as exc:  # noqa: BLE001
+            _M3_LOG.warning(
+                "flashloan_available=None stage=balanceOf_eth_call vault=%s "
+                "token=%s(%s) error=%s: %s", vault, borrow_token, taddr,
+                type(exc).__name__, exc)
+            return None
+        if not raw:
+            _M3_LOG.warning(
+                "flashloan_available=None stage=balanceOf_empty vault=%s "
+                "token=%s(%s) (eth_call returned empty)", vault, borrow_token, taddr)
+            return None
+        try:
+            bal = int(raw, 16) / (10 ** int(tdec))
+        except (ValueError, TypeError) as exc:
+            _M3_LOG.warning(
+                "flashloan_available=None stage=balanceOf_decode raw=%r error=%s: %s",
+                raw, type(exc).__name__, exc)
+            return None
+        px = await price_feed.price_source(borrow_token)
+        if px is None or px <= 0:
+            _M3_LOG.warning(
+                "flashloan_available=None stage=borrow_token_price token=%r price=%r "
+                "(price feed could not price the borrow token)", borrow_token, px)
+            return None
+        ok = bal >= (float(borrow_amount_usd) / px)
+        if not ok:
+            _M3_LOG.warning(
+                "flashloan_available=False stage=insufficient_vault_liquidity "
+                "vault_bal=%s needed=%s token=%s px=%s", bal,
+                float(borrow_amount_usd) / px, borrow_token, px)
+        return ok
+
+    async def fresh_fn(plan):
+        """FRESH re-check at broadcast time. Any missing input → None (deny).
+
+        Fully instrumented: every fail-closed path logs the EXACT stage plus the
+        underlying value/exception at WARNING (logger ``arbicore.m3_0.fresh_fn``)
+        so the VPS validation harness and the live loop reveal precisely which
+        dependency blocked. Behaviour is UNCHANGED — any failure still returns
+        None (deny) and no gate threshold is altered."""
+        stage = "extract_plan"
+        try:
+            route_pools = list(plan.get("route_pools") or [])
+            token_path = list(plan.get("cycle_token_path") or [])
+            borrow_token = (plan.get("borrow_token") or "").upper()
+            borrow_usd = float(plan.get("borrow_amount_usd") or 0.0)
+            provider = (plan.get("flash_loan_provider")
+                        or plan.get("provider") or "balancer_v2")
+            quoted_block = plan.get("quoted_block")
+            if not route_pools or not borrow_token or borrow_usd <= 0:
+                _M3_LOG.warning(
+                    "DENY stage=extract_plan route_pools=%d borrow_token=%r "
+                    "borrow_usd=%s", len(route_pools), borrow_token, borrow_usd)
+                return None
+            if len(token_path) != len(route_pools) + 1:
+                _M3_LOG.warning(
+                    "DENY stage=token_path_shape route_pools=%d token_path=%d "
+                    "(need %d) — quote provider requires a closed cycle path; "
+                    "check evidence-bundle route.cycle_token_path persistence",
+                    len(route_pools), len(token_path), len(route_pools) + 1)
+                return None
+            # The deployed flash-loan executor supports only Balancer V2
+            # borrowing plus Uniswap V3 swap hops. Aerodrome/Slipstream quotes
+            # are valid intelligence, but cannot produce executable calldata
+            # for this head; reject before economics/gas so an unset aggregate
+            # gas estimate can never be mistaken for a live candidate.
+            from ..discovery.base_pool_registry import canonical_pool_specs
+            _pool_specs = canonical_pool_specs()
+            unsupported = [pid for pid in route_pools
+                           if (_pool_specs.get(pid) or {}).get("dex") not in
+                           (None, "uniswap_v3")]
+            if unsupported:
+                _M3_LOG.warning(
+                    "DENY stage=executor_capability unsupported_route_pools=%s "
+                    "(current executor supports uniswap_v3 swaps only)", unsupported)
+                return None
+            stage = "resolve_pools"
+            # M2.6 PROPAGATION — resolve+validate the Aerodrome/Slipstream route
+            # pools on-chain and write REAL addresses into the ONE canonical
+            # registry so the TVL/address path matches the (working) quote path.
+            # Best-effort: if it fails, TVL stays unmeasured and Gate 8 keeps
+            # failing closed (no address is ever fabricated).
+            try:
+                from ..searcher.aero_resolver import resolve_and_propagate
+                await resolve_and_propagate(
+                    eth_call, route_pools, get_block=price_feed._head_block)
+            except Exception as exc:  # noqa: BLE001
+                _M3_LOG.warning(
+                    "aero resolve/propagate soft-fail %s: %s (TVL gate stays "
+                    "fail-closed)", type(exc).__name__, exc)
+            stage = "live_quote"
+            hm = {"chain": "base", "provider": provider,
+                  "borrow_token": borrow_token, "route_pools": route_pools,
+                  "cycle_token_path": token_path}
+            facts = await quote_provider(hm, borrow_usd)      # M2.1 quote + M2.6 TVL
+            if not facts:
+                _M3_LOG.warning(
+                    "DENY stage=live_quote quote_provider returned no facts — "
+                    "route unpriceable on-chain (all hops fallback ⇒ "
+                    "break_even, malformed route, or unknown token). "
+                    "route_pools=%s token_path=%s", route_pools, token_path)
+                return None
+            stage = "hop_legs"
+            hop_legs = list(facts.get("hop_legs") or [])
+            if not hop_legs:
+                _M3_LOG.warning(
+                    "DENY stage=hop_legs facts present but no hop_legs "
+                    "route_quote_status=%r", facts.get("route_quote_status"))
+                return None
+            stage = "mev"
+            # Real Base network congestion (eth_feeHistory gasUsedRatio). No
+            # source / any read failure ⇒ DENY (fail-closed, never fabricated).
+            congestion = (await congestion_source()
+                          if congestion_source is not None else None)
+            if congestion is None:
+                _M3_LOG.warning(
+                    "DENY stage=mev real Base congestion unavailable "
+                    "(eth_feeHistory gasUsedRatio unreadable / no Base RPC) — "
+                    "MEV classification fails closed rather than inventing a "
+                    "value")
+                return None
+            mev_view = mev.classify(source_chain_congestion=congestion,
+                                    destination_chain_congestion=congestion,
+                                    asset=borrow_token, notional_usd=borrow_usd,
+                                    is_atomic=True)
+            # Policy (matches flash_loan_arbitrage.filter._MEV_ORDER): LOW/MEDIUM
+            # pass, HIGH denies. MevRiskLevel is a str-enum ⇒ compare by label.
+            mev_ok = mev_view["label"] != "HIGH"
+            stage = "economics"
+            e = econ.assess(provider=provider, chain="base",
+                            borrow_token=borrow_token, borrow_amount_usd=borrow_usd,
+                            hop_legs=hop_legs, signal_categories=[provider, "base"],
+                            real_outcomes=[], synthetic_outcomes=[],
+                            gross_profit_pct=float(facts.get("gross_profit_pct") or 0.0),
+                            mev_risk_level=mev_view["level"],
+                            gas_cost_usd_override=facts.get("gas_cost_usd"),
+                            tx_gas_units=facts.get("tx_gas_units"),
+                            gross_is_quote_inclusive=True)
+            stage = "head_block"
+            head = None
+            try:
+                head = await price_feed._head_block()  # reuse cached head reader
+            except Exception as exc:  # noqa: BLE001
+                _M3_LOG.warning("head_block read failed %s: %s (block_freshness "
+                                "will deny) ", type(exc).__name__, exc)
+                head = None
+            stage = "flashloan_available"
+            avail = await _flashloan_available(provider, borrow_token, borrow_usd)
+            stage = "all_in_cost"
+            # TRUE all-in Base fee: real gas-price ceiling (L2) + Base L1 data
+            # fee (GasPriceOracle) + flash-loan fee + slippage/risk allowance.
+            # Swap fees are already embedded in the quoted gross round-trip.
+            # DENY (fail-closed) if the exact all-in cost cannot be determined.
+            gross_profit_usd = (borrow_usd
+                                * float(facts.get("gross_profit_pct") or 0.0) / 100.0)
+            eth_usd = None
+            try:
+                eth_usd = await price_feed.price_source("WETH")
+            except Exception as exc:  # noqa: BLE001
+                _M3_LOG.warning("all_in_cost ETH_USD read failed %s: %s",
+                                type(exc).__name__, exc)
+            all_in = (await gas_model.all_in_cost(
+                gross_profit_usd=gross_profit_usd, borrow_amount_usd=borrow_usd,
+                notional_usd=borrow_usd, gas_units=facts.get("tx_gas_units"),
+                eth_usd=eth_usd)
+                if gas_model is not None else None)
+            if all_in is None:
+                _M3_LOG.warning(
+                    "DENY stage=all_in_cost — true all-in Base fee could not be "
+                    "determined safely (exact gas / gas price / L1 GasPriceOracle "
+                    "fee / ETH_USD unavailable); fail-closed")
+                return None
+            net_profit_all_in = all_in["net_profit_all_in_usd"]
+            stage = "assemble"
+            import time as _t
+            # Structured stage summary (INFO) — the harness elevates this logger
+            # so a successful fresh read is also visible on the VPS.
+            _M3_LOG.info(
+                "fresh read OK net_profit_usd=%s (all_in=%s l1=%s l2=%s "
+                "pre_l1_atomic=%s) min_tvl_usd=%s quote_ok=%s "
+                "price_ok=%s mev_ok=%s flashloan_available=%s head=%s "
+                "quoted_block=%s", net_profit_all_in,
+                round(all_in["all_in_cost_usd"], 4),
+                round(all_in["l1_fee_usd"], 4), round(all_in["l2_fee_usd"], 4),
+                round(float(e.atomic_profit_usd), 4),
+                facts.get("min_pool_tvl_usd_in_route"),
+                facts.get("route_quote_status") == "ok",
+                facts.get("tvl_provenance") == "onchain_reserves",
+                mev_ok, avail, head, quoted_block)
+            return RevalidationInputs(
+                block_number=head, quoted_block=quoted_block, now_ts=_t.time(),
+                deadline_ts=plan.get("deadline_ts"),
+                net_profit_usd=net_profit_all_in,
+                min_tvl_usd=float(facts.get("min_pool_tvl_usd_in_route") or 0.0),
+                quote_ok=(facts.get("route_quote_status") == "ok"),
+                price_ok=(facts.get("tvl_provenance") == "onchain_reserves"),
+                mev_ok=mev_ok,
+                flashloan_available=avail,
+                opp_fingerprint=str(plan.get("opportunity_id")
+                                    or plan.get("plan_id") or ""))
+        except Exception as exc:  # noqa: BLE001 — any error ⇒ fail closed
+            _M3_LOG.exception("EXCEPTION at stage=%s %s: %s",
+                              stage, type(exc).__name__, exc)
+            return None
+
+    async def _on_trip(reason):
+        if kill_switch is not None:
+            try:
+                await kill_switch.engage(f"circuit_breaker: {reason}",
+                                         actor="circuit_breaker")
+            except Exception:  # noqa: BLE001
+                pass
+
+    validator = PreBroadcastValidator(fresh_fn=fresh_fn)
+    breaker = CircuitBreaker(on_trip=_on_trip)
+    return validator, breaker
+
+
 _paper_evidence_repo = None  # type: ignore[assignment]
+_evidence_bundles_repo = None  # type: ignore[assignment]
+
+
+def get_evidence_bundles_repo():
+    """M2.3 — singleton :class:`EvidenceBundlesRepo` over ``db.evidence_bundles``
+    (append-only audit store). Lazily built against the shared Mongo handle."""
+    global _evidence_bundles_repo
+    if _evidence_bundles_repo is None:
+        from ..data.mongo.evidence_bundles_repo import EvidenceBundlesRepo
+        _evidence_bundles_repo = EvidenceBundlesRepo(_get_db())
+    return _evidence_bundles_repo
+
+
+def make_flash_loan_evidence_sink():
+    """Return ``async (bundle_dict) -> None`` persisting an audit bundle for
+    EVERY verified flash-loan candidate (CONFIRMED and DENIED) into
+    ``db.evidence_bundles``. Best-effort by contract (the verifier already
+    guards it) — never alters a verdict, never broadcasts."""
+    repo = get_evidence_bundles_repo()
+
+    async def _sink(bundle: dict) -> None:
+        await repo.insert(bundle)
+    return _sink
+
+
+def _os_env_on(key: str) -> bool:
+    import os as _os
+    return (_os.environ.get(key) or "").strip().lower() in {
+        "1", "true", "yes", "on"}
+
+
+def make_flash_loan_shadow_sink():
+    """M2.4 — return ``async (canonical, evidence) -> None`` that routes a
+    CONFIRMED flash-loan candidate through a SHADOW OpportunityPipeline.
+
+    The pipeline is built with NO broadcaster and NO mode_repo, so
+    ``_resolve_mode`` returns ``SHADOW`` and broadcast is structurally
+    impossible. Evidence lands in the immutable paper-evidence store."""
+    from ..execution.pipeline import OpportunityPipeline
+    from ..data.journal import OpportunityJournal
+    from ..scanners.flash_loan_arbitrage.shadow_route import route_to_shadow
+    journal = OpportunityJournal(_get_db())
+    pipeline = OpportunityPipeline(
+        journal=journal, evidence_repo=get_paper_evidence_repo())
+
+    async def _sink(canonical, evidence: dict) -> None:
+        await route_to_shadow(pipeline, canonical, evidence)
+    return _sink
 
 
 def get_paper_evidence_repo():
@@ -741,12 +1098,35 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             except Exception:
                 pass
 
-        # Real Base pool universe (SAME graph the OpportunityEngine uses).
-        from ..discovery.base_venues import CHAIN as _BASE_CHAIN, build_pool_graph as _bpg
-        _base_pools, _ = _bpg()
+        # Base route universe is sourced from the ONE canonical registry
+        # (Z8/Z9 fix): canonical pool identity → resolved real addresses →
+        # PoolNode. Built fresh per search so Aerodrome/Slipstream pools that
+        # become runtime_resolved on the VPS (M2.6) enter the graph; unresolved
+        # (address-less) pools are excluded (fail-closed) so a synthetic-only
+        # id can never reach the live quote/execution path. base_venues stays
+        # regression-frozen for the separate OpportunityEngine.
+        from ..discovery.base_venues import CHAIN as _BASE_CHAIN
+        from ..discovery.base_pool_registry import (
+            build_canonical_pool_graph as _canonical_base_graph)
+        from ..discovery.multichain_venues import (
+            build_pool_graph as _mc_pool_graph, supported_discovery_chains)
+        from ..config.persistent import resolve_rpc_url_from_env
 
-        def _base_pool_loader(chain: str):
-            return _base_pools if chain == _BASE_CHAIN else []
+        def _multichain_pool_loader(chain: str):
+            """Generic multi-chain pool universe (SHADOW, fail-closed).
+
+            Base → the canonical registry graph (resolved addresses only).
+            Other Phase-2 chains → the verified-registry venue universe, but
+            ONLY when an RPC is configured for that chain (no RPC ⇒ empty ⇒
+            discovery fails closed). Concrete pools/quotes/TVL are resolved
+            on-chain downstream. Unknown chain ⇒ [].
+            """
+            c = (chain or "").lower()
+            if c == _BASE_CHAIN:
+                return _canonical_base_graph(resolved_only=True)[0]
+            if c in supported_discovery_chains() and resolve_rpc_url_from_env(c):
+                return _mc_pool_graph(c)
+            return []
 
         _flash_loan_arb_scanner = FlashLoanArbitrageScanner(
             emission_bus=get_emission_bus(),
@@ -754,13 +1134,106 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             venue_capability_repo=get_venue_capability_repo(),
             config_loader=_load_cfg,
             state_loader=_load_state,
-            pool_loader=_base_pool_loader,
+            pool_loader=_multichain_pool_loader,
             quote_provider=None,   # set to the live provider at activation
             chain_liveness_loader=None,
             confidence_engine=get_confidence_engine(),
         )
         _flash_loan_arb_scanner._refresh_caches_once = _refresh_caches_once  # type: ignore[attr-defined]
     return _flash_loan_arb_scanner
+
+
+async def _wire_canonical_flash_loan_scanner(quoter_registry):
+    """Shared wiring for the canonical FlashLoanArbitrageScanner (live quote
+    provider + fail-closed Gate-8 TVL provider + price provenance + auditable
+    evidence sink + optional SHADOW route). Returns ``(scanner, meta)`` WITHOUT
+    starting the background loop. Never signs / never broadcasts."""
+    from ..scanners.flash_loan_arbitrage.live_quote_provider import make_live_quote_provider
+    from ..searcher.runtime import (
+        make_base_eth_call_from_env, make_base_price_source_from_env,
+        build_base_tvl_provider,
+    )
+    from ..searcher.price_feed import build_base_price_feed_from_env
+    scanner = get_flash_loan_arb_scanner()
+    # M2.2 — build the REAL, fail-closed Gate-8 TVL provider from the operator
+    # environment (Base RPC eth_call + genuine USD price source). Absent either
+    # dependency → tvl_provider is None → Gate 8 fails closed (never fabricated).
+    # M2.5 — prefer the on-chain multi-token USD price feed (USDC-denominated,
+    # peg-guarded, freshness-checked) when ARBICORE_USD_NUMERAIRE is configured;
+    # otherwise fall back to the native-only source. Either way: no fabrication.
+    tvl_provider = None
+    price_feed = None
+    price_source_kind = "none"
+    aero_resolved = 0
+    try:
+        eth_call = make_base_eth_call_from_env()
+        # M2.6 — resolve Aerodrome/Slipstream pools on-chain via factory getPool
+        # and record validated addresses into the canonical registry so the
+        # EXISTING reserves/TVL path picks them up. Fail-closed per pool.
+        if eth_call is not None:
+            try:
+                from ..searcher.aero_resolver import build_base_aero_resolver_from_env
+                from ..discovery import base_pool_registry as _reg
+                resolver = build_base_aero_resolver_from_env(eth_call)
+                if resolver is not None:
+                    results = await resolver.resolve_all(_reg.unresolved_pools())
+                    for cid, r in results.items():
+                        if _reg.set_runtime_resolved_address(
+                                cid, r.address, provenance=r.provenance):
+                            aero_resolved += 1
+            except Exception:  # noqa: BLE001 — resolution never blocks activation
+                aero_resolved = 0
+        price_feed = build_base_price_feed_from_env(quoter_registry)
+        if price_feed is not None:
+            price_source = price_feed.price_source
+            price_source_kind = "onchain_usd_feed_m2_5"
+        else:
+            price_source = make_base_price_source_from_env()
+            price_source_kind = ("native_only" if price_source is not None
+                                 else "none")
+        if eth_call is not None and price_source is not None:
+            tvl_provider = build_base_tvl_provider(eth_call, price_source)
+    except Exception:  # noqa: BLE001 — fail-closed to None
+        tvl_provider = None
+    scanner.set_quote_provider(
+        make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider))
+    # M2.5 — wire per-token USD price provenance into the evidence bundle.
+    if price_feed is not None:
+        try:
+            scanner.set_price_provenance_fn(price_feed.provenance_for)
+        except Exception:  # noqa: BLE001
+            pass
+    # M2.3 — persist an auditable evidence bundle for every verified candidate.
+    try:
+        scanner.set_evidence_sink(make_flash_loan_evidence_sink())
+        evidence_sink_wired = True
+    except Exception:  # noqa: BLE001 — audit wiring never blocks activation
+        evidence_sink_wired = False
+    # M2.4 — route CONFIRMED candidates into the SHADOW/PAPER pipeline. Opt-in
+    # (default OFF) to avoid double-processing with the global PaperValidation
+    # runner; strictly SHADOW — no broadcaster/mode wired → cannot broadcast.
+    shadow_route_wired = False
+    if _os_env_on("ARBICORE_FLASH_LOAN_SHADOW_ROUTE"):
+        try:
+            scanner.set_shadow_sink(make_flash_loan_shadow_sink())
+            shadow_route_wired = True
+        except Exception:  # noqa: BLE001
+            shadow_route_wired = False
+    meta = {
+        "instantiated": True,
+        "class": "FlashLoanArbitrageScanner",
+        "scanner_id": scanner.scanner_id,
+        "quote_provider": "live" if not scanner.quote_provider_is_default else "noop",
+        "tvl_provider": ("onchain_reserves" if tvl_provider is not None
+                         else "unverified_fail_closed"),
+        "price_source": price_source_kind,
+        "aero_pools_resolved": aero_resolved,
+        "evidence_sink": evidence_sink_wired,
+        "shadow_route": shadow_route_wired,
+        "pool_universe_size": len(_base_pools_size()),
+        "detection_only": True,
+    }
+    return scanner, meta
 
 
 async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
@@ -771,24 +1244,79 @@ async def activate_canonical_flash_loan_scanner(quoter_registry) -> dict:
     remains gated by the economic + atomic-profit + liquidity + MEV gates in the
     verifier, and execution by the mode ladder + AutoExecutor. Never signs or
     broadcasts. Idempotent."""
-    from ..scanners.flash_loan_arbitrage.live_quote_provider import make_live_quote_provider
-    scanner = get_flash_loan_arb_scanner()
-    scanner.set_quote_provider(make_live_quote_provider(quoter_registry))
+    scanner, meta = await _wire_canonical_flash_loan_scanner(quoter_registry)
     await scanner.start()
-    return {
-        "instantiated": True,
-        "class": "FlashLoanArbitrageScanner",
-        "scanner_id": scanner.scanner_id,
-        "quote_provider": "live" if not scanner.quote_provider_is_default else "noop",
-        "pool_universe_size": len(_base_pools_size()),
+    meta["enabled"] = scanner.is_enabled()
+    return meta
+
+
+async def run_single_canonical_flash_loan_audit_tick(quoter_registry) -> dict:
+    """Diagnostic-only: wire the canonical scanner EXACTLY as activation does,
+    then execute EXACTLY ONE ``_tick()`` (no background loop) so an auditor can
+    capture the ACTUAL ``audit_run_id`` + ``scanner_tick_id`` produced by that
+    tick and isolate its evidence. READ-ONLY: detection only, never signs,
+    never broadcasts, never enables any live mode.
+
+    Returns the real run/tick identity + wiring meta. The candidate ledger is
+    NOT reconstructed here — the caller reads it back from the evidence store
+    via ``EvidenceBundlesRepo.find_for_audit(audit_run_id, scanner_tick_id)``,
+    which is the authoritative, fail-closed attribution path.
+    """
+    scanner, meta = await _wire_canonical_flash_loan_scanner(quoter_registry)
+    tick_before = getattr(scanner, "_tick_id", 0)
+    ran = False
+    if scanner.is_enabled():
+        await scanner._tick()
+        ran = True
+    meta.update({
+        "mode": "single_audit_tick",
         "enabled": scanner.is_enabled(),
-        "detection_only": True,
+        "tick_executed": ran,
+        # ACTUAL identity generated by this exact run/tick (never guessed).
+        "audit_run_id": getattr(scanner, "_audit_run_id", None),
+        "scanner_tick_id": getattr(scanner, "_tick_id", tick_before),
+        "worker_id": getattr(scanner, "_worker_id", None),
+    })
+    return meta
+
+
+def flash_loan_quote_readiness(*, quote_provider_is_default: bool,
+                               mode: str) -> dict:
+    """T0-1 · scanner quote-provider readiness gate.
+
+    The canonical scanner must NEVER run the ``noop_quote_provider`` as a
+    silent production quote path. If the flash-loan strategy is in an analysis
+    mode (PAPER/SHADOW/LIMITED_LIVE/FULL_LIVE) while still on the default noop
+    provider, this returns an explicit ``readiness_error`` and marks the
+    scanner NOT active. OBSERVE (and unknown) modes may remain on noop for
+    cold-start/tests.
+    """
+    analysis_modes = {"PAPER", "SHADOW", "LIMITED_LIVE", "FULL_LIVE"}
+    m = (mode or "").upper()
+    if quote_provider_is_default and m in analysis_modes:
+        return {
+            "ready": False,
+            "active": False,
+            "quote_provider": "noop",
+            "readiness_error": (
+                f"canonical flash-loan scanner is in {m} but still on the "
+                "default noop quote provider — refusing to run a synthetic "
+                "production quote path (T0-1). Wire the live quote provider "
+                "via activate_canonical_flash_loan_scanner()."),
+        }
+    return {
+        "ready": True,
+        "active": not quote_provider_is_default,
+        "quote_provider": "noop" if quote_provider_is_default else "live",
+        "readiness_error": None,
     }
 
 
 def _base_pools_size():
-    from ..discovery.base_venues import build_pool_graph as _bpg
-    pools, _ = _bpg()
+    # Reflect the ACTUAL Base route universe the scanner loads: the canonical
+    # registry graph, resolved addresses only (fail-closed).
+    from ..discovery.base_pool_registry import build_canonical_pool_graph
+    pools, _ = build_canonical_pool_graph(resolved_only=True)
     return pools
 
 

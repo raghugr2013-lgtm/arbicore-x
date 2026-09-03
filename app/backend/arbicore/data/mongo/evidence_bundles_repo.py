@@ -28,6 +28,13 @@ class EvidenceBundlesRepo:
         await self._collection.create_index("bundle_id", unique=True)
         await self._collection.create_index([("source_component", 1), ("created_at", -1)])
         await self._collection.create_index("source_model_id")
+        # Diagnostic-run attribution (observability only) — isolate the exact
+        # audit execution that produced a bundle. Never used for trading.
+        await self._collection.create_index([
+            ("diagnostics.audit_run_id", 1),
+            ("diagnostics.scanner_tick_id", 1),
+            ("diagnostics.candidate_id", 1),
+        ])
         self._indexes_ready = True
 
     async def insert(self, bundle: Dict[str, Any]) -> Dict[str, Any]:
@@ -59,3 +66,31 @@ class EvidenceBundlesRepo:
 
     async def find_by_bundle_id(self, bundle_id: str) -> Optional[Dict[str, Any]]:
         return await self._collection.find_one({"bundle_id": bundle_id}, {"_id": 0})
+
+    async def find_for_audit(
+        self, *, audit_run_id: str, scanner_tick_id: Any,
+        candidate_id: Optional[str] = None,
+        worker_id: Optional[str] = None,
+        source_component: Optional[str] = "flash_loan_arb_verifier",
+        verification_status: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[Dict[str, Any]]:
+        """Return evidence bundles belonging to EXACTLY one audit run.
+
+        Observability only. ``audit_run_id`` + ``scanner_tick_id`` are
+        mandatory and exact (raises ``AuditProvenanceError`` otherwise);
+        ``candidate_id`` is OPTIONAL — omit it to retrieve every candidate of
+        the run+tick, or pass it to pin one candidate. Never falls back to
+        candidate id alone or timestamps and never mixes concurrent scanner
+        records. Sorted newest-first purely for display — the timestamp is NOT
+        a selector.
+        """
+        from ...evidence.audit_provenance import build_audit_evidence_query
+        q = build_audit_evidence_query(
+            audit_run_id=audit_run_id, scanner_tick_id=scanner_tick_id,
+            candidate_id=candidate_id, worker_id=worker_id,
+            source_component=source_component,
+            verification_status=verification_status)
+        cur = self._collection.find(q, {"_id": 0}).sort(
+            "created_at", -1).limit(limit)
+        return await cur.to_list(limit)

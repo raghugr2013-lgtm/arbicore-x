@@ -32,6 +32,16 @@
   margin-bottom: 36px;
 }
 
+.arbicore-login__emblem {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  margin: 0 auto 18px;
+  display: block;
+  filter: drop-shadow(0 8px 24px rgba(56, 132, 255, 0.35))
+          drop-shadow(0 2px 8px rgba(255, 178, 36, 0.25));
+}
+
 .arbicore-login__wordmark {
   font-family: var(--v2-font-mono, ui-monospace, SFMono-Regular, monospace);
   font-size: 22px;
@@ -39,6 +49,11 @@
   color: var(--v2-text-strong);
   text-transform: uppercase;
   margin-bottom: 10px;
+}
+
+.arbicore-login__x {
+  color: #ffb224;
+  margin-left: 4px;
 }
 
 .arbicore-login__tag {

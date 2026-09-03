@@ -4,7 +4,7 @@
 # All interpolated values come from compose/.env (written by steps/00_detect_env.sh).
 #
 # Required compose vars (auto-generated):
-#   IMAGE_TAG     e.g. arbicore-x-backend:0.1.0-realign-<gitsha>
+#   IMAGE_TAG     e.g. arbicore-x-backend:<repo-semver>-<gitsha> (e.g. 2.9.2-3109ac8)
 #   BACKEND_NEW   e.g. arbicore-x-backend-new   (differs from OLD to avoid name collision)
 #   NETWORK_NAME  the Docker network the existing Mongo is on
 #   GITSHA        for image labels (provenance)

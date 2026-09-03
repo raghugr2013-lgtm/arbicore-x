@@ -112,13 +112,20 @@ class _FakeEvidenceRepo:
 
     # Test helper
     def _append(self, **kw):
+        # Reconciled (audit 2026-06): the engine's T0-7 provenance gate counts
+        # only REAL / VERIFIED_REAL evidence toward executable_rate. The fake
+        # therefore emits canonical REAL provenance by default (override via
+        # source_data_quality=) so "EXECUTABLE" rows represent genuinely-real
+        # executable evidence, matching the hardened production contract.
         d = {
             "outcome":       "REJECTED",
             "validation_id": kw.get("validation_id") or f"vid-{len(self._docs)+1}",
             "created_at":    kw.get("created_at") or f"2026-01-01T00:00:{len(self._docs):02d}",
             "stages":        kw.get("stages") or [],
+            "source_data_quality": "REAL",
         }
-        d.update({k: v for k, v in kw.items() if k in ("outcome",)})
+        d.update({k: v for k, v in kw.items()
+                  if k in ("outcome", "source_data_quality")})
         self._docs.append(d)
 
 

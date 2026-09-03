@@ -1,0 +1,183 @@
+{
+  "chain": "optimism",
+  "shadow": true,
+  "signing": false,
+  "broadcast": false,
+  "stages": {
+    "rpc": {
+      "ok": true,
+      "latency_ms": 236.2,
+      "block": 156068300
+    },
+    "chain_identity": {
+      "chain_id": 10,
+      "expected": 10,
+      "match": true
+    },
+    "token_registry": {
+      "count": 8,
+      "tokens": {
+        "WETH": {
+          "address": "0x4200000000000000000000000000000000000006",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "USDC": {
+          "address": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "USDC.e": {
+          "address": "0x7F5c764cBc14f9669B88837ca1490cCa17c31607",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "USDT": {
+          "address": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
+          "code": true,
+          "onchain_decimals": 6,
+          "registry_decimals": 6,
+          "decimals_match": true
+        },
+        "DAI": {
+          "address": "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "WBTC": {
+          "address": "0x68f180fcCe6836688e9084f035309E29Bf0A2095",
+          "code": true,
+          "onchain_decimals": 8,
+          "registry_decimals": 8,
+          "decimals_match": true
+        },
+        "OP": {
+          "address": "0x4200000000000000000000000000000000000042",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        },
+        "wstETH": {
+          "address": "0x1F32b1c2345538c0c6f582fCB022739c4A194Ebb",
+          "code": true,
+          "onchain_decimals": 18,
+          "registry_decimals": 18,
+          "decimals_match": true
+        }
+      }
+    },
+    "dex_registry": {
+      "uniswap_v3": {
+        "factory": "0x1F98431c8aD98523631AE4a59f267346ea31F984",
+        "code": true
+      },
+      "velodrome_v2": {
+        "factory": "0xF1046053aa5682b4F9a81b5481394DA16BE5FF5a",
+        "code": true
+      }
+    },
+    "route_discovery": {
+      "WETH/USDC@500": {
+        "dex": "uniswap_v3",
+        "pool": "0x1fb3cf6e48f1e7b10213e7b6d87d4c073c7fdb7b",
+        "pool_token_depth": {
+          "WETH": 73.14929276019663,
+          "USDC": 109047.299142
+        }
+      },
+      "WETH/USDC@3000": {
+        "dex": "uniswap_v3",
+        "pool": "0xc1738d90e2e26c35784a0d3e3d8a9f795074bca4",
+        "pool_token_depth": {
+          "WETH": 859.5192181296942,
+          "USDC": 2847551.001434
+        }
+      }
+    },
+    "native_price_usd": 2459.7,
+    "native_price_oracle": {
+      "chain": "optimism",
+      "symbol": "ETH",
+      "price_usd": 2459.7,
+      "ok": true,
+      "stale": false,
+      "age_s": 0.0,
+      "source": "coingecko",
+      "reason": "live"
+    },
+    "provider_liquidity": {
+      "balancer_v2": {
+        "provider": "balancer_v2",
+        "chain": "optimism",
+        "status": "ON_CHAIN_CONFIRMED",
+        "fee_bps": 0,
+        "liquidity_tokens": 26.655683412563356,
+        "liquidity_usd": 65564.98448988209,
+        "source_address": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+        "reason": "confirmed"
+      },
+      "aave_v3": {
+        "provider": "aave_v3",
+        "chain": "optimism",
+        "status": "ON_CHAIN_CONFIRMED",
+        "fee_bps": 5,
+        "liquidity_tokens": 2176.2887116561565,
+        "liquidity_usd": 5353017.344060647,
+        "source_address": "0xe50fa9b3c56ffb159cb0fca61f5c9d750e8128c8",
+        "reason": "confirmed"
+      }
+    },
+    "provider_choice": {
+      "feasible": true,
+      "provider": "balancer_v2",
+      "fee_bps": 0,
+      "fee_usd": 0.0,
+      "callback_extra_gas": 90000,
+      "reason": "cheapest_feasible_provider"
+    },
+    "gas_price_wei": 1000379,
+    "all_in_cost": {
+      "all_in_cost_usd": 150.00092428735118,
+      "net_profit_all_in_usd": -150.00092428735118,
+      "l2_fee_usd": 0.00092273653143,
+      "l1_fee_usd": 1.5508197605322e-06,
+      "flash_loan_fee_usd": 0.0,
+      "slippage_usd": 150.0,
+      "gas_units": 300000.0,
+      "gas_price_wei_ceiling": 1250473.0,
+      "chain": "optimism",
+      "native_token": "ETH"
+    },
+    "economics": {
+      "min_net_profit_gate_usd": 35.0,
+      "real_all_in_cost_usd": 150.0009,
+      "l2_fee_usd": 0.00092273653143,
+      "l1_fee_usd": 1.5508197605322e-06,
+      "slippage_usd": 150.0,
+      "flash_provider_fee_usd": 0.0,
+      "gross_edge_required_to_pass_usd": 185.0009,
+      "note": "SHADOW: no live gross edge asserted; costs are real on-chain."
+    },
+    "readiness": {
+      "m3_authority": "M3 remains final execution authority",
+      "executable": false,
+      "signing": false,
+      "broadcast": false,
+      "state": "COST_MODEL_LIVE (detection-only)"
+    }
+  },
+  "fail_closed_events": [],
+  "rpc_url_host": "https://***.publicnode.com",
+  "result": "LIVE_VALIDATED",
+  "all_in_cost_available": true,
+  "provider_feasible": true
+}

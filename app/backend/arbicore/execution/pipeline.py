@@ -61,6 +61,12 @@ BROADCAST_MODES = frozenset({"LIMITED_LIVE", "FULL_LIVE"})
 # Modes that authorise deep analysis + shadow recording.
 ANALYSIS_MODES = frozenset({"PAPER", "SHADOW", "LIMITED_LIVE", "FULL_LIVE"})
 
+# T0-3 · explicit readiness/infra sentinels returned by ``_resolve_mode``.
+# These are NOT valid ladder modes — they force an operator-visible fault
+# instead of silently degrading to legitimate OBSERVE.
+MODE_UNRESOLVED = "__MODE_UNRESOLVED__"
+MODE_ERROR = "__MODE_ERROR__"
+
 
 def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -230,6 +236,12 @@ class OpportunityPipeline:
 
         # 1. Read mode
         mode = await self._resolve_mode(strategy)
+
+        # T0-3: a missing execution_mode row (MODE_UNRESOLVED) or a mode-read
+        # failure (MODE_ERROR) is an explicit, operator-visible readiness/infra
+        # fault — NOT a silent, legitimate OBSERVE.
+        if mode in (MODE_UNRESOLVED, MODE_ERROR):
+            return self._readiness_fault_result(mode, strategy, opportunity_id)
 
         # 2. Journal discovery
         await self._journal.record_discovery(
@@ -569,8 +581,36 @@ class OpportunityPipeline:
                     return row["mode"]
         except Exception as exc:  # noqa: BLE001
             logger.warning("pipeline mode read failed: %s", exc)
-            return "OBSERVE"
-        return "OBSERVE"
+            return MODE_ERROR
+        return MODE_UNRESOLVED
+
+    def _readiness_fault_result(self, mode: str, strategy: str,
+                                opportunity_id: str) -> "PipelineResult":
+        """T0-3: build an explicit readiness/infra fault result.
+
+        Missing mode ⇒ ``readiness_error`` (config_missing); mode-read error
+        ⇒ ``infra_error``. Never mislabeled as legitimate OBSERVE.
+        """
+        is_missing = mode == MODE_UNRESOLVED
+        reason = (
+            f"config_missing: no execution_mode_state row for strategy "
+            f"'{strategy}' — seed execution modes (NOT a valid OBSERVE)"
+            if is_missing else
+            f"infra_error: execution_mode read failed for strategy '{strategy}'"
+        )
+        result = PipelineResult(
+            opportunity_id=opportunity_id,
+            strategy=strategy,
+            mode=("UNRESOLVED" if is_missing else "ERROR"),
+            action=("readiness_error" if is_missing else "infra_error"),
+            reason=reason,
+        )
+        result.outcome = "READINESS_ERROR" if is_missing else "INFRA_ERROR"
+        result.outcome_reason = reason
+        _t_perf = time.perf_counter(); _t_iso = _iso_now()
+        _obs = StageOutcome(stage="readiness_check", ok=False, detail=reason)
+        result.stages.append(self._stamp(_obs, _t_perf, _t_iso))
+        return result
 
     @staticmethod
     def _extract_quote(opp: Dict[str, Any]) -> StageOutcome:

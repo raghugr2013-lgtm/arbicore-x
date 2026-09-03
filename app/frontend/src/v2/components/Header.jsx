@@ -33,7 +33,16 @@ export function Header({ username, onLogout, onOpenPalette }) {
   return (
     <header className="v2-header" data-testid="v2-header">
       <div className="v2-header__slot v2-header__slot--brand" data-testid="v2-header-brand">
-        ARBICORE
+        <img
+          src={`${process.env.PUBLIC_URL || ""}/arbicore-emblem.png`}
+          alt="ArbiCore X"
+          width="22"
+          height="22"
+          style={{ display: "block", objectFit: "contain", flexShrink: 0 }}
+        />
+        <span className="v2-header__brand-text">
+          ARBICORE<span style={{ color: "var(--v2-accent-gold, #ffb224)", marginLeft: 3 }}>X</span>
+        </span>
       </div>
 
       <div className="v2-header__slot" data-testid="v2-header-breadcrumb">

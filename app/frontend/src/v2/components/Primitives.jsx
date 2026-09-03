@@ -10,6 +10,7 @@ export function VerdictBadge({ verdict, testid }) {
     GO: { label: "GO", color: "var(--v2-verdict-go)" },
     SOFT_NO: { label: "SOFT NO", color: "var(--v2-verdict-no-soft)" },
     HARD_NO: { label: "HARD NO", color: "var(--v2-verdict-no-hard)" },
+    UNVERIFIED: { label: "UNVERIFIED", color: "var(--v2-text-muted)" },
   };
   const spec = map[norm] || { label: norm || "—", color: "var(--v2-text-muted)" };
   return (
@@ -40,7 +41,32 @@ function bandColor(v, low, mid) {
 }
 
 export function ConfidencePill({ value, label = "CONF", testid }) {
-  const pct = Math.max(0, Math.min(1, Number(value) || 0));
+  // Truth rule: null/undefined → UNAVAILABLE ("—"), NOT a coerced 0.
+  if (value == null || Number.isNaN(Number(value))) {
+    return (
+      <span
+        data-testid={testid}
+        title="No real assessment available"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "2px 8px",
+          border: "1px dashed var(--v2-border-subtle)",
+          background: "var(--v2-bg-panel)",
+          borderRadius: 2,
+          fontFamily: "var(--v2-font-mono)",
+          fontSize: 10,
+          letterSpacing: 1,
+          color: "var(--v2-text-muted)",
+        }}
+      >
+        <span>{label}</span>
+        <span style={{ fontWeight: 700 }}>—</span>
+      </span>
+    );
+  }
+  const pct = Math.max(0, Math.min(1, Number(value)));
   const color = bandColor(pct);
   return (
     <span
@@ -82,7 +108,14 @@ export function SafetyPill({ value, testid }) {
 }
 
 export function FreshnessBadge({ ageSeconds, testid }) {
-  const age = Number(ageSeconds) || 0;
+  if (ageSeconds == null || Number.isNaN(Number(ageSeconds))) {
+    return (
+      <span data-testid={testid} style={{ fontFamily: "var(--v2-font-mono)", fontSize: 10, color: "var(--v2-text-muted)" }}>
+        —
+      </span>
+    );
+  }
+  const age = Number(ageSeconds);
   let color = "var(--v2-fresh-fresh)";
   let label = `${age}s`;
   if (age > 60) { color = "var(--v2-fresh-stalled)"; label = `${Math.round(age / 60)}m`; }
@@ -134,4 +167,81 @@ export function fmtPct(n) {
 export function fmtBps(n) {
   if (n == null) return "—";
   return `${Number(n).toFixed(1)} bps`;
+}
+
+/** Data-provenance chip — SIMULATED / REAL / VERIFIED_REAL. */
+export function ProvenanceChip({ value, testid }) {
+  const norm = (value || "").toUpperCase();
+  const map = {
+    VERIFIED_REAL: { label: "VERIFIED", color: "var(--v2-verdict-go)" },
+    REAL: { label: "REAL", color: "var(--v2-accent-base)" },
+    SIMULATED: { label: "SIMULATED", color: "var(--v2-conf-mid)" },
+    CONTAMINATED: { label: "CONTAMINATED", color: "var(--v2-verdict-no-hard)" },
+    DEAD: { label: "DEAD", color: "var(--v2-verdict-no-hard)" },
+  };
+  const spec = map[norm] || { label: norm || "—", color: "var(--v2-text-muted)" };
+  return (
+    <span
+      data-testid={testid}
+      title={`Data provenance: ${norm || "unknown"}`}
+      style={{
+        display: "inline-block",
+        padding: "1px 6px",
+        fontFamily: "var(--v2-font-mono)",
+        fontSize: 9,
+        letterSpacing: 1,
+        color: spec.color,
+        border: `1px solid ${spec.color}`,
+        background: "transparent",
+        borderRadius: 2,
+      }}
+    >
+      {spec.label}
+    </span>
+  );
+}
+
+
+// Compact anomaly / provenance indicator. Renders the backend
+// `data_quality_flags` as small amber chips that EXPLAIN why an authoritative
+// value is unavailable/rejected. The backend canonical contract stays the
+// source of truth — this only surfaces its verdict, it never re-derives it.
+export const DATA_QUALITY_FLAG_LABELS = {
+  uncontextualized_large_profit: "Large profit with no capital to validate against — rejected",
+  implausible_return: "Return exceeds the plausible bound — rejected as a likely unit/mapping error",
+  invalid_negative_capital: "Capital required was negative — rejected",
+  unavailable_liquidity: "Provider liquidity could not be confirmed on-chain",
+  stale_quote: "Quote is stale / past its freshness window",
+  missing_gas: "Gas cost unavailable — economics cannot be priced",
+  invalid_economics: "Economic inputs failed validation",
+};
+
+export function AnomalyChips({ flags, testid }) {
+  const list = Array.isArray(flags) ? flags.filter(Boolean) : [];
+  if (list.length === 0) return null;
+  return (
+    <span data-testid={testid} style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+      {list.map((f) => (
+        <span
+          key={f}
+          data-testid={`v2-dq-flag-${f}`}
+          title={DATA_QUALITY_FLAG_LABELS[f] || f}
+          style={{
+            display: "inline-block",
+            padding: "1px 6px",
+            fontFamily: "var(--v2-font-mono)",
+            fontSize: 9,
+            letterSpacing: 0.5,
+            color: "#f5a623",
+            border: "1px solid #f5a623",
+            background: "rgba(245,166,35,0.08)",
+            borderRadius: 2,
+            textTransform: "uppercase",
+          }}
+        >
+          ⚠ {f.replace(/_/g, " ")}
+        </span>
+      ))}
+    </span>
+  );
 }

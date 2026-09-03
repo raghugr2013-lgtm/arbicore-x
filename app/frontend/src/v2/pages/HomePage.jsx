@@ -202,9 +202,9 @@ function PrioritiesBand({ deck }) {
             <div className="v2-empty">{"> No fresh opportunities.\n> Scanners may be paused or gates are pruning routes."}</div>
           ) : (
             <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {opps.slice(0, 5).map((o) => (
+              {opps.slice(0, 5).map((o, i) => (
                 <li
-                  key={o.id}
+                  key={`${o.id}-${i}`}
                   data-testid={`v2-home-priorities-item-${o.id}`}
                   onClick={() => navigate(`/v2/opportunities?id=${o.id}`)}
                   style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--v2-border-subtle)", cursor: "pointer" }}

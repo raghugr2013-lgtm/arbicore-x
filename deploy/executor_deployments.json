@@ -1,0 +1,32 @@
+{
+  "schema": "arbicore.executor_deployments/v1",
+  "note": "READ-ONLY provisioning registry of the ArbiCore X FlashLoanReceiver executor. This file records already-broadcast deployments so tooling/operators can look up (and independently verify) a deployed address WITHOUT hardcoding it. It NEVER auto-enables execution: the audit/runtime still reads ARBICORE_EXECUTOR_ADDRESS_BASE from the environment only, and Limited-Live/signing/broadcast remain independently gated. Addresses here are PUBLIC only; no private keys, no signer material.",
+  "contract": "FlashLoanReceiver",
+  "source": "contracts/core/FlashLoanReceiver.sol",
+  "deployments": {
+    "84532": {
+      "network": "base_sepolia",
+      "address": "0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052",
+      "deploy_status": "success",
+      "deploy_tx": "0x7ef61de3b016d38eca27aac4c6498297d5843f3520ac2269428bc17ff933bc6a",
+      "deploy_block": 45169467,
+      "constructor_args": {
+        "balancerVault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+        "aavePool": "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27",
+        "uniRouter": "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4"
+      },
+      "basescan_verified": "unknown",
+      "source_artifact": "contracts/broadcast/Deploy.s.sol/84532/run-latest.json"
+    },
+    "8453": {
+      "network": "base_mainnet",
+      "address": null,
+      "deploy_status": "not_deployed",
+      "constructor_args_expected": {
+        "balancerVault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+        "aavePool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+        "uniRouter": "0x2626664c2603336E57B271c5C0b26F421741e481"
+      }
+    }
+  }
+}

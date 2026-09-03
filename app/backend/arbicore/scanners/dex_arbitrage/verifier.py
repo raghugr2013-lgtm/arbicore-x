@@ -173,6 +173,7 @@ class DEXQuoteVerifier(OpportunityVerifier):
                     "mid_price": buy_q.mid_price,
                     "slippage_pct": buy_q.slippage_pct,
                     "gas_estimate_usd": buy_q.gas_estimate_usd,
+                    "quote_backend": (buy_q.raw or {}).get("winning_backend"),
                 },
             ),
             LegEvidence(
@@ -190,6 +191,7 @@ class DEXQuoteVerifier(OpportunityVerifier):
                     "mid_price": sell_q.mid_price,
                     "slippage_pct": sell_q.slippage_pct,
                     "gas_estimate_usd": sell_q.gas_estimate_usd,
+                    "quote_backend": (sell_q.raw or {}).get("winning_backend"),
                 },
             ),
         ]

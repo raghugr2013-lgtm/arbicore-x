@@ -11,12 +11,33 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import time
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
 from .enums import OpportunityType
+
+
+def _discovery_candidate_ttl_s() -> float:
+    """Configurable candidate lifetime (seconds).
+
+    ``expires_at = hint_observed_at + ttl`` and ``DiscoveryQueue.claim_batch``
+    requires ``expires_at > now``. The previous hardcoded 60s was shorter than
+    the per-tick discover()+upsert_many() latency at production scale, so fresh
+    candidates expired before they could be claimed. Conservative default 900s
+    (15 min) keeps candidates claimable long enough to drain the backlog while
+    remaining well under the 24h queue TTL horizon. Read at call time so ops can
+    tune without a code change; fail-safe to the default on bad input."""
+    raw = os.environ.get("ARBICORE_DISCOVERY_CANDIDATE_TTL_S")
+    if raw is None:
+        return 900.0
+    try:
+        val = float(raw)
+    except (TypeError, ValueError):
+        return 900.0
+    return val if val > 0 else 900.0
 
 
 class VerifiedOutcome(str):
@@ -27,6 +48,11 @@ class VerifiedOutcome(str):
     DENIED_VENUE_UNREADABLE = "denied:venue_unreadable"
     DENIED_NO_VERIFIER = "denied:no_verifier_registered"
     DENIED_GATE_PREFIX = "denied:gate_rejection:"  # denied:gate_rejection:<gate_name>
+    # denied:quote_invalid:<reason> — quote integrity failure (partial /
+    # reverted hop / missing output / malformed gross / non-cyclic route).
+    # A quote that is not economically calculable MUST fail closed here and
+    # never reach economics, Gate 7 or CONFIRMED.
+    DENIED_QUOTE_INVALID_PREFIX = "denied:quote_invalid:"
     ERROR_PREFIX = "error:"
     EXPIRED_UNCLAIMED = "expired_unclaimed"
 
@@ -63,7 +89,7 @@ class DiscoveryCandidate(BaseModel):
         if "expires_at" not in data or data["expires_at"] is None:
             data["expires_at"] = data.get(
                 "hint_observed_at", time.time()
-            ) + 60.0
+            ) + _discovery_candidate_ttl_s()
         super().__init__(**data)
 
 

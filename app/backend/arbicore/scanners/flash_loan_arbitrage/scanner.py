@@ -117,6 +117,13 @@ class FlashLoanArbitrageScanner:
         self._verifier_registry.register(self._verifier)
 
         self._worker_id = f"flash_loan_arb:{uuid.uuid4().hex[:8]}"
+        # Diagnostic provenance identity (observability only; never a verdict
+        # input). ``_audit_run_id`` is stable for this scanner instance;
+        # ``_tick_id`` increments once per _tick so a persisted evidence bundle
+        # can be traced to the exact scan that produced it.
+        self._audit_run_id = f"flarb_audit:{uuid.uuid4().hex[:12]}"
+        self._tick_id = 0
+        self._verifier.diagnostic_provenance_fn = self._diagnostic_provenance
         self._task: Optional[asyncio.Task] = None
         self._stop = asyncio.Event()
         self._stats: Dict[str, Any] = {
@@ -178,6 +185,35 @@ class FlashLoanArbitrageScanner:
         self._quote_provider = provider
         self._verifier.quote_provider = provider
 
+    def set_evidence_sink(self, sink) -> None:
+        """M2.3 — wire the auditable evidence sink onto the verifier."""
+        self._verifier.evidence_sink = sink
+
+    def set_shadow_sink(self, sink) -> None:
+        """M2.4 — wire the SHADOW/PAPER routing sink onto the verifier."""
+        self._verifier.shadow_sink = sink
+
+    def set_price_provenance_fn(self, fn) -> None:
+        """M2.5 — wire the per-token USD price provenance source onto the
+        verifier for the evidence bundle."""
+        self._verifier.price_provenance_fn = fn
+
+    def _diagnostic_provenance(self, candidate) -> Dict[str, Any]:
+        """Diagnostic provenance stamped onto every evidence bundle. Pure
+        observability — carries the audit-run / tick / worker / claim identity
+        so a persisted bundle is traceable to the exact scan. Never influences
+        the verifier verdict."""
+        return {
+            "audit_run_id": self._audit_run_id,
+            "scanner_tick_id": self._tick_id,
+            "worker_id": self._worker_id,
+            "candidate_id": getattr(candidate, "candidate_id", None),
+            "claimed_by": getattr(candidate, "claimed_by", None),
+            "claimed_at": getattr(candidate, "claimed_at", None),
+            "hint_observed_at": getattr(candidate, "hint_observed_at", None),
+            "stamped_at": time.time(),
+        }
+
     # -- lifecycle --------------------------------------------------------
 
     async def start(self) -> None:
@@ -229,6 +265,7 @@ class FlashLoanArbitrageScanner:
         if not self.is_enabled():
             return
         self._stats["iterations"] += 1
+        self._tick_id += 1
         self._stats["last_run_at"] = time.time()
 
         # ---- 1. Discover --------------------------------------------------

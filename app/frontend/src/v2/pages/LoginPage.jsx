@@ -8,13 +8,14 @@
  * one-time CREATE ADMIN variant (adds "Confirm passphrase" + calls
  * `setup(...)` instead of `login(...)`).  Visual chrome unchanged.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import "@/v2/theme/tokens.css";
 import "@/v2/pages/LoginPage.css";
 
 export default function LoginPage() {
+  useEffect(() => { document.title = "ArbiCore X"; }, []);
   const navigate = useNavigate();
   const { isAuthenticated, isValidating, setupComplete, login, setup } = useAuth();
   const [username, setUsername] = useState("");
@@ -68,7 +69,6 @@ export default function LoginPage() {
     }
   }
 
-  const heading = isSetup ? "Create administrator" : "ArbiCore X";
   const tag = isSetup
     ? "First-run setup — this creates the sole administrator. Registration locks permanently after this."
     : "Autonomous Institutional Arbitrage Intelligence Platform";
@@ -81,7 +81,21 @@ export default function LoginPage() {
     <div className="ui-v2-root arbicore-login" data-testid="login-page">
       <div className="arbicore-login__panel">
         <div className="arbicore-login__brand">
-          <div className="arbicore-login__wordmark">{heading}</div>
+          <img
+            src={`${process.env.PUBLIC_URL || ""}/arbicore-emblem.png`}
+            alt="ArbiCore X"
+            className="arbicore-login__emblem"
+            width="88"
+            height="88"
+            data-testid="login-brand-emblem"
+          />
+          <div className="arbicore-login__wordmark" data-testid="login-brand-wordmark">
+            {isSetup ? (
+              "Create administrator"
+            ) : (
+              <>ARBICORE<span className="arbicore-login__x">X</span></>
+            )}
+          </div>
           <div className="arbicore-login__tag">{tag}</div>
         </div>
 

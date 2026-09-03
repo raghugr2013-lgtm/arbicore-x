@@ -161,6 +161,7 @@ class QuoterBackend(Protocol):
     async def quote_hop(
         self, *, hop_index: int, chain: str, token_in: str, token_out: str,
         amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
     ) -> HopQuote: ...
 
 
@@ -189,6 +190,21 @@ _RPC_MAX_RETRIES = int(os.environ.get("ARBICORE_RPC_MAX_RETRIES", "4"))
 _RPC_LOCK = asyncio.Lock()
 _RPC_LAST_TS = {"t": 0.0}
 
+# Per-host batch-capability cache. Some providers (e.g. Alchemy on certain
+# plans) reject or mishandle JSON-RPC batch arrays even though they answer
+# single requests fine. When we detect a mishandled batch for a host we flip
+# it to single-request mode for the rest of the process. Provenance
+# (block_number) then comes from a separate best-effort eth_blockNumber.
+_HOST_BATCH_OK: Dict[str, bool] = {}
+
+
+def _host_key(url: str) -> str:
+    try:
+        from urllib.parse import urlparse as _up
+        return (_up(url).hostname or url).lower()
+    except Exception:  # noqa: BLE001
+        return url
+
 
 def _is_rate_limited(err: Optional[Dict[str, Any]]) -> bool:
     if not err:
@@ -208,57 +224,145 @@ async def _throttle() -> None:
         _RPC_LAST_TS["t"] = asyncio.get_event_loop().time()
 
 
+async def _post_json(rpc_url: str, payload: Any, timeout: float):
+    async with httpx.AsyncClient(timeout=timeout) as c:
+        return await c.post(rpc_url, json=payload)
+
+
+async def _single_call(
+    rpc_url: str, *, to: str, data: str, block: str, timeout: float,
+    want_block: bool,
+) -> Tuple[Optional[str], Optional[int], Optional[Dict[str, Any]]]:
+    """eth_call as a SINGLE (non-array) request + a separate best-effort
+    eth_blockNumber for provenance. Used for providers that mishandle
+    batch arrays. Never fabricates: a failed block probe just leaves
+    ``block_number=None`` while the quote result stands."""
+    r = await _post_json(
+        rpc_url,
+        {"jsonrpc": "2.0", "id": 1, "method": "eth_call",
+         "params": [{"to": to, "data": data}, block]},
+        timeout,
+    )
+    if getattr(r, "status_code", 200) == 429:
+        return None, None, {"code": -32016, "message": "HTTP 429 rate limited"}
+    r.raise_for_status()
+    body = r.json()
+    if isinstance(body, list):
+        body = body[0] if body else {}
+    if not isinstance(body, dict):
+        return None, None, {"code": -32000, "message": f"unexpected response type {type(body).__name__}"}
+    if "error" in body:
+        return None, None, body["error"]
+    result = body.get("result")
+    block_number: Optional[int] = None
+    if want_block and result is not None:
+        try:
+            rb = await _post_json(
+                rpc_url,
+                {"jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": []},
+                timeout,
+            )
+            bb = rb.json()
+            if isinstance(bb, list):
+                bb = bb[0] if bb else {}
+            bn_hex = (bb or {}).get("result") if isinstance(bb, dict) else None
+            block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
+        except Exception:  # noqa: BLE001 — provenance is non-critical
+            block_number = None
+    return result, block_number, None
+
+
 async def _eth_call(
     rpc_url: str, *, to: str, data: str, block: str = "latest", timeout: float = 12.0,
-    with_block_number: bool = True,
+    with_block_number: bool = True, max_retries: Optional[int] = None,
 ) -> Tuple[Optional[str], Optional[int], Optional[Dict[str, Any]]]:
-    """One-shot read-only ``eth_call`` — returns (result_hex, block_number, error_dict).
+    """Read-only ``eth_call`` — returns (result_hex, block_number, error_dict).
 
-    Applies a global throttle and retries on RPC rate-limit (-32016 / HTTP 429)
-    with exponential backoff. ``block_number`` provenance is batched in the same
-    request (no extra round-trip)."""
-    if with_block_number:
+    Prefers a JSON-RPC batch (eth_call + eth_blockNumber in one round-trip) but
+    AUTO-FALLS BACK to single requests for any host that mishandles batches
+    (e.g. Alchemy plans that answer a batch with a single object or an empty
+    array). Applies a global throttle and retries on rate-limit (-32016 / HTTP
+    429). Fail-closed: on any unrecovered error it returns an ``error_dict`` and
+    never a fabricated quote."""
+    host = _host_key(rpc_url)
+    last_err: Optional[Dict[str, Any]] = None
+    retries = _RPC_MAX_RETRIES if max_retries is None else max(0, int(max_retries))
+    for attempt in range(retries + 1):
+        await _throttle()
+        use_batch = with_block_number and _HOST_BATCH_OK.get(host, True)
+
+        # ---- Single-request mode (host known batch-averse, or no block wanted)
+        if not use_batch:
+            try:
+                result, bn, err = await _single_call(
+                    rpc_url, to=to, data=data, block=block, timeout=timeout,
+                    want_block=with_block_number)
+            except httpx.HTTPStatusError as exc:
+                if exc.response is not None and exc.response.status_code == 429:
+                    last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                raise
+            if err and _is_rate_limited(err) and attempt < retries:
+                last_err = err
+                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+            return result, bn, err
+
+        # ---- Batch mode ------------------------------------------------------
         payload = [
             {"jsonrpc": "2.0", "id": 1, "method": "eth_call",
              "params": [{"to": to, "data": data}, block]},
             {"jsonrpc": "2.0", "id": 2, "method": "eth_blockNumber", "params": []},
         ]
-    else:
-        payload = [{"jsonrpc": "2.0", "id": 1, "method": "eth_call",
-                    "params": [{"to": to, "data": data}, block]}]
-
-    last_err: Optional[Dict[str, Any]] = None
-    for attempt in range(_RPC_MAX_RETRIES + 1):
-        await _throttle()
         try:
-            async with httpx.AsyncClient(timeout=timeout) as c:
-                r = await c.post(rpc_url, json=payload)
+            r = await _post_json(rpc_url, payload, timeout)
             if getattr(r, "status_code", 200) == 429:
                 last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                await asyncio.sleep(0.3 * (2 ** attempt))
-                continue
+                await asyncio.sleep(0.3 * (2 ** attempt)); continue
             r.raise_for_status()
             body = r.json()
         except httpx.HTTPStatusError as exc:
             if exc.response is not None and exc.response.status_code == 429:
                 last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                await asyncio.sleep(0.3 * (2 ** attempt))
-                continue
+                await asyncio.sleep(0.3 * (2 ** attempt)); continue
             raise
-        if not isinstance(body, list):
-            body = [body]
-        call_resp = next((b for b in body if b.get("id") == 1), None) or {}
-        block_resp = next((b for b in body if b.get("id") == 2), None) or {}
-        if "error" in call_resp:
-            err = call_resp["error"]
-            if _is_rate_limited(err) and attempt < _RPC_MAX_RETRIES:
+
+        if isinstance(body, list):
+            call_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 1), None)
+            if call_resp is not None:
+                if "error" in call_resp:
+                    err = call_resp["error"]
+                    if _is_rate_limited(err) and attempt < retries:
+                        last_err = err
+                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    return None, None, err
+                block_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 2), None) or {}
+                bn_hex = (block_resp or {}).get("result")
+                block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
+                return call_resp.get("result"), block_number, None
+            # Array returned but our id==1 is missing. If it carries a surfaced
+            # error, honour it; otherwise the provider mishandled the batch —
+            # switch this host to single mode and retry.
+            err = next((b.get("error") for b in body if isinstance(b, dict) and "error" in b), None)
+            if err:
+                if _is_rate_limited(err) and attempt < retries:
+                    last_err = err
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                return None, None, err
+            logger.info("quoter: host %s mishandled JSON-RPC batch (array) — switching to single-request mode", host)
+            _HOST_BATCH_OK[host] = False
+            continue
+        # Non-array response to a batch: a single object. Honour an error, else
+        # mark the host batch-averse and retry in single mode.
+        if isinstance(body, dict) and "error" in body:
+            err = body["error"]
+            if _is_rate_limited(err) and attempt < retries:
                 last_err = err
-                await asyncio.sleep(0.3 * (2 ** attempt))
-                continue
+                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+            # A real auth/other error (e.g. Ankr keyless "Unauthorized"): surface it.
             return None, None, err
-        bn_hex = (block_resp or {}).get("result")
-        block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
-        return call_resp.get("result"), block_number, None
+        logger.info("quoter: host %s answered batch with a non-array — switching to single-request mode", host)
+        _HOST_BATCH_OK[host] = False
+        continue
     return None, None, (last_err or {"code": -32016, "message": "rate limited (retries exhausted)"})
 
 
@@ -278,6 +382,7 @@ class UniV3QuoterV2:
     async def quote_hop(
         self, *, hop_index: int, chain: str, token_in: str, token_out: str,
         amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
     ) -> HopQuote:
         contract = self._CONTRACT_BY_CHAIN.get(chain)
         if not contract:
@@ -301,7 +406,7 @@ class UniV3QuoterV2:
         data = _SEL["univ3_quoteExactInputSingle"] + params_encoded.hex()
 
         try:
-            result_hex, block_number, err = await _eth_call(rpc_url, to=contract, data=data)
+            result_hex, block_number, err = await _eth_call(rpc_url, to=contract, data=data, max_retries=max_retries)
         except Exception as exc:  # noqa: BLE001
             return _fallback_hop(hop_index, self.dex, token_in, token_out,
                                   amount_in_wei, contract, _redact_host(rpc_url),
@@ -353,6 +458,7 @@ class AerodromeSlipStreamQuoter:
     async def quote_hop(
         self, *, hop_index: int, chain: str, token_in: str, token_out: str,
         amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
     ) -> HopQuote:
         contract = self._CONTRACT_BY_CHAIN.get(chain)
         if not contract:
@@ -372,7 +478,7 @@ class AerodromeSlipStreamQuoter:
         )
         data = _SEL["aeroSs_quoteExactInputSingle"] + params_encoded.hex()
         try:
-            result_hex, block_number, err = await _eth_call(rpc_url, to=contract, data=data)
+            result_hex, block_number, err = await _eth_call(rpc_url, to=contract, data=data, max_retries=max_retries)
         except Exception as exc:  # noqa: BLE001
             return _fallback_hop(hop_index, self.dex, token_in, token_out,
                                   amount_in_wei, contract, _redact_host(rpc_url),
@@ -425,6 +531,7 @@ class AerodromeClassicQuoter:
     async def quote_hop(
         self, *, hop_index: int, chain: str, token_in: str, token_out: str,
         amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
     ) -> HopQuote:
         router = self._ROUTER_BY_CHAIN.get(chain)
         factory = self._DEFAULT_FACTORY_BY_CHAIN.get(chain)
@@ -447,7 +554,7 @@ class AerodromeClassicQuoter:
         )
         data = _SEL["aero_getAmountsOut"] + params_encoded.hex()
         try:
-            result_hex, block_number, err = await _eth_call(rpc_url, to=router, data=data)
+            result_hex, block_number, err = await _eth_call(rpc_url, to=router, data=data, max_retries=max_retries)
         except Exception as exc:  # noqa: BLE001
             return _fallback_hop(hop_index, self.dex, token_in, token_out,
                                   amount_in_wei, router, _redact_host(rpc_url),
@@ -499,6 +606,24 @@ def _fallback_hop(hop_index: int, dex: str, token_in: str, token_out: str,
     )
 
 
+def _should_failover(q: "HopQuote") -> bool:
+    """Whether a non-ok hop is worth retrying against the NEXT configured RPC.
+
+    Fail over on transient / provider-side faults (rate-limit, transport, empty
+    response). Do NOT fail over on a *genuine DEX execution revert* (another
+    endpoint returns the identical revert — spinning wastes latency) nor on a
+    config/no-adapter miss (another endpoint won't fix a missing adapter)."""
+    if q.status == "ok":
+        return False
+    if q.status == "fallback:no_adapter":
+        return False
+    err = (q.error or "").lower()
+    if "execution reverted" in err:
+        return False
+    return True
+
+
+
 # --------------------------------------------------------------------------- #
 # QuoterRegistry — the object the rest of ArbiCore consumes                   #
 # --------------------------------------------------------------------------- #
@@ -538,8 +663,59 @@ class QuoterRegistry:
     def supported_dexes(self) -> List[str]:
         return sorted(self._backends)
 
-    def _rpc_url(self) -> Optional[str]:
-        return os.environ.get(self._rpc_url_env)
+    def _rpc_url(self, chain: Optional[str] = None) -> Optional[str]:
+        # Prefer the explicit env (default ``ARBICORE_RPC_URL``); fall back to
+        # the canonical per-chain precedence resolver
+        # (``ARBICORE_RPC_URL_<CHAIN>`` > ``ARBICORE_RPC_URL`` > ``<CHAIN>_RPC_URL``)
+        # so a Base deployment configured only with ``ARBICORE_RPC_URL_BASE``
+        # resolves the SAME RPC the TVL/aero/price paths already use
+        # (make_base_eth_call_from_env). No fabricated default — returns None
+        # when nothing is configured (⇒ fail-closed fallback hops).
+        v = os.environ.get(self._rpc_url_env)
+        if v:
+            return v
+        try:
+            from ..config.persistent import resolve_rpc_url_from_env
+            return resolve_rpc_url_from_env(chain or "base")
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _rpc_url_candidates(self, chain: Optional[str] = None) -> List[str]:
+        """Ordered, de-duplicated list of RPC endpoints for failover.
+
+        Precedence: the configured primary (``ARBICORE_RPC_URL_<CHAIN>`` /
+        ``rpc_url_env``, which itself may be a comma-separated list) FIRST, then
+        the same failover pool the P0 registry uses
+        (``PROVIDER_RPC_URLS_<CHAIN>`` / ``PROVIDER_RPC_URLS``), then legacy
+        single vars. This lets a transient 429 or a provider fault on the
+        primary fail over to a healthy secondary/free RPC instead of forcing
+        ``fallback:break_even``. No fabricated default — empty list ⇒ fail-closed."""
+        c = (chain or "base").upper().replace("-", "_")
+        seen: set = set()
+        out: List[str] = []
+
+        def _add(val: Optional[str]) -> None:
+            if not val:
+                return
+            for part in str(val).split(","):
+                u = part.strip()
+                if u and u not in seen:
+                    seen.add(u)
+                    out.append(u)
+
+        _add(os.environ.get(self._rpc_url_env))
+        _add(os.environ.get(f"ARBICORE_RPC_URL_{c}"))
+        _add(os.environ.get("ARBICORE_RPC_URL"))
+        _add(os.environ.get(f"{c}_RPC_URL"))
+        _add(os.environ.get(f"PROVIDER_RPC_URLS_{c}"))
+        _add(os.environ.get("PROVIDER_RPC_URLS"))
+        if not out:
+            try:
+                from ..config.persistent import resolve_rpc_url_from_env
+                _add(resolve_rpc_url_from_env(chain or "base"))
+            except Exception:  # noqa: BLE001
+                pass
+        return out
 
     def _cache_key(self, chain: str, hop: Dict[str, Any]) -> Tuple:
         return (
@@ -574,9 +750,9 @@ class QuoterRegistry:
                         (fallback hops passthrough amountIn as amountOut)
         * ``fallback:break_even`` — the route could not be quoted at all
         """
-        rpc = rpc_url or self._rpc_url()
+        rpc_candidates = [rpc_url] if rpc_url else self._rpc_url_candidates(chain)
         results: List[HopQuote] = []
-        if not rpc:
+        if not rpc_candidates:
             for i, h in enumerate(hops):
                 results.append(_fallback_hop(
                     i, h.get("dex") or "?", h.get("token_in") or h.get("tokenIn") or "",
@@ -608,7 +784,7 @@ class QuoterRegistry:
             backend = self._backends.get(dex)
             if backend is None:
                 q = _fallback_hop(i, dex or "?", token_in or "", token_out or "",
-                                   amount_in, "n/a", _redact_host(rpc),
+                                   amount_in, "n/a", _redact_host(rpc_candidates[0]),
                                    "fallback:no_adapter",
                                    f"no adapter registered for dex='{dex}'")
                 results.append(q); any_fallback = True
@@ -622,13 +798,32 @@ class QuoterRegistry:
             if cached and (now - cached[0]) < self._cache_ttl:
                 q = cached[1]
             else:
-                q = await backend.quote_hop(
-                    hop_index=i, chain=chain,
-                    token_in=token_in, token_out=token_out,
-                    amount_in_wei=amount_in,
-                    hop_spec=h, rpc_url=rpc,
-                )
-                self._cache[key] = (now, q)
+                # Try each configured RPC in order; fail over on a transient /
+                # provider-side fault (429, transport, empty) to the next
+                # healthy endpoint. A genuine DEX revert stops the loop (another
+                # RPC returns the same). Non-final candidates get a short retry
+                # budget so a rate-limited primary yields fast to the failover.
+                q = None
+                n = len(rpc_candidates)
+                for ci, cand in enumerate(rpc_candidates):
+                    mr = None if ci == n - 1 else 1  # last: full budget; earlier: 1 retry
+                    q = await backend.quote_hop(
+                        hop_index=i, chain=chain,
+                        token_in=token_in, token_out=token_out,
+                        amount_in_wei=amount_in,
+                        hop_spec=h, rpc_url=cand, max_retries=mr,
+                    )
+                    if q.status == "ok" or not _should_failover(q):
+                        break
+                    if ci < n - 1:
+                        logger.info(
+                            "quoter: hop %d failing over from %s to %s (status=%s err=%s)",
+                            i, _redact_host(cand), _redact_host(rpc_candidates[ci + 1]),
+                            q.status, (q.error or "")[:80],
+                        )
+                # Only cache a clean quote — never pin a transient fallback.
+                if q is not None and q.status == "ok":
+                    self._cache[key] = (now, q)
 
             results.append(q)
             if q.status == "ok":

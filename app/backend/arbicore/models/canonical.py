@@ -35,6 +35,7 @@ from .enums import (
     OpportunityStatus,
     OpportunityType,
     RouteHealth,
+    StrategyType,
 )
 
 
@@ -66,11 +67,13 @@ class CanonicalOpportunity(BaseModel):
     # Identity
     opportunity_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     opportunity_type: OpportunityType
+    strategy: Optional[StrategyType] = None   # Phase 2: flash-loan sub-strategy
     subject_id: Optional[str] = None     # Phase B: per-category disambiguator
 
     # Market / venue (Phase B: Optional, default None)
     asset: str                                   # e.g. "WETH/USDC"
     chain: Optional[str] = None                  # optional for CEX-only routes
+    chain_id: Optional[int] = None               # Phase 2: numeric EVM chain id
     buy_venue: Optional[str] = None
     sell_venue: Optional[str] = None
     buy_price: Optional[float] = None

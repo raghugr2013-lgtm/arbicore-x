@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/apiBase";
 /**
  * ArbiCore X — AuthContext (v2.9.3 · canonical single-admin, cookie-based)
  *
@@ -22,8 +23,7 @@ import React, {
 } from "react";
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
-const API = `${BACKEND_URL}/api`;
+const API = API_BASE;
 
 // v2.9.3 — Canonical auth uses httpOnly cookies. Make every axios call in
 // the app credentialed by default so business endpoints (e.g. Settings ➜

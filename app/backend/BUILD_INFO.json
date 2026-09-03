@@ -1,0 +1,9 @@
+{
+  "git_sha": "6142487a952ffa1e29e423b810c8ad3098389e5c",
+  "git_tag": "v2.9.2-143-g6142487-dirty",
+  "app_version": "v2.9.2-143-g6142487-dirty",
+  "image_digest": "unset",
+  "image_ref": "unset",
+  "build_time": "2026-08-25T13:31:26.382570+00:00",
+  "runtime_env": "unset"
+}

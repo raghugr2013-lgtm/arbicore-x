@@ -200,9 +200,22 @@ def aggregate_economics(*,
     )
 
 
+def canonical_net_profit_usd(assessment: "EconomicAssessment") -> float:
+    """T0-4 · single canonical USD profit view.
+
+    ``aggregate_economics``/``EconomicAssessment`` is THE canonical economic
+    kernel (it drives the flash-loan verifier + Gate 7). This helper is the
+    one authoritative USD projection of that assessment so every caller uses
+    the same number — no divergent second calculation. Gate semantics and the
+    $25 floor are unchanged (they read ``atomic_profit_usd`` =
+    ``EconomicAssessment.expected_profit_usd``).
+    """
+    return float(getattr(assessment, "expected_profit_usd", 0.0))
+
+
 __all__ = [
     "LegCost", "EconomicAssessment",
     "DEFAULT_PER_CHAIN_GAS_USD", "DEFAULT_MEV_RISK_FACTORS",
     "per_chain_gas_estimate_usd", "mev_penalty_pct",
-    "aggregate_economics",
+    "aggregate_economics", "canonical_net_profit_usd",
 ]

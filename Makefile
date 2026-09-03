@@ -12,7 +12,7 @@ DC := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compo
               else echo "false"; fi)
 
 .PHONY: help install upgrade upgrade-full rollback up down restart logs status \
-        healthcheck backup restore test-backend build env-check version clean verify
+        healthcheck backup restore test-backend safety-tests build env-check version clean verify
 
 help:
 	@echo "ArbiCore X — operator commands"
@@ -43,6 +43,7 @@ help:
 	@echo "  Development"
 	@echo "    make build           Build all Docker images"
 	@echo "    make test-backend    Run backend pytest suite inside the container"
+	@echo "    make safety-tests    Run the 99 deterministic pre-Limited-Live safety tests (CI gate)"
 	@echo "    make env-check       Validate that .env has all required keys"
 	@echo "    make version         Print current version"
 	@echo ""
@@ -127,6 +128,21 @@ build-oc:
 
 test-backend:
 	@cd $(COMPOSE_DIR) && $(DC) exec -T backend python -m pytest tests/ --tb=short -q
+
+# --- Safety gate (mirrors .github/workflows/safety-gate.yml) ----------------
+# Runs the 99 deterministic pre-Limited-Live safety tests. Offline/deterministic:
+# no RPC, no Mongo, no signer, no broadcast. The 3 network live-quote smoke
+# tests auto-skip (skipif: no Base RPC) and are non-blocking.
+SAFETY_TESTS := tests/test_pre_limited_live_hardening.py \
+	tests/test_d3_6a_base_univ3_quote.py \
+	tests/test_d3_6b_aerodrome_smoke.py \
+	tests/test_verify_readiness_script.py \
+	tests/test_z8_canonical_scanner_loader_integration.py \
+	tests/test_wave6a_mode_unit.py \
+	tests/test_wave6d_unit.py
+
+safety-tests:
+	@cd $(REPO_ROOT)/app/backend && PYTHONPATH=. python -m pytest $(SAFETY_TESTS) --tb=short -q
 
 env-check:
 	@if [ ! -f .env ]; then echo ".env not found. Copy .env.example first."; exit 2; fi

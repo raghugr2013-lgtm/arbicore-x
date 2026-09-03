@@ -21,7 +21,10 @@ sensible free-tier public defaults. Consumers should set
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import random
 import time
 from typing import Any, Dict, List, Optional
 
@@ -33,6 +36,28 @@ logger = logging.getLogger(__name__)
 
 
 _DEFAULT_TIMEOUT = 8.0
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(str(os.environ.get(name, default)).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_retry_after(headers: Any) -> Optional[float]:
+    """Honor a numeric Retry-After header (seconds). Ignore HTTP-date form."""
+    try:
+        raw = headers.get("Retry-After") or headers.get("retry-after")
+    except Exception:  # noqa: BLE001
+        return None
+    if raw is None:
+        return None
+    try:
+        val = float(str(raw).strip())
+        return val if val >= 0 else None
+    except (TypeError, ValueError):
+        return None
 
 
 class EthJsonRpcProvider:
@@ -49,6 +74,10 @@ class EthJsonRpcProvider:
         self._timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
         self._req_id = 0
+        # Bounded-backoff reliability policy (fail-closed on exhaustion).
+        self._max_retries = max(0, _env_int("ARBICORE_RPC_MAX_RETRIES", 3))
+        self._backoff_base_ms = max(0, _env_int("ARBICORE_RPC_BACKOFF_BASE_MS", 200))
+        self._backoff_cap_ms = max(0, _env_int("ARBICORE_RPC_BACKOFF_CAP_MS", 4000))
 
     async def _http(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -63,31 +92,88 @@ class EthJsonRpcProvider:
             await self._client.aclose()
             self._client = None
 
+    async def _sleep_backoff(self, attempt: int, retry_after_s: Optional[float]) -> None:
+        cap = self._backoff_cap_ms / 1000.0
+        if retry_after_s is not None:
+            delay = min(retry_after_s, cap)
+        else:
+            base = self._backoff_base_ms / 1000.0
+            delay = min(base * (2 ** attempt), cap)
+            delay += random.uniform(0, base / 2.0)  # jitter avoids thundering herd
+        await asyncio.sleep(delay)
+
     async def _call(self, method: str, params: List[Any]) -> Any:
-        self._req_id += 1
+        """Read-only JSON-RPC call with bounded exponential backoff.
+
+        Retryable (up to ARBICORE_RPC_MAX_RETRIES): HTTP 429 (honors Retry-After),
+        HTTP 5xx, network/timeout errors, malformed JSON. Non-retryable: other 4xx
+        and JSON-RPC error objects. On exhaustion a ProviderError is raised so
+        callers FAIL CLOSED — a rate-limited/unavailable RPC is NEVER treated as
+        valid market data. Never logs URLs/secrets (only host-derived provider_id)."""
         client = await self._http()
-        payload = {"jsonrpc": "2.0", "id": self._req_id,
-                   "method": method, "params": params}
-        try:
-            r = await client.post(self.url, json=payload)
-            r.raise_for_status()
-            data = r.json()
-        except httpx.HTTPStatusError as e:
-            raise ProviderError(
-                f"{self.provider_id} {method} -> {e.response.status_code}",
-                retryable=(e.response.status_code >= 500),
-                provider_id=self.provider_id) from e
-        except httpx.HTTPError as e:
-            raise ProviderError(f"{self.provider_id} {method} network: {e}",
-                                retryable=True,
-                                provider_id=self.provider_id) from e
-        if "error" in data:
-            err = data["error"]
-            raise ProviderError(
-                f"{self.provider_id} {method} rpc_error: "
-                f"{err.get('code')} {err.get('message')}",
-                retryable=False, provider_id=self.provider_id)
-        return data.get("result")
+        last_exc: Optional[ProviderError] = None
+        for attempt in range(self._max_retries + 1):
+            self._req_id += 1
+            payload = {"jsonrpc": "2.0", "id": self._req_id,
+                       "method": method, "params": params}
+            try:
+                r = await client.post(self.url, json=payload)
+            except httpx.HTTPError as e:
+                last_exc = ProviderError(f"{self.provider_id} {method} network: {e}",
+                                         retryable=True, provider_id=self.provider_id)
+                if attempt < self._max_retries:
+                    await self._sleep_backoff(attempt, None)
+                    continue
+                raise last_exc from e
+
+            status = r.status_code
+            if status == 429 or status >= 500:
+                last_exc = ProviderError(
+                    f"{self.provider_id} {method} -> {status}",
+                    retryable=True, provider_id=self.provider_id)
+                if attempt < self._max_retries:
+                    await self._sleep_backoff(attempt, _parse_retry_after(r.headers))
+                    continue
+                raise last_exc
+
+            try:
+                r.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                raise ProviderError(
+                    f"{self.provider_id} {method} -> {status}",
+                    retryable=False, provider_id=self.provider_id) from e
+
+            try:
+                data = r.json()
+            except ValueError as e:
+                last_exc = ProviderError(
+                    f"{self.provider_id} {method} malformed_json",
+                    retryable=True, provider_id=self.provider_id)
+                if attempt < self._max_retries:
+                    await self._sleep_backoff(attempt, None)
+                    continue
+                raise last_exc from e
+
+            if not isinstance(data, dict):
+                raise ProviderError(
+                    f"{self.provider_id} {method} malformed_response",
+                    retryable=False, provider_id=self.provider_id)
+            if "error" in data:
+                err = data["error"] or {}
+                raise ProviderError(
+                    f"{self.provider_id} {method} rpc_error: "
+                    f"{err.get('code')} {err.get('message')}",
+                    retryable=False, provider_id=self.provider_id)
+            if "result" not in data:
+                raise ProviderError(
+                    f"{self.provider_id} {method} missing_result",
+                    retryable=False, provider_id=self.provider_id)
+            return data.get("result")
+
+        # Unreachable in practice; fail closed.
+        raise last_exc or ProviderError(
+            f"{self.provider_id} {method} exhausted",
+            retryable=True, provider_id=self.provider_id)
 
     # ---- eth_* surface -------------------------------------------------
 
@@ -121,6 +207,17 @@ class EthJsonRpcProvider:
     async def eth_chain_id(self) -> int:
         v = await self._call("eth_chainId", [])
         return int(v, 16)
+
+    async def verify_chain_id(self, expected: int) -> bool:
+        """Fail-closed chain identity check: False on any RPC error/mismatch."""
+        try:
+            actual = await self.eth_chain_id()
+        except ProviderError:
+            return False
+        try:
+            return int(actual) == int(expected)
+        except (TypeError, ValueError):
+            return False
 
     async def health_probe(self) -> Dict[str, Any]:
         t0 = time.time()
@@ -223,12 +320,12 @@ class SolanaRpcProvider:
 
 # Sensible free-tier public defaults. Consumers override via env.
 DEFAULT_RPC_URLS: Dict[str, str] = {
-    "ethereum": "https://eth.llamarpc.com",
-    "arbitrum": "https://arb1.arbitrum.io/rpc",
+    "ethereum": "https://ethereum-rpc.publicnode.com",
+    "arbitrum": "https://arbitrum-one-rpc.publicnode.com",
     "base":     "https://mainnet.base.org",
-    "polygon":  "https://polygon-rpc.com",
-    "optimism": "https://mainnet.optimism.io",
-    "bnb":      "https://bsc-dataseed.binance.org",
+    "polygon":  "https://polygon-bor-rpc.publicnode.com",
+    "optimism": "https://optimism-rpc.publicnode.com",
+    "bnb":      "https://bsc-rpc.publicnode.com",
     "solana":   "https://api.mainnet-beta.solana.com",
 }
 

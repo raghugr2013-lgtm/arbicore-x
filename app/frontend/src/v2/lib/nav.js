@@ -52,8 +52,7 @@ export const NAV_SECTIONS = [
   {
     key: "home",
     label: "Home",
-    path: "/v2",
-    end: true,
+    path: "/dashboard/home",
     Icon: Activity,
     shortcut: "H",
     lede: "Operator briefing — Pulse, Priorities, Vitals.",
@@ -61,7 +60,7 @@ export const NAV_SECTIONS = [
   {
     key: "discovery",
     label: "Discovery",
-    path: "/v2/discovery",
+    path: "/dashboard/discovery",
     Icon: Compass,
     shortcut: "D",
     lede: "Inbox of candidate assets and venues surfaced from external sources.",
@@ -69,7 +68,7 @@ export const NAV_SECTIONS = [
   {
     key: "opportunities",
     label: "Opportunities",
-    path: "/v2/opportunities",
+    path: "/dashboard/opportunities",
     Icon: LayoutGrid,
     shortcut: "O",
     lede: "Universal opportunity feed across all 8 canonical arbitrage families.",
@@ -77,7 +76,7 @@ export const NAV_SECTIONS = [
   {
     key: "portfolio",
     label: "Portfolio",
-    path: "/v2/portfolio",
+    path: "/dashboard/portfolio",
     Icon: Wallet,
     shortcut: "P",
     lede: "Positions, ledger, transfers, deployable capital.",
@@ -85,7 +84,7 @@ export const NAV_SECTIONS = [
   {
     key: "intelligence",
     label: "Intelligence",
-    path: "/v2/intelligence",
+    path: "/dashboard/intelligence",
     Icon: Brain,
     shortcut: "I",
     lede: "Recommendations, confidence, analytics, learning, evidence.",
@@ -93,7 +92,7 @@ export const NAV_SECTIONS = [
   {
     key: "operations",
     label: "Operations",
-    path: "/v2/operations",
+    path: "/dashboard/operations",
     Icon: Cog,
     shortcut: "N",
     lede: "Scanners, cycles, venues, interlock, integrations.",
@@ -101,7 +100,7 @@ export const NAV_SECTIONS = [
   {
     key: "settings",
     label: "Settings",
-    path: "/v2/settings",
+    path: "/dashboard/settings",
     Icon: Settings2,
     shortcut: "S",
     lede: "Account, vault, alerts, execution config, docs & help.",
@@ -109,7 +108,7 @@ export const NAV_SECTIONS = [
   {
     key: "flash-loan-operator",
     label: "Flash Loan",
-    path: "/v2/flash-loan-operator",
+    path: "/dashboard/flash-loan-operator",
     Icon: Zap,
     shortcut: "F",
     lede: "Controlled LIMITED_LIVE flash-loan operator workflow (Phase 7B).",
@@ -117,7 +116,7 @@ export const NAV_SECTIONS = [
   {
     key: "journey",
     label: "Journey",
-    path: "/v2/journey",
+    path: "/dashboard/journey",
     Icon: RouteIcon,
     shortcut: "J",
     lede: "14-stage guided Flash Loan operator journey (Phase 10.7).",

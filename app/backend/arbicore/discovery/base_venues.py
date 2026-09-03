@@ -107,12 +107,44 @@ VENUES: List[Tuple[str, str, str, Any]] = [
 _NOMINAL_FEE_BPS = {"uniswap_v3": None, "aerodrome_slipstream": 5, "aerodrome": 5}
 
 
-def token_address(symbol: str) -> str:
-    return TOKENS[symbol]["address"]
+_SYMBOL_BY_UPPER: Dict[str, str] = {s.upper(): s for s in TOKENS}
+
+
+def canonical_symbol(symbol: str):
+    """Resolve any-case token symbol to its canonical (case-correct) TOKENS
+    key. Returns None for unknown symbols. Base has genuinely mixed-case
+    symbols (cbETH, USDbC, cbBTC, rETH, wstETH, weETH), so callers must NOT
+    ``.upper()`` before lookup — use this instead."""
+    if not symbol:
+        return None
+    if symbol in TOKENS:
+        return symbol
+    return _SYMBOL_BY_UPPER.get(symbol.upper())
+
+
+def token_address(symbol: str):
+    """Canonical on-chain address for ``symbol`` (case-insensitive). Returns
+    None for unknown symbols (fail-closed) rather than raising KeyError."""
+    canon = canonical_symbol(symbol)
+    return TOKENS[canon]["address"] if canon else None
 
 
 def is_stable(symbol: str) -> bool:
-    return bool(TOKENS.get(symbol, {}).get("stable"))
+    canon = canonical_symbol(symbol)
+    return bool(TOKENS[canon]["stable"]) if canon else False
+
+
+def probe_amount(symbol: str) -> int:
+    """Probe notional in token BASE UNITS (case-insensitive). Uses the explicit
+    PROBE_AMOUNT when present; else a decimals-aware default (never a fixed
+    10**16 that would be nonsense for 6-decimal tokens)."""
+    canon = canonical_symbol(symbol)
+    if canon and canon in PROBE_AMOUNT:
+        return PROBE_AMOUNT[canon]
+    if canon:
+        dec = int(TOKENS[canon]["decimals"])
+        return 5 * 10 ** (dec - 2) if dec >= 12 else 200 * 10 ** dec
+    return 10 ** 16
 
 
 def _venue_id(dex: str, a: str, b: str, param: Any) -> str:
@@ -137,7 +169,7 @@ def build_pool_graph() -> Tuple[List[PoolNode], Dict[str, Dict[str, Any]]]:
         fee_bps = (fee_ppm // 100) if dex == "uniswap_v3" else _NOMINAL_FEE_BPS[dex]
         pools.append(PoolNode(
             pool_address=vid, dex_protocol=dex, chain=CHAIN,
-            token_a=a, token_b=b, tvl_usd=5_000_000.0, fee_bps=int(fee_bps or 5)))
+            token_a=a, token_b=b, tvl_usd=0.0, fee_bps=int(fee_bps or 5)))
         spec: Dict[str, Any] = {"dex": dex}
         if dex == "uniswap_v3":
             spec["fee"] = fee_ppm
@@ -151,4 +183,4 @@ def build_pool_graph() -> Tuple[List[PoolNode], Dict[str, Dict[str, Any]]]:
 
 __all__ = ["CHAIN", "TOKENS", "BORROW_TOKENS", "PROBE_AMOUNT",
            "ROUTER_ALLOWLIST", "VENUES", "token_address", "is_stable",
-           "build_pool_graph"]
+           "canonical_symbol", "probe_amount", "build_pool_graph"]

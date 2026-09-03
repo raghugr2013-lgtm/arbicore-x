@@ -1,3 +1,4 @@
+import { API_BASE } from "@/lib/apiBase";
 /**
  * ArbiCore X — UI v2 · Flash Loan Operator page (Phase 7B)
  *
@@ -11,8 +12,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const API = API_BASE;
 
 const CHAINS = ["base", "ethereum", "arbitrum", "optimism", "polygon"];
 const ROLES = ["gas", "treasury", "watch_only"];

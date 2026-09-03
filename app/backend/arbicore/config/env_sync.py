@@ -62,6 +62,11 @@ async def sync_env_from_network_config(network_repo, *, chain: str = "base"
         os.environ[f"ARBICORE_RPC_URL_{chain.upper()}"] = primary_rpc
         exported["ARBICORE_RPC_URL"] = primary_rpc
         exported[f"ARBICORE_RPC_URL_{chain.upper()}"] = primary_rpc
+        # T0-5: also export the legacy ``<CHAIN>_RPC_URL`` alias so legacy
+        # readers (e.g. paper/simulator.py, scanner_config rpc_env_var) stay
+        # consistent with the UI-managed persistent config during migration.
+        os.environ[f"{chain.upper()}_RPC_URL"] = primary_rpc
+        exported[f"{chain.upper()}_RPC_URL"] = primary_rpc
 
     # Executor address — chain-scoped.
     exec_addr = ((cfg.get("executor_addresses") or {}).get(chain) or "").strip()
