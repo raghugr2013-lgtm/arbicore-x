@@ -13,9 +13,11 @@ freshness, repayment, calldata, profitability gates, execution mode, or readines
 from .schema import (
     StrategyIR, StrategyProvenance, SourceClass, ALLOWED_STRATEGY_TYPES,
     FORBIDDEN_KEYS, StrategyIRValidationError, compute_fingerprint,
+    EXTERNAL_ORIGIN_CLASSES, RESTRICTED_CLASSES,
 )
 
 __all__ = [
     "StrategyIR", "StrategyProvenance", "SourceClass", "ALLOWED_STRATEGY_TYPES",
     "FORBIDDEN_KEYS", "StrategyIRValidationError", "compute_fingerprint",
+    "EXTERNAL_ORIGIN_CLASSES", "RESTRICTED_CLASSES",
 ]

@@ -22,6 +22,7 @@ _indexes_ready = False
 # state from here — it must independently pass the existing downstream gates.
 LIFECYCLE_INGESTED = "INGESTED"        # accepted as data; not yet evaluated
 LIFECYCLE_REJECTED = "REJECTED"        # failed IR validation
+LIFECYCLE_QUARANTINED = "QUARANTINED"  # restricted/proprietary — admin must clear
 
 
 async def ensure_indexes() -> None:
@@ -67,6 +68,9 @@ async def register(ir: StrategyIR) -> Dict[str, Any]:
     # client cannot inject or reuse another strategy's id.
     canonical_id = "sid_" + hashlib.sha256(f"{fp}:{ver}".encode()).hexdigest()[:32]
     doc["strategy_id"] = canonical_id
+    # F1: restricted/proprietary external material is quarantined on ingest and is
+    # NOT eligible for the adapter/preview path until an admin explicitly clears it.
+    lifecycle = LIFECYCLE_QUARANTINED if ir.is_restricted() else LIFECYCLE_INGESTED
     reg_entry = {
         "strategy_id": canonical_id,
         "strategy_fingerprint": fp,
@@ -75,6 +79,8 @@ async def register(ir: StrategyIR) -> Dict[str, Any]:
         "source_class": doc["source_class"],
         "provenance": doc["provenance"],
         "lineage": doc["lineage"],
+        "lifecycle_state": lifecycle,
+        "restricted": ir.is_restricted(),
         "created_at": now_iso(),
     }
     duplicate = False
@@ -84,8 +90,11 @@ async def register(ir: StrategyIR) -> Dict[str, Any]:
         duplicate = True
 
     # One candidate row per (fingerprint, version); dedup via upsert + counter.
+    # F2: candidate rows carry proprietary alpha → mark confidential so any future
+    # read surface knows this row must never be echoed to a lower-privilege caller.
     candidate = {**doc, "strategy_id": canonical_id,
-                 "lifecycle_state": LIFECYCLE_INGESTED, "executable": False}
+                 "lifecycle_state": lifecycle, "executable": False,
+                 "confidential": True, "restricted": ir.is_restricted()}
     await _candidates.update_one(
         {"strategy_fingerprint": fp, "strategy_version": ver},
         {"$setOnInsert": {**candidate, "ingested_at": now_iso()},
@@ -98,7 +107,8 @@ async def register(ir: StrategyIR) -> Dict[str, Any]:
         "strategy_id": canonical_id,
         "strategy_fingerprint": fp,
         "strategy_version": ver,
-        "lifecycle_state": LIFECYCLE_INGESTED,
+        "lifecycle_state": lifecycle,
+        "restricted": ir.is_restricted(),
     }
 
 

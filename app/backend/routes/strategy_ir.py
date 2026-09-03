@@ -30,11 +30,22 @@ async def ingest_candidate(ir: StrategyIR, user: dict = Depends(require_admin)):
     try:
         ir.validate_non_executable()
     except StrategyIRValidationError as exc:
+        # F4: log the specific violation server-side; return a generic reason so
+        # the response never echoes a caller-supplied key name/path.
+        _logger.warning("strategy candidate rejected (non-executable contract): %s", exc)
+        raise HTTPException(422, "Strategy IR rejected: non-permitted execution/"
+                                 "authorization content")
+    try:
+        ir.validate_provenance_policy()
+    except StrategyIRValidationError as exc:
+        # Provenance-policy messages are safe (no alpha) and actionable.
         raise HTTPException(422, str(exc))
     result = await ir_registry.register(ir)
-    _logger.info("strategy candidate ingested fp=%s v=%s by=%s duplicate=%s",
-                 result["strategy_fingerprint"], result["strategy_version"],
-                 user.get("username"), result["duplicate"])
+    # F3: fingerprint is identity; keep it out of INFO logs (DEBUG only).
+    _logger.debug("strategy candidate ingested fp=%s v=%s by=%s duplicate=%s state=%s",
+                  result["strategy_fingerprint"], result["strategy_version"],
+                  user.get("username"), result["duplicate"],
+                  result["lifecycle_state"])
     return {**result, "executable": False}
 
 
@@ -62,6 +73,9 @@ async def preview_hypothesis(strategy_id: str, user: dict = Depends(require_admi
     cand = await ir_registry.get_candidate(strategy_id)
     if not cand:
         raise HTTPException(404, "candidate not found")
+    if cand.get("lifecycle_state") == ir_registry.LIFECYCLE_QUARANTINED:
+        raise HTTPException(409, "strategy is quarantined (restricted/proprietary) — "
+                                 "not eligible for hypothesis preview until cleared")
     ir = StrategyIR(**{k: cand[k] for k in cand if k in StrategyIR.model_fields})
     return {"hypothesis": candidate_to_opportunity_hypothesis(ir),
             "note": "NON-EXECUTABLE; must pass existing discovery/economics/"

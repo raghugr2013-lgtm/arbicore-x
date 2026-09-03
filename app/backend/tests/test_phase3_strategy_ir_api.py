@@ -24,7 +24,9 @@ VALID_IR = {
     "strategy_type": "dex_dex",
     "parameters": {"pair": "WETH/USDC"},
     "constraints": {"max_notional_usd": 50000},
-    "provenance": {"source": "strategy_factory", "trust": 0.7, "confidence": 0.6},
+    "provenance": {"source": "strategy_factory",
+                   "source_ref": "https://example.org/research/dex-dex-note",
+                   "trust": 0.7, "confidence": 0.6},
     "source_class": "EXTERNAL",
 }
 

@@ -8,7 +8,7 @@ fetches live data and re-validates. The adapter creates NO execution authority.
 """
 from typing import Any, Dict
 
-from .schema import StrategyIR
+from .schema import StrategyIR, StrategyIRValidationError
 
 
 def candidate_to_opportunity_hypothesis(ir: StrategyIR) -> Dict[str, Any]:
@@ -18,7 +18,14 @@ def candidate_to_opportunity_hypothesis(ir: StrategyIR) -> Dict[str, Any]:
     (quote UNAVAILABLE, no calldata, repayment not modelled, gas unknown). Any
     route_hints are passed as *hints only* — the pipeline must re-derive real
     routes/quotes. No signer/calldata/mode/kill/broadcast field is ever set.
+
+    Restricted/proprietary material is NOT eligible for this path (F1): it is
+    quarantined until an admin explicitly clears it.
     """
+    if ir.is_restricted():
+        raise StrategyIRValidationError(
+            "restricted/proprietary strategy is quarantined and not eligible for "
+            "the adapter/preview path until cleared by an admin")
     constraints = ir.constraints or {}
     return {
         "opportunity_id": f"stratcand:{ir.strategy_fingerprint}:{ir.strategy_version}",
@@ -27,6 +34,8 @@ def candidate_to_opportunity_hypothesis(ir: StrategyIR) -> Dict[str, Any]:
         "strategy_fingerprint": ir.strategy_fingerprint,
         "strategy_version": ir.strategy_version,
         "strategy_type": ir.strategy_type,
+        # F2: identity-tagged, alpha-bearing output is confidential.
+        "confidential": True,
         # --- provenance: NOT real; a hypothesis awaiting live validation ---
         "quote_status": "UNAVAILABLE",
         "provenance": "STRATEGY_IR_CANDIDATE",

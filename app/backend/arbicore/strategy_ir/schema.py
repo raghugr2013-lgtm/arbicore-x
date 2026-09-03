@@ -10,10 +10,29 @@ from core.models import new_id, now_iso
 
 
 class SourceClass(str, Enum):
-    INTERNAL = "INTERNAL"
-    EXTERNAL = "EXTERNAL"
-    MUTATED = "MUTATED"
-    HYBRID = "HYBRID"
+    # Provenance / originality of the research strategy. Distinguishes legitimate
+    # public research from restricted/proprietary external material (F1 audit).
+    PUBLIC_RESEARCH = "PUBLIC_RESEARCH"      # derived from citable public sources
+    INTERNAL = "INTERNAL"                    # produced in-house
+    GENERATED = "GENERATED"                  # machine-generated hypothesis
+    MUTATED = "MUTATED"                      # mutation of an existing strategy
+    HYBRID = "HYBRID"                        # mix of in-house + external research
+    EXTERNAL = "EXTERNAL"                    # external, origin unspecified (legacy)
+    PROPRIETARY_EXTERNAL = "PROPRIETARY_EXTERNAL"  # restricted 3rd-party material
+    RESTRICTED = "RESTRICTED"                # alias of PROPRIETARY_EXTERNAL
+
+
+# External-origin classes MUST carry a citable provenance.source_ref (fail-closed).
+EXTERNAL_ORIGIN_CLASSES = frozenset({
+    SourceClass.PUBLIC_RESEARCH, SourceClass.HYBRID, SourceClass.EXTERNAL,
+    SourceClass.PROPRIETARY_EXTERNAL, SourceClass.RESTRICTED,
+})
+
+# Restricted/proprietary material is quarantined on ingest and is NOT eligible for
+# the adapter/preview path until an admin explicitly clears it.
+RESTRICTED_CLASSES = frozenset({
+    SourceClass.PROPRIETARY_EXTERNAL, SourceClass.RESTRICTED,
+})
 
 
 # Research strategy archetypes ArbiCore can economically evaluate. Unknown types
@@ -172,6 +191,41 @@ class StrategyIR(BaseModel):
             self.strategy_type, self.parameters, self.constraints,
             self.required_capabilities, self.route_hints)
         return self
+
+    def is_restricted(self) -> bool:
+        """True for restricted/proprietary external material (quarantine on ingest)."""
+        return self.source_class in RESTRICTED_CLASSES
+
+    def validate_provenance_policy(self) -> "StrategyIR":
+        """Fail-closed provenance/originality policy (F1). External-origin classes
+        MUST carry a citable provenance.source_ref. Does NOT decide execution — it
+        only governs how the candidate is classified/quarantined downstream."""
+        if (self.source_class in EXTERNAL_ORIGIN_CLASSES
+                and not (self.provenance.source_ref or "").strip()):
+            raise StrategyIRValidationError(
+                f"external-origin strategy ({self.source_class.value}) requires a "
+                f"citable provenance.source_ref")
+        return self
+
+    def public_view(self) -> Dict[str, Any]:
+        """Identity-only projection (F2). Excludes proprietary alpha
+        (parameters/constraints/route_hints/required_capabilities) so any lower-
+        privilege read path can only ever surface identity + provenance."""
+        return {
+            "strategy_id": self.strategy_id,
+            "strategy_version": self.strategy_version,
+            "strategy_fingerprint": self.strategy_fingerprint,
+            "strategy_type": self.strategy_type,
+            "source_class": self.source_class.value,
+            "provenance": {"source": self.provenance.source,
+                           "source_ref": self.provenance.source_ref,
+                           "timestamp": self.provenance.timestamp,
+                           "trust": self.provenance.trust,
+                           "confidence": self.provenance.confidence},
+            "lineage": list(self.lineage),
+            "restricted": self.is_restricted(),
+            "created_at": self.created_at,
+        }
 
     def to_registry_doc(self) -> Dict[str, Any]:
         d = self.model_dump()
