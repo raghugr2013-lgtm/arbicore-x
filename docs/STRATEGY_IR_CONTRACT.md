@@ -58,3 +58,16 @@ mode. It may only *influence* research metadata (trust/confidence) which is advi
   existing advisory learning loop — deferred.
 - External-knowledge connectors (public sources) feeding Strategy IR — deferred.
 - EVM backtest/walk-forward/Monte-Carlo research adapters — deferred.
+
+## Hardening (verified — iteration_5→7)
+- **Server-authoritative identity:** `strategy_id = "sid_"+sha256(fingerprint:version)`
+  — client-supplied id ignored; canonical, collision-free, un-spoofable (unique-indexed).
+- **Idempotent duplicates:** same (fingerprint,version) → same canonical id, one
+  registry doc, one candidate row with `ingest_count`.
+- **`extra='forbid'`** on `StrategyIR`/`StrategyProvenance` → root-level execution-ish
+  fields are 422 (not silently dropped).
+- **Size/cardinality caps:** parameters/constraints ≤200 keys, capabilities/route_hints
+  ≤100, 256KB payload → 422.
+- **Value scan:** forbidden token in `required_capabilities` → 422.
+- Verified: 85/85 pytest (`tests/test_phase3_strategy_ir*.py`) + live-endpoint assertions,
+  0 critical / 0 minor; fail-closed safety posture unchanged.

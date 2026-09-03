@@ -337,6 +337,15 @@ def _mongo_candidates():
     return MongoClient(url)[name]["strategy_candidates"]
 
 
+def _mongo_registry():
+    from pymongo import MongoClient
+    benv = dotenv_values("/app/app/backend/.env")
+    url = os.environ.get("MONGO_URL") or benv.get("MONGO_URL")
+    name = os.environ.get("DB_NAME") or benv.get("DB_NAME")
+    assert url and name, "MONGO_URL/DB_NAME missing"
+    return MongoClient(url)[name]["strategy_registry"]
+
+
 class TestDuplicateIdentityFixed:
     def test_duplicate_strategy_id_equals_first_and_resolves(self, admin_client):
         body = copy.deepcopy(VALID_IR)
@@ -473,10 +482,9 @@ class TestSizeCaps:
 
 
 class TestStrategyIdIntegrity:
-    """BUG CHECK (iteration_6): strategy_id is client-supplied and NOT unique, so
-    two semantically DIFFERENT IRs can be forced to share one strategy_id, making
-    /registry/{id} and preview-hypothesis ambiguous (find_one picks whichever doc
-    Mongo returns first)."""
+    """iteration_7 FIX VERIFICATION: strategy_id is SERVER-DERIVED from
+    (fingerprint, version) as 'sid_<sha256[:32]>' and a client-supplied
+    strategy_id is IGNORED, so identity can never be hijacked/spoofed."""
 
     def test_client_cannot_hijack_existing_strategy_id(self, admin_client):
         victim = copy.deepcopy(VALID_IR)
@@ -492,7 +500,104 @@ class TestStrategyIdIntegrity:
                               json=attacker, timeout=30)
         assert r.status_code == 200, r.text[:300]
         a = r.json()
+        CREATED_STRATEGY_IDS.append(a["strategy_id"])
         assert a["strategy_fingerprint"] != v["strategy_fingerprint"]
         assert a["strategy_id"] != v["strategy_id"], (
             "client-supplied strategy_id was honoured: two different strategies "
             f"now share id {v['strategy_id']} — identity is ambiguous")
+        assert a["strategy_id"].startswith("sid_"), a["strategy_id"]
+
+    def test_spoofed_id_ignored_for_two_different_irs(self, admin_client):
+        """Both IRs carry the SAME client strategy_id 'spoof-123' but differ
+        semantically -> two DISTINCT server-derived sid_ ids; 'spoof-123' is
+        never persisted."""
+        spoof = f"spoof-123-{uuid.uuid4().hex[:6]}"
+        a_body = copy.deepcopy(VALID_IR)
+        a_body["strategy_type"] = "dex_dex"
+        a_body["parameters"] = {"pair": f"TEST_SPOOFA_{uuid.uuid4().hex[:8]}/USDC"}
+        a_body["strategy_id"] = spoof
+
+        b_body = copy.deepcopy(VALID_IR)
+        b_body["strategy_type"] = "triangular"
+        b_body["parameters"] = {"legs": 3,
+                                "pair": f"TEST_SPOOFB_{uuid.uuid4().hex[:8]}/USDC"}
+        b_body["strategy_id"] = spoof
+
+        ra = admin_client.post(f"{BASE_URL}/api/strategy/candidates",
+                               json=a_body, timeout=30)
+        rb = admin_client.post(f"{BASE_URL}/api/strategy/candidates",
+                               json=b_body, timeout=30)
+        assert ra.status_code == 200, ra.text[:300]
+        assert rb.status_code == 200, rb.text[:300]
+        a, b = ra.json(), rb.json()
+        CREATED_STRATEGY_IDS.extend([a["strategy_id"], b["strategy_id"]])
+
+        assert a["strategy_fingerprint"] != b["strategy_fingerprint"]
+        assert a["strategy_id"] != b["strategy_id"], "spoofed id collapsed identity"
+        for d in (a, b):
+            assert d["strategy_id"].startswith("sid_"), d["strategy_id"]
+            assert d["strategy_id"] != spoof
+            assert len(d["strategy_id"]) == 36, d["strategy_id"]
+
+        reg = _mongo_registry()
+        assert reg.count_documents({"strategy_id": spoof}) == 0
+        assert _mongo_candidates().count_documents({"strategy_id": spoof}) == 0
+        # both derived ids resolve, independently
+        for d in (a, b):
+            g = admin_client.get(f"{BASE_URL}/api/strategy/registry/{d['strategy_id']}",
+                                 timeout=30)
+            assert g.status_code == 200, g.text[:200]
+            assert g.json()["strategy_fingerprint"] == d["strategy_fingerprint"]
+
+    def test_derived_id_is_deterministic_function_of_fingerprint(self, admin_client):
+        """sid == 'sid_' + sha256('<fp>:<ver>')[:32] — server-authoritative."""
+        import hashlib
+        body = copy.deepcopy(VALID_IR)
+        body["parameters"] = {"pair": f"TEST_DERIV_{uuid.uuid4().hex[:8]}/USDC"}
+        body["strategy_id"] = "client-junk-id"
+        d = admin_client.post(f"{BASE_URL}/api/strategy/candidates",
+                              json=body, timeout=30).json()
+        CREATED_STRATEGY_IDS.append(d["strategy_id"])
+        expected = "sid_" + hashlib.sha256(
+            f"{d['strategy_fingerprint']}:{d['strategy_version']}".encode()
+        ).hexdigest()[:32]
+        assert d["strategy_id"] == expected, (d["strategy_id"], expected)
+
+
+class TestCanonicalIdempotency:
+    """Same semantic IR twice -> same derived id, duplicate on 2nd, exactly one
+    registry doc and one candidate row with incrementing ingest_count."""
+
+    def test_same_ir_twice_same_derived_id_and_single_docs(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["parameters"] = {"pair": f"TEST_CANON_{uuid.uuid4().hex[:8]}/USDC"}
+        body["strategy_id"] = "ignored-1"
+        first = admin_client.post(f"{BASE_URL}/api/strategy/candidates",
+                                  json=body, timeout=30).json()
+        CREATED_STRATEGY_IDS.append(first["strategy_id"])
+        assert first["duplicate"] is False and first["registered"] is True
+
+        body2 = copy.deepcopy(body)
+        body2["strategy_id"] = "ignored-2-different"
+        second = admin_client.post(f"{BASE_URL}/api/strategy/candidates",
+                                   json=body2, timeout=30).json()
+        assert second["duplicate"] is True, second
+        assert second["registered"] is False, second
+        assert second["strategy_id"] == first["strategy_id"]
+
+        sid, fp = first["strategy_id"], first["strategy_fingerprint"]
+        reg, cand = _mongo_registry(), _mongo_candidates()
+        assert reg.count_documents({"strategy_fingerprint": fp,
+                                    "strategy_version": 1}) == 1
+        assert reg.count_documents({"strategy_id": sid}) == 1
+        cdocs = list(cand.find({"strategy_fingerprint": fp, "strategy_version": 1}))
+        assert len(cdocs) == 1, len(cdocs)
+        assert cdocs[0]["ingest_count"] == 2, cdocs[0]["ingest_count"]
+        assert cdocs[0]["strategy_id"] == sid
+
+        assert admin_client.get(f"{BASE_URL}/api/strategy/registry/{sid}",
+                                timeout=30).status_code == 200
+        prev = admin_client.post(
+            f"{BASE_URL}/api/strategy/candidates/{sid}/preview-hypothesis", timeout=30)
+        assert prev.status_code == 200, prev.text[:300]
+        assert prev.json()["hypothesis"]["executable"] is False
