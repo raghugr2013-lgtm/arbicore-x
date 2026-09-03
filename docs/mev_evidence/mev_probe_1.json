@@ -1,0 +1,1018 @@
+{
+ "rpc_endpoint_host": "mainnet.base.org",
+ "chain_id": 8453,
+ "today_utc_date": "2026-09-03",
+ "window": {
+  "from_block": 50831888,
+  "to_block": 50833888,
+  "from_utc": "2026-09-03T16:32:03+00:00",
+  "to_utc": "2026-09-03T17:38:43+00:00",
+  "blocks_scanned": 2000
+ },
+ "trace_supported": false,
+ "flashloan_txs_found": 65,
+ "flashloan_txs_reconstructed": 40,
+ "arb_like_txs": 7,
+ "samples": [
+  {
+   "tx": "0x983ad284f5d997be0f976145074dee0641ed26a44f291541aacfd3f318f13fa5",
+   "block": 50832033,
+   "timestamp_utc": "2026-09-03T16:36:53+00:00",
+   "sender": "0x4f79aeff85d9653c718040c3d7fd37f0c59b8118",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 1767756,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 1.062e-05,
+   "priority_fee_eth": 1.79e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "aave_v3"
+   ]
+  },
+  {
+   "tx": "0xe8ae606336482bd36fe132eb31a8833e6950bea26e1f2fad6aff5c0c35588fc8",
+   "block": 50832085,
+   "timestamp_utc": "2026-09-03T16:38:37+00:00",
+   "sender": "0x04f8c8e0c2f0a51dd1f952b02cf984d4af7f8cff",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 1,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 1,
+   "distinct_pools": 1,
+   "gas_used": 1489154,
+   "effective_gas_price_gwei": 0.015,
+   "gas_cost_eth": 2.234e-05,
+   "priority_fee_eth": 1.489e-05,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "aave_v3"
+   ]
+  },
+  {
+   "tx": "0xf0a4f2699455b330a486708f71dea0972e6df817f2170d04a46b1c7cfd5f55c7",
+   "block": 50832273,
+   "timestamp_utc": "2026-09-03T16:44:53+00:00",
+   "sender": "0x4566961fa9a5f38a7ef18ca2bd6459869305f010",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 1490654,
+   "effective_gas_price_gwei": 0.005,
+   "gas_cost_eth": 7.52e-06,
+   "priority_fee_eth": 6e-08,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "aave_v3"
+   ]
+  },
+  {
+   "tx": "0x8d0c38825d63cf6bfe2d907495781c5568da3110bb9fa828422d5c65ebc5616e",
+   "block": 50832522,
+   "timestamp_utc": "2026-09-03T16:53:11+00:00",
+   "sender": "0xffd98b05962fca73cdfd22ed73198dfb2e5241eb",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 1,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 1,
+   "distinct_pools": 1,
+   "gas_used": 1384647,
+   "effective_gas_price_gwei": 0.015,
+   "gas_cost_eth": 2.077e-05,
+   "priority_fee_eth": 1.385e-05,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "aave_v3"
+   ]
+  },
+  {
+   "tx": "0xa98839cd19005c58ea53e62bf579c5528ccdd54855dd07c379a49e09cce7ab36",
+   "block": 50832843,
+   "timestamp_utc": "2026-09-03T17:03:53+00:00",
+   "sender": "0x4f79aeff85d9653c718040c3d7fd37f0c59b8118",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 1746708,
+   "effective_gas_price_gwei": 0.0072,
+   "gas_cost_eth": 1.258e-05,
+   "priority_fee_eth": 3.84e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "aave_v3"
+   ]
+  },
+  {
+   "tx": "0xe1caae88f9d188fc53301203a783cf32bc587a52506ff312dd3524eaa160f5fc",
+   "block": 50832878,
+   "timestamp_utc": "2026-09-03T17:05:03+00:00",
+   "sender": "0x5c3593481cba011737e36ded62f1797c9f6afce1",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 912905,
+   "effective_gas_price_gwei": 0.0061,
+   "gas_cost_eth": 5.54e-06,
+   "priority_fee_eth": 9.7e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "aave_v3"
+   ]
+  },
+  {
+   "tx": "0xf7d01a1ef7b16baa6721e3e49c5c62fcc1e990c7d211934d1e1b83c84315d516",
+   "block": 50833110,
+   "timestamp_utc": "2026-09-03T17:12:47+00:00",
+   "sender": "0x416f727baea5ff3118e4f96c1d2cec8a1e2bab57",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 1067941,
+   "effective_gas_price_gwei": 0.0605,
+   "gas_cost_eth": 6.461e-05,
+   "priority_fee_eth": 5.927e-05,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "aave_v3"
+   ]
+  },
+  {
+   "tx": "0x7ac9d84831513e19d153b52f1efce3d609f4707117ab53f8b1ea8d6c402e1b89",
+   "block": 50833756,
+   "timestamp_utc": "2026-09-03T17:34:19+00:00",
+   "sender": "0x422c27de6deab79c9b233d106b94fadfce14a358",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 1018871,
+   "effective_gas_price_gwei": 0.0605,
+   "gas_cost_eth": 6.164e-05,
+   "priority_fee_eth": 5.655e-05,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "aave_v3"
+   ]
+  },
+  {
+   "tx": "0x85b73563bff5d5002a70b70ff74c2857d9170f1fad0bcbdce2852f5e563ac48f",
+   "block": 50831898,
+   "timestamp_utc": "2026-09-03T16:32:23+00:00",
+   "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 2,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 2,
+   "distinct_pools": 2,
+   "gas_used": 400151,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 2.4e-06,
+   "priority_fee_eth": 4e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x9c3e7574d00f6f11dd2f5b547287402443c6e21659f67addcd6dc9ba1f0e7f09",
+   "block": 50831899,
+   "timestamp_utc": "2026-09-03T16:32:25+00:00",
+   "sender": "0xb6fdddad8191fb76a0eb8b81d2875d2cbd9c15ea",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 529994,
+   "effective_gas_price_gwei": 0.0066,
+   "gas_cost_eth": 3.5e-06,
+   "priority_fee_eth": 8.5e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x678d1bed18d4334bfc7b83b34200ad7be7da0525cdf8e4f973ea95b3034786c0",
+   "block": 50831924,
+   "timestamp_utc": "2026-09-03T16:33:15+00:00",
+   "sender": "0x800db1fb3705d13aea951d63ad49a655da8f0514",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 391364,
+   "effective_gas_price_gwei": 0.021,
+   "gas_cost_eth": 8.23e-06,
+   "priority_fee_eth": 6.27e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x10f9ce08e34659f7fd78ca0d68adf62243043e334c9e3ddd9a5a018f2b477e42",
+   "block": 50831933,
+   "timestamp_utc": "2026-09-03T16:33:33+00:00",
+   "sender": "0x800db1fb3705d13aea951d63ad49a655da8f0514",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 397888,
+   "effective_gas_price_gwei": 0.015,
+   "gas_cost_eth": 5.95e-06,
+   "priority_fee_eth": 3.96e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x566884aa7fbdf416bb2414b1a3232d9f31c349ce79c8d46ed5a669dcb99c2b4d",
+   "block": 50831994,
+   "timestamp_utc": "2026-09-03T16:35:35+00:00",
+   "sender": "0x800db1fb3705d13aea951d63ad49a655da8f0514",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 493465,
+   "effective_gas_price_gwei": 0.0138,
+   "gas_cost_eth": 6.82e-06,
+   "priority_fee_eth": 4.36e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x42756211dc7d5ada96e396d131bc0ce3881fcf33a8eb524cafdb500c9c05bc13",
+   "block": 50832048,
+   "timestamp_utc": "2026-09-03T16:37:23+00:00",
+   "sender": "0x7e425583b5b6b707d9ddccf1a35facf499402c22",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 1,
+    "univ2": 1,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 2,
+   "distinct_pools": 2,
+   "gas_used": 623586,
+   "effective_gas_price_gwei": 0.1279,
+   "gas_cost_eth": 7.974e-05,
+   "priority_fee_eth": 7.662e-05,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x21e6af50e8b6e62d06f3b288062ab10d4e207597efe7054dccfeeaee1f05a2f3",
+   "block": 50832056,
+   "timestamp_utc": "2026-09-03T16:37:39+00:00",
+   "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 2,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 2,
+   "distinct_pools": 2,
+   "gas_used": 435205,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 2.61e-06,
+   "priority_fee_eth": 4.4e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xf8d00f09410695cdfbc1f676a3cd65abeaa12400f37946c8ce4aee10204512ff",
+   "block": 50832077,
+   "timestamp_utc": "2026-09-03T16:38:21+00:00",
+   "sender": "0x800db1fb3705d13aea951d63ad49a655da8f0514",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 522963,
+   "effective_gas_price_gwei": 0.015,
+   "gas_cost_eth": 7.86e-06,
+   "priority_fee_eth": 5.24e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xa6efd514a14f38912139aedb8c8a687d21751784c372be9c01c201e1494940bc",
+   "block": 50832135,
+   "timestamp_utc": "2026-09-03T16:40:17+00:00",
+   "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 2,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 2,
+   "distinct_pools": 2,
+   "gas_used": 426553,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 2.56e-06,
+   "priority_fee_eth": 4.3e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x95a77a90c3ccec44d3ce4ca29f46edb94c81f967d0e58cebff5cd37768caddf8",
+   "block": 50832214,
+   "timestamp_utc": "2026-09-03T16:42:55+00:00",
+   "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 1,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 1,
+   "distinct_pools": 1,
+   "gas_used": 377695,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 2.27e-06,
+   "priority_fee_eth": 3.8e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xb9e54cf30e7cb8ffbc9ad2920c94dc79dfb55804e4a73c6a01fbd8961c62fdfe",
+   "block": 50832248,
+   "timestamp_utc": "2026-09-03T16:44:03+00:00",
+   "sender": "0xc9629c1804bbb2fa1b2878a514c650e1ecb37a28",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 559638,
+   "effective_gas_price_gwei": 14.005,
+   "gas_cost_eth": 0.00783773,
+   "priority_fee_eth": 0.00783493,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xc59e4b8306c32c80d30ec5ae86c57c8c98150b4ef46b27dea1e49ef89ddc5f80",
+   "block": 50832261,
+   "timestamp_utc": "2026-09-03T16:44:29+00:00",
+   "sender": "0xc9629c1804bbb2fa1b2878a514c650e1ecb37a28",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 790187,
+   "effective_gas_price_gwei": 14.005,
+   "gas_cost_eth": 0.01106657,
+   "priority_fee_eth": 0.01106262,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xff334a0d1e149f48b500258dd994cc908f01c5758540191ec6bce7da488d39b7",
+   "block": 50832262,
+   "timestamp_utc": "2026-09-03T16:44:31+00:00",
+   "sender": "0xc9629c1804bbb2fa1b2878a514c650e1ecb37a28",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 768457,
+   "effective_gas_price_gwei": 9.7329,
+   "gas_cost_eth": 0.00747934,
+   "priority_fee_eth": 0.0074755,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x7644b13a950247f66a41be7978fc9b44ecc349b5fc4f43efc30dadb25538e94e",
+   "block": 50832293,
+   "timestamp_utc": "2026-09-03T16:45:33+00:00",
+   "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 2,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 2,
+   "distinct_pools": 2,
+   "gas_used": 424575,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 2.55e-06,
+   "priority_fee_eth": 4.2e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x1f1a8085e543ec735b661385810470e20f1fd20643a2f9e3f8e4784e4f975545",
+   "block": 50832303,
+   "timestamp_utc": "2026-09-03T16:45:53+00:00",
+   "sender": "0x800db1fb3705d13aea951d63ad49a655da8f0514",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 522071,
+   "effective_gas_price_gwei": 0.0141,
+   "gas_cost_eth": 7.37e-06,
+   "priority_fee_eth": 4.76e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xcd627408c2b54f112a99102a69cd15ef8067bce345ab62020f55b61dfb0aeacf",
+   "block": 50832312,
+   "timestamp_utc": "2026-09-03T16:46:11+00:00",
+   "sender": "0xc9629c1804bbb2fa1b2878a514c650e1ecb37a28",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 713587,
+   "effective_gas_price_gwei": 18.005,
+   "gas_cost_eth": 0.01284813,
+   "priority_fee_eth": 0.01284457,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x8a4fd6fb0eb3476fc8c775240e19f11ba24f45a80e39ecec599d874d6fa08a07",
+   "block": 50832316,
+   "timestamp_utc": "2026-09-03T16:46:19+00:00",
+   "sender": "0xc9629c1804bbb2fa1b2878a514c650e1ecb37a28",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 599968,
+   "effective_gas_price_gwei": 18.005,
+   "gas_cost_eth": 0.01080242,
+   "priority_fee_eth": 0.01079942,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xacd8f64888daddf20e81cd56747f9183c482884bb6364d43613b0e3b7a71cd0a",
+   "block": 50832328,
+   "timestamp_utc": "2026-09-03T16:46:43+00:00",
+   "sender": "0xc9629c1804bbb2fa1b2878a514c650e1ecb37a28",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 790235,
+   "effective_gas_price_gwei": 4.6236,
+   "gas_cost_eth": 0.00365372,
+   "priority_fee_eth": 0.00364977,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xaae9522199c251a721cc7de79e07327813e14d2b4864be4a920b3b47281d3269",
+   "block": 50832328,
+   "timestamp_utc": "2026-09-03T16:46:43+00:00",
+   "sender": "0x2352a1fca90182509dca9c12b2cad582a38e8b82",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 711541,
+   "effective_gas_price_gwei": 0.0068,
+   "gas_cost_eth": 4.85e-06,
+   "priority_fee_eth": 1.29e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x101cfe181c31ab920fe8835e0de00ac293bcf672108cbf6ad2a1069c44df0a2b",
+   "block": 50832328,
+   "timestamp_utc": "2026-09-03T16:46:43+00:00",
+   "sender": "0x00000000006090e73269e8521d4d5c8a0e145af5",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 793857,
+   "effective_gas_price_gwei": 0.005,
+   "gas_cost_eth": 3.97e-06,
+   "priority_fee_eth": 0.0,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xf3fe938b8165c100d49ccf42888e367efaf27cd79c3d1fa10549fc4866c8700f",
+   "block": 50832328,
+   "timestamp_utc": "2026-09-03T16:46:43+00:00",
+   "sender": "0x2352a1fca90182509dca9c12b2cad582a38e8b82",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 4368643,
+   "effective_gas_price_gwei": 0.0076,
+   "gas_cost_eth": 3.309e-05,
+   "priority_fee_eth": 1.125e-05,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x5b9823f14544f0f149a72cbc974f9789b3903740f17f26ffe75602433ac587be",
+   "block": 50832369,
+   "timestamp_utc": "2026-09-03T16:48:05+00:00",
+   "sender": "0x800db1fb3705d13aea951d63ad49a655da8f0514",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 498536,
+   "effective_gas_price_gwei": 0.0138,
+   "gas_cost_eth": 6.86e-06,
+   "priority_fee_eth": 4.37e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x6859405ffc3ac8b61b5b6b9dfb50723d29988f1b29c66bac57014452801fa74a",
+   "block": 50832372,
+   "timestamp_utc": "2026-09-03T16:48:11+00:00",
+   "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 2,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 2,
+   "distinct_pools": 2,
+   "gas_used": 425543,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 2.55e-06,
+   "priority_fee_eth": 4.3e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x135835d04358ccdf731521d1a911b67ac9e500c26a054810524bb6a168186476",
+   "block": 50832373,
+   "timestamp_utc": "2026-09-03T16:48:13+00:00",
+   "sender": "0xc9629c1804bbb2fa1b2878a514c650e1ecb37a28",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 753933,
+   "effective_gas_price_gwei": 40.005,
+   "gas_cost_eth": 0.03016109,
+   "priority_fee_eth": 0.03015732,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x4fac0d1aa6dec8d9bd5f2a432f26340c66d13b8114d8f66c0b8b16cc115ccdac",
+   "block": 50832373,
+   "timestamp_utc": "2026-09-03T16:48:13+00:00",
+   "sender": "0x2352a1fca90182509dca9c12b2cad582a38e8b82",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 3352566,
+   "effective_gas_price_gwei": 0.0076,
+   "gas_cost_eth": 2.539e-05,
+   "priority_fee_eth": 8.63e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x29524218f5e8521515af0b5e4368458f32839298d092e311a50cafb6ae45bb5d",
+   "block": 50832384,
+   "timestamp_utc": "2026-09-03T16:48:35+00:00",
+   "sender": "0xc9629c1804bbb2fa1b2878a514c650e1ecb37a28",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 600028,
+   "effective_gas_price_gwei": 40.005,
+   "gas_cost_eth": 0.02400412,
+   "priority_fee_eth": 0.02400112,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x854fb2944b90a8ef133b70a551a4a4d36b01d39771bcdea088b07c7a47584716",
+   "block": 50832395,
+   "timestamp_utc": "2026-09-03T16:48:57+00:00",
+   "sender": "0x2352a1fca90182509dca9c12b2cad582a38e8b82",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 1459536,
+   "effective_gas_price_gwei": 0.0064,
+   "gas_cost_eth": 9.36e-06,
+   "priority_fee_eth": 2.06e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xcb7a0e428e1506398f088571131e793c1a48c7c54655e89d6d05c8a926f66914",
+   "block": 50832452,
+   "timestamp_utc": "2026-09-03T16:50:51+00:00",
+   "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 2,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 2,
+   "distinct_pools": 2,
+   "gas_used": 435221,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 2.61e-06,
+   "priority_fee_eth": 4.4e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xa59eb54df25fca38c41ff0851effc73dc45752ff0695c811eaf84fc599ea9b13",
+   "block": 50832498,
+   "timestamp_utc": "2026-09-03T16:52:23+00:00",
+   "sender": "0x3929389ef8f44229c01ec4c9477c8438cd48643b",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 419721,
+   "effective_gas_price_gwei": 0.0052,
+   "gas_cost_eth": 2.18e-06,
+   "priority_fee_eth": 8e-08,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x37756f42a6300f1e59563fa449e4854ef6ee369439eb9a69039751b1f14e91c5",
+   "block": 50832532,
+   "timestamp_utc": "2026-09-03T16:53:31+00:00",
+   "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 1,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 1,
+   "distinct_pools": 1,
+   "gas_used": 341024,
+   "effective_gas_price_gwei": 0.006,
+   "gas_cost_eth": 2.05e-06,
+   "priority_fee_eth": 3.4e-07,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0x12a8cb718c34e7b65313f5b1a98e0a1cd98cb845d0630bae42e8f6ab77dc5476",
+   "block": 50832535,
+   "timestamp_utc": "2026-09-03T16:53:37+00:00",
+   "sender": "0x800db1fb3705d13aea951d63ad49a655da8f0514",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 487721,
+   "effective_gas_price_gwei": 0.0208,
+   "gas_cost_eth": 1.014e-05,
+   "priority_fee_eth": 7.69e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  },
+  {
+   "tx": "0xed1c25597636a21e767f0a67de334eca6a999cb2e6051df76d3d21a65188c054",
+   "block": 50832544,
+   "timestamp_utc": "2026-09-03T16:53:55+00:00",
+   "sender": "0x2352a1fca90182509dca9c12b2cad582a38e8b82",
+   "status": 1,
+   "swap_legs": {
+    "univ3": 0,
+    "univ2": 0,
+    "aerodrome": 0
+   },
+   "total_swap_legs": 0,
+   "distinct_pools": 0,
+   "gas_used": 1448408,
+   "effective_gas_price_gwei": 0.0064,
+   "gas_cost_eth": 9.29e-06,
+   "priority_fee_eth": 2.05e-06,
+   "gross_profit_eth": null,
+   "net_profit_eth": null,
+   "builder_bribe_eth": null,
+   "reconstruction_note": "net/gross profit + builder bribe NOT derivable from public logs (needs debug_traceTransaction / balance-diff on archive+trace RPC)",
+   "providers": [
+    "balancer_v2"
+   ]
+  }
+ ]
+}

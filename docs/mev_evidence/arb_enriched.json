@@ -1,0 +1,149 @@
+[
+ {
+  "tx": "0x85b73563bff5d5002a70b70ff74c2857d9170f1fad0bcbdce2852f5e563ac48f",
+  "block": 50831898,
+  "ts": "2026-09-03T16:32:23+00:00",
+  "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+  "legs": 2,
+  "swaps": {
+   "univ3": 2,
+   "univ2": 0,
+   "aerodrome": 0
+  },
+  "pools": 2,
+  "gas_eth": 2.4e-06,
+  "prio_eth": 4e-07,
+  "flash": {
+   "provider": "balancer_v2",
+   "asset": "WETH",
+   "amount_raw": 6752199009919272,
+   "fee_raw": 0
+  }
+ },
+ {
+  "tx": "0x42756211dc7d5ada96e396d131bc0ce3881fcf33a8eb524cafdb500c9c05bc13",
+  "block": 50832048,
+  "ts": "2026-09-03T16:37:23+00:00",
+  "sender": "0x7e425583b5b6b707d9ddccf1a35facf499402c22",
+  "legs": 2,
+  "swaps": {
+   "univ3": 1,
+   "univ2": 1,
+   "aerodrome": 0
+  },
+  "pools": 2,
+  "gas_eth": 7.974e-05,
+  "prio_eth": 7.662e-05,
+  "flash": {
+   "provider": "balancer_v2",
+   "asset": "USDC",
+   "amount_raw": 431250000,
+   "fee_raw": 0
+  }
+ },
+ {
+  "tx": "0x21e6af50e8b6e62d06f3b288062ab10d4e207597efe7054dccfeeaee1f05a2f3",
+  "block": 50832056,
+  "ts": "2026-09-03T16:37:39+00:00",
+  "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+  "legs": 2,
+  "swaps": {
+   "univ3": 2,
+   "univ2": 0,
+   "aerodrome": 0
+  },
+  "pools": 2,
+  "gas_eth": 2.61e-06,
+  "prio_eth": 4.4e-07,
+  "flash": {
+   "provider": "balancer_v2",
+   "asset": "WETH",
+   "amount_raw": 6740442453848260,
+   "fee_raw": 0
+  }
+ },
+ {
+  "tx": "0xa6efd514a14f38912139aedb8c8a687d21751784c372be9c01c201e1494940bc",
+  "block": 50832135,
+  "ts": "2026-09-03T16:40:17+00:00",
+  "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+  "legs": 2,
+  "swaps": {
+   "univ3": 2,
+   "univ2": 0,
+   "aerodrome": 0
+  },
+  "pools": 2,
+  "gas_eth": 2.56e-06,
+  "prio_eth": 4.3e-07,
+  "flash": {
+   "provider": "balancer_v2",
+   "asset": "WETH",
+   "amount_raw": 8939549551337947,
+   "fee_raw": 0
+  }
+ },
+ {
+  "tx": "0x7644b13a950247f66a41be7978fc9b44ecc349b5fc4f43efc30dadb25538e94e",
+  "block": 50832293,
+  "ts": "2026-09-03T16:45:33+00:00",
+  "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+  "legs": 2,
+  "swaps": {
+   "univ3": 2,
+   "univ2": 0,
+   "aerodrome": 0
+  },
+  "pools": 2,
+  "gas_eth": 2.55e-06,
+  "prio_eth": 4.2e-07,
+  "flash": {
+   "provider": "balancer_v2",
+   "asset": "WETH",
+   "amount_raw": 6749104043709969,
+   "fee_raw": 0
+  }
+ },
+ {
+  "tx": "0x6859405ffc3ac8b61b5b6b9dfb50723d29988f1b29c66bac57014452801fa74a",
+  "block": 50832372,
+  "ts": "2026-09-03T16:48:11+00:00",
+  "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+  "legs": 2,
+  "swaps": {
+   "univ3": 2,
+   "univ2": 0,
+   "aerodrome": 0
+  },
+  "pools": 2,
+  "gas_eth": 2.55e-06,
+  "prio_eth": 4.3e-07,
+  "flash": {
+   "provider": "balancer_v2",
+   "asset": "WETH",
+   "amount_raw": 8117998649160294,
+   "fee_raw": 0
+  }
+ },
+ {
+  "tx": "0xcb7a0e428e1506398f088571131e793c1a48c7c54655e89d6d05c8a926f66914",
+  "block": 50832452,
+  "ts": "2026-09-03T16:50:51+00:00",
+  "sender": "0x0e0052a184fd59c6b7e1e99d739802ecb3aec0e4",
+  "legs": 2,
+  "swaps": {
+   "univ3": 2,
+   "univ2": 0,
+   "aerodrome": 0
+  },
+  "pools": 2,
+  "gas_eth": 2.61e-06,
+  "prio_eth": 4.4e-07,
+  "flash": {
+   "provider": "balancer_v2",
+   "asset": "WETH",
+   "amount_raw": 8937796190519726,
+   "fee_raw": 0
+  }
+ }
+]

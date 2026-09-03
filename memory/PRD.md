@@ -98,3 +98,19 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
 - Live re-verified: kill engaged, live_execution_enabled=false, effective_kill_engaged=true;
   readiness matrix SHADOW=GREEN(READY), LIMITED_LIVE/FULL_AUTOMATION=RED (readiness.py untouched).
 - P0 RPC/fork/on-chain proofs remain honestly BLOCKED (no RPC/archive/anvil) — not attempted.
+
+## MEV Intelligence pre-deployment READ-ONLY test (2026-09-03 chain UTC)
+- READ-ONLY research; NO code/Mongo/gate/kill/execution changes. Safety unchanged
+  (kill engaged, live_exec=false). Report: docs/MEV_INTELLIGENCE_PREDEPLOYMENT_TEST.md;
+  evidence docs/mev_evidence/*.json; isolated probe scripts/mev_intel_readonly.py.
+- Real Base mainnet (8453) data via public RPC mainnet.base.org. Window blocks
+  50,831,821-50,833,821 (~67min, 16:32-17:38 UTC). 65 flash-loan txs, 40 reconstructed,
+  7 arb-shaped (Balancer V2 flash + 2 Uniswap V3 legs, tiny gas ~2.5e-6 ETH, small notionals).
+- BLOCKER (honest, not faked): public RPC has NO debug_trace*/trace_block -> searcher
+  gross/net profit + builder bribe NOT reconstructable. ArbiCore quantitative replay also
+  blocked: ARBICORE_RPC_URL unset -> economics/EV/sim need live quotes/liquidity.
+- ArbiCore replay = qualitative: detectable YES, routes/DEX YES (UniV3/V2, Balancer modelled),
+  executor PARTIAL (proven path Aave V3; today's arbs Balancer V2 = unverified path),
+  economics/liquidity/EV/sim = DATA INSUFFICIENT. 0 proven capturable; nothing fabricated.
+- To get monetised result: trace-enabled archive Base RPC (Alchemy/QuickNode debug_traceTransaction)
+  + wire ARBICORE_RPC_URL. STOPPED after report per directive.
