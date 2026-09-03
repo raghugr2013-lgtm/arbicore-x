@@ -56,3 +56,25 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
   (fork validation + live/archive RPC not provisioned — honestly blocked, not faked).
 - Remaining (need operator RPC): 2E fork validation, 2F flash on-chain verify,
   live-RPC economics, learning-loop end-to-end proof, kill-switch store unification.
+
+## Phase 3 continuation (2026-06 fork) — HEAD a4039f0 preserved, AUDIT-ONLY pass
+- Delivered READ-ONLY audit: docs/STRATEGY_IP_AND_PHASE3_GAP_AUDIT.md.
+- P0 blockers re-derived (all env-dependent, honestly fail-closed): B1 chain-ID,
+  B2 executor bytecode (eth_getCode + EXECUTOR_ADDRESS), B3 atomic eth_call sim,
+  B4/B5 anvil fork (anvil binary NOT installed + no archive RPC), B6 flash on-chain,
+  B7 learning-loop outcome data. Env needed: ARBICORE_RPC_URL, ARBICORE_ARCHIVE_RPC_URL,
+  ARBICORE_EXECUTOR_ADDRESS_BASE, anvil (Foundry), signer in vault (not .env).
+- Strategy IP audit (16 surfaces): NO critical live exposure. Alpha
+  (parameters/constraints/route_hints/capabilities) is admin-only, never logged,
+  zero frontend exposure; registry stores identity-only, candidate store holds alpha.
+  Field classes: PUBLIC(type,source_class) / INTERNAL(id,version,provenance meta) /
+  CONFIDENTIAL(fingerprint,lineage,source_ref) / EXECUTION-SENSITIVE(params,constraints,
+  route_hints,capabilities). EXEC-SENSITIVE must cross SF->ArbiCore to evaluate; egress
+  already blocked.
+- Genuine gap: enforced external provenance/originality. Recommended (NOT implemented,
+  awaiting approval): F1 extend SourceClass (PUBLIC_RESEARCH/GENERATED/PROPRIETARY_EXTERNAL)
+  + require source_ref + quarantine RESTRICTED (~40-60 LOC); F2 identity-only projection +
+  confidential tag (~25-40); F3 fingerprint log->DEBUG (~2); F4 generic 422 (~6-10);
+  F5 provenance tests (~60-90). None touch execution/safety.
+- STOPPED after report per directive. Safety unchanged: SHADOW=READY; PAPER/LIMITED_LIVE/
+  FULL_AUTOMATION=BLOCKED. main/execution/signer/kill-switch/Mongo/learning/Strategy IR untouched.
