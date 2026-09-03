@@ -6,6 +6,7 @@ Collections (created lazily, never migrated/reset):
 No existing collection is touched.
 """
 from typing import Any, Dict, List, Optional
+import hashlib
 
 from pymongo.errors import DuplicateKeyError
 
@@ -29,7 +30,14 @@ async def ensure_indexes() -> None:
         return
     await _registry.create_index([("strategy_fingerprint", 1), ("strategy_version", 1)],
                                  unique=True)
-    await _registry.create_index("strategy_id")
+    try:
+        await _registry.create_index("strategy_id", unique=True)
+    except Exception:  # noqa: BLE001
+        try:
+            await _registry.drop_index("strategy_id_1")
+        except Exception:  # noqa: BLE001
+            pass
+        await _registry.create_index("strategy_id", unique=True)
     try:
         await _candidates.create_index(
             [("strategy_fingerprint", 1), ("strategy_version", 1)], unique=True)
@@ -53,8 +61,14 @@ async def register(ir: StrategyIR) -> Dict[str, Any]:
     await ensure_indexes()
     doc = ir.to_registry_doc()
     fp, ver = doc["strategy_fingerprint"], doc["strategy_version"]
+    # Server-authoritative identity: strategy_id is DERIVED from (fingerprint,
+    # version), never trusted from the client. This makes it canonical (1:1 with
+    # the semantic strategy), collision-free, and stable across restarts — a
+    # client cannot inject or reuse another strategy's id.
+    canonical_id = "sid_" + hashlib.sha256(f"{fp}:{ver}".encode()).hexdigest()[:32]
+    doc["strategy_id"] = canonical_id
     reg_entry = {
-        "strategy_id": doc["strategy_id"],
+        "strategy_id": canonical_id,
         "strategy_fingerprint": fp,
         "strategy_version": ver,
         "strategy_type": doc["strategy_type"],
@@ -66,12 +80,8 @@ async def register(ir: StrategyIR) -> Dict[str, Any]:
     duplicate = False
     try:
         await _registry.insert_one(dict(reg_entry))
-        canonical_id = doc["strategy_id"]
     except DuplicateKeyError:
         duplicate = True
-        existing = await _registry.find_one({"strategy_fingerprint": fp,
-                                             "strategy_version": ver}, {"_id": 0})
-        canonical_id = (existing or {}).get("strategy_id", doc["strategy_id"])
 
     # One candidate row per (fingerprint, version); dedup via upsert + counter.
     candidate = {**doc, "strategy_id": canonical_id,

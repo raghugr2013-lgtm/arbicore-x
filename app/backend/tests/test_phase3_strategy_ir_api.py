@@ -322,3 +322,177 @@ class TestP0AuthRegression:
                       json={"username": "TEST_intruder",
                             "password": "TEST_Password12345"}, timeout=30)
         assert r.status_code == 403, f"{r.status_code}: {r.text[:300]}"
+
+
+# --- ITERATION 6: FIX VERIFICATION ---------------------------------------
+# Module: arbicore/strategy_ir/registry.py (duplicate identity + dedup upsert)
+#         arbicore/strategy_ir/schema.py   (extra='forbid', size caps, cap values)
+def _mongo_candidates():
+    """Direct DB access to assert dedup (one candidate row per fingerprint)."""
+    from pymongo import MongoClient
+    benv = dotenv_values("/app/app/backend/.env")
+    url = os.environ.get("MONGO_URL") or benv.get("MONGO_URL")
+    name = os.environ.get("DB_NAME") or benv.get("DB_NAME")
+    assert url and name, "MONGO_URL/DB_NAME missing"
+    return MongoClient(url)[name]["strategy_candidates"]
+
+
+class TestDuplicateIdentityFixed:
+    def test_duplicate_strategy_id_equals_first_and_resolves(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["parameters"] = {"pair": f"TEST_IDFIX_{uuid.uuid4().hex[:8]}/USDC"}
+        r1 = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r1.status_code == 200, r1.text[:300]
+        a = r1.json()
+        CREATED_STRATEGY_IDS.append(a["strategy_id"])
+        assert a["duplicate"] is False and a["registered"] is True
+
+        r2 = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r2.status_code == 200, r2.text[:300]
+        b = r2.json()
+        assert b["duplicate"] is True, b
+        assert b["registered"] is False, b
+        assert b["strategy_id"] == a["strategy_id"], (
+            f"duplicate returned {b['strategy_id']} != canonical {a['strategy_id']}")
+        assert b["strategy_fingerprint"] == a["strategy_fingerprint"]
+
+        reg = admin_client.get(f"{BASE_URL}/api/strategy/registry/{a['strategy_id']}", timeout=30)
+        assert reg.status_code == 200, f"registry {reg.status_code}: {reg.text[:300]}"
+        assert reg.json()["strategy_fingerprint"] == a["strategy_fingerprint"]
+
+        prev = admin_client.post(
+            f"{BASE_URL}/api/strategy/candidates/{a['strategy_id']}/preview-hypothesis",
+            timeout=30)
+        assert prev.status_code == 200, f"preview {prev.status_code}: {prev.text[:300]}"
+        assert prev.json()["hypothesis"]["executable"] is False
+
+    def test_dedup_single_candidate_row_with_ingest_count(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["parameters"] = {"pair": f"TEST_DEDUP_{uuid.uuid4().hex[:8]}/USDC"}
+        fps = set()
+        for _ in range(4):
+            r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+            assert r.status_code == 200, r.text[:300]
+            d = r.json()
+            fps.add(d["strategy_fingerprint"])
+            CREATED_STRATEGY_IDS.append(d["strategy_id"])
+        assert len(fps) == 1
+        fp = fps.pop()
+        col = _mongo_candidates()
+        docs = list(col.find({"strategy_fingerprint": fp, "strategy_version": 1}))
+        assert len(docs) == 1, f"expected 1 candidate doc, got {len(docs)}"
+        assert docs[0].get("ingest_count") == 4, docs[0].get("ingest_count")
+        assert docs[0].get("executable") is False
+        assert docs[0].get("lifecycle_state") == "INGESTED"
+
+        # one more ingest increments the counter, still one row
+        admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        docs = list(col.find({"strategy_fingerprint": fp, "strategy_version": 1}))
+        assert len(docs) == 1
+        assert docs[0].get("ingest_count") == 5, docs[0].get("ingest_count")
+
+
+EXTRA_FORBID_CASES = [
+    ("executable", True),
+    ("lifecycle_state", "APPROVED"),
+    ("calldata", "0xdeadbeef"),
+    ("signer", "0x1111111111111111111111111111111111111111"),
+    ("execution_mode", "live"),
+    ("kill_switch", False),
+    ("ingest_count", 999),
+    ("unknown_random_field", "x"),
+]
+
+
+class TestExtraForbidHardening:
+    @pytest.mark.parametrize("key,value", EXTRA_FORBID_CASES)
+    def test_root_level_extra_field_rejected(self, admin_client, key, value):
+        body = copy.deepcopy(VALID_IR)
+        body[key] = value
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 422, f"root {key} -> {r.status_code}: {r.text[:300]}"
+
+    def test_provenance_extra_field_rejected(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["provenance"] = {"source": "x", "signer": "0xabc"}
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 422, f"{r.status_code}: {r.text[:300]}"
+
+
+class TestForbiddenTokenAsValue:
+    @pytest.mark.parametrize("cap", ["signer", "calldata", "private_key",
+                                     "Kill-Switch", "EXECUTION MODE"])
+    def test_forbidden_capability_value_rejected(self, admin_client, cap):
+        body = copy.deepcopy(VALID_IR)
+        body["required_capabilities"] = ["flash_loan", cap]
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 422, f"cap={cap} -> {r.status_code}: {r.text[:300]}"
+
+    def test_benign_capability_accepted(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["required_capabilities"] = ["flash_loan", "dex_quote"]
+        body["parameters"] = {"pair": f"TEST_CAPOK_{uuid.uuid4().hex[:8]}/USDC"}
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 200, f"{r.status_code}: {r.text[:300]}"
+        CREATED_STRATEGY_IDS.append(r.json()["strategy_id"])
+
+
+class TestSizeCaps:
+    def test_oversized_parameter_value_rejected(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["parameters"] = {"blob": "A" * 300_000}
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 422, f"{r.status_code}: {r.text[:200]}"
+
+    def test_too_many_parameter_keys_rejected(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["parameters"] = {f"k{i}": i for i in range(250)}
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 422, f"{r.status_code}: {r.text[:200]}"
+
+    def test_too_many_route_hints_rejected(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["route_hints"] = [{"dex": f"d{i}"} for i in range(150)]
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 422, f"{r.status_code}: {r.text[:200]}"
+
+    def test_too_many_constraint_keys_rejected(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["constraints"] = {f"c{i}": i for i in range(250)}
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 422, f"{r.status_code}: {r.text[:200]}"
+
+    def test_within_caps_accepted(self, admin_client):
+        body = copy.deepcopy(VALID_IR)
+        body["parameters"] = {"pair": f"TEST_CAPS_{uuid.uuid4().hex[:8]}/USDC",
+                              **{f"k{i}": i for i in range(50)}}
+        body["route_hints"] = [{"dex": f"d{i}"} for i in range(20)]
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates", json=body, timeout=30)
+        assert r.status_code == 200, f"{r.status_code}: {r.text[:300]}"
+        CREATED_STRATEGY_IDS.append(r.json()["strategy_id"])
+
+
+class TestStrategyIdIntegrity:
+    """BUG CHECK (iteration_6): strategy_id is client-supplied and NOT unique, so
+    two semantically DIFFERENT IRs can be forced to share one strategy_id, making
+    /registry/{id} and preview-hypothesis ambiguous (find_one picks whichever doc
+    Mongo returns first)."""
+
+    def test_client_cannot_hijack_existing_strategy_id(self, admin_client):
+        victim = copy.deepcopy(VALID_IR)
+        victim["parameters"] = {"pair": f"TEST_VICTIM_{uuid.uuid4().hex[:8]}/USDC"}
+        v = admin_client.post(f"{BASE_URL}/api/strategy/candidates",
+                              json=victim, timeout=30).json()
+        CREATED_STRATEGY_IDS.append(v["strategy_id"])
+
+        attacker = copy.deepcopy(VALID_IR)
+        attacker["parameters"] = {"pair": f"TEST_ATTACK_{uuid.uuid4().hex[:8]}/USDC"}
+        attacker["strategy_id"] = v["strategy_id"]
+        r = admin_client.post(f"{BASE_URL}/api/strategy/candidates",
+                              json=attacker, timeout=30)
+        assert r.status_code == 200, r.text[:300]
+        a = r.json()
+        assert a["strategy_fingerprint"] != v["strategy_fingerprint"]
+        assert a["strategy_id"] != v["strategy_id"], (
+            "client-supplied strategy_id was honoured: two different strategies "
+            f"now share id {v['strategy_id']} — identity is ambiguous")
