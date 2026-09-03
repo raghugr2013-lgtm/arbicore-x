@@ -41,3 +41,18 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
 - P2: quote provenance, historical-replay leakage, evidence completeness audits.
 - P2: source frontend version from backend (remove hardcoded v2.9.3 label);
   prod cookie secure=True behind TLS.
+
+## Phase 2 (2026-09 continuation) — HEAD 90b337a
+- 2A: Canonical c284183 MERGED into main (non-destructive, recovery tag
+  recovery/phase1-p0-security). 107 commits recovered; P0 preserved.
+- 2B/2C: Economics proven (15 tests); fixed size_optimizer None-liquidity crash.
+- 2D: RPC comma-separated parsing fixed via first_rpc_endpoint() across resolver,
+  simulator, gas oracle, 5 TechnicalValidator sites (6 tests).
+- P0 hardening: dead-lock removed (self-healing sparse-unique admin_singleton),
+  verified 19/19 by testing agent (iter_3); brute-force + info-leak fixes retained.
+- Safety: /safety/status now reports both kill-switch stores + effective union.
+- Docs: ECONOMICS_AUDIT.md, EXECUTOR_READINESS_AUDIT.md, FINAL_CERTIFICATION_PHASE2.md.
+- Verdict unchanged: SHADOW=READY; PAPER/LIMITED_LIVE/FULL_AUTOMATION=BLOCKED
+  (fork validation + live/archive RPC not provisioned — honestly blocked, not faked).
+- Remaining (need operator RPC): 2E fork validation, 2F flash on-chain verify,
+  live-RPC economics, learning-loop end-to-end proof, kill-switch store unification.
