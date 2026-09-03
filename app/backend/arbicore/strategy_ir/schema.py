@@ -4,7 +4,7 @@ import json
 from enum import Enum
 from typing import Any, Dict, List
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from core.models import new_id, now_iso
 
@@ -91,6 +91,7 @@ def compute_fingerprint(strategy_type: str, parameters: Dict[str, Any],
 
 
 class StrategyProvenance(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     source: str                          # e.g. "strategy_factory", "github", "arxiv"
     source_ref: str = ""                 # URL / commit / DOI reference (no secrets)
     timestamp: str = Field(default_factory=now_iso)
@@ -105,6 +106,10 @@ class StrategyProvenance(BaseModel):
 
 class StrategyIR(BaseModel):
     """A research strategy / hypothesis — DATA ONLY, non-executable."""
+    # Reject unknown top-level fields (fail-closed): a payload carrying e.g.
+    # {"executable": true} or {"calldata": "0x.."} is 422, never silently dropped.
+    model_config = ConfigDict(extra="forbid")
+
     strategy_id: str = Field(default_factory=new_id)
     strategy_version: int = 1
     strategy_fingerprint: str = ""       # derived; ignored/overwritten on validate
@@ -134,14 +139,35 @@ class StrategyIR(BaseModel):
                              f"(allowed: {sorted(ALLOWED_STRATEGY_TYPES)})")
         return t
 
+    @model_validator(mode="after")
+    def _bounded(self) -> "StrategyIR":
+        # Cardinality / size caps — the ingestion surface must not be a storage
+        # abuse vector. Cheap fail-closed bounds; tune if a real strategy needs more.
+        if len(self.parameters) > 200 or len(self.constraints) > 200:
+            raise ValueError("too many parameter/constraint keys (max 200)")
+        if len(self.required_capabilities) > 100:
+            raise ValueError("too many required_capabilities (max 100)")
+        if len(self.route_hints) > 100:
+            raise ValueError("too many route_hints (max 100)")
+        blob = json.dumps(_canonical({"p": self.parameters, "c": self.constraints,
+                                      "r": self.route_hints}), default=str)
+        if len(blob) > 256_000:          # 256 KB semantic payload cap
+            raise ValueError("strategy payload too large (max 256KB)")
+        return self
+
     def validate_non_executable(self) -> "StrategyIR":
         """Reject any forbidden/execution-authority content and (re)derive the
         canonical fingerprint. Returns self for chaining."""
         _scan_forbidden(self.parameters, "parameters")
         _scan_forbidden(self.constraints, "constraints")
         _scan_forbidden(self.route_hints, "route_hints")
-        _scan_forbidden({"required_capabilities": self.required_capabilities},
-                        "required_capabilities")
+        # Defense in depth: capabilities/lineage are token lists — reject a
+        # forbidden token appearing as a VALUE too (keys are covered above).
+        for i, cap in enumerate(self.required_capabilities):
+            tok = str(cap).strip().lower().replace("-", "_").replace(" ", "_")
+            if tok in FORBIDDEN_KEYS:
+                raise StrategyIRValidationError(
+                    f"forbidden token '{cap}' in required_capabilities[{i}]")
         self.strategy_fingerprint = compute_fingerprint(
             self.strategy_type, self.parameters, self.constraints,
             self.required_capabilities, self.route_hints)

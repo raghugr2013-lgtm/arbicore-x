@@ -59,8 +59,7 @@ async def preview_hypothesis(strategy_id: str, user: dict = Depends(require_admi
     entry = await ir_registry.get_registry_entry(strategy_id)
     if not entry:
         raise HTTPException(404, "strategy not found")
-    cand = await ir_registry._candidates.find_one(  # noqa: SLF001
-        {"strategy_id": strategy_id}, {"_id": 0})
+    cand = await ir_registry.get_candidate(strategy_id)
     if not cand:
         raise HTTPException(404, "candidate not found")
     ir = StrategyIR(**{k: cand[k] for k in cand if k in StrategyIR.model_fields})
