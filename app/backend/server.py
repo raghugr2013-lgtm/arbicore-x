@@ -6518,6 +6518,23 @@ except Exception:  # noqa: BLE001
         "/api/arbicore/scanners/* management endpoints will be 404"
     )
 
+# ---------------------------------------------------------------------------
+# Native Strategy IR ingestion router (Option A/D): admin-authenticated,
+# NON-EXECUTABLE intake of upstream Strategy Factory research candidates into
+# additive collections (strategy_registry / strategy_candidates). It carries no
+# execution authority — candidates must independently pass the existing
+# discovery/economics/simulation/evidence gates. SHADOW/PAPER posture unchanged.
+# ---------------------------------------------------------------------------
+try:
+    from routes.strategy_ir import router as strategy_ir_router
+    app.include_router(strategy_ir_router)
+    logger.info("strategy IR router mounted (/api/strategy/*) — non-executable")
+except Exception:  # noqa: BLE001
+    logger.exception(
+        "strategy IR router failed to import — /api/strategy/* endpoints will be 404"
+    )
+
+
 
 @app.on_event("startup")
 async def _canonical_auth_provision_startup():
