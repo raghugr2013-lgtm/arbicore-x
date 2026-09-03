@@ -112,13 +112,20 @@ export function AuthProvider({ children }) {
    * First-run admin creation.  Only valid while setupComplete === false.
    * Server sets cookies and returns the public user document.
    */
-  const setup = useCallback(async (username, password) => {
+  const setup = useCallback(async (username, password, bootstrapToken) => {
     const u = (username || "").trim();
     if (u.length < 3) throw new Error("Username must be at least 3 characters.");
     if (!password || password.length < 8) throw new Error("Password must be at least 8 characters.");
-    const res = await client.post("/auth/setup", { username: u, password });
+    const token = (bootstrapToken || "").trim();
+    if (!token) throw new Error("Bootstrap authorization token is required.");
+    const res = await client.post("/auth/setup", { username: u, password }, {
+      headers: { "X-Bootstrap-Token": token },
+    });
+    if (res.status === 503) {
+      throw new Error(formatApiErrorDetail(res.data?.detail) || "First-admin bootstrap is disabled on the server.");
+    }
     if (res.status === 403) {
-      throw new Error(formatApiErrorDetail(res.data?.detail) || "Setup is locked.");
+      throw new Error(formatApiErrorDetail(res.data?.detail) || "Setup is locked or the bootstrap token is invalid.");
     }
     if (res.status !== 200 || !res.data || !res.data.id) {
       throw new Error(formatApiErrorDetail(res.data?.detail) || `Setup failed (HTTP ${res.status}).`);

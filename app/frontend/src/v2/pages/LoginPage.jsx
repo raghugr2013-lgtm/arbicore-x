@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [passphrase, setPassphrase] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [bootstrapToken, setBootstrapToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -47,12 +48,16 @@ export default function LoginPage() {
         setError("Passphrases do not match.");
         return;
       }
+      if (!bootstrapToken.trim()) {
+        setError("Bootstrap authorization token is required.");
+        return;
+      }
     }
 
     setSubmitting(true);
     try {
       if (isSetup) {
-        await setup(username, passphrase);
+        await setup(username, passphrase, bootstrapToken);
       } else {
         await login({ username, passphrase });
       }
@@ -70,7 +75,7 @@ export default function LoginPage() {
   const submitLabel = submitting
     ? (isSetup ? "Creating…" : "Authenticating…")
     : (isSetup ? "Create admin & enter" : "Sign in");
-  const canSubmit = !submitting && !bootLoading && username && passphrase && (!isSetup || confirm);
+  const canSubmit = !submitting && !bootLoading && username && passphrase && (!isSetup || (confirm && bootstrapToken));
 
   return (
     <div className="ui-v2-root arbicore-login" data-testid="login-page">
@@ -116,6 +121,22 @@ export default function LoginPage() {
                 onChange={(e) => setConfirm(e.target.value)}
                 disabled={submitting || bootLoading}
                 data-testid="login-confirm-input"
+              />
+            </label>
+          )}
+
+          {isSetup && (
+            <label className="arbicore-login__field">
+              <span className="arbicore-login__label">Bootstrap authorization token</span>
+              <input
+                type="password"
+                autoComplete="off"
+                value={bootstrapToken}
+                onChange={(e) => setBootstrapToken(e.target.value)}
+                disabled={submitting || bootLoading}
+                spellCheck={false}
+                placeholder="Provisioned server-side (ARBICORE_BOOTSTRAP_TOKEN)"
+                data-testid="login-bootstrap-token-input"
               />
             </label>
           )}

@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-01
 **Type:** READ-ONLY (no code modifications; test writes cleaned up)
-**Environment:** Preview (`https://defi-exec-audit.preview.emergentagent.com`)
+**Environment:** Preview (`https://arbicore-canonical-1.preview.emergentagent.com`)
 **Requester intent:** confirm end-to-end operator flow is safe to execute before spending real ETH.
 
 ---

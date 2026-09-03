@@ -10,7 +10,7 @@ import requests
 from eth_utils import keccak
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL",
-                          "https://defi-exec-audit.preview.emergentagent.com").rstrip("/")
+                          "https://arbicore-canonical-1.preview.emergentagent.com").rstrip("/")
 OPERATOR = ("operator", "ShadowOperator!2026")
 
 WETH = "0x4200000000000000000000000000000000000006"

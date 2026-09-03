@@ -24,6 +24,24 @@ def _now():
     return datetime.now(timezone.utc)
 
 
+def client_ip(request) -> str:
+    """Resolve the real client IP behind a reverse proxy / k8s ingress.
+
+    Uses the left-most hop of X-Forwarded-For (the original client) and falls
+    back to the direct socket peer. Without this, request.client.host is the
+    proxy pod address, which fragments brute-force counters across pods and
+    silently defeats the lockout."""
+    xff = request.headers.get("x-forwarded-for") or ""
+    if xff:
+        first = xff.split(",")[0].strip()
+        if first:
+            return first
+    real = request.headers.get("x-real-ip")
+    if real:
+        return real.strip()
+    return request.client.host if request.client else "unknown"
+
+
 # ---------- passwords ----------
 
 def hash_password(password: str) -> str:
@@ -64,11 +82,32 @@ def decode_token(token: str, expected_type: str) -> dict:
     return payload
 
 
+def _cookie_flags() -> dict:
+    """Cookie security flags. Defaults are safe for the http preview ingress
+    (which itself upgrades to Secure); a direct HTTPS deployment should set
+    ARBICORE_COOKIE_SECURE=true so the Secure flag is emitted at the origin."""
+    secure = (os.environ.get("ARBICORE_COOKIE_SECURE") or "").strip().lower() in ("1", "true", "yes")
+    samesite = (os.environ.get("ARBICORE_COOKIE_SAMESITE") or "lax").strip().lower()
+    return {"secure": secure, "samesite": samesite}
+
+
 def set_auth_cookies(response, user: dict):
+    flags = _cookie_flags()
     response.set_cookie("access_token", create_access_token(user), httponly=True,
-                        secure=False, samesite="lax", max_age=ACCESS_TTL_MIN * 60, path="/")
+                        secure=flags["secure"], samesite=flags["samesite"],
+                        max_age=ACCESS_TTL_MIN * 60, path="/")
     response.set_cookie("refresh_token", create_refresh_token(user), httponly=True,
-                        secure=False, samesite="lax", max_age=REFRESH_TTL_DAYS * 86400, path="/")
+                        secure=flags["secure"], samesite=flags["samesite"],
+                        max_age=REFRESH_TTL_DAYS * 86400, path="/")
+
+
+def set_access_cookie(response, user: dict):
+    """Issue only the access cookie (used by /refresh). Single source of truth
+    for cookie flags — avoids drift with set_auth_cookies."""
+    flags = _cookie_flags()
+    response.set_cookie("access_token", create_access_token(user), httponly=True,
+                        secure=flags["secure"], samesite=flags["samesite"],
+                        max_age=ACCESS_TTL_MIN * 60, path="/")
 
 
 def clear_auth_cookies(response):

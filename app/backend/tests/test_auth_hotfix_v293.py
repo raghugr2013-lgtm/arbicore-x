@@ -11,12 +11,25 @@ from pathlib import Path
 
 import pytest
 import requests
+from dotenv import load_dotenv
 from pymongo import MongoClient
 
 BASE = "http://127.0.0.1:8001"
 BACKEND_DIR = Path("/app/app/backend")
 MONGO_URL = "mongodb://localhost:27017"
 DB_NAME = "arbicore_x_hotfix_test"
+
+# P0: first-admin bootstrap is fail-closed — /setup requires the server-side
+# ARBICORE_BOOTSTRAP_TOKEN presented via the X-Bootstrap-Token header.
+load_dotenv(BACKEND_DIR / ".env")
+BOOTSTRAP_TOKEN = os.environ.get("ARBICORE_BOOTSTRAP_TOKEN", "")
+
+
+def _post_setup(client, username="admin", password="testtest123", token="__default__"):
+    tok = BOOTSTRAP_TOKEN if token == "__default__" else token
+    headers = {"X-Bootstrap-Token": tok} if tok is not None else {}
+    return client.post(f"{BASE}/api/auth/setup",
+                       json={"username": username, "password": password}, headers=headers)
 
 
 @pytest.fixture(scope="module")
@@ -29,6 +42,7 @@ def mongo():
 def _reset_canonical(mongo):
     mongo["users"].delete_many({})
     mongo["login_attempts"].delete_many({})
+    mongo["settings"].delete_many({"key": "auth_bootstrap_lock"})
 
 
 def _reset_all(mongo):
@@ -45,13 +59,28 @@ class TestSetupFlow:
         r = requests.get(f"{BASE}/api/auth/status")
         assert r.status_code == 200, r.text
         data = r.json()
-        assert data == {"setup_complete": False, "auth_required": True}
+        assert data["setup_complete"] is False
+        assert data["auth_required"] is True
+        assert data.get("bootstrap_requires_token") is True
+
+    def test_v1b_setup_without_token_forbidden(self, mongo):
+        # P0 adversarial: no administrator exists, but an anonymous visitor
+        # MUST NOT be able to create the first admin without the token.
+        _reset_canonical(mongo)
+        r = _post_setup(requests, token=None)
+        assert r.status_code == 403, r.text
+
+    def test_v1c_setup_wrong_token_forbidden(self, mongo):
+        _reset_canonical(mongo)
+        r = _post_setup(requests, token="definitely-wrong-token")
+        assert r.status_code == 403, r.text
+        # still no admin created
+        assert mongo["users"].count_documents({}) == 0
 
     def test_v2_setup_creates_admin_and_sets_cookies(self, mongo):
         _reset_canonical(mongo)
         s = requests.Session()
-        r = s.post(f"{BASE}/api/auth/setup",
-                   json={"username": "admin", "password": "testtest123"})
+        r = _post_setup(s)
         assert r.status_code == 200, r.text
         body = r.json()
         assert body["username"] == "admin"
@@ -67,16 +96,16 @@ class TestSetupFlow:
         assert "access_token=" in raw and "refresh_token=" in raw
 
     def test_v3_second_setup_returns_403(self, mongo):
-        # users collection is populated from previous test
-        r = requests.post(f"{BASE}/api/auth/setup",
-                          json={"username": "admin", "password": "testtest123"})
+        # users collection is populated from previous test — even WITH a valid
+        # token, bootstrap is permanently locked.
+        r = _post_setup(requests)
         assert r.status_code == 403, r.text
-        assert "Setup already completed" in r.json().get("detail", "")
+        assert "locked" in r.json().get("detail", "").lower()
 
     def test_v4_status_after_setup(self):
         r = requests.get(f"{BASE}/api/auth/status")
         assert r.status_code == 200
-        assert r.json() == {"setup_complete": True, "auth_required": True}
+        assert r.json()["setup_complete"] is True
 
 
 # ---------- /me + logout (V5, V6) ----------
@@ -142,8 +171,7 @@ class TestChangePassword:
         # Fresh setup for isolation
         _reset_canonical(mongo)
         s1 = requests.Session()
-        r = s1.post(f"{BASE}/api/auth/setup",
-                    json={"username": "admin", "password": "testtest123"})
+        r = _post_setup(s1)
         assert r.status_code == 200
         old_access = s1.cookies.get("access_token")
 
@@ -181,8 +209,7 @@ class TestBruteForce:
     def test_v9_lockout_after_5_failures(self, mongo):
         # ensure clean state and known password
         _reset_canonical(mongo)
-        r = requests.post(f"{BASE}/api/auth/setup",
-                          json={"username": "admin", "password": "testtest123"})
+        r = _post_setup(requests)
         assert r.status_code == 200
         codes = []
         for _ in range(5):
@@ -346,8 +373,7 @@ class TestKillSwitchCookieAuth:
         # Ensure known admin
         _reset_canonical(mongo)
         s = requests.Session()
-        r = s.post(f"{BASE}/api/auth/setup",
-                   json={"username": "admin", "password": "testtest123"})
+        r = _post_setup(s)
         assert r.status_code == 200
         r_eng = s.post(f"{BASE}/api/arbicore/safety/kill/engage")
         assert r_eng.status_code == 200, r_eng.text
