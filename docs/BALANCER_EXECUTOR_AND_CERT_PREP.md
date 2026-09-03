@@ -168,3 +168,35 @@ installed). **No gate will be weakened to obtain PASS.**
   allowlists/gates/readiness/learning/Mongo/`main` all untouched.
 
 *Stopping for approval before any implementation.*
+
+---
+
+## INFRASTRUCTURE STATUS UPDATE (2026-09-03)
+
+- **Anvil/Foundry: INSTALLED** (approved read-only fork tooling). `anvil 1.8.1`
+  (commit 982849d3, 2026-08-28), also `forge`/`cast` 1.8.1. Binaries persist at
+  `/root/.foundry/bin`; symlinked into `/usr/local/bin` so the backend PATH resolves it.
+  Verified live: `GET /api/arbicore/engine/fork-status` →
+  `anvil_installed=true, anvil_path=/usr/local/bin/anvil, ready_to_run=false,
+  reason="archive/fork RPC not configured (ARBICORE_ARCHIVE_RPC_URL)"`.
+  *Caveat:* `/usr/local/bin` is non-persistent across pod restarts; re-run
+  `ln -sf /root/.foundry/bin/anvil /usr/local/bin/anvil` if `anvil_installed` ever flips false.
+  No live-execution flag enabled; anvil is for fork lifecycle / fork validation / deterministic
+  sim only.
+- **Trace/archive Base RPC: NOT PROVIDED** → items blocked below.
+- **Executor address (`ARBICORE_EXECUTOR_ADDRESS_BASE`): NOT PROVIDED** → Balancer self-test +
+  bytecode proof blocked.
+
+### What is now unblocked vs still blocked
+| Item | Status | Needs |
+|---|---|---|
+| Anvil install (fork prerequisite) | ✅ DONE | — |
+| Base chain-ID proof | BLOCKED | `ARBICORE_RPC_URL` |
+| Atomic eth_call sim | BLOCKED | `ARBICORE_RPC_URL` |
+| Executor bytecode proof | BLOCKED | RPC + `ARBICORE_EXECUTOR_ADDRESS_BASE` |
+| Fork lifecycle / fork validation | BLOCKED | `ARBICORE_ARCHIVE_RPC_URL` (anvil now present) |
+| Flash on-chain verify (Aave dry) | BLOCKED | RPC + executor |
+| Balancer V2 self-test | BLOCKED | RPC + executor |
+| MEV quantitative replay | BLOCKED | trace-capable RPC |
+
+No code changed; no Mongo impact; safety posture unchanged.
