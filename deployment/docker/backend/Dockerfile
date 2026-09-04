@@ -35,6 +35,27 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates build-essential \
  && rm -rf /var/lib/apt/lists/*
 
+# ---------------------------------------------------------------------------
+# Pinned Foundry / Anvil runtime (T2 REVM fork simulation backend)
+# ---------------------------------------------------------------------------
+# LOCAL, READ-ONLY fork simulation only. SHADOW-only: never signs/broadcasts.
+# Pinned to v1.7.1 and SHA256-verified for reproducible production builds.
+ARG FOUNDRY_VERSION=v1.7.1
+ARG FOUNDRY_SHA256=cf7e688ed0c4c48adffca788b496076e31060b67ac5afe1e43dbb5499c20c88b
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    if [ "$arch" != "amd64" ]; then \
+      echo "Foundry pin only provisioned for amd64 (VPS target); got '$arch'" >&2; \
+      exit 1; \
+    fi; \
+    url="https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz"; \
+    curl -fsSL "$url" -o /tmp/foundry.tar.gz; \
+    echo "${FOUNDRY_SHA256}  /tmp/foundry.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/foundry.tar.gz -C /usr/local/bin anvil; \
+    rm -f /tmp/foundry.tar.gz; \
+    chmod 755 /usr/local/bin/anvil; \
+    anvil --version
+
 WORKDIR /app
 
 # Install PRODUCTION python deps. This file is the single source of truth for
