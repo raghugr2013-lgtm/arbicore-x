@@ -95,6 +95,7 @@ TESTS=(
   "tests/test_flashloan_diagnostic_provenance.py"
   "tests/test_flashloan_audit_evidence_filter.py"
   "tests/test_flashloan_canonical_audit_runner.py"
+  "tests/test_z9_base_v3_liquidity_eligibility.py"
   "tests/test_flashloan_limited_live_readiness.py"
   "tests/test_m2_1_live_quote_provider.py"
   "tests/test_m2_2_real_tvl_gate8.py"
