@@ -114,3 +114,15 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
   economics/liquidity/EV/sim = DATA INSUFFICIENT. 0 proven capturable; nothing fabricated.
 - To get monetised result: trace-enabled archive Base RPC (Alchemy/QuickNode debug_traceTransaction)
   + wire ARBICORE_RPC_URL. STOPPED after report per directive.
+
+## P0#2 Base read-only RPC wiring (2026-06) — VERIFIED (no code change)
+- Resolver already correct/fail-closed: ARBICORE_RPC_URL_BASE > ARBICORE_RPC_URL > BASE_RPC_URL
+  (resolve_rpc_url_from_env/first_rpc_endpoint); None when unset -> callers fail fast.
+- Wired ARBICORE_RPC_URL_BASE in THIS pod to public https://mainnet.base.org (read-only, no secret)
+  purely to verify the mechanism; VPS uses its own RPC URL via the same key.
+- Verified: /arbicore/rpc/check READY chain_id=8453 is_base=true block~50866421 (URL masked);
+  eth_getCode reachable for UniV3 QuoterV2 / Aerodrome Router / Aave V3 Pool / Balancer Vault;
+  WalletBalanceReader.read(base, public addr) returned real balance @block; resolver None when
+  RPC env removed (fail-closed). flash-loan-prereqs: rpc_healthy READY, all other gates BLOCKED/WAIT.
+- Safety unchanged: kill engaged, live_exec false; runtime autostart OFF; flash_loan_arb/dex_arb OFF;
+  no signer/broadcast/execution; PAPER/LIMITED_LIVE/FULL_AUTOMATION blocked. No commit (env-only).
