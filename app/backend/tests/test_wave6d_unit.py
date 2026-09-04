@@ -347,7 +347,7 @@ class TestLiveSigner:
                           wallet={"execution_role": "gas",
                                   "secret_handle_id": "h1"},
                           material=b"x" * 32)
-        r = _run(s.sign_plan(self._base_plan()))
+        r = _run(s.sign_plan(self._base_plan(), wallet_balance_usd=1000.0, gas_cost_usd=5.0))
         assert r.signed is False
         assert r.would_broadcast is False
         assert r.gate_ladder["mode"] == "DENIED"
@@ -358,14 +358,14 @@ class TestLiveSigner:
                           wallet={"execution_role": "gas",
                                   "secret_handle_id": "h1"},
                           material=b"x" * 32)
-        r = _run(s.sign_plan(self._base_plan()))
+        r = _run(s.sign_plan(self._base_plan(), wallet_balance_usd=1000.0, gas_cost_usd=5.0))
         assert r.gate_ladder["kill_switch"] == "DENIED"
         assert r.signed is False
 
     def test_missing_wallet_denies(self):
         s = self._signer(mode="LIMITED_LIVE", wallet=None,
                           material=b"x" * 32)
-        r = _run(s.sign_plan(self._base_plan()))
+        r = _run(s.sign_plan(self._base_plan(), wallet_balance_usd=1000.0, gas_cost_usd=5.0))
         assert r.gate_ladder["secret_resolution"] == "DENIED"
 
     def test_wrong_role_denies(self):
@@ -373,7 +373,7 @@ class TestLiveSigner:
                           wallet={"execution_role": "watch_only",
                                   "secret_handle_id": "h1"},
                           material=b"x" * 32)
-        r = _run(s.sign_plan(self._base_plan()))
+        r = _run(s.sign_plan(self._base_plan(), wallet_balance_usd=1000.0, gas_cost_usd=5.0))
         assert r.gate_ladder["secret_resolution"] == "DENIED"
 
     def test_secret_missing_denies(self):
@@ -381,7 +381,7 @@ class TestLiveSigner:
                           wallet={"execution_role": "gas",
                                   "secret_handle_id": "h1"},
                           material=None)
-        r = _run(s.sign_plan(self._base_plan()))
+        r = _run(s.sign_plan(self._base_plan(), wallet_balance_usd=1000.0, gas_cost_usd=5.0))
         assert r.gate_ladder["secret_resolution"] == "DENIED"
 
     def test_all_gates_pass_still_holds_at_wave6d_barrier(self):
@@ -389,7 +389,7 @@ class TestLiveSigner:
                           wallet={"execution_role": "gas",
                                   "secret_handle_id": "h1"},
                           material=b"x" * 32)
-        r = _run(s.sign_plan(self._base_plan()))
+        r = _run(s.sign_plan(self._base_plan(), wallet_balance_usd=1000.0, gas_cost_usd=5.0))
         assert all(v == "PASS" for v in r.gate_ladder.values())
         assert r.signed is False              # Wave 6D barrier — no bytes emitted.
         assert r.would_broadcast is False
@@ -402,7 +402,7 @@ class TestLiveSigner:
                           wallet={"execution_role": "gas",
                                   "secret_handle_id": "h1"},
                           material=b"SECRET_KEY_MATERIAL")
-        r = _run(s.sign_plan(self._base_plan()))
+        r = _run(s.sign_plan(self._base_plan(), wallet_balance_usd=1000.0, gas_cost_usd=5.0))
         import json
         raw = json.dumps(r.to_dict())
         assert "SECRET_KEY_MATERIAL" not in raw

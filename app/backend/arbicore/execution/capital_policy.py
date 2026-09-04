@@ -205,7 +205,7 @@ class CapitalAllocator:
                        strategy: str,
                        proposed_usd: float,
                        available_liquidity_usd: float = 1_000_000.0,
-                       reference_capital_usd: float = 5_000.0,
+                       reference_capital_usd: Optional[float] = None,
                        expected_net_profit_usd: Optional[float] = None,
                        ) -> AllocationDecision:
         policy = await self._repo.get(strategy)
@@ -219,6 +219,22 @@ class CapitalAllocator:
                 daily_used_usd=0.0, daily_remaining_usd=0.0,
                 min_net_profit_usd=0.0,
                 reasons=[f"no capital policy for strategy '{strategy}'"],
+                approved=False, deterministic=True,
+                generated_at=_now_iso(),
+            )
+        # Dynamic capital: the live wallet balance is the SOURCE OF TRUTH. There
+        # is NO fixed initial-capital fallback — if the caller did not supply the
+        # current operating balance, plan-time sizing fails closed.
+        if reference_capital_usd is None:
+            return AllocationDecision(
+                strategy=strategy, proposed_usd=float(proposed_usd),
+                approved_usd=0.0, binding_constraint="wallet_balance_unavailable",
+                pool_limit_usd=0.0, wallet_limit_usd=0.0,
+                per_plan_cap_usd=0.0, daily_notional_usd=0.0,
+                daily_used_usd=0.0, daily_remaining_usd=0.0,
+                min_net_profit_usd=0.0,
+                reasons=["live wallet balance required for plan-time sizing "
+                         "(no fixed-capital fallback)"],
                 approved=False, deterministic=True,
                 generated_at=_now_iso(),
             )

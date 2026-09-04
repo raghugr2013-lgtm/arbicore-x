@@ -127,12 +127,17 @@ class OpportunityPipeline:
         plans_repo=None,
         evidence_repo=None,
         simulator=None,
+        capital_balance_provider=None,
         auto_confirm: bool = False,
     ):
         self._journal = journal
         self._mode = mode_repo
         self._kill = kill_switch
         self._alloc = capital_allocator
+        # Optional async callable → current operating capital (USD) from the
+        # LIVE wallet balance. No fixed-capital fallback; when absent the capital
+        # gate is informational-only (execution stays gated elsewhere).
+        self._capital_balance_provider = capital_balance_provider
         self._certifier = certifier
         self._broadcaster = broadcaster
         self._plans = plans_repo
@@ -808,23 +813,46 @@ class OpportunityPipeline:
                     )
             except Exception as exc:  # noqa: BLE001
                 reasons.append(f"kill_switch_read_failed:{exc}")
-        # Capital allocator (informational; profit threshold gate)
+        # Capital allocator (informational; profit threshold gate). DYNAMIC:
+        # reference capital comes from the LIVE wallet balance provider, never a
+        # fixed default. When no provider is wired, sizing capital is unavailable
+        # → allocator fails closed; treated as informational here (no execution
+        # occurs in non-broadcast modes), while real caps still hard-deny.
         if self._alloc is not None:
             try:
-                policy = await self._alloc.evaluate(
+                ref_capital = None
+                if self._capital_balance_provider is not None:
+                    ref_capital = await self._capital_balance_provider()
+                _eval_kwargs = dict(
                     strategy=strategy,
                     proposed_usd=float(profit_payload.get("gross_profit_usd") or 0.0),
                     expected_net_profit_usd=float(profit_payload.get("net_profit_usd") or 0.0),
                 )
-                if policy and not policy.get("approved", True):
-                    return StageOutcome(
-                        stage="policy", ok=False,
-                        detail=f"capital policy denied: {policy.get('binding_constraint')}",
-                        payload={"decision": "deny", "engine": "capital",
-                                 "reasons": policy.get("reasons", []),
-                                 "capital": policy},
-                    )
-                reasons.append(f"capital_ok:{policy.get('binding_constraint') if policy else 'no-policy'}")
+                # Only pass live-derived reference capital when a provider is
+                # wired (keeps fakes/other callers unaffected; real allocator
+                # already fails closed when it is absent/None).
+                if self._capital_balance_provider is not None:
+                    _eval_kwargs["reference_capital_usd"] = ref_capital
+                policy = await self._alloc.evaluate(**_eval_kwargs)
+                _pol = (policy if isinstance(policy, dict)
+                        else policy.to_dict() if hasattr(policy, "to_dict")
+                        else {})
+                binding = _pol.get("binding_constraint")
+                if _pol and not _pol.get("approved", True):
+                    if binding == "wallet_balance_unavailable":
+                        # No live balance wired → cannot size; informational only
+                        # (execution stays gated elsewhere; real caps still deny).
+                        reasons.append("capital_info:wallet_balance_unavailable")
+                    else:
+                        return StageOutcome(
+                            stage="policy", ok=False,
+                            detail=f"capital policy denied: {binding}",
+                            payload={"decision": "deny", "engine": "capital",
+                                     "reasons": _pol.get("reasons", []),
+                                     "capital": _pol},
+                        )
+                else:
+                    reasons.append(f"capital_ok:{binding if _pol else 'no-policy'}")
             except Exception as exc:  # noqa: BLE001
                 reasons.append(f"capital_check_failed:{exc}")
         return StageOutcome(

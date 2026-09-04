@@ -102,8 +102,10 @@ class LiveSigner:
 
     async def sign_plan(self, plan_doc: Dict[str, Any], *,
                         actor: str = "operator",
-                        available_liquidity_usd: float = 1_000_000.0,
-                        reference_capital_usd: float = 5_000.0,
+                        wallet_balance_usd: Optional[float] = None,
+                        gas_cost_usd: Optional[float] = None,
+                        available_liquidity_usd: Optional[float] = None,
+                        fresh_wallet_balance_usd: Optional[float] = None,
                         expected_net_profit_usd: Optional[float] = None,
                         ) -> LiveSigningReceipt:
         """Run the gate ladder and produce a receipt.
@@ -135,20 +137,42 @@ class LiveSigner:
                 f"mode_gate: strategy '{strategy}' is '{current_mode}' — "
                 f"must be LIMITED_LIVE or FULL_LIVE to sign"
             )
-        # 3. Capital policy gate
-        alloc = await self._allocator.evaluate(
+        # 3. Capital policy gate — DYNAMIC: derive operating capital from the
+        # live wallet balance (fail-closed via protected gas reserve). No fixed
+        # initial-capital fallback.
+        from .dynamic_capital import resolve_operating_capital, balance_delta_ok
+        cap_ctx = resolve_operating_capital(
+            wallet_balance_usd=wallet_balance_usd,
+            gas_cost_usd=gas_cost_usd,
+        )
+        gate_ladder["gas_reserve"] = "PASS" if cap_ctx.ok else "DENIED"
+        if not cap_ctx.ok:
+            denied.append(f"gas_reserve: {cap_ctx.reason}")
+        _cap_kwargs = dict(
             strategy=strategy,
             proposed_usd=float(plan_doc.get("borrow_amount_usd") or 0),
-            available_liquidity_usd=available_liquidity_usd,
-            reference_capital_usd=reference_capital_usd,
+            reference_capital_usd=cap_ctx.reference_capital_usd,
             expected_net_profit_usd=expected_net_profit_usd,
         )
-        if alloc.approved:
+        _liq = (available_liquidity_usd if available_liquidity_usd is not None
+                else plan_doc.get("available_liquidity_usd"))
+        if _liq is not None:
+            _cap_kwargs["available_liquidity_usd"] = float(_liq)
+        alloc = await self._allocator.evaluate(**_cap_kwargs)
+        if alloc.approved and cap_ctx.ok:
             gate_ladder["capital_policy"] = "PASS"
         else:
             gate_ladder["capital_policy"] = "DENIED"
             denied.append(f"capital_policy: {alloc.binding_constraint} — "
                           f"{'; '.join(alloc.reasons) or 'denied'}")
+        # 3b. Balance-delta revalidation — if a fresh balance is supplied, the
+        # wallet must not have drifted beyond tolerance since sizing.
+        if fresh_wallet_balance_usd is not None:
+            delta = balance_delta_ok(sizing_balance_usd=wallet_balance_usd,
+                                     fresh_balance_usd=fresh_wallet_balance_usd)
+            gate_ladder["balance_revalidation"] = "PASS" if delta.ok else "DENIED"
+            if not delta.ok:
+                denied.append(f"balance_revalidation: {delta.reason}")
         # 4. Secret resolution gate
         secret_ok = False
         if not signer_wallet_id:
