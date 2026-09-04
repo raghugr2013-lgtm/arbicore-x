@@ -4274,6 +4274,32 @@ async def v2_limited_live_readiness(chain: str = "base") -> Dict[str, Any]:
                 "generated_at": _iso_now()}
 
 
+@api_router.get("/arbicore/multichain/readiness")
+async def v2_multichain_readiness() -> Dict[str, Any]:
+    """Explicit per-network readiness gate (read-only). Never signs/broadcasts/
+    enables anything. No network is limited-live eligible from implemented code
+    or a configured RPC alone — genuine limited-live requires a real VPS runtime
+    proof plus explicit administrator approval."""
+    try:
+        from arbicore.runtime.multichain_readiness import (
+            build_multichain_readiness_report,
+        )
+        return build_multichain_readiness_report()
+    except Exception as exc:  # noqa: BLE001 — never hide failure as a clean report
+        return {
+            "error": f"{type(exc).__name__}: {exc}",
+            "safety": {
+                "posture": "SHADOW / detection-only / fail-closed",
+                "signed": False, "broadcast": False,
+                "limited_live_enabled": False,
+            },
+            "networks": {},
+            "summary": {"network_count": 0, "limited_live_eligible_count": 0,
+                        "blocked_by": {"report_error": 1}},
+            "generated_at": _iso_now(),
+        }
+
+
 @api_router.get("/arbicore/rpc/check")
 async def v2_rpc_check() -> Dict[str, Any]:
     try:
