@@ -34,6 +34,19 @@ Working branch: `fix/p0-3-runtime-v3-liquidity-filter`.
   `tests/t1_verify/test_t1_z9_independent_verification.py`. Certification doc
   `docs/P0-3_CERTIFICATION_AND_CAPABILITY_MATRIX.md`. Commit `3bfaa5b`.
   Validator: 158 passed / 0 failed (PASS).
+- 2026-06: Gas-model seam (item 3) — BaseGasModel.from_env() fails closed unless
+  PROVIDER_RPC_URL(S)_BASE is explicitly set (public default no longer opens the
+  M3 all-in-cost gate). Rewired stale test_base_all_in_cost.py to the registry
+  seam (11/11). New test_gas_model_seam_failclosed.py. Commit `142084e`.
+- 2026-06: Multichain readiness gate (item 4) — arbicore/runtime/multichain_
+  readiness.py + GET /api/arbicore/multichain/readiness. Honest per-network
+  status; NEVER limited-live eligible from code/config alone; economic dimension
+  requires PROVIDER_* (ARBICORE_RPC_URL_BASE alone => economic_gate_rpc_not_
+  configured). Endpoint error path keeps full SHADOW safety envelope. New
+  test_multichain_readiness_gate.py. Commit `bd969ee`. Validator: 182 passed / 0.
+- DEFERRED (item 5): behavior-preserving extraction of Base eligibility/wiring
+  helpers out of composition.py — dedicated test-guarded refactor, only after
+  items 3/4 reviewed/stable (per directive).
 
 ## Known blockers / backlog
 - P0-3 VPS/Base runtime proof (live discovery→quote→liquidity→economics→evidence
