@@ -326,7 +326,7 @@ image build (no code change needed to the endpoint).
 
 **Question E — API bind/port**: backend binds **`0.0.0.0:8001`** (supervisor-managed);
 Kubernetes ingress routes `/api/*` → 8001, everything else → frontend `:3000`. Frontend calls
-`REACT_APP_BACKEND_URL` (preview: `https://exec-readiness-x.preview.emergentagent.com`). No
+`REACT_APP_BACKEND_URL` (preview: `https://p0-3-certification.preview.emergentagent.com`). No
 hardcoded prod host in the audited v2 client. ✅
 
 **Question G — production (2.9.2-78b2a8c) vs latest validator (ce041c8) gap** (from code +

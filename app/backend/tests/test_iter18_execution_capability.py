@@ -9,7 +9,7 @@ import time
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://arbicore-canonical-1.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://p0-3-certification.preview.emergentagent.com").rstrip("/")
 USER = "operator"
 PASS = "ShadowOperator!2026"
 

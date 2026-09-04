@@ -4,7 +4,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL",
-                          "https://arbicore-canonical-1.preview.emergentagent.com").rstrip("/")
+                          "https://p0-3-certification.preview.emergentagent.com").rstrip("/")
 API = f"{BASE_URL}/api"
 USERNAME = "operator"
 PASSWORD = "ShadowOperator!2026"

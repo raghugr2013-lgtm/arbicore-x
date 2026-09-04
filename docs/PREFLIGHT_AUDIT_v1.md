@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-01
 **Type:** READ-ONLY (no code modifications; test writes cleaned up)
-**Environment:** Preview (`https://arbicore-canonical-1.preview.emergentagent.com`)
+**Environment:** Preview (`https://p0-3-certification.preview.emergentagent.com`)
 **Requester intent:** confirm end-to-end operator flow is safe to execute before spending real ETH.
 
 ---

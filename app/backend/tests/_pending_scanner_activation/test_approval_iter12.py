@@ -24,7 +24,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL",
-                          "https://arbicore-canonical-1.preview.emergentagent.com").rstrip("/")
+                          "https://p0-3-certification.preview.emergentagent.com").rstrip("/")
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "ArbiCore2026!"
 QUOTE_KEY_ENV = "ARBICORE_QUOTE_CAPTURE_KEY"
