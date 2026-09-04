@@ -126,3 +126,30 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
   RPC env removed (fail-closed). flash-loan-prereqs: rpc_healthy READY, all other gates BLOCKED/WAIT.
 - Safety unchanged: kill engaged, live_exec false; runtime autostart OFF; flash_loan_arb/dex_arb OFF;
   no signer/broadcast/execution; PAPER/LIMITED_LIVE/FULL_AUTOMATION blocked. No commit (env-only).
+
+## P0#3 Base read-only flash-loan discovery activation (2026-09-04) — DONE (RPC-limited proof); STOP for approval
+- Envelope enabled (read-only, existing authenticated APIs; NO direct Mongo): flash_loan_arb only,
+  Base(8453) + Aave V3 + Uniswap V3 legs. balancer_v2, dex_arb, cex/funding, other chains left OFF.
+- Base network enabled via approved mechanism POST /settings/network/apply (rpc_urls.base populated);
+  base_network_enabled BLOCKED->READY. providers aave_v3+uniswap_v3 enabled; chain base enabled;
+  flash_loan_arb resumed (scanner_state.enabled=true).
+- GENUINE artifacts: (a) live UniV3 quote proof via /wizard/opportunity-probe (chain=base):
+  0.1 WETH -> 246.076812 USDC @500ppm / 246.015462 @3000ppm at block 50868098, QuoterV2 0x3d4e..B76a;
+  (b) 32 real route candidates from 94 explored routes (canonical Base pool graph).
+- ZERO verified/canonical opportunities (honest). Root cause = public RPC mainnet.base.org 429 rate
+  limiting: boot-time live-quote wiring (activate_canonical_flash_loan_scanner) stalls on on-chain
+  Aerodrome pool resolution within the 8s boot budget -> scanner stays fail-closed on NOOP quote
+  provider (T0-1) -> candidates denied venue_unreadable. Standalone live-wired single tick also
+  times out on the 429 storm. Live-quote PATH itself proven working (probe). NOT a code defect.
+- P0#1 dynamic capital VERIFIED exercised/wired, no fixed capital: live_signer.resolve_operating_capital
+  + balance_delta_ok; pipeline reference_capital from live wallet-balance provider (fail-closed to
+  wallet_balance_unavailable when absent); capital_policy sizes on reference_capital_usd; no 5000.
+- Safety unchanged/fail-closed: kill ENGAGED; executor/wallet/secret BLOCKED; mode SHADOW;
+  auto-executor not running; post-trade receipts=0; no signer/sign/broadcast. Shadow/Paper NOT started.
+- Tests: 88 passed / 1 pre-existing fail (test-fake _RevertFinalHopBackend.quote_hop lacks max_retries
+  kwarg vs quoter.py:810, commit 7aea7c0) / 8 pre-existing env-auth errors. No app code changed.
+- Reports: docs/P0_3_BASE_FLASH_DISCOVERY_ACTIVATION.md (A-R), docs/P0_3_VPS_ACTIVATION_RUNBOOK.md.
+  Pod diagnostic: backend/scripts/p0_3_flash_discovery_proof.py.
+- NEXT: point pod/VPS at a dedicated Base RPC (Alchemy/Infura/QuickNode); re-run boot activation;
+  confirm quote_provider=live + verified candidates>0 before Paper. STOP for operator approval before
+  Paper/Shadow/dex_arb/Balancer/other chains/any execution capability.
