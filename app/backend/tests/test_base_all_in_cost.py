@@ -5,12 +5,13 @@ above all, FAILS CLOSED (returns None ⇒ M3 DENY) whenever a real input is
 missing: no gas estimate, gas over ceiling, no gas price, unreadable L1 fee,
 or missing ETH_USD. No network.
 """
+import os
 from unittest.mock import patch
 
 import pytest
 
 import arbicore.config.persistent as persist
-import arbicore.providers.rpc as rpcmod
+import arbicore.providers.rpc_failover as rpcfo
 from arbicore.searcher import base_all_in_cost as aic
 
 
@@ -37,8 +38,12 @@ class _FakeProvider:
 
 
 def _mk(provider):
-    with patch.object(persist, "resolve_rpc_url_from_env", lambda c: "http://x"):
-        with patch.object(rpcmod, "EthJsonRpcProvider", provider._factory):
+    # Current seam: the estimator requires an EXPLICIT operator Base RPC
+    # (PROVIDER_RPC_URL_BASE) and reads the provider via the failover registry.
+    # Patch that registry accessor so the FakeProvider drives the math offline.
+    with patch.dict(os.environ, {"PROVIDER_RPC_URL_BASE": "http://x"}):
+        with patch.object(rpcfo, "get_registry_rpc_provider",
+                          lambda *a, **k: provider):
             return aic.make_base_all_in_cost_estimator_from_env()
 
 
@@ -65,7 +70,10 @@ async def test_all_in_cost_happy_path_components():
 
 
 @pytest.mark.asyncio
-async def test_deny_when_no_rpc():
+async def test_deny_when_no_rpc(monkeypatch):
+    # No explicit operator Base RPC configured ⇒ estimator None (fail closed).
+    for k in ("PROVIDER_RPC_URLS_BASE", "PROVIDER_RPC_URL_BASE"):
+        monkeypatch.delenv(k, raising=False)
     with patch.object(persist, "resolve_rpc_url_from_env", lambda c: None):
         assert aic.make_base_all_in_cost_estimator_from_env() is None
 

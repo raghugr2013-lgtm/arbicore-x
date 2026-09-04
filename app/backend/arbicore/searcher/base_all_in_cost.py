@@ -95,9 +95,35 @@ def _encode_get_l1_fee(n_bytes: int) -> str:
 CostEstimator = Callable[..., Awaitable[Optional[Dict[str, float]]]]
 
 
+def base_rpc_explicitly_configured() -> bool:
+    """True iff the operator EXPLICITLY configured a Base RPC endpoint via
+    ``PROVIDER_RPC_URLS_BASE`` or ``PROVIDER_RPC_URL_BASE``.
+
+    A hardcoded public default (``DEFAULT_RPC_URLS['base']``) does NOT count:
+    the safety-critical all-in-cost gate must fail closed rather than price a
+    controlled-live trade against an implicit public endpoint the operator
+    never sanctioned. Mirrors exactly the env contract the provider bootstrap
+    (`providers/bootstrap.py::_rpc_urls`) treats as an operator override.
+    """
+    return bool(
+        (os.environ.get("PROVIDER_RPC_URLS_BASE") or "").strip()
+        or (os.environ.get("PROVIDER_RPC_URL_BASE") or "").strip()
+    )
+
+
 def make_base_all_in_cost_estimator_from_env() -> Optional[CostEstimator]:
     """Return an async all-in-cost estimator, or None when no Base RPC is
-    configured (⇒ the M3 all-in gate will DENY, fail-closed)."""
+    configured (⇒ the M3 all-in gate will DENY, fail-closed).
+
+    "Configured" means an EXPLICIT operator Base RPC endpoint — an
+    auto-bootstrapped public default is deliberately NOT sufficient here, so
+    the controlled-live profit gate never prices against an implicit endpoint.
+    """
+    if not base_rpc_explicitly_configured():
+        # Fail-closed: no operator-configured Base RPC ⇒ no estimator ⇒ DENY.
+        # Checked BEFORE touching the provider registry.
+        return None
+
     from ..providers.rpc_failover import get_registry_rpc_provider
 
     provider = get_registry_rpc_provider("base")
@@ -179,4 +205,5 @@ def make_base_all_in_cost_estimator_from_env() -> Optional[CostEstimator]:
 
 
 __all__ = ["BaseAllInCostConfig", "make_base_all_in_cost_estimator_from_env",
+           "base_rpc_explicitly_configured",
            "GAS_PRICE_ORACLE", "SEL_GET_L1_FEE"]
