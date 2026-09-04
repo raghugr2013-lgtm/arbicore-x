@@ -283,17 +283,32 @@ class ExecutionReadinessEngine:
                           requirements=["let the run reach target cycles and grade PASS"])
         if latest is not None:
             st = _status_str(latest)
+            summary = getattr(latest, "summary", {}) or {}
             infra_only = False
             try:
-                infra_only = bool(((getattr(latest, "summary", {}) or {})
-                                   .get("start_markers", {}) or {}).get("infrastructure_only"))
+                infra_only = bool(
+                    (summary.get("start_markers", {}) or {}).get("infrastructure_only")
+                    or summary.get("infrastructure_only")
+                    or st == "PASS_INFRASTRUCTURE_ONLY")
             except Exception:  # noqa: BLE001
                 infra_only = False
-            if st == "PASS":
-                label = " (infrastructure-only)" if infra_only else ""
+            # A genuine executable-evidence PASS (executable_rate actually
+            # evaluated and met) is the ONLY thing that turns this gate GREEN.
+            real_pass = (st == "PASS" and not infra_only)
+            if real_pass:
                 return _check("SHADOW_VALIDATION", GREEN, score=100,
-                              passed=[f"shadow certification PASS{label} "
+                              passed=[f"shadow certification PASS "
                                       f"({_cyc(latest)}/{_target(latest)} cycles)"])
+            if st in ("PASS", "PASS_INFRASTRUCTURE_ONLY") and infra_only:
+                # Infra health proven but NO executable evidence — insufficient
+                # for the LIMITED_LIVE mandatory SHADOW_VALIDATION gate.
+                return _check("SHADOW_VALIDATION", YELLOW, score=60,
+                              warnings=["shadow certification is INFRASTRUCTURE-ONLY "
+                                        "(executable_rate not evaluated; no executable "
+                                        "evidence)"],
+                              requirements=["run a genuine executable-evidence shadow "
+                                            "certification (opportunities processed > 0 "
+                                            "and executable_rate ≥ pass threshold)"])
             return _check("SHADOW_VALIDATION", YELLOW, score=50,
                           warnings=[f"latest certification graded {st or 'UNKNOWN'}"],
                           requirements=["re-run certification to a PASS grade "

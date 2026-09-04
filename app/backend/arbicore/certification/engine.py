@@ -424,12 +424,16 @@ class ShadowCertificationEngine:
                 f"{run.target_cycles}"
             )
 
-        # WARNING (only applies if not FAIL)
+        # WARNING (only applies if not FAIL). Executable-rate is only evaluated
+        # when at least one opportunity was actually processed (p>0); a zero-volume
+        # (infrastructure-only) run is graded PASS_INFRASTRUCTURE_ONLY below and is
+        # NEVER claimed to have met the executable-rate threshold.
+        evaluable = p > 0
         if warn_cycles > th.max_warn_cycles:
             warn_reasons.append(
                 f"warn_cycles={warn_cycles} > cap {th.max_warn_cycles}"
             )
-        if exec_rate < th.min_executable_rate_pass and p > 0:
+        if evaluable and exec_rate < th.min_executable_rate_pass:
             warn_reasons.append(
                 f"executable_rate={exec_rate:.4f} < pass threshold "
                 f"{th.min_executable_rate_pass}"
@@ -445,7 +449,25 @@ class ShadowCertificationEngine:
             status = CertificationStatus.FAIL
         elif warn_reasons:
             status = CertificationStatus.WARNING
+        elif not evaluable:
+            # Zero executable volume: executable_rate NOT evaluated. Grade as a
+            # distinct infrastructure-only PASS and report it honestly — never a
+            # mathematically false "executable_rate ≥ threshold" claim.
+            status = CertificationStatus.PASS_INFRASTRUCTURE_ONLY
+            pass_reasons.append(
+                "executable_rate not evaluated (infrastructure-only: 0 "
+                "opportunities processed)"
+            )
+            pass_reasons.append(
+                f"{run.cycles_completed}/{run.target_cycles} cycles PASS "
+                f"(infra health + timing only)"
+            )
+            pass_reasons.append(
+                f"worst_stage_p95={worst_p95:.1f}ms ≤ {th.max_stage_p95_ms:.0f}ms"
+            )
         else:
+            # Reached only when p>0 AND exec_rate >= min_executable_rate_pass, so
+            # the ≥ claim below is guaranteed true.
             status = CertificationStatus.PASS
             pass_reasons.append(
                 f"executable_rate={exec_rate:.4f} ≥ "
@@ -463,6 +485,9 @@ class ShadowCertificationEngine:
             "opportunities_processed":  p,
             "executable_count":         e,
             "executable_rate":          exec_rate,
+            "executable_rate_evaluated": evaluable,
+            "infrastructure_only":      (not evaluable),
+            "min_executable_rate_pass": th.min_executable_rate_pass,
             "outcome_counts":           outcome_counts,
             "worst_stage_p95_ms":       worst_p95,
             "total_runner_exceptions":  total_exc,
@@ -473,6 +498,11 @@ class ShadowCertificationEngine:
             "cycles_fail":              fail_cycles,
             "infra_healthy":            infra_healthy,
         }
+        # Preserve the start-of-run markers (e.g. infrastructure_only, readiness
+        # snapshot) so they survive finalization for downstream consumers.
+        existing_markers = (run.summary or {}).get("start_markers")
+        if existing_markers is not None:
+            summary["start_markers"] = existing_markers
         return status, summary, pass_reasons, warn_reasons, fail_reasons
 
     # ------------------------------------------------------------------

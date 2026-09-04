@@ -36,6 +36,10 @@ class CycleStatus(str, Enum):
 class CertificationStatus(str, Enum):
     RUNNING = "RUNNING"
     PASS = "PASS"
+    # Distinct terminal grade: infra health + timing proven, but executable_rate
+    # was NOT evaluated (zero opportunities processed). NEVER equivalent to a real
+    # executable-evidence PASS and never satisfies executable-evidence gates.
+    PASS_INFRASTRUCTURE_ONLY = "PASS_INFRASTRUCTURE_ONLY"
     WARNING = "WARNING"
     FAIL = "FAIL"
     ABORTED = "ABORTED"
@@ -45,6 +49,7 @@ class CertificationStatus(str, Enum):
 # cycles may be appended.
 TERMINAL_STATUSES = frozenset({
     CertificationStatus.PASS,
+    CertificationStatus.PASS_INFRASTRUCTURE_ONLY,
     CertificationStatus.WARNING,
     CertificationStatus.FAIL,
     CertificationStatus.ABORTED,
