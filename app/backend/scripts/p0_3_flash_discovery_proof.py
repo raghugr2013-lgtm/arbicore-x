@@ -46,7 +46,10 @@ async def main() -> None:
         from arbicore.data.mongo.evidence_bundles_repo import EvidenceBundlesRepo
         repo = EvidenceBundlesRepo(comp.get_db())
         if hasattr(repo, "find_for_audit"):
-            bundles = await repo.find_for_audit(audit_run_id, tick_id)
+            bundles = await repo.find_for_audit(
+                audit_run_id=audit_run_id,
+                scanner_tick_id=tick_id,
+            )
     except Exception as exc:  # noqa: BLE001
         out["evidence_read_error"] = f"{type(exc).__name__}: {exc}"
     out["evidence_bundle_count"] = len(bundles)

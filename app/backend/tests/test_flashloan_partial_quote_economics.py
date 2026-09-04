@@ -68,7 +68,7 @@ class _RevertFinalHopBackend:
     dex = "uniswap_v3"
 
     async def quote_hop(self, *, hop_index, chain, token_in, token_out,
-                        amount_in_wei, hop_spec, rpc_url):
+                        amount_in_wei, hop_spec, rpc_url, max_retries=None):
         if hop_index == 0:
             return HopQuote(
                 hop_index=0, dex="uniswap_v3", token_in=token_in,
