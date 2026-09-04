@@ -1059,18 +1059,55 @@ def get_cross_chain_arb_scanner() -> CrossChainArbitrageScanner:
 # liquidity is currently unavailable/unreadable.
 _BASE_V3_INELIGIBLE = set()
 
-async def _refresh_base_v3_eligibility(eth_call) -> dict:
+def _failclosed_exclude_all_base_univ3() -> int:
+    """Fail-closed baseline: exclude EVERY resolved Base UniV3 pool from the
+    runtime universe. Used (a) to pre-seed the deny-list before live reads and
+    (b) as the caller's fallback if the refresh raises/cancels — an unverified
+    pool must NEVER be admitted merely because a read did not complete. The
+    canonical registry itself is never mutated. Best-effort: returns the count
+    excluded (0 if the registry is itself unreadable, in which case the
+    synchronous route loader independently fails closed by producing no
+    resolved universe)."""
+    try:
+        from ..discovery.base_pool_registry import (
+            build_canonical_pool_graph as _g)
+        ids = {n.pool_address for n in _g(resolved_only=True)[0]
+               if n.dex_protocol == "uniswap_v3"}
+    except Exception:  # noqa: BLE001 — registry unreadable ⇒ loader fails closed
+        return 0
+    _BASE_V3_INELIGIBLE.update(ids)
+    return len(ids)
+
+
+async def _refresh_base_v3_eligibility(eth_call, *, max_concurrency: int = 8,
+                                       per_call_timeout_s: Optional[float] = 2.0
+                                       ) -> dict:
     """Refresh runtime UniV3 liquidity eligibility from real chain state.
 
     Fail-closed:
       * missing canonical address → excluded
-      * missing/malformed liquidity() → excluded
+      * missing/malformed/timed-out/unreadable liquidity() → excluded
       * liquidity == 0 → excluded
       * positive liquidity → eligible
 
     Aerodrome/Slipstream are deliberately untouched because their
     liquidity state is not represented by UniV3 liquidity().
+
+    P0-3 startup-budget remediation (performance only — classification
+    unchanged; nothing is EVER eligible without a positive on-chain read):
+      * the per-pool ``liquidity()`` reads run under BOUNDED CONCURRENCY
+        (``max_concurrency`` in-flight RPCs) instead of strictly sequentially,
+        so ~19 real Base RPC round-trips no longer serialise the canonical
+        scanner's startup budget;
+      * each read is bounded by ``per_call_timeout_s`` — a stalled RPC is
+        classified EXCLUDED (fail-closed), never allowed to hang startup;
+      * the deny-list is PRE-SEEDED fail-closed (every resolved UniV3 pool
+        excluded) before any await, so a mid-flight exception OR a
+        startup-deadline ``CancelledError`` leaves the universe fail-closed —
+        a pool is only re-admitted after its genuine ``liquidity()>0`` read
+        completes (atomic rebuild at the end).
     """
+    import asyncio as _asyncio
     from eth_abi import decode as _abi_decode
     from ..discovery.base_pool_registry import (
         build_canonical_pool_graph as _canonical_base_graph,
@@ -1078,62 +1115,70 @@ async def _refresh_base_v3_eligibility(eth_call) -> dict:
     )
 
     LIQUIDITY_SELECTOR = "0x1a686502"
-    excluded = set()
-    checked = 0
-    eligible = 0
+
+    univ3_nodes = [node for node in _canonical_base_graph(resolved_only=True)[0]
+                   if node.dex_protocol == "uniswap_v3"]
+
+    # Fail-closed BASELINE established BEFORE any await: exclude every resolved
+    # UniV3 pool. A cancellation/exception before the atomic rebuild therefore
+    # leaves unverified pools OUT of the runtime universe (never admitted).
+    _BASE_V3_INELIGIBLE.clear()
+    _BASE_V3_INELIGIBLE.update(node.pool_address for node in univ3_nodes)
 
     if eth_call is None:
         # No trustworthy runtime state source: fail closed for every
-        # deterministic UniV3 pool.
-        for node in _canonical_base_graph(resolved_only=True)[0]:
-            if node.dex_protocol == "uniswap_v3":
-                excluded.add(node.pool_address)
-        _BASE_V3_INELIGIBLE.clear()
-        _BASE_V3_INELIGIBLE.update(excluded)
+        # deterministic UniV3 pool (baseline already excludes them all).
         return {
             "checked": 0,
             "eligible": 0,
-            "excluded": len(excluded),
+            "excluded": len(univ3_nodes),
             "reason": "base_eth_call_unavailable",
         }
 
-    for node in _canonical_base_graph(resolved_only=True)[0]:
-        if node.dex_protocol != "uniswap_v3":
-            continue
+    sem = _asyncio.Semaphore(max(1, int(max_concurrency)))
 
-        checked += 1
+    async def _read_liquidity(address):
+        coro = eth_call(address, LIQUIDITY_SELECTOR)
+        if per_call_timeout_s is not None and per_call_timeout_s > 0:
+            # TimeoutError is an Exception subclass ⇒ caught below ⇒ excluded.
+            return await _asyncio.wait_for(coro, timeout=per_call_timeout_s)
+        return await coro
+
+    async def _classify(node):
+        """Return ``(pool_id, is_eligible)``. Fail-closed on every abnormal
+        path: only a positive on-chain liquidity() read yields eligibility."""
         cp = canonical_pool_by_id(node.pool_address)
         address = getattr(cp, "address", None) if cp is not None else None
-
         if not address:
-            excluded.add(node.pool_address)
-            continue
+            return node.pool_address, False
+        async with sem:
+            try:
+                raw = await _read_liquidity(address)
+                if not raw:
+                    raise ValueError("empty_liquidity_read")
+                decoded = _abi_decode(
+                    ["uint128"],
+                    bytes.fromhex(
+                        raw[2:] if raw.startswith("0x") else raw
+                    ),
+                )
+                liquidity = int(decoded[0])
+            except Exception:
+                return node.pool_address, False
+        return node.pool_address, liquidity > 0
 
-        try:
-            raw = await eth_call(address, LIQUIDITY_SELECTOR)
-            if not raw:
-                raise ValueError("empty_liquidity_read")
-            decoded = _abi_decode(
-                ["uint128"],
-                bytes.fromhex(
-                    raw[2:] if raw.startswith("0x") else raw
-                ),
-            )
-            liquidity = int(decoded[0])
-        except Exception:
-            excluded.add(node.pool_address)
-            continue
+    results = await _asyncio.gather(*(_classify(node) for node in univ3_nodes))
 
-        if liquidity <= 0:
-            excluded.add(node.pool_address)
-        else:
-            eligible += 1
+    excluded = {pool_id for pool_id, is_eligible in results if not is_eligible}
+    eligible = sum(1 for _, is_eligible in results if is_eligible)
 
+    # Atomic rebuild from the VERIFIED results (supersedes the fail-closed
+    # baseline only once every read has completed).
     _BASE_V3_INELIGIBLE.clear()
     _BASE_V3_INELIGIBLE.update(excluded)
 
     return {
-        "checked": checked,
+        "checked": len(univ3_nodes),
         "eligible": eligible,
         "excluded": len(excluded),
     }
@@ -1267,10 +1312,15 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
         try:
             v3_eligibility = await _refresh_base_v3_eligibility(eth_call)
         except Exception:
+            # Fail CLOSED: an escaping refresh error must NOT admit unverified
+            # UniV3 pools into the runtime universe. Re-assert the fail-closed
+            # baseline (the refresh already pre-seeds it before any await, so
+            # this also covers a pre-await registry failure).
+            _failclosed_exclude_all_base_univ3()
             v3_eligibility = {
                 "checked": 0,
                 "eligible": 0,
-                "excluded": 0,
+                "excluded": len(_BASE_V3_INELIGIBLE),
                 "reason": "eligibility_refresh_error",
             }
 

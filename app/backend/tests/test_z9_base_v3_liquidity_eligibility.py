@@ -251,6 +251,139 @@ def test_aerodrome_slipstream_not_subjected_to_univ3_liquidity_rule():
     assert target in _runtime_base_universe()     # stays eligible
 
 
+# ── P0-3 startup-budget remediation: bounded-concurrency liquidity reads ────
+def _mk_concurrency_probe(*, delay=0.02, zero_addrs=(),
+                          default=_POSITIVE_LIQUIDITY):
+    """eth_call double that records peak in-flight concurrency and adds a small
+    per-call latency (to simulate real Base RPC round-trips)."""
+    state = {"in_flight": 0, "peak": 0, "calls": 0}
+    zero = {a.lower() for a in zero_addrs}
+
+    async def eth_call(to, data):
+        assert data == LIQUIDITY_SELECTOR, data
+        state["calls"] += 1
+        state["in_flight"] += 1
+        state["peak"] = max(state["peak"], state["in_flight"])
+        try:
+            await asyncio.sleep(delay)
+        finally:
+            state["in_flight"] -= 1
+        if (to or "").lower() in zero:
+            return _enc_u128(0)
+        return _enc_u128(default)
+
+    return eth_call, state
+
+
+def test_liquidity_reads_run_under_bounded_concurrency():
+    eth_call, state = _mk_concurrency_probe(delay=0.02)
+    res = _run(composition._refresh_base_v3_eligibility(eth_call))
+    assert res == {"checked": 19, "eligible": 19, "excluded": 0}
+    assert state["calls"] == 19
+    # genuinely concurrent (peak > 1) yet bounded to the default limit (8).
+    assert 2 <= state["peak"] <= 8
+
+
+def test_bounded_concurrency_respects_max_concurrency_argument():
+    eth_call, state = _mk_concurrency_probe(delay=0.02)
+    res = _run(
+        composition._refresh_base_v3_eligibility(eth_call, max_concurrency=3))
+    assert res["checked"] == 19 and res["eligible"] == 19
+    assert 2 <= state["peak"] <= 3          # never more than the requested cap
+
+
+def test_concurrency_reduces_wall_clock_vs_sequential():
+    import time as _t
+    delay = 0.02
+    eth_call, _ = _mk_concurrency_probe(delay=delay)
+    t0 = _t.perf_counter()
+    _run(composition._refresh_base_v3_eligibility(eth_call, max_concurrency=8))
+    elapsed = _t.perf_counter() - t0
+    # 19 strictly-sequential reads would take >= 19*delay; bounded concurrency
+    # (8 in-flight) completes in ~3 waves — comfortably sub-sequential. This is
+    # the guard that the fix actually relieves the scanner startup budget.
+    assert elapsed < (19 * delay) * 0.6
+
+
+def test_mixed_liquidity_under_concurrency_is_deterministic():
+    # One zero-liquidity pool amongst positives, run repeatedly to catch any
+    # aggregation race: the exclusion set must be exactly {cbETH 500}.
+    for _ in range(5):
+        composition._BASE_V3_INELIGIBLE.clear()
+        eth_call, _ = _mk_concurrency_probe(
+            delay=0.001, zero_addrs=[CBETH_500_ADDR])
+        res = _run(composition._refresh_base_v3_eligibility(eth_call))
+        assert res == {"checked": 19, "eligible": 18, "excluded": 1}
+        assert composition._BASE_V3_INELIGIBLE == {CBETH_500_ID}
+
+
+# ── P0-3 hardening: fail-closed baseline + per-call timeout (budget guard) ──
+def _all_resolved_univ3_ids():
+    return {n.pool_address
+            for n in reg.build_canonical_pool_graph(resolved_only=True)[0]
+            if n.dex_protocol == "uniswap_v3"}
+
+
+def test_failclosed_helper_excludes_all_resolved_univ3():
+    composition._BASE_V3_INELIGIBLE.clear()
+    n = composition._failclosed_exclude_all_base_univ3()
+    assert n == 19
+    assert composition._BASE_V3_INELIGIBLE == _all_resolved_univ3_ids()
+    assert _runtime_base_universe() == set()          # nothing admitted
+
+
+def test_escaping_cancellation_leaves_denylist_failclosed():
+    # A BaseException (e.g. a startup-deadline CancelledError) escapes the
+    # gather. The pre-seeded fail-closed baseline must remain in force: no
+    # unverified pool may be admitted merely because the read did not complete.
+    async def eth_call(to, data):
+        raise asyncio.CancelledError()
+
+    with pytest.raises(asyncio.CancelledError):
+        _run(composition._refresh_base_v3_eligibility(
+            eth_call, per_call_timeout_s=None))
+
+    assert composition._BASE_V3_INELIGIBLE == _all_resolved_univ3_ids()
+    assert _runtime_base_universe() == set()
+
+
+def test_stalled_rpc_times_out_and_is_excluded_failclosed():
+    # The subject pool's RPC hangs; the per-call timeout classifies it EXCLUDED
+    # (fail-closed) rather than waiting — the rest resolve positive.
+    async def eth_call(to, data):
+        assert data == LIQUIDITY_SELECTOR
+        if (to or "").lower() == CBETH_500_ADDR.lower():
+            await asyncio.sleep(5)                     # would hang forever
+        return _enc_u128(_POSITIVE_LIQUIDITY)
+
+    res = _run(composition._refresh_base_v3_eligibility(
+        eth_call, per_call_timeout_s=0.05))
+    assert res == {"checked": 19, "eligible": 18, "excluded": 1}
+    assert CBETH_500_ID in composition._BASE_V3_INELIGIBLE
+    assert CBETH_500_ID not in _runtime_base_universe()
+
+
+def test_all_rpcs_stalled_refresh_completes_within_budget_failclosed():
+    # Even if EVERY Base RPC stalls, the refresh must finish quickly (per-call
+    # timeout + bounded concurrency) and exclude every unverified pool — the
+    # startup budget can never be consumed by a hung RPC, and nothing is
+    # admitted without a positive read.
+    import time as _t
+
+    async def eth_call(to, data):
+        await asyncio.sleep(10)                        # every read stalls
+
+    t0 = _t.perf_counter()
+    res = _run(composition._refresh_base_v3_eligibility(
+        eth_call, per_call_timeout_s=0.05, max_concurrency=8))
+    elapsed = _t.perf_counter() - t0
+
+    assert res == {"checked": 19, "eligible": 0, "excluded": 19}
+    assert composition._BASE_V3_INELIGIBLE == _all_resolved_univ3_ids()
+    assert _runtime_base_universe() == set()
+    assert elapsed < 1.0                               # ~3 waves * 0.05s
+
+
 # ── loader wiring: the Base branch actually applies the runtime deny-list ────
 def test_loader_source_applies_runtime_ineligible_filter():
     """Source-level guard (mirrors z8's composition source assertions) so the
