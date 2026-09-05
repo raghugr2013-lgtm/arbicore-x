@@ -39,6 +39,14 @@ os.environ.setdefault("DB_NAME", "arbicore_x_certify")
 #                           /app/`; .git stripped; identity via BUILD_INFO.json)
 APP_ROOT = Path(__file__).resolve().parent.parent
 
+# ── sys.path bootstrap ──────────────────────────────────────────────────────
+# Run correctly whether invoked as ``python -m scripts.arbicore_certify`` (CWD
+# on sys.path) OR by DIRECT PATH ``python /app/scripts/arbicore_certify.py``
+# (production-style; sys.path[0] becomes the scripts/ dir, so ``arbicore`` is
+# unimportable). APP_ROOT hosts the ``arbicore`` package in BOTH layouts.
+if str(APP_ROOT) not in sys.path:
+    sys.path.insert(0, str(APP_ROOT))
+
 
 def _find_git_root(start: Path):
     for d in (start, *start.parents):
@@ -82,11 +90,76 @@ def _git(*args: str) -> str:
         return ""
 
 
+def _resolve_identity(*, stamp: dict, live_sha: str, live_describe: str,
+                      branch: str, git_available: bool, env: dict) -> dict:
+    """Pure, testable git-identity precedence resolver.
+
+    Two distinct trust models, selected by whether a real ``.git`` checkout is
+    present (``git_available``):
+
+    * CHECKOUT (dev/CI): the working tree IS the source of truth. Precedence is
+      explicit operator override (``ARBICORE_GIT_SHA``) > LIVE git > BUILD_INFO
+      stamp. This certifies the EXACT checked-out code.
+
+    * IMAGE (``.git`` stripped): the ONLY authoritative record of what source is
+      baked into the image is ``BUILD_INFO.json`` (written by gen_build_info at
+      build time from that exact source). Runtime env (``ARBICORE_GIT_*``) can be
+      inherited from an UNRELATED production ``env_file`` and therefore must NOT
+      override the image's real identity. A disagreeing env value is reported as
+      ``provenance_contamination`` and IGNORED — never emitted as the identity.
+      Only when NO stamp exists do we fall back to env, flagged ``env_unverified``.
+    """
+    env_sha = (env.get("ARBICORE_GIT_SHA") or "").strip() or None
+    env_tag = (env.get("ARBICORE_GIT_TAG") or "").strip() or None
+    stamp_sha = (stamp.get("git_sha") or "").strip() or None
+    stamp_tag = (stamp.get("git_tag") or "").strip() or None
+    contamination = None
+
+    if git_available:
+        git_sha = env_sha or (live_sha or None) or stamp_sha or "unknown"
+        git_tag = env_tag or (live_describe or None) or stamp_tag or "unknown"
+        source = ("env" if env_sha else "git" if live_sha
+                  else "build_info" if stamp_sha else "unknown")
+    else:
+        if stamp_sha:
+            git_sha = stamp_sha
+            git_tag = stamp_tag or "unknown"
+            source = "build_info"
+            # Detect inherited production identity that disagrees with the image.
+            if env_sha and env_sha != stamp_sha:
+                contamination = {
+                    "detected": True,
+                    "inherited_env_git_sha": env_sha,
+                    "inherited_env_git_tag": env_tag,
+                    "authoritative_image_git_sha": stamp_sha,
+                    "authoritative_image_git_tag": stamp_tag,
+                    "note": ("runtime ARBICORE_GIT_* env disagrees with the "
+                             "image's baked BUILD_INFO.json and was IGNORED; the "
+                             "baked stamp is authoritative for a .git-stripped "
+                             "image."),
+                }
+        else:
+            # No baked stamp — cannot authoritatively identify the image. Fall
+            # back to env but mark it unverified (never silently trusted).
+            git_sha = env_sha or "unknown"
+            git_tag = env_tag or "unknown"
+            source = "env_unverified" if env_sha else "unknown"
+
+    return {
+        "git_sha": git_sha, "git_tag": git_tag, "branch": branch or "unknown",
+        "git_source": source, "git_available": git_available,
+        "provenance_contamination": contamination,
+        "image_ref": (env.get("ARBICORE_IMAGE_REF")
+                      or stamp.get("image_ref") or "unset"),
+        "image_digest": (env.get("ARBICORE_IMAGE_DIGEST")
+                         or stamp.get("image_digest") or "unset"),
+    }
+
+
 def _build_identity() -> dict:
-    """Real deployment identity in BOTH layouts. Precedence mirrors the app's
-    /api/arbicore/version exactly: ARBICORE_GIT_* env > BUILD_INFO.json (written
-    at image build before .git is stripped) > live git (dev/CI). Never
-    fabricated — an unresolvable field is reported as ``unknown``/``unset``."""
+    """Gather real inputs (BUILD_INFO stamp + live git when a checkout exists +
+    runtime env) and resolve them via the pure precedence resolver above. Never
+    fabricated — an unresolvable field is reported ``unknown``/``unset``."""
     stamp: dict = {}
     p = APP_ROOT / "BUILD_INFO.json"
     try:
@@ -100,30 +173,14 @@ def _build_identity() -> dict:
             return ""
         return _git("-C", str(GIT_ROOT), *args)
 
-    # Precedence for a CERTIFICATION result: an explicit operator override wins,
-    # then LIVE GIT when a real checkout is present (it certifies the EXACT
-    # working tree), then the build-time stamp (the honest source inside a
-    # .git-stripped image), else unknown. This differs deliberately from the
-    # app's version endpoint (stamp-first) so certify never reports a stale
-    # baked SHA over the actually-checked-out code.
-    live_sha = live("rev-parse", "HEAD")
-    git_sha = (os.environ.get("ARBICORE_GIT_SHA") or live_sha
-               or stamp.get("git_sha") or "unknown")
-    git_tag = (os.environ.get("ARBICORE_GIT_TAG")
-               or live("describe", "--tags", "--always", "--dirty")
-               or stamp.get("git_tag") or "unknown")
-    branch = live("rev-parse", "--abbrev-ref", "HEAD") or "unknown"
-    source = ("env" if os.environ.get("ARBICORE_GIT_SHA")
-              else "git" if live_sha
-              else "build_info" if stamp.get("git_sha") else "unknown")
-    return {
-        "git_sha": git_sha, "git_tag": git_tag, "branch": branch,
-        "git_source": source, "git_available": GIT_ROOT is not None,
-        "image_ref": (os.environ.get("ARBICORE_IMAGE_REF")
-                      or stamp.get("image_ref") or "unset"),
-        "image_digest": (os.environ.get("ARBICORE_IMAGE_DIGEST")
-                         or stamp.get("image_digest") or "unset"),
-    }
+    return _resolve_identity(
+        stamp=stamp,
+        live_sha=live("rev-parse", "HEAD"),
+        live_describe=live("describe", "--tags", "--always", "--dirty"),
+        branch=live("rev-parse", "--abbrev-ref", "HEAD"),
+        git_available=GIT_ROOT is not None,
+        env=dict(os.environ),
+    )
 
 
 def _repo_section() -> dict:
@@ -190,6 +247,7 @@ def _repo_section() -> dict:
         "branch": ident["branch"],
         "image_ref": ident["image_ref"],
         "image_digest": ident["image_digest"],
+        "provenance_contamination": ident["provenance_contamination"],
         "protected_files_unmodified": (protected_modified == []
                                        if protected_modified is not None
                                        else None),
@@ -319,6 +377,7 @@ def _human(report: dict) -> str:
         f"git_root           : {r['git_root']}  (available={r['git_available']})",
         f"git_sha            : {r['git_sha']}  ({r['branch']})  [src={r['git_source']}]",
         f"git_tag            : {r['git_tag']}",
+        f"provenance         : {'CONTAMINATION IGNORED -> ' + r['provenance_contamination']['inherited_env_git_sha'][:12] if r.get('provenance_contamination') else 'clean'}",
         f"image_ref          : {r['image_ref']}",
         f"image_digest       : {r['image_digest']}",
         f"protected_files    : {pf}  modified={r['protected_files_modified'] or ''}  "

@@ -26,6 +26,39 @@ level but are NOT sufficient for the economic gate (by design — see
 `multichain_readiness.provider_registry_rpc_configured`). No signer key is
 provisioned in this phase.
 
+## 0a. Invocation — both styles are supported (harness self-bootstraps sys.path)
+Every read-only harness below runs correctly under BOTH of these, in a checkout
+AND inside the shipped image (where the Dockerfile does `COPY app/backend/ /app/`
+so the package is `/app/arbicore` and the scripts are `/app/scripts/*.py`):
+```
+python -m scripts.<name>                    # module form (CWD on sys.path)
+python /app/scripts/<name>.py               # DIRECT PATH (production-style)
+```
+The direct-path form is what the authoritative VPS certification uses. Each
+harness prepends its own APP_ROOT (`Path(__file__).parent.parent`) to `sys.path`,
+so `import arbicore` resolves regardless of invocation or CWD. (Regression:
+`tests/test_cert_harness_invocation_and_provenance.py`.)
+
+## 0b. Isolated-image build + provenance (do NOT reuse production identity)
+Build the certification image from the EXACT Phase-5 source and stamp its real
+identity so a `.git`-stripped image self-identifies without inheriting an
+unrelated production Git SHA/tag:
+```
+GITSHA=$(git rev-parse HEAD)                 # e.g. ad64a5083d6e...
+GITTAG=$(git describe --tags --always --dirty)
+docker build -f deployment/docker/backend/Dockerfile \
+  --build-arg GITSHA=$GITSHA --build-arg GITTAG=$GITTAG \
+  -t arbicore-x-backend:phase5-${GITSHA:0:7} .
+```
+The Dockerfile runs `scripts.gen_build_info` at build time, baking `GITSHA`/
+`GITTAG` into `/app/BUILD_INFO.json` BEFORE `.git` is stripped. When you run the
+certification container, DO NOT pass a production `env_file` that sets
+`ARBICORE_GIT_SHA` / `ARBICORE_GIT_TAG` — `arbicore_certify` treats the baked
+`BUILD_INFO.json` as the authoritative identity for a `.git`-stripped image and
+reports any disagreeing runtime env as `provenance_contamination` (ignored, not
+emitted). Confirm the certify JSON shows `repository.git_sha == $GITSHA` and
+`repository.provenance_contamination == null`.
+
 ## 1. Offline repo + capability certification (baseline, runs anywhere)
 ```
 cd app/backend
@@ -34,7 +67,10 @@ python -m scripts.arbicore_certify --json     # machine-readable evidence
 ```
 PASS ⇒ repository integrity + protected-file integrity + compile + safety posture
 (all OFF) + chain/venue/provider/strategy matrix. Runtime dimensions are reported
-`requires_vps_runtime` — a PASS here does NOT certify any live capability.
+`requires_vps_runtime` — a PASS here does NOT certify any live capability. The
+`repository.git_sha` must equal the isolated image's build SHA (see 0b); a
+`provenance_contamination` block means a stale production env leaked in — re-run
+without that env_file.
 
 Current offline surface (branch `takeover/limited-live-seam-cc8db95`):
 `matrix rows=75 · discoverable=65 · quote_path_connected=55 · limited_live=0`.

@@ -13,6 +13,58 @@ values. Nothing here asserts limited-live eligibility.
 > docs/VPS_MULTICHAIN_RUNTIME_CERTIFICATION.md). Operator numbers are NOT
 > substituted with public numbers.
 
+
+## 2026-06 — Phase-5 certification-harness fix + re-run (branch takeover/limited-live-seam-cc8db95)
+
+Two certification-harness defects were fixed (source unchanged otherwise; the 3
+protected files and `main`/production untouched; all execution OFF):
+
+1. **Import path (Step-6 `ModuleNotFoundError: No module named 'arbicore'`).**
+   The authoritative VPS cert invokes the harnesses by DIRECT PATH
+   (`python /app/scripts/vps_multichain_preflight.py`), which put `scripts/` on
+   `sys.path[0]` instead of the app root. `vps_multichain_preflight`,
+   `vps_runtime_certify` and `arbicore_certify` now prepend their own APP_ROOT to
+   `sys.path`, so `import arbicore` resolves under BOTH `python -m scripts.<name>`
+   and direct-path invocation. Verified: `python scripts/vps_multichain_preflight.py
+   --json` now exits 0 and returns real content (was ModuleNotFoundError).
+
+2. **Provenance contamination.** `arbicore_certify` reported the inherited
+   production `ARBICORE_GIT_SHA=bd969ee…` / tag `p0-3-bd969ee` even though the
+   isolated image is `ad64a5083d6ead0fee1e221f96f63b1c2e479eb3`. In `.git`-stripped
+   IMAGE mode the baked `BUILD_INFO.json` is now authoritative; a disagreeing
+   runtime env is reported as `provenance_contamination` and IGNORED (never emitted
+   as the identity). Checkout mode still certifies the live working tree.
+
+Regression: `tests/test_cert_harness_invocation_and_provenance.py` (7 tests, all
+pass) — direct-path invocation of both harnesses, and image-mode provenance
+(BUILD_INFO wins over stale env; env-unverified fallback; checkout live-git wins).
+
+**Public-RPC proxy re-run with the FIXED harness (direct-path invocation, this
+container — NOT the operator/archive VPS run):**
+- Preflight live pool resolution: ethereum 9/9, optimism 6/6, polygon 12/12,
+  arbitrum 14/15, bnb 15/20 pools resolved; base via canonical registry. Every
+  chain blocker `requires_vps_runtime_proof_and_admin_approval` (never eligible).
+- Runtime race: probe_rows 45 · discoverable 40 · liquidity_verified 40 ·
+  quotable 40 (algebra_quote_gap 0) · candidates 7 · economically_valid 0 ·
+  execution_ready 0. All 7 candidates eliminated at NET_ECONOMICS
+  `negative_gross_edge_all_sizes`; 5 pools `pool_invalid_or_unreadable` (fail-closed).
+  Fork simulation `anvil_available=false` (VPS-only). `LIMITED_LIVE_PROVEN=false`.
+- Evidence: `reports/PREFLIGHT_PUBLIC_PROXY_phase5_harnessfix.json`,
+  `reports/VPS_RUNTIME_CERT_public_phase5_harnessfix.json`.
+
+**Exact blockers requiring the actual VPS (cannot run in this container, not
+converted to success):**
+- No Docker daemon → the isolated image `arbicore-x-backend:phase5-ad64a50`
+  cannot be rebuilt/run here. Rebuild+run commands: runbook §0b/§2.
+- No operator/archive RPC (`PROVIDER_RPC_URLS_<CHAIN>` unset natively) → only a
+  public-RPC PROXY is possible here; operator numbers are NOT substituted.
+- No anvil → fork simulation gate is `SIMULATION_UNAVAILABLE` here.
+- No funded signer + Limited-Live OFF → no controlled execution proof.
+
+Base must be certified FIRST on the VPS (only chain with operator/economic RPC),
+then every other chain probed for real configured-RPC availability; a chain with
+no operator RPC is reported `no_operator_configured_rpc`, never a pass.
+
 ## RPC health (this run)
 | chain | head block | latency |
 |---|---|---|

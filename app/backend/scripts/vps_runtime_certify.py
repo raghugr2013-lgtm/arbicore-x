@@ -27,7 +27,18 @@ import json
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Optional
+
+# ── sys.path bootstrap ──────────────────────────────────────────────────────
+# Run correctly whether invoked as ``python -m scripts.vps_runtime_certify``
+# (CWD on sys.path) OR by DIRECT PATH ``python /app/scripts/vps_runtime_certify.py``
+# (production-style; sys.path[0] becomes the scripts/ dir, so ``arbicore`` is
+# unimportable). APP_ROOT is this file's grandparent — ``/app`` in the shipped
+# image and ``<repo>/app/backend`` in a checkout — and hosts ``arbicore``.
+_APP_ROOT = str(Path(__file__).resolve().parent.parent)
+if _APP_ROOT not in sys.path:
+    sys.path.insert(0, _APP_ROOT)
 
 
 def _now_iso() -> str:

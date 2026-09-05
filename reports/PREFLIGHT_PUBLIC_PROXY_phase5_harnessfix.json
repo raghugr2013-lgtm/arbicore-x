@@ -1,0 +1,817 @@
+{
+  "safety": {
+    "posture": "SHADOW / detection-only / fail-closed",
+    "signed": false,
+    "broadcast": false,
+    "quotes_for_execution": false,
+    "limited_live_enabled": false
+  },
+  "frozen_checkpoint": "1f1d68f841bb93ac62b3b9b857751b4bbf0ec16f",
+  "networks": {
+    "base": {
+      "rpc_configured": true,
+      "economic_rpc_configured": true,
+      "gas_model": true,
+      "route_universe_size": 19,
+      "readiness_blocker": "requires_vps_runtime_proof_and_admin_approval",
+      "quote_path_connected_venues": {
+        "uniswap_v3": true,
+        "aerodrome_slipstream": true,
+        "aerodrome": true
+      },
+      "flash_loan_providers_eligible": [
+        "aave_v3",
+        "balancer_v2",
+        "morpho_blue",
+        "uniswap_v3"
+      ],
+      "live_pool_probe": null,
+      "live_pool_probe_note": "base served by canonical registry \u2014 use scripts.m3_0_real_candidate_scan for Base depth"
+    },
+    "arbitrum": {
+      "rpc_configured": true,
+      "economic_rpc_configured": true,
+      "gas_model": true,
+      "route_universe_size": 112,
+      "readiness_blocker": "requires_vps_runtime_proof_and_admin_approval",
+      "quote_path_connected_venues": {
+        "uniswap_v3": true,
+        "sushiswap_v3": true,
+        "camelot_v3": true
+      },
+      "flash_loan_providers_eligible": [
+        "aave_v3",
+        "balancer_v2",
+        "uniswap_v3"
+      ],
+      "live_pool_probe": [
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xC6962004f452bE9203591991D15f6b388e09E8D0",
+          "liquidity": 3262831236843936485,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0xc473e2aEE3441BF9240Be85eb122aBB059A3B57c",
+          "liquidity": 479761430129050675,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x641C00A822e8b671738d32a431a4Fb6074E5c79d",
+          "liquidity": 325206520005978211,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0xc82819F72A9e77E2c0c3A69B3196478f44303cf4",
+          "liquidity": 22140475475023354,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xbcE73c2e5A623054B0e8e2428E956f4b9d0412a5",
+          "liquidity": 17036806566343,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x9957ab69651EfE39b17c778e1435258F6A2cd314",
+          "liquidity": 150772329330,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xf3Eb87C1F6020982173C908E7eB31aA66c1f0296",
+          "liquidity": 22338379054331316,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0xC96525298419f7E00dA8826B733Ee52e271662b5",
+          "liquidity": 1030124718212,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x96aDA81328abCe21939A51D971A63077e16db26E",
+          "liquidity": 1310451207215440,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x92d543A8a158A6bC2C7018ae17803819Cb9150B2",
+          "liquidity": 1041856064115049,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x13e4caD477cf2bF8D57F366A260c611435115a39",
+          "liquidity": 6942032142,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "resolved": false,
+          "pool_address": null,
+          "liquidity": null,
+          "resolution": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "camelot_v3",
+          "abi": "algebra",
+          "pair": "WETH/USDC",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0xB1026b8e7276e7AC75410F1fcbbe21796e8f7526",
+          "liquidity": 43946730894252842,
+          "resolution": "onchain_algebra_poolByPair",
+          "reason": "ok"
+        },
+        {
+          "venue": "camelot_v3",
+          "abi": "algebra",
+          "pair": "WETH/USDT",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0x7CcCBA38E2D959fe135e79AEBB57CCb27B128358",
+          "liquidity": 705386563255231,
+          "resolution": "onchain_algebra_poolByPair",
+          "reason": "ok"
+        },
+        {
+          "venue": "camelot_v3",
+          "abi": "algebra",
+          "pair": "USDC/USDT",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0xa17aFCAb059F3C6751F5B64347b5a503C3291868",
+          "liquidity": 2229323445613743,
+          "resolution": "onchain_algebra_poolByPair",
+          "reason": "ok"
+        }
+      ],
+      "live_pool_probe_note": "read-only getPool + state validation"
+    },
+    "bnb": {
+      "rpc_configured": true,
+      "economic_rpc_configured": true,
+      "gas_model": true,
+      "route_universe_size": 60,
+      "readiness_blocker": "requires_vps_runtime_proof_and_admin_approval",
+      "quote_path_connected_venues": {
+        "pancakeswap_v3": true,
+        "uniswap_v3": true
+      },
+      "flash_loan_providers_eligible": [
+        "aave_v3"
+      ],
+      "live_pool_probe": [
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x539e0EBfffd39e54A0f7E5F8FEc40ade7933A664",
+          "liquidity": 13511174894285582902725,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "resolved": false,
+          "pool_address": null,
+          "liquidity": null,
+          "resolution": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xBe141893E4c6AD9272e8C04BAB7E6a10604501a5",
+          "liquidity": 343871153762570615878945,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "resolved": false,
+          "pool_address": null,
+          "liquidity": null,
+          "resolution": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x4f31Fa980a675570939B737Ebdde0471a4Be40Eb",
+          "liquidity": 3772011340039831871342106639,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "resolved": false,
+          "pool_address": null,
+          "liquidity": null,
+          "resolution": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+          "liquidity": 1793238583820091247193066,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDT",
+          "fee": 3000,
+          "resolved": false,
+          "pool_address": null,
+          "liquidity": null,
+          "resolution": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x81A9b5F18179cE2bf8f001b8a634Db80771F1824",
+          "liquidity": 17332592054604064475451,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDC",
+          "fee": 3000,
+          "resolved": false,
+          "pool_address": null,
+          "liquidity": null,
+          "resolution": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xd8cc6BFDEe087148c220E9141a075D18418aBBaC",
+          "liquidity": 461067282916988707730,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x17507bEF4c3abC1Bc715be723eE1baF571256E05",
+          "liquidity": 4355510643759531833507,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xF9878A5dD55EdC120Fde01893ea713a4f032229c",
+          "liquidity": 11049962936737671833850,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0xdE67D05242B18AF00b28678dB34FEEC883cc9Cd6",
+          "liquidity": 339885410930329495454,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xcCDFcd1aaC447D5B29980f64b831c532a6a33726",
+          "liquidity": 5107943531931908817292082,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x18fC1E95aDb68B556212ebBAD777F3FBb644db98",
+          "liquidity": 67064328874367105903091,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x6fe9E9de56356F7eDBfcBB29FAB7cd69471a4869",
+          "liquidity": 2350294018514864211478503,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x7862D9B4bE2156B15d54F41ee4EDE2d5b0b455e4",
+          "liquidity": 15949730129636091715197,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x5289A8Dbf7029eE0b0498a84777ed3941D9acfEc",
+          "liquidity": 71426752454039049204,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDC",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x6bcb0Ba386E9de0C29006e46B2f01f047cA1806E",
+          "liquidity": 450004034490145432890,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        }
+      ],
+      "live_pool_probe_note": "read-only getPool + state validation"
+    },
+    "ethereum": {
+      "rpc_configured": true,
+      "economic_rpc_configured": true,
+      "gas_model": true,
+      "route_universe_size": 45,
+      "readiness_blocker": "requires_vps_runtime_proof_and_admin_approval",
+      "quote_path_connected_venues": {
+        "uniswap_v3": true,
+        "sushiswap_v2": true,
+        "curve_stable": false
+      },
+      "flash_loan_providers_eligible": [
+        "aave_v3",
+        "balancer_v2",
+        "morpho_blue",
+        "uniswap_v3"
+      ],
+      "live_pool_probe": [
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+          "liquidity": 4981807498529782145,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+          "liquidity": 2748688116456341361,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x11b815efB8f581194ae79006d24E0d814B7697F6",
+          "liquidity": 541190622114483787,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36",
+          "liquidity": 17969635164352304012,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x7858E59e0C01EA06Df3aF3D20aC7B0003275D4Bf",
+          "liquidity": 210995041174629,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0xEe4Cf3b78A74aFfa38C6a926282bCd8B5952818d",
+          "liquidity": 3973749539305,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v2",
+          "abi": "univ2",
+          "pair": "WETH/USDC",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0x397FF1542f962076d0BFE58eA045FfA2d347ACa0",
+          "liquidity": null,
+          "resolution": "onchain_factory_getPair",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v2",
+          "abi": "univ2",
+          "pair": "WETH/USDT",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0x06da0fd433C1A5d7a4faa01111c044910A184553",
+          "liquidity": null,
+          "resolution": "onchain_factory_getPair",
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v2",
+          "abi": "univ2",
+          "pair": "USDC/USDT",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0xD86A120a06255Df8D4e2248aB04d4267E23aDfaA",
+          "liquidity": null,
+          "resolution": "onchain_factory_getPair",
+          "reason": "ok"
+        }
+      ],
+      "live_pool_probe_note": "read-only getPool + state validation"
+    },
+    "optimism": {
+      "rpc_configured": true,
+      "economic_rpc_configured": true,
+      "gas_model": true,
+      "route_universe_size": 56,
+      "readiness_blocker": "requires_vps_runtime_proof_and_admin_approval",
+      "quote_path_connected_venues": {
+        "uniswap_v3": true,
+        "velodrome_v2": false
+      },
+      "flash_loan_providers_eligible": [
+        "aave_v3",
+        "balancer_v2",
+        "uniswap_v3"
+      ],
+      "live_pool_probe": [
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x1fb3cf6e48F1E7B10213E7b6d87D4c073C7Fdb7b",
+          "liquidity": 12154375626246375,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0xc1738D90E2E26C35784A0d3E3d8A9f795074bcA4",
+          "liquidity": 1087446191770954310,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xc858A329Bf053BE78D6239C4A4343B8FbD21472b",
+          "liquidity": 15688335134758009,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0xdd0c6bAe8Ad5998c358b823df15A2A4181Da1b80",
+          "liquidity": 1175659038802931,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0x2926736C30EF3649F9e6b5c5918ea88871F79f2B",
+          "liquidity": 51896788965426,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x9B0c2660B535a156aDf827481b2F9b61f31EBc49",
+          "liquidity": 282655165801,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        }
+      ],
+      "live_pool_probe_note": "read-only getPool + state validation"
+    },
+    "polygon": {
+      "rpc_configured": true,
+      "economic_rpc_configured": true,
+      "gas_model": true,
+      "route_universe_size": 42,
+      "readiness_blocker": "requires_vps_runtime_proof_and_admin_approval",
+      "quote_path_connected_venues": {
+        "uniswap_v3": true,
+        "quickswap_v3": true
+      },
+      "flash_loan_providers_eligible": [
+        "aave_v3",
+        "balancer_v2",
+        "uniswap_v3"
+      ],
+      "live_pool_probe": [
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9",
+          "liquidity": 51383064714753226,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x19C5505638383337D2972Ce68B493aD78E315147",
+          "liquidity": 1453372930857636,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xBB98B3D2b18aeF63a3178023A920971cf5F29bE4",
+          "liquidity": 183833850050352506,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x4CcD010148379ea531D6C587CfDd60180196F9b1",
+          "liquidity": 24225190108325506,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xEE95696f77693aF4F9B93850A9f48B4AD8E7a30A",
+          "liquidity": 9850514797147,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x1Cb770fC7C7367c6aD5E88D32072b7f4bf881304",
+          "liquidity": 110099861312,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WMATIC/USDC",
+          "fee": 500,
+          "resolved": true,
+          "pool_address": "0xB6e57ed85c4c9dbfEF2a68711e9d6f36c56e0FcB",
+          "liquidity": 1030001637693060755,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WMATIC/USDC",
+          "fee": 3000,
+          "resolved": true,
+          "pool_address": "0x2DB87C4831B2fec2E35591221455834193b50D1B",
+          "liquidity": 65958375764633059,
+          "resolution": "onchain_factory_getPool",
+          "reason": "ok"
+        },
+        {
+          "venue": "quickswap_v3",
+          "abi": "algebra",
+          "pair": "WETH/USDC",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0xa6AeDF7c4Ed6e821E67a6BfD56FD1702aD9a9719",
+          "liquidity": 7727490701214395,
+          "resolution": "onchain_algebra_poolByPair",
+          "reason": "ok"
+        },
+        {
+          "venue": "quickswap_v3",
+          "abi": "algebra",
+          "pair": "WETH/USDT",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0x9CEff2F5138fC59eB925d270b8A7A9C02a1810f2",
+          "liquidity": 13717860154187953,
+          "resolution": "onchain_algebra_poolByPair",
+          "reason": "ok"
+        },
+        {
+          "venue": "quickswap_v3",
+          "abi": "algebra",
+          "pair": "USDC/USDT",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0x0e3Eb2C75Bd7dD0e12249d96b1321d9570764D77",
+          "liquidity": 12653216435242,
+          "resolution": "onchain_algebra_poolByPair",
+          "reason": "ok"
+        },
+        {
+          "venue": "quickswap_v3",
+          "abi": "algebra",
+          "pair": "WMATIC/USDC",
+          "fee": 0,
+          "resolved": true,
+          "pool_address": "0x6669B4706cC152F359e947BCa68E263A87c52634",
+          "liquidity": 431668183326531920,
+          "resolution": "onchain_algebra_poolByPair",
+          "reason": "ok"
+        }
+      ],
+      "live_pool_probe_note": "read-only getPool + state validation"
+    }
+  },
+  "matrix_summary": {
+    "row_count": 75,
+    "limited_live_eligible_count": 0,
+    "discoverable_count": 65,
+    "quote_path_connected_count": 65
+  },
+  "note": "Preflight is reachability + blocker only. No cell is QUOTABLE, ECONOMICALLY_VALID or LIMITED-LIVE eligible from this report; live quote/TVL/economics/simulation/evidence remain mandatory runtime gates (Base: scripts.m3_0_real_candidate_scan / scripts.vps_canonical_audit)."
+}

@@ -249,3 +249,37 @@ limited_live_eligible 0.
 - Race (public RPC): 15 candidates, ALL negative_gross_edge_all_sizes; economically_valid 0; execution_ready 0.
 - Item1 VPS operator run BLOCKED (no operator RPC/VPS). Item5 fork sim SIMULATION_UNAVAILABLE (no anvil).
   Item7 harness NOT staged. LIMITED_LIVE_PROVEN=false. Certify PASS (65/65/0). No new regressions.
+
+
+## TAKEOVER SESSION — PHASE 5b (2026-06): certification-harness fix (import path + provenance)
+Fix ONLY the VPS certification/runtime harness + provenance handling. Source
+otherwise unchanged; 3 protected files + main/production untouched; all execution OFF.
+
+- BUG A (Step-6 `ModuleNotFoundError: No module named 'arbicore'`): the authoritative
+  cert invokes harnesses by DIRECT PATH (`python /app/scripts/<name>.py`), putting
+  `scripts/` on sys.path[0] not the app root. Fix: `vps_multichain_preflight.py`,
+  `vps_runtime_certify.py`, `arbicore_certify.py` each prepend their own APP_ROOT
+  (`Path(__file__).parent.parent`) to sys.path — works under BOTH `-m` and direct-path.
+- BUG B (provenance contamination): `arbicore_certify` reported inherited production
+  `ARBICORE_GIT_SHA=bd969ee…`/tag `p0-3-bd969ee` instead of the isolated image's real
+  `ad64a50…`. Fix: `_build_identity` refactored to pure `_resolve_identity`; in
+  `.git`-stripped IMAGE mode the baked `BUILD_INFO.json` is authoritative and a
+  disagreeing runtime env is reported as `provenance_contamination` + IGNORED (never
+  emitted). Checkout mode still certifies live working tree. Surfaced in repo section
+  + human output.
+- Regression: `tests/test_cert_harness_invocation_and_provenance.py` (7 tests pass):
+  direct-path invocation of preflight + certify; image-mode BUILD_INFO-wins-over-stale-env;
+  env-unverified fallback; checkout live-git wins; full `_build_identity` end-to-end.
+- Docs: runbook `docs/VPS_MULTICHAIN_RUNTIME_CERTIFICATION.md` §0a (both invocation
+  styles) + §0b (isolated-image build + provenance; do not pass a production env_file).
+- Public-RPC PROXY re-run with FIXED harness (direct-path; NOT operator/VPS):
+  preflight resolved eth 9/9, op 6/6, poly 12/12, arb 14/15, bnb 15/20 (base canonical);
+  race probe_rows 45 · discoverable/liq/quotable 40 · candidates 7 ·
+  ALL negative_gross_edge_all_sizes · economically_valid 0 · execution_ready 0 ·
+  anvil unavailable · LIMITED_LIVE_PROVEN=false. Evidence:
+  reports/PREFLIGHT_PUBLIC_PROXY_phase5_harnessfix.json,
+  reports/VPS_RUNTIME_CERT_public_phase5_harnessfix.json.
+- VPS-only blockers (honest, not converted to pass): no Docker (cannot rebuild/run
+  isolated image), no operator/archive RPC, no anvil, no funded signer.
+- Certify offline: git_sha=ad64a50, provenance clean, repo_capability_pass=True.
+  Commit pending → push via "Save to Github".
