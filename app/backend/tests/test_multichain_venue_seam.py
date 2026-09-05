@@ -174,23 +174,152 @@ def _cell(m, chain, venue):
 
 def test_matrix_activates_forks_and_is_honest_about_families():
     m = E.build_opportunity_matrix()
-    # forks now DISCOVERABLE (real getPool/getPair seam)
+    # UniV3-fork + UniV2 forks now DISCOVERABLE (real resolver seam)
     assert _cell(m, "arbitrum", "sushiswap_v3")["discoverable"] is True
     assert _cell(m, "bnb", "pancakeswap_v3")["discoverable"] is True
     assert _cell(m, "ethereum", "sushiswap_v2")["discoverable"] is True
-    # ...but NOT quotable (no fork quoter adapter) — honest downstream blocker
-    # (in this pod with no RPC the first miss is RPC; the quoter gap is proven
-    # by quote_path_connected being false for the fork).
-    assert _cell(m, "arbitrum", "sushiswap_v3")["quote_path_connected"] is False
-    # Algebra / Solidly / Curve report an explicit, distinct family blocker
-    assert _cell(m, "arbitrum", "camelot_v3")["discoverable"] is False
-    assert _cell(m, "arbitrum", "camelot_v3")["blocker"] == "algebra_resolver_not_implemented"
-    assert _cell(m, "polygon", "quickswap_v3")["blocker"] == "algebra_resolver_not_implemented"
+    # ...and now QUOTE-CONNECTED (verified fork QuoterV2 / V2 router adapters)
+    assert _cell(m, "arbitrum", "sushiswap_v3")["quote_path_connected"] is True
+    assert _cell(m, "bnb", "pancakeswap_v3")["quote_path_connected"] is True
+    assert _cell(m, "ethereum", "sushiswap_v2")["quote_path_connected"] is True
+    # Algebra (Camelot V3 / QuickSwap V3) now DISCOVERABLE via poolByPair, but
+    # quote path is a separate future seam ⇒ NOT quote-connected (honest).
+    assert _cell(m, "arbitrum", "camelot_v3")["discoverable"] is True
+    assert _cell(m, "polygon", "quickswap_v3")["discoverable"] is True
+    assert _cell(m, "arbitrum", "camelot_v3")["quote_path_connected"] is False
+    # Solidly / Curve still have no resolver ⇒ explicit family blocker
     assert _cell(m, "optimism", "velodrome_v2")["blocker"] == "solidly_resolver_not_implemented"
     assert _cell(m, "ethereum", "curve_stable")["blocker"] == "curve_resolver_not_implemented"
     # nothing ever limited-live eligible from code/config alone
     assert m["summary"]["limited_live_eligible_count"] == 0
     assert all(r["limited_live_eligible"] is False for r in m["rows"])
+
+
+def test_quoter_registry_registers_fork_backends():
+    from arbicore.execution.quoter import QuoterRegistry
+    supported = set(QuoterRegistry().supported_dexes)
+    for dex in ("uniswap_v3", "sushiswap_v3", "pancakeswap_v3", "sushiswap_v2"):
+        assert dex in supported, dex
+
+
+def test_sushi_v3_quoter_uses_its_own_address_not_uniswap():
+    from arbicore.execution import quoter as Q
+    sushi = Q.SushiV3QuoterV2._CONTRACT_BY_CHAIN["arbitrum"]
+    uni = Q.UniV3QuoterV2._CONTRACT_BY_CHAIN["arbitrum"]
+    assert sushi != uni                       # fork quoter is factory-specific
+    assert sushi == Q.SUSHI_V3_QUOTER_V2_ARBITRUM
+
+
+def test_sushi_v3_live_quote_routes_to_sushi_quoter(monkeypatch):
+    from arbicore.execution import quoter as Q
+    seen = {}
+
+    async def fake_eth_call(rpc_url, *, to, data, **kw):
+        seen["to"] = to
+        return ("0x" + _enc(["uint256", "uint160", "uint32", "uint256"],
+                            [2_222_222, 1, 1, 90000]).hex()), 77, None
+    monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
+    reg = Q.QuoterRegistry()
+    rq = _run(reg.quote_route(
+        chain="arbitrum", rpc_url="http://rpc.test",
+        hops=[{"dex": "sushiswap_v3", "token_in": "0x" + "11" * 20,
+               "token_out": "0x" + "22" * 20, "amount_in_wei": 10**18, "fee": 500}]))
+    assert rq.status == "ok" and rq.final_amount_out_wei == 2_222_222
+    assert seen["to"] == Q.SUSHI_V3_QUOTER_V2_ARBITRUM
+
+
+def test_sushi_v2_router_getamountsout_quote(monkeypatch):
+    from arbicore.execution import quoter as Q
+    seen = {}
+
+    async def fake_eth_call(rpc_url, *, to, data, **kw):
+        seen["to"] = to
+        return ("0x" + _enc(["uint256[]"], [[10**18, 3_500_000]]).hex()), 88, None
+    monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
+    reg = Q.QuoterRegistry()
+    rq = _run(reg.quote_route(
+        chain="ethereum", rpc_url="http://rpc.test",
+        hops=[{"dex": "sushiswap_v2", "token_in": "0x" + "11" * 20,
+               "token_out": "0x" + "22" * 20, "amount_in_wei": 10**18}]))
+    assert rq.status == "ok" and rq.final_amount_out_wei == 3_500_000
+    assert seen["to"] == Q.SUSHI_V2_ROUTER02_ETHEREUM
+
+
+def test_fork_quoter_fails_closed_off_map():
+    from arbicore.execution import quoter as Q
+    reg = Q.QuoterRegistry()
+    # sushiswap_v3 has no ethereum quoter address ⇒ fail closed (no fabrication)
+    rq = _run(reg.quote_route(
+        chain="ethereum", rpc_url="http://rpc.test",
+        hops=[{"dex": "sushiswap_v3", "token_in": "0x" + "11" * 20,
+               "token_out": "0x" + "22" * 20, "amount_in_wei": 10**18, "fee": 500}]))
+    assert rq.status == "fallback:break_even"
+    assert rq.hops[0].status == "fallback:no_adapter"
+
+
+# ── Algebra (poolByPair) resolver ────────────────────────────────────────────
+def _algebra_eth_call(factory, pool, t0, t1, liq=10**18):
+    from arbicore.discovery import algebra_pool_resolver as A
+
+    async def eth_call(to, data):
+        sel = data[:10]
+        if to.lower() == factory.lower():
+            return _addr_word(pool)
+        if sel == A._SEL_TOKEN0:
+            return _addr_word(t0)
+        if sel == A._SEL_TOKEN1:
+            return _addr_word(t1)
+        if sel == A._SEL_LIQUIDITY:
+            return "0x" + _enc(["uint128"], [int(liq)]).hex()
+        raise AssertionError(sel)
+    return eth_call
+
+
+def test_algebra_pool_resolves_camelot_v3():
+    from arbicore.discovery import algebra_pool_resolver as A
+    toks = REG.tokens_for("arbitrum")
+    weth, usdc = toks["WETH"]["address"], toks["USDC"]["address"]
+    factory = REG.factory_for("arbitrum", "camelot_v3")
+    pool = to_checksum_address("0x" + "ca" * 20)
+    res = _run(A.resolve_algebra_pool(
+        "arbitrum", weth, usdc, dex="camelot_v3",
+        eth_call=_algebra_eth_call(factory, pool, weth, usdc)))
+    assert res is not None
+    assert res["dex"] == "camelot_v3"
+    assert res["pool_address"] == pool
+    assert res["resolution"] == "onchain_algebra_poolByPair"
+
+
+def test_algebra_zero_liquidity_and_nonexistent_fail_closed():
+    from arbicore.discovery import algebra_pool_resolver as A
+    toks = REG.tokens_for("polygon")
+    weth, usdc = toks["WETH"]["address"], toks["USDC"]["address"]
+    factory = REG.factory_for("polygon", "quickswap_v3")
+    pool = to_checksum_address("0x" + "cb" * 20)
+    # zero liquidity excluded
+    assert _run(A.resolve_algebra_pool(
+        "polygon", weth, usdc, dex="quickswap_v3",
+        eth_call=_algebra_eth_call(factory, pool, weth, usdc, liq=0))) is None
+    # nonexistent pool (factory returns zero address)
+    assert _run(A.resolve_algebra_pool(
+        "polygon", weth, usdc, dex="quickswap_v3",
+        eth_call=_algebra_eth_call(factory, A._ZERO_ADDR, weth, usdc))) is None
+
+
+def test_parallel_discovery_routes_algebra_family():
+    toks = REG.tokens_for("arbitrum")
+    weth, usdc = toks["WETH"]["address"], toks["USDC"]["address"]
+    factory = REG.factory_for("arbitrum", "camelot_v3")
+    pool = to_checksum_address("0x" + "ca" * 20)
+
+    def eth_call_for_chain(chain):
+        return _algebra_eth_call(factory, pool, weth, usdc)
+
+    tasks = [{"chain": "arbitrum", "dex": "camelot_v3",
+              "token_a": weth, "token_b": usdc, "fee": 0}]
+    res = _run(E.discover_pools_parallel(tasks, eth_call_for_chain=eth_call_for_chain))
+    assert res[0]["resolved"] is True
+    assert res[0]["pool"]["dex"] == "camelot_v3"
 
 
 def test_parallel_discovery_routes_univ2_family():

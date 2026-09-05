@@ -328,10 +328,17 @@ def test_certification_structural_vs_runtime():
         assert r["economic"] == "requires_runtime"
         assert r["liquidity_tvl"] == "requires_runtime"
         assert r["limited_live_eligible"] is False
-    # Base uniswap_v3 is connected; a non-Base non-UniV3 venue is NOT.
+    # Base uniswap_v3 is connected; a venue with NO quoter adapter is NOT.
     base_univ3 = [r for r in m["rows"]
                   if r["chain"] == "base" and r["venue"] == "uniswap_v3"]
     assert base_univ3 and all(r["quote_path_connected"] for r in base_univ3)
-    non_univ3 = [r for r in m["rows"]
-                 if r["chain"] != "base" and r["venue"] != "uniswap_v3"]
-    assert non_univ3 and all(not r["quote_path_connected"] for r in non_univ3)
+    # UniV3/UniV2 forks with a verified quoter adapter ARE now connected
+    # (Sushi V3 / Pancake V3 / Sushi V2) — genuine multi-venue activation.
+    forks = [r for r in m["rows"] if r["venue"] in
+             ("sushiswap_v3", "pancakeswap_v3", "sushiswap_v2")]
+    assert forks and all(r["quote_path_connected"] for r in forks)
+    # Venues that are discoverable but have NO quoter adapter yet (Algebra) OR
+    # no resolver at all (Solidly/Curve) are NOT quote-connected — honest.
+    no_quoter = [r for r in m["rows"] if r["venue"] in
+                 ("camelot_v3", "quickswap_v3", "velodrome_v2", "curve_stable")]
+    assert no_quoter and all(not r["quote_path_connected"] for r in no_quoter)

@@ -75,6 +75,20 @@ BASE_SEPOLIA_UNIV3_QUOTER_V2 = to_checksum_address("0xC5290058841028F1614F3A6F0F
 BASE_AERO_SLIPSTREAM_QUOTER = to_checksum_address("0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0")
 BASE_AERO_CLASSIC_ROUTER    = to_checksum_address("0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43")
 
+# ── Multichain DEX-FORK quoters (verified public deployments) ───────────────
+# Each address is sourced from the venue's OWN official documentation, NOT
+# invented and NOT reused from Uniswap (a fork quoter is factory-specific — it
+# resolves pools from ITS OWN factory, so the Uniswap quoter would return the
+# WRONG pool). Unverifiable here (no RPC); the quoter fails closed for any chain
+# absent from its map, and every quote is proven live only on the VPS.
+# SushiSwap V3 QuoterV2 · Arbitrum One — docs.sushi.com/contracts/clamm
+#   (SushiV3Factory 0x1af415a1EbA07a4986a52B6f2e7dE7003D82231e — matches registry)
+SUSHI_V3_QUOTER_V2_ARBITRUM = to_checksum_address("0x0524e833cCd057e4d7A296e3aaAb9f7675964Ce1")
+# PancakeSwap V3 QuoterV2 · BNB Chain — developer.pancakeswap.finance/contracts/v3/addresses
+PANCAKE_V3_QUOTER_V2_BNB    = to_checksum_address("0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997")
+# SushiSwap V2 Router02 · Ethereum mainnet — getAmountsOut(uint256,address[])
+SUSHI_V2_ROUTER02_ETHEREUM  = to_checksum_address("0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
+
 
 # Selector cache — computed once at import.
 _SEL = {
@@ -93,6 +107,11 @@ _SEL = {
     #   Route = (from, to, stable, factory)
     "aero_getAmountsOut": "0x" + function_signature_to_4byte_selector(
         "getAmountsOut(uint256,(address,address,bool,address)[])"
+    ).hex(),
+    # UniswapV2-family Router.getAmountsOut(uint256 amountIn, address[] path)
+    #   returns uint256[] (last element = final output). Sushi V2 shares this ABI.
+    "univ2_getAmountsOut": "0x" + function_signature_to_4byte_selector(
+        "getAmountsOut(uint256,address[])"
     ).hex(),
 }
 
@@ -600,6 +619,94 @@ class AerodromeClassicQuoter:
 
 
 # --------------------------------------------------------------------------- #
+# UniV3-fork QuoterV2 backends (ABI-identical; factory-specific quoter addr)   #
+# --------------------------------------------------------------------------- #
+
+class SushiV3QuoterV2(UniV3QuoterV2):
+    """SushiSwap V3 (clAMM) — a DIRECT Uniswap V3 fork sharing the exact
+    ``QuoterV2.quoteExactInputSingle((address,address,uint256,uint24,uint160))``
+    ABI. Only the quoter ADDRESS differs (it resolves pools from Sushi's OWN
+    factory, so Uniswap's quoter must NOT be reused). Fails closed for any chain
+    absent from the map."""
+    dex = "sushiswap_v3"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "arbitrum": SUSHI_V3_QUOTER_V2_ARBITRUM,
+    }
+
+
+class PancakeV3QuoterV2(UniV3QuoterV2):
+    """PancakeSwap V3 — a DIRECT Uniswap V3 fork; QuoterV2 ABI identical, address
+    from PancakeSwap's official V3 deployment docs. Fails closed off-map."""
+    dex = "pancakeswap_v3"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "bnb": PANCAKE_V3_QUOTER_V2_BNB,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# UniswapV2-family Router backend (getAmountsOut)                              #
+# --------------------------------------------------------------------------- #
+
+class UniV2RouterQuoter:
+    """Live quoter for UniswapV2-family DEXs (SushiSwap V2) via
+    ``Router.getAmountsOut(amountIn, [tokenIn, tokenOut])``. View call, no
+    signer path. Fails closed for any chain without a configured router."""
+    dex = "sushiswap_v2"
+
+    _ROUTER_BY_CHAIN: Dict[str, str] = {
+        "ethereum": SUSHI_V2_ROUTER02_ETHEREUM,
+    }
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote:
+        router = self._ROUTER_BY_CHAIN.get(chain)
+        if not router:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, "unknown", _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  f"no UniV2 router for chain '{chain}'")
+        path = [to_checksum_address(token_in), to_checksum_address(token_out)]
+        params_encoded = abi_encode(["uint256", "address[]"],
+                                    [int(amount_in_wei), path])
+        data = _SEL["univ2_getAmountsOut"] + params_encoded.hex()
+        try:
+            result_hex, block_number, err = await _eth_call(rpc_url, to=router, data=data, max_retries=max_retries)
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"{type(exc).__name__}: {exc}")
+        if err:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:revert",
+                                  f"code={err.get('code')} {err.get('message','')[:120]}")
+        try:
+            (amounts,) = abi_decode(["uint256[]"], bytes.fromhex(result_hex[2:]))
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"decode error: {exc}")
+        amount_out = int(amounts[-1]) if amounts else 0
+        return HopQuote(
+            hop_index=hop_index, dex=self.dex,
+            token_in=to_checksum_address(token_in),
+            token_out=to_checksum_address(token_out),
+            amount_in_wei=int(amount_in_wei),
+            amount_out_wei=amount_out,
+            sqrt_price_x96_after=None,
+            gas_estimate_units=None,
+            price_impact_bps=None,
+            quoter_contract=router,
+            rpc_host=_redact_host(rpc_url),
+            block_number=block_number,
+            status="ok", error=None, generated_at=_now_iso(),
+        )
+
+
+# --------------------------------------------------------------------------- #
 # Helpers                                                                     #
 # --------------------------------------------------------------------------- #
 
@@ -657,6 +764,9 @@ class QuoterRegistry:
             UniV3QuoterV2(),
             AerodromeSlipStreamQuoter(),
             AerodromeClassicQuoter(),
+            SushiV3QuoterV2(),
+            PancakeV3QuoterV2(),
+            UniV2RouterQuoter(),
         ]
         self._backends: Dict[str, QuoterBackend] = {
             b.dex: b for b in (backends or default_backends)

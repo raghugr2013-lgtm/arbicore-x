@@ -51,28 +51,39 @@ _PROBE_FEES = (500, 3000)
 
 
 def _build_probe_tasks(chain: str):
-    from arbicore.chains.registries import tokens_for
+    """Venue-aware probe tasks. Emits one task per (venue, pair[, fee]) for every
+    registered venue whose family has a real resolver seam — UniV3 + forks
+    (fee-tiered), UniV2 forks and Algebra (fee-less). Solidly/Curve are skipped
+    (no resolver yet). Only pairs present in the chain's verified registry are
+    used; nothing fabricated."""
+    from arbicore.chains.registries import tokens_for, dexes_for
     toks = tokens_for(chain)
     tasks = []
     seen = set()
-    for a, b in _PROBE_PAIRS:
-        if a not in toks or b not in toks:
-            continue
-        for fee in _PROBE_FEES:
-            key = tuple(sorted([a, b])) + (fee,)
-            if key in seen:
+    for d in dexes_for(chain):
+        dex, abi = d.get("dex"), d.get("abi")
+        if abi not in ("univ3", "univ2", "algebra"):
+            continue                       # no generic resolver seam yet
+        fees = _PROBE_FEES if abi == "univ3" else (0,)
+        for a, b in _PROBE_PAIRS:
+            if a not in toks or b not in toks:
                 continue
-            seen.add(key)
-            tasks.append({
-                "chain": chain, "pair": f"{a}/{b}", "fee": fee,
-                "token_a": toks[a]["address"], "token_b": toks[b]["address"],
-            })
+            for fee in fees:
+                key = (dex,) + tuple(sorted([a, b])) + (fee,)
+                if key in seen:
+                    continue
+                seen.add(key)
+                tasks.append({
+                    "chain": chain, "dex": dex, "abi": abi,
+                    "pair": f"{a}/{b}", "fee": fee,
+                    "token_a": toks[a]["address"], "token_b": toks[b]["address"],
+                })
     return tasks
 
 
 async def _live_pool_probe(chain: str):
-    """Live UniV3 pool resolution via the canonical parallel resolver + the
-    existing per-chain eth_call seam. Read-only. Returns per-task rows."""
+    """Live venue-aware pool resolution via the canonical parallel resolver +
+    the existing per-chain eth_call seam. Read-only. Returns per-task rows."""
     from arbicore.discovery.opportunity_engine import discover_pools_parallel
     from arbicore.searcher.runtime import make_eth_call_for_chain_from_env
     tasks = _build_probe_tasks(chain)
@@ -86,10 +97,11 @@ async def _live_pool_probe(chain: str):
     for t, r in zip(tasks, results):
         pool = r.get("pool") or {}
         rows.append({
-            "pair": t["pair"], "fee": t["fee"],
+            "venue": t["dex"], "abi": t["abi"], "pair": t["pair"], "fee": t["fee"],
             "resolved": bool(r.get("resolved")),
             "pool_address": pool.get("pool_address"),
             "liquidity": pool.get("liquidity"),
+            "resolution": pool.get("resolution"),
             "reason": r.get("reason"),
         })
     return rows

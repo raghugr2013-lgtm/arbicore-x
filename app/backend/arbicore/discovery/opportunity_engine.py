@@ -25,6 +25,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from ..chains.registries import dexes_for, dex_abi, factory_for
 from .univ3_pool_resolver import (
     EthCall, resolve_univ3_pool, resolve_univ2_pool)
+from .algebra_pool_resolver import resolve_algebra_pool
 from ..runtime.multichain_readiness import (
     provider_registry_rpc_configured,
     rpc_explicitly_configured,
@@ -100,10 +101,14 @@ async def discover_pools_parallel(
                     coro = resolve_univ2_pool(
                         chain, task["token_a"], task["token_b"],
                         eth_call=eth_call, dex=dex)
+                elif abi == "algebra":
+                    coro = resolve_algebra_pool(
+                        chain, task["token_a"], task["token_b"],
+                        eth_call=eth_call, dex=dex)
                 else:
-                    # univ3 family (Uniswap V3 + Sushi/Pancake V3 forks). Non
-                    # univ3/univ2 families (algebra/solidly/curve) have no
-                    # generic resolver seam yet ⇒ resolve to None (fail-closed).
+                    # univ3 family (Uniswap V3 + Sushi/Pancake V3 forks). Other
+                    # families (solidly/curve) have no generic resolver seam yet
+                    # ⇒ resolve to None (fail-closed).
                     coro = resolve_univ3_pool(
                         chain, task["token_a"], task["token_b"], task["fee"],
                         eth_call=eth_call, dex=dex)
@@ -117,7 +122,7 @@ async def discover_pools_parallel(
             # generic resolver — report that honestly rather than as invalid.
             if (chain or "").lower() in ("base", "base-sepolia"):
                 reason = "handled_by_canonical_registry"
-            elif abi not in ("univ3", "univ2"):
+            elif abi not in ("univ3", "univ2", "algebra"):
                 reason = "no_pool_resolver_for_venue_family"
             else:
                 reason = "pool_invalid_or_unreadable"
@@ -150,12 +155,16 @@ def _cell_state(chain: str, venue: str, *, quoter_supported: bool) -> Dict[str, 
     #   * univ3  — Uniswap V3 + DIRECT forks (Sushi V3, Pancake V3): factory
     #              getPool(address,address,uint24) resolver.
     #   * univ2  — Uniswap V2 + DIRECT forks (Sushi V2): factory getPair resolver.
-    #   * algebra/solidly/curve — genuinely DISTINCT ABIs with NO generic
-    #              resolver seam yet ⇒ not discoverable, reported with the EXACT
-    #              family blocker (never fabricated as UniV3).
+    #   * algebra — Camelot V3 / QuickSwap V3: factory poolByPair(address,address)
+    #              resolver (dynamic fee; distinct from getPool). Quote path is a
+    #              SEPARATE future seam (Algebra QuoterV2 dynamic-fee ABI), so an
+    #              algebra cell is discoverable but reports the quoter gap honestly.
+    #   * solidly/curve — genuinely DISTINCT ABIs with NO resolver seam yet ⇒ not
+    #              discoverable, reported with the EXACT family blocker (never
+    #              fabricated as UniV3).
     if is_base:
         discoverable = True
-    elif abi in ("univ3", "univ2"):
+    elif abi in ("univ3", "univ2", "algebra"):
         discoverable = bool(factory)
     else:
         discoverable = False
@@ -165,7 +174,9 @@ def _cell_state(chain: str, venue: str, *, quoter_supported: bool) -> Dict[str, 
             blocker = "univ3_factory_unregistered"
         elif abi == "univ2":
             blocker = "univ2_factory_unregistered"
-        elif abi in ("algebra", "solidly", "curve", "stable"):
+        elif abi == "algebra":
+            blocker = "algebra_factory_unregistered"
+        elif abi in ("solidly", "curve", "stable"):
             blocker = f"{abi}_resolver_not_implemented"
         else:
             blocker = "no_pool_resolver_for_venue_family"
