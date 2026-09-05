@@ -44,7 +44,6 @@ def _borrow_symbol(pair):
 
 async def _head_block(chain: str):
     """Real head block + latency for the chain's configured RPC (read-only)."""
-    from arbicore.searcher.runtime import make_eth_call_for_chain_from_env
     import httpx
     from arbicore.config.persistent import resolve_rpc_url_from_env
     url = (os.environ.get(f"PROVIDER_RPC_URLS_{chain.upper()}")
