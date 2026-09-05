@@ -44,9 +44,22 @@ Working branch: `fix/p0-3-runtime-v3-liquidity-filter`.
   requires PROVIDER_* (ARBICORE_RPC_URL_BASE alone => economic_gate_rpc_not_
   configured). Endpoint error path keeps full SHADOW safety envelope. New
   test_multichain_readiness_gate.py. Commit `bd969ee`. Validator: 182 passed / 0.
-- DEFERRED (item 5): behavior-preserving extraction of Base eligibility/wiring
-  helpers out of composition.py — dedicated test-guarded refactor, only after
-  items 3/4 reviewed/stable (per directive).
+- 2026-06: Certification harness path fix (commit `98da57f`). `scripts/
+  arbicore_certify.py` now resolves APP_ROOT dynamically from its own location
+  (=`<repo>/app/backend` in a checkout; =`/app` in the prod image where the
+  Dockerfile does `COPY app/backend/ /app/`). KEY_MODULES + protected paths are
+  APP_ROOT-relative so py_compile + integrity checks work in both layouts
+  (missing file ⇒ explicit compile/integrity FAIL, never skipped). Git identity:
+  live git when a `.git` checkout exists (authoritative), else BUILD_INFO.json /
+  `ARBICORE_GIT_*` (real SHA/tag/image ref+digest inside the `.git`-stripped
+  image); `git_source` reported. Protected git-dirty guard kept at full strength
+  when git available (reported unavailable — never false-clean — in an image);
+  deployment-only compose file honestly reported `not_in_image`. Matrix import
+  guarded so a broken/removed key module yields a clean FALSE report + real
+  error (never a fabricated matrix). Verified in both layouts + negative tests.
+  NOTE: code/config certification (`repo_capability_pass`) is NOT P0-3; the real
+  Base runtime proof requires the VPS (Base RPC). In the Emergent pod all chains
+  correctly report `no_operator_configured_rpc` (no RPC ⇒ fail-closed).
 - 2026-06: RouteSearch → chain/venue-aware quote wiring (commit `1f1d68f`).
   RouteSearchDiscoverySource now emits `route_hops` + a deterministic probe
   `borrow_amount_wei` for NON-Base cycles so the generic EVM path in

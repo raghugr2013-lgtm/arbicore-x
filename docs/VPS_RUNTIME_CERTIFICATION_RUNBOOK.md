@@ -62,9 +62,15 @@ python3 -m scripts.vps_multichain_preflight   # human summary
 ```
 
 Interpret:
-- `arbicore_certify` — `quote_path_connected` (structural wiring only, NOT
-  runtime QUOTABLE) and `quote_path_connected_count`. Repo/protected-file
-  integrity + safety flags must be green.
+- `arbicore_certify` — resolves its app/git roots dynamically, so it runs BOTH
+  from a repo checkout and inside the `/app` production-style image
+  (`COPY app/backend/ /app/`). In the image the Git SHA / tag / image ref+digest
+  come from `BUILD_INFO.json` (baked by `scripts.gen_build_info` at build) or
+  `ARBICORE_GIT_*` env; in a checkout live `git` is authoritative. Reports
+  `quote_path_connected` (structural wiring only, NOT runtime QUOTABLE),
+  `quote_path_connected_count`, protected-file integrity, and safety flags —
+  all must be green (repo_capability_pass) but this is NOT a P0-3 or
+  limited-live certification.
 - `vps_multichain_preflight` — per chain × venue × provider: readiness blocker,
   `quote_path_connected_venues`, eligible flash-loan providers, and the LIVE
   `live_pool_probe` (`N/M pools resolved`, with per-pair `reason` on failure).
