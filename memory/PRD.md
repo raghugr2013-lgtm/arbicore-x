@@ -47,6 +47,25 @@ Working branch: `fix/p0-3-runtime-v3-liquidity-filter`.
 - DEFERRED (item 5): behavior-preserving extraction of Base eligibility/wiring
   helpers out of composition.py — dedicated test-guarded refactor, only after
   items 3/4 reviewed/stable (per directive).
+- 2026-06: RouteSearch → chain/venue-aware quote wiring (commit `1f1d68f`).
+  RouteSearchDiscoverySource now emits `route_hops` + a deterministic probe
+  `borrow_amount_wei` for NON-Base cycles so the generic EVM path in
+  `live_quote_provider` runs end-to-end (Base regression-frozen: `_plan_base`
+  untouched, no route_hops emitted). New `chains/registries.probe_amount_wei`
+  (<=6dec→200u, 18dec→0.05u, else fail-closed None — a PROBE only, never
+  liquidity/capacity/trade-size/eligibility). New
+  `searcher/runtime.make_eth_call_for_chain_from_env` (generic per-chain
+  eth_call seam; real only when operator RPC configured; never Base fallback)
+  wired into the canonical SHADOW quote provider in composition (additive,
+  fail-closed; signer/broadcast untouched). Honest `quote_path_connected` flag
+  + `quote_path_connected_count` (=40) added to the opportunity matrix/certify
+  — STRUCTURAL connectivity only; quote/liquidity/economic stay
+  `requires_runtime`, no cell limited-live eligible. New
+  `tests/test_flash_route_to_quote_pipeline.py` (20 offline cases, all 14
+  acceptance items) wired into the validator. Validator: 231 passed / 0 failed.
+  Flash-loan SOURCE scope stays locked to {ethereum,arbitrum,base,optimism,
+  polygon} (test_chain_scope_locked); bnb proven quote-capable at the provider
+  layer only.
 
 ## Known blockers / backlog
 - P0-3 VPS/Base runtime proof (live discovery→quote→liquidity→economics→evidence
