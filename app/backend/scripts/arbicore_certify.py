@@ -229,11 +229,29 @@ def build_certification() -> dict:
     capabilities = None
     matrix = None
     matrix_error = None
+    readiness = None
+    venue_families = None
     try:
         from arbicore.discovery.opportunity_engine import (
             enumerate_capabilities, build_opportunity_matrix)
         capabilities = enumerate_capabilities()
         matrix = build_opportunity_matrix()
+        # Venue-family breakdown (chain|venue de-duped) — how many venue×chain
+        # cells each ABI family contributes and how many are discoverable. Pure
+        # derivation from the matrix rows; never a runtime/eligibility claim.
+        seen_cells: set = set()
+        fam: dict = {}
+        for r in matrix.get("rows", []):
+            key = (r.get("chain"), r.get("venue"))
+            if key in seen_cells:
+                continue
+            seen_cells.add(key)
+            a = r.get("abi") or "unknown"
+            slot = fam.setdefault(a, {"cells": 0, "discoverable": 0})
+            slot["cells"] += 1
+            if r.get("discoverable"):
+                slot["discoverable"] += 1
+        venue_families = fam
     except Exception as exc:  # noqa: BLE001 — never fabricate a matrix
         matrix_error = f"{type(exc).__name__}: {exc}"
         matrix = {"summary": {"row_count": 0, "discoverable_count": 0,
@@ -241,11 +259,22 @@ def build_certification() -> dict:
                               "limited_live_eligible_count": 0},
                   "rows": [], "error": matrix_error}
 
+    # PROVIDER / readiness matrix — per-network RPC configuration + exact blocker.
+    # Read-only + offline; never asserts limited-live eligibility.
+    try:
+        from arbicore.runtime.multichain_readiness import (
+            build_multichain_readiness_report)
+        readiness = build_multichain_readiness_report()
+    except Exception as exc:  # noqa: BLE001
+        readiness = {"error": f"{type(exc).__name__}: {exc}"}
+
     report = {
         "repository": repo,
         "safety": safety,
         "capabilities": capabilities,
         "opportunity_matrix": matrix,
+        "venue_families": venue_families,
+        "provider_readiness": readiness,
         "runtime": {
             "status": "requires_vps_runtime",
             "note": ("real RPC, chain identity, block, pool resolution, quotes, "
@@ -300,6 +329,9 @@ def _human(report: dict) -> str:
         f"matrix rows        : {m['row_count']}  discoverable={m['discoverable_count']}  "
         f"quote_path_connected={m['quote_path_connected_count']}  "
         f"limited_live_eligible={m['limited_live_eligible_count']}",
+        f"venue_families     : {report.get('venue_families')}",
+        f"provider_readiness : "
+        f"{(report.get('provider_readiness') or {}).get('summary', {}).get('blocked_by')}",
         f"runtime            : {report['runtime']['status']}",
         f"matrix_error       : {report['result'].get('matrix_error')}",
         f"first_limited_live : {report['first_limited_live_candidate']}",

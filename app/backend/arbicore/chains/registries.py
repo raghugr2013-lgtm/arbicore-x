@@ -109,6 +109,44 @@ CHAIN_REGISTRIES: Dict[str, Dict[str, Any]] = {
 }
 
 
+# --------------------------------------------------------------------------- #
+# DEX ABI family — HOW a venue's factory/pool is resolved on-chain. This is a  #
+# verified protocol fact (public ABIs), NOT fabricated market data. It lets    #
+# the discovery seam pick the correct resolver per venue and report an HONEST  #
+# blocker for families whose resolver is not yet implemented.                  #
+#                                                                              #
+#   univ3   : factory.getPool(tokenA,tokenB,uint24 fee) + pool token0/1/fee/   #
+#             liquidity   (Uniswap V3 and DIRECT forks — Sushi V3, Pancake V3) #
+#   univ2   : factory.getPair(tokenA,tokenB) + pair token0/1 + getReserves()   #
+#             (Uniswap V2 and DIRECT forks — SushiSwap V2)                      #
+#   algebra : Algebra factory.poolByPair(tokenA,tokenB) (dynamic fee, no fee   #
+#             arg — Camelot V3, QuickSwap V3) — DISTINCT ABI, resolver not yet  #
+#             wired (reported as an explicit blocker, never as UniV3).          #
+#   solidly : Solidly/Velodrome factory.getPool(tokenA,tokenB,bool stable)     #
+#   curve   : Curve registry/factory (non-getPool ABI)                         #
+_DEX_ABI: Dict[str, str] = {
+    "uniswap_v3": "univ3",
+    "sushiswap_v3": "univ3",
+    "pancakeswap_v3": "univ3",
+    "camelot_v3": "algebra",
+    "quickswap_v3": "algebra",
+    "sushiswap_v2": "univ2",
+    "velodrome_v2": "solidly",
+    "curve_stable": "curve",
+}
+
+
+def _abi_for(dex: Optional[str], kind: Optional[str]) -> str:
+    """ABI family for a DEX. Explicit mapping wins; otherwise conservatively
+    derived from ``kind`` so a new registry entry is never silently mis-typed
+    as a UniV3 fork (unknown ⇒ ``unknown`` ⇒ fail-closed downstream)."""
+    a = _DEX_ABI.get((dex or "").lower())
+    if a:
+        return a
+    return {"v3": "univ3", "v2": "univ2", "stable": "stable"}.get(
+        (kind or "").lower(), "unknown")
+
+
 def registry_for(chain: str) -> Dict[str, Any]:
     return CHAIN_REGISTRIES.get((chain or "").lower(), {})
 
@@ -118,7 +156,30 @@ def tokens_for(chain: str) -> Dict[str, Any]:
 
 
 def dexes_for(chain: str) -> List[Dict[str, Any]]:
-    return list(registry_for(chain).get("dexes", []))
+    """DEX entries for ``chain``, each annotated with its resolved ABI family
+    (``abi``). Copies are returned so callers cannot mutate the registry."""
+    out: List[Dict[str, Any]] = []
+    for d in registry_for(chain).get("dexes", []):
+        d2 = dict(d)
+        d2["abi"] = _abi_for(d.get("dex"), d.get("kind"))
+        out.append(d2)
+    return out
+
+
+def factory_for(chain: str, dex: str) -> Optional[str]:
+    """Registered factory address for a specific ``dex`` on ``chain`` (or None)."""
+    for d in dexes_for(chain):
+        if d.get("dex") == dex:
+            return d.get("factory")
+    return None
+
+
+def dex_abi(chain: str, dex: str) -> Optional[str]:
+    """ABI family for a specific ``dex`` on ``chain`` (None if not registered)."""
+    for d in dexes_for(chain):
+        if d.get("dex") == dex:
+            return d.get("abi")
+    return None
 
 
 def probe_amount_wei(chain: str, symbol: str) -> Optional[int]:
@@ -150,4 +211,4 @@ def probe_amount_wei(chain: str, symbol: str) -> Optional[int]:
 
 
 __all__ = ["CHAIN_REGISTRIES", "registry_for", "tokens_for", "dexes_for",
-           "probe_amount_wei"]
+           "factory_for", "dex_abi", "probe_amount_wei"]

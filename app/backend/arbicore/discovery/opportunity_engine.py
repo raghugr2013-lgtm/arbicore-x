@@ -22,8 +22,9 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from ..chains.registries import dexes_for
-from .univ3_pool_resolver import EthCall, resolve_univ3_pool, univ3_factory_for
+from ..chains.registries import dexes_for, dex_abi, factory_for
+from .univ3_pool_resolver import (
+    EthCall, resolve_univ3_pool, resolve_univ2_pool)
 from ..runtime.multichain_readiness import (
     provider_registry_rpc_configured,
     rpc_explicitly_configured,
@@ -85,17 +86,27 @@ async def discover_pools_parallel(
 
     async def _one(task: Dict[str, Any]) -> Dict[str, Any]:
         chain = task.get("chain")
-        base = {"chain": chain, "token_a": task.get("token_a"),
+        dex = task.get("dex") or "uniswap_v3"
+        base = {"chain": chain, "dex": dex, "token_a": task.get("token_a"),
                 "token_b": task.get("token_b"), "fee": task.get("fee")}
         eth_call = eth_call_for_chain(chain)
         if eth_call is None:
             return {**base, "resolved": False, "pool": None,
                     "reason": "chain_rpc_unavailable"}
+        abi = dex_abi(chain, dex)
         async with sem:
             try:
-                coro = resolve_univ3_pool(
-                    chain, task["token_a"], task["token_b"], task["fee"],
-                    eth_call=eth_call)
+                if abi == "univ2":
+                    coro = resolve_univ2_pool(
+                        chain, task["token_a"], task["token_b"],
+                        eth_call=eth_call, dex=dex)
+                else:
+                    # univ3 family (Uniswap V3 + Sushi/Pancake V3 forks). Non
+                    # univ3/univ2 families (algebra/solidly/curve) have no
+                    # generic resolver seam yet ⇒ resolve to None (fail-closed).
+                    coro = resolve_univ3_pool(
+                        chain, task["token_a"], task["token_b"], task["fee"],
+                        eth_call=eth_call, dex=dex)
                 pool = (await asyncio.wait_for(coro, timeout=per_task_timeout_s)
                         if per_task_timeout_s else await coro)
             except Exception as exc:  # noqa: BLE001 — timeout/RPC fault fail-closed
@@ -104,9 +115,12 @@ async def discover_pools_parallel(
         if pool is None:
             # Base/base-sepolia are served by the canonical registry, not this
             # generic resolver — report that honestly rather than as invalid.
-            reason = ("handled_by_canonical_registry"
-                      if (chain or "").lower() in ("base", "base-sepolia")
-                      else "pool_invalid_or_unreadable")
+            if (chain or "").lower() in ("base", "base-sepolia"):
+                reason = "handled_by_canonical_registry"
+            elif abi not in ("univ3", "univ2"):
+                reason = "no_pool_resolver_for_venue_family"
+            else:
+                reason = "pool_invalid_or_unreadable"
             return {**base, "resolved": False, "pool": None, "reason": reason}
         return {**base, "resolved": True, "pool": pool, "reason": "ok"}
 
@@ -126,22 +140,35 @@ def _cell_state(chain: str, venue: str, *, quoter_supported: bool) -> Dict[str, 
     implemented = True
     rpc = rpc_explicitly_configured(chain)              # discovery-level
     econ_rpc = provider_registry_rpc_configured(chain)  # economic gate
-    is_univ3 = venue == "uniswap_v3"
-    factory = univ3_factory_for(chain) if is_univ3 else None
-    # DISCOVERABLE = a real resolution path exists. Base (canonical registry via
-    # base_pool_registry/aero_resolver) resolves ALL its venues; other chains
-    # resolve UniV3 via the registered factory. Non-UniV3 venue families on
-    # non-Base chains have adapters but no generic pool-resolution seam here.
-    if (chain or "").lower() in ("base", "base-sepolia"):
+    c = (chain or "").lower()
+    is_base = c in ("base", "base-sepolia")
+    abi = None if is_base else dex_abi(chain, venue)
+    factory = None if is_base else factory_for(chain, venue)
+    # DISCOVERABLE = a REAL resolution path exists in code for this venue family.
+    #   * Base   — canonical registry (base_pool_registry / aero_resolver) covers
+    #              ALL its venues.
+    #   * univ3  — Uniswap V3 + DIRECT forks (Sushi V3, Pancake V3): factory
+    #              getPool(address,address,uint24) resolver.
+    #   * univ2  — Uniswap V2 + DIRECT forks (Sushi V2): factory getPair resolver.
+    #   * algebra/solidly/curve — genuinely DISTINCT ABIs with NO generic
+    #              resolver seam yet ⇒ not discoverable, reported with the EXACT
+    #              family blocker (never fabricated as UniV3).
+    if is_base:
         discoverable = True
-    elif is_univ3:
+    elif abi in ("univ3", "univ2"):
         discoverable = bool(factory)
     else:
         discoverable = False
 
     if not discoverable:
-        blocker = ("univ3_factory_unregistered" if is_univ3
-                   else "no_pool_resolver_for_venue_family")
+        if abi == "univ3":
+            blocker = "univ3_factory_unregistered"
+        elif abi == "univ2":
+            blocker = "univ2_factory_unregistered"
+        elif abi in ("algebra", "solidly", "curve", "stable"):
+            blocker = f"{abi}_resolver_not_implemented"
+        else:
+            blocker = "no_pool_resolver_for_venue_family"
     elif not rpc:
         blocker = "no_operator_configured_rpc"
     elif not quoter_supported:
@@ -160,6 +187,7 @@ def _cell_state(chain: str, venue: str, *, quoter_supported: bool) -> Dict[str, 
 
     return {
         "implemented": implemented,
+        "abi": abi if not is_base else "canonical_base",
         "rpc_configured": rpc,
         "economic_rpc_configured": econ_rpc,
         "discoverable": discoverable,

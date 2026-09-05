@@ -17,9 +17,8 @@ regression-frozen ``base_venues`` graph.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, List
 
-from . import base_venues  # for PoolNode via its import surface
 from ..scanners.flash_loan_arbitrage.route_search import PoolNode
 from ..chains import registries
 
@@ -37,7 +36,15 @@ def _venue_id(dex: str, a: str, b: str, param: Any) -> str:
 
 
 def build_pool_graph(chain: str) -> List[PoolNode]:
-    """Venue universe for ``chain`` (fail-closed empty if unsupported)."""
+    """Venue universe for ``chain`` (fail-closed empty if unsupported).
+
+    Emits venues whose family has a REAL on-chain resolver seam:
+      * univ3 — Uniswap V3 + DIRECT forks (Sushi V3, Pancake V3): fee-tiered.
+      * univ2 — Uniswap V2 + DIRECT forks (Sushi V2): fixed 30 bps.
+    ABI families with no generic resolver yet (algebra/solidly/curve) are NOT
+    fabricated into the probe graph; they remain registered capabilities and are
+    reported (with an explicit blocker) by the opportunity matrix instead.
+    """
     chain = (chain or "").lower()
     reg = registries.registry_for(chain)
     if not reg:
@@ -46,26 +53,33 @@ def build_pool_graph(chain: str) -> List[PoolNode]:
     present = [s for s in _PREFERRED if s in tokens]
     if len(present) < 2:
         return []
-    v3_dexes = [d["dex"] for d in registries.dexes_for(chain)
-                if d.get("kind") == "v3"]
-    if not v3_dexes:
+    dexes = registries.dexes_for(chain)
+    v3_dexes = [d["dex"] for d in dexes if d.get("abi") == "univ3"]
+    v2_dexes = [d["dex"] for d in dexes if d.get("abi") == "univ2"]
+    if not v3_dexes and not v2_dexes:
         return []
 
     pools: List[PoolNode] = []
     seen: set = set()
-    for dex in v3_dexes:
-        for i in range(len(present)):
-            for j in range(i + 1, len(present)):
-                a, b = present[i], present[j]
+
+    def _add(dex: str, a: str, b: str, param: Any, fee_bps: int) -> None:
+        vid = _venue_id(dex, a, b, param)
+        if vid in seen:
+            return
+        seen.add(vid)
+        pools.append(PoolNode(
+            pool_address=vid, dex_protocol=dex, chain=chain,
+            token_a=a, token_b=b, tvl_usd=0.0, fee_bps=fee_bps))
+
+    for i in range(len(present)):
+        for j in range(i + 1, len(present)):
+            a, b = present[i], present[j]
+            for dex in v3_dexes:
                 for fee_ppm in _V3_FEE_TIERS:
-                    vid = _venue_id(dex, a, b, fee_ppm)
-                    if vid in seen:
-                        continue
-                    seen.add(vid)
-                    pools.append(PoolNode(
-                        pool_address=vid, dex_protocol=dex, chain=chain,
-                        token_a=a, token_b=b, tvl_usd=0.0,
-                        fee_bps=int(fee_ppm // 100) or 5))
+                    _add(dex, a, b, fee_ppm, int(fee_ppm // 100) or 5)
+            for dex in v2_dexes:
+                # UniswapV2 forks use a fixed 0.30% swap fee.
+                _add(dex, a, b, "v2", 30)
     return pools
 
 
