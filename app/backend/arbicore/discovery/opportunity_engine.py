@@ -20,9 +20,9 @@ QUOTABLE/ECONOMICALLY-VALID/SIMULATABLE/LIMITED-LIVE. No signing/broadcast.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from ..chains.registries import dexes_for, registry_for, tokens_for
+from ..chains.registries import dexes_for
 from .univ3_pool_resolver import EthCall, resolve_univ3_pool, univ3_factory_for
 from ..runtime.multichain_readiness import (
     provider_registry_rpc_configured,
@@ -30,7 +30,7 @@ from ..runtime.multichain_readiness import (
     supported_networks,
 )
 
-# Implemented arbitrage strategies (the 6 canonical scanners in the repo). Kept
+# Implemented arbitrage strategies (the canonical scanners in the repo). Kept
 # as a documented constant so dormant strategies are never dropped from the
 # surface; runtime readiness is reported per-cell, not inferred from existence.
 IMPLEMENTED_STRATEGIES: Tuple[str, ...] = (
@@ -102,8 +102,12 @@ async def discover_pools_parallel(
                 return {**base, "resolved": False, "pool": None,
                         "reason": f"resolve_error:{type(exc).__name__}"}
         if pool is None:
-            return {**base, "resolved": False, "pool": None,
-                    "reason": "pool_invalid_or_unreadable"}
+            # Base/base-sepolia are served by the canonical registry, not this
+            # generic resolver — report that honestly rather than as invalid.
+            reason = ("handled_by_canonical_registry"
+                      if (chain or "").lower() in ("base", "base-sepolia")
+                      else "pool_invalid_or_unreadable")
+            return {**base, "resolved": False, "pool": None, "reason": reason}
         return {**base, "resolved": True, "pool": pool, "reason": "ok"}
 
     results = await asyncio.gather(*(_one(t) for t in tasks),
