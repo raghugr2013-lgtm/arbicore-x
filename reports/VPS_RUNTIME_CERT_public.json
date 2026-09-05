@@ -17,8 +17,8 @@
       "skipped": "base_canonical_use_m3_0_real_candidate_scan",
       "head": {
         "rpc": "mainnet.base.org",
-        "block": 50919168,
-        "latency_ms": 157,
+        "block": 50920419,
+        "latency_ms": 162,
         "error": null
       },
       "rows": []
@@ -27,8 +27,8 @@
       "skipped": null,
       "head": {
         "rpc": "arb1.arbitrum.io",
-        "block": 502065831,
-        "latency_ms": 130,
+        "block": 502075759,
+        "latency_ms": 103,
         "error": null
       },
       "rows": [
@@ -42,9 +42,9 @@
           "pool_address": "0xC6962004f452bE9203591991D15f6b388e09E8D0",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123645617,
+          "out_wei": 123770143,
           "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-          "gas_units": 97369,
+          "gas_units": 97354,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -58,9 +58,9 @@
           "pool_address": "0xc473e2aEE3441BF9240Be85eb122aBB059A3B57c",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123456118,
+          "out_wei": 123549365,
           "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-          "gas_units": 97343,
+          "gas_units": 96383,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -74,9 +74,9 @@
           "pool_address": "0x641C00A822e8b671738d32a431a4Fb6074E5c79d",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123619286,
+          "out_wei": 123710958,
           "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-          "gas_units": 96333,
+          "gas_units": 96314,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -90,9 +90,9 @@
           "pool_address": "0xc82819F72A9e77E2c0c3A69B3196478f44303cf4",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123369016,
+          "out_wei": 123510621,
           "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-          "gas_units": 135008,
+          "gas_units": 104942,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -138,9 +138,9 @@
           "pool_address": "0xf3Eb87C1F6020982173C908E7eB31aA66c1f0296",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123618095,
+          "out_wei": 123764597,
           "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-          "gas_units": 106030,
+          "gas_units": 106039,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -170,9 +170,9 @@
           "pool_address": "0x96aDA81328abCe21939A51D971A63077e16db26E",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123470765,
+          "out_wei": 123538227,
           "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-          "gas_units": 105050,
+          "gas_units": 105034,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -186,9 +186,9 @@
           "pool_address": "0x92d543A8a158A6bC2C7018ae17803819Cb9150B2",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122891221,
+          "out_wei": 123209171,
           "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
-          "gas_units": 101699,
+          "gas_units": 102645,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -233,7 +233,7 @@
           "pool_address": "0xB1026b8e7276e7AC75410F1fcbbe21796e8f7526",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123720941,
+          "out_wei": 123819133,
           "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
           "gas_units": null,
           "reason": "ok",
@@ -249,7 +249,7 @@
           "pool_address": "0x7CcCBA38E2D959fe135e79AEBB57CCb27B128358",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123251461,
+          "out_wei": 123351979,
           "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
           "gas_units": null,
           "reason": "ok",
@@ -265,7 +265,7 @@
           "pool_address": "0xa17aFCAb059F3C6751F5B64347b5a503C3291868",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 200038332,
+          "out_wei": 200026500,
           "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
           "gas_units": null,
           "reason": "ok",
@@ -275,10 +275,39 @@
       "candidates": [
         {
           "chain": "arbitrum",
+          "block": 502075759,
           "pair": "WETH/USDC",
           "borrow": "WETH",
           "buy_venue": "camelot_v3",
           "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0xB1026b8e7276e7AC75410F1fcbbe21796e8f7526",
+            "sell": "0xC6962004f452bE9203591991D15f6b388e09E8D0"
+          },
+          "token_path": [
+            "WETH",
+            "USDC",
+            "WETH"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 123819133,
+            "buy_gas_units": null,
+            "sell_out_wei": 49969706657111122,
+            "sell_gas_units": 93968
+          },
+          "liquidity": {
+            "buy": 43947659944163788,
+            "sell": 3261304212522652697
+          },
+          "fees": {
+            "buy_fee": null,
+            "sell_fee": 500
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "algebra"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -289,17 +318,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.034537,
-          "true_net": null,
-          "evidence_id": "cand:arbitrum:WETH/USDC:camelot_v3>uniswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.074988,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 30.94,
+                "gross_usd": -0.017529
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 123.77,
+                "gross_usd": -0.074988
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 495.08,
+                "gross_usd": -0.386876
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 1980.32,
+                "gross_usd": -2.908685
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 7921.29,
+                "gross_usd": -33.339509
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:09.342963+00:00",
+          "evidence_id": "cand:arbitrum:WETH/USDC:camelot_v3>uniswap_v3:blk502075759"
         },
         {
           "chain": "arbitrum",
+          "block": 502075759,
           "pair": "WETH/USDT",
           "borrow": "WETH",
           "buy_venue": "uniswap_v3",
           "sell_venue": "sushiswap_v3",
+          "pools": {
+            "buy": "0x641C00A822e8b671738d32a431a4Fb6074E5c79d",
+            "sell": "0x96aDA81328abCe21939A51D971A63077e16db26E"
+          },
+          "token_path": [
+            "WETH",
+            "USDT",
+            "WETH"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 123710958,
+            "buy_gas_units": 96314,
+            "sell_out_wei": 49830622403831257,
+            "sell_gas_units": 102881
+          },
+          "liquidity": {
+            "buy": 325171267703438185,
+            "sell": 1310451207215440
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 500
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -310,17 +400,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.442717,
-          "true_net": null,
-          "evidence_id": "cand:arbitrum:WETH/USDT:uniswap_v3>sushiswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.419278,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 30.94,
+                "gross_usd": -0.060812
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 123.77,
+                "gross_usd": -0.419278
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 495.08,
+                "gross_usd": -4.473652
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 1980.32,
+                "gross_usd": -72.510846
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 7921.29,
+                "gross_usd": -1117.004478
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:10.601699+00:00",
+          "evidence_id": "cand:arbitrum:WETH/USDT:uniswap_v3>sushiswap_v3:blk502075759"
         },
         {
           "chain": "arbitrum",
+          "block": 502075759,
           "pair": "USDC/USDT",
           "borrow": "USDT",
           "buy_venue": "camelot_v3",
           "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0xa17aFCAb059F3C6751F5B64347b5a503C3291868",
+            "sell": "0xbcE73c2e5A623054B0e8e2428E956f4b9d0412a5"
+          },
+          "token_path": [
+            "USDT",
+            "USDC",
+            "USDT"
+          ],
+          "input_size_wei": 200000000,
+          "hop_quotes": {
+            "buy_out_wei": 200026500,
+            "buy_gas_units": null,
+            "sell_out_wei": 199910479,
+            "sell_gas_units": 96161
+          },
+          "liquidity": {
+            "buy": 2229323445613743,
+            "sell": 17036806566343
+          },
+          "fees": {
+            "buy_fee": null,
+            "sell_fee": 500
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "algebra"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -331,10 +482,42 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.077697,
-          "true_net": null,
-          "evidence_id": "cand:arbitrum:USDC/USDT:camelot_v3>uniswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.089521,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 50.0,
+                "gross_usd": -0.021938
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 200.0,
+                "gross_usd": -0.089521
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 800.0,
+                "gross_usd": -0.386445
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 3200.0,
+                "gross_usd": -1.999527
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 12800.0,
+                "gross_usd": -4101.813469
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:11.867184+00:00",
+          "evidence_id": "cand:arbitrum:USDC/USDT:camelot_v3>uniswap_v3:blk502075759"
         }
       ]
     },
@@ -342,8 +525,8 @@
       "skipped": null,
       "head": {
         "rpc": "bsc-dataseed.binance.org",
-        "block": 120146986,
-        "latency_ms": 188,
+        "block": 120152550,
+        "latency_ms": 182,
         "error": null
       },
       "rows": [
@@ -357,9 +540,9 @@
           "pool_address": "0x539e0EBfffd39e54A0f7E5F8FEc40ade7933A664",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123692164391053354270,
+          "out_wei": 123740961881105867952,
           "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-          "gas_units": 128557,
+          "gas_units": 129529,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -388,7 +571,7 @@
           "pool_address": "0xBe141893E4c6AD9272e8C04BAB7E6a10604501a5",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123718398278842890181,
+          "out_wei": 123741668683411813688,
           "out_token": "0x55d398326f99059fF775485246999027B3197955",
           "gas_units": 116806,
           "reason": "ok",
@@ -419,7 +602,7 @@
           "pool_address": "0x4f31Fa980a675570939B737Ebdde0471a4Be40Eb",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 49971475520350611,
+          "out_wei": 49971396726095437,
           "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
           "gas_units": 94532,
           "reason": "ok",
@@ -450,9 +633,9 @@
           "pool_address": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38733375001305757051,
+          "out_wei": 38761681128761617085,
           "out_token": "0x55d398326f99059fF775485246999027B3197955",
-          "gas_units": 115291,
+          "gas_units": 92055,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -481,9 +664,9 @@
           "pool_address": "0x81A9b5F18179cE2bf8f001b8a634Db80771F1824",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38728878843873742683,
+          "out_wei": 38772732286499865973,
           "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-          "gas_units": 101252,
+          "gas_units": 131719,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -512,9 +695,9 @@
           "pool_address": "0xd8cc6BFDEe087148c220E9141a075D18418aBBaC",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122971324815841119389,
+          "out_wei": 123112617391454415241,
           "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-          "gas_units": 96383,
+          "gas_units": 95401,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -528,9 +711,9 @@
           "pool_address": "0x17507bEF4c3abC1Bc715be723eE1baF571256E05",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123259067253323663161,
+          "out_wei": 123488998689523362639,
           "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-          "gas_units": 96319,
+          "gas_units": 96303,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -544,9 +727,9 @@
           "pool_address": "0xF9878A5dD55EdC120Fde01893ea713a4f032229c",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123661265819543940273,
+          "out_wei": 123688195533021336986,
           "out_token": "0x55d398326f99059fF775485246999027B3197955",
-          "gas_units": 89131,
+          "gas_units": 89171,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -560,9 +743,9 @@
           "pool_address": "0xdE67D05242B18AF00b28678dB34FEEC883cc9Cd6",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122302781029070948133,
+          "out_wei": 122619238012143503286,
           "out_token": "0x55d398326f99059fF775485246999027B3197955",
-          "gas_units": 89082,
+          "gas_units": 89108,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -608,9 +791,9 @@
           "pool_address": "0x6fe9E9de56356F7eDBfcBB29FAB7cd69471a4869",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38733388668724067689,
+          "out_wei": 38762927895304792939,
           "out_token": "0x55d398326f99059fF775485246999027B3197955",
-          "gas_units": 79319,
+          "gas_units": 79333,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -624,9 +807,9 @@
           "pool_address": "0x7862D9B4bE2156B15d54F41ee4EDE2d5b0b455e4",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38618984253411268857,
+          "out_wei": 38699403411563348924,
           "out_token": "0x55d398326f99059fF775485246999027B3197955",
-          "gas_units": 88016,
+          "gas_units": 88038,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -640,9 +823,9 @@
           "pool_address": "0x5289A8Dbf7029eE0b0498a84777ed3941D9acfEc",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 37974445346532494919,
+          "out_wei": 38024880634352973348,
           "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-          "gas_units": 95214,
+          "gas_units": 95194,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -656,9 +839,9 @@
           "pool_address": "0x6bcb0Ba386E9de0C29006e46B2f01f047cA1806E",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38488230362295241376,
+          "out_wei": 38578930642921578244,
           "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-          "gas_units": 95252,
+          "gas_units": 95278,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         }
@@ -666,10 +849,39 @@
       "candidates": [
         {
           "chain": "bnb",
+          "block": 120152550,
           "pair": "WETH/USDC",
           "borrow": "WETH",
           "buy_venue": "pancakeswap_v3",
           "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0x539e0EBfffd39e54A0f7E5F8FEc40ade7933A664",
+            "sell": "0x17507bEF4c3abC1Bc715be723eE1baF571256E05"
+          },
+          "token_path": [
+            "WETH",
+            "USDC",
+            "WETH"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 123740961881105867952,
+            "buy_gas_units": 129529,
+            "sell_out_wei": 49745193875652160,
+            "sell_gas_units": 94597
+          },
+          "liquidity": {
+            "buy": 13511174894285582902725,
+            "sell": 4355510643759531833507
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 3000
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -680,17 +892,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.14072,
-          "true_net": null,
-          "evidence_id": "cand:bnb:WETH/USDC:pancakeswap_v3>uniswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.197534,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 9.69,
+                "gross_usd": -0.043939
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 38.76,
+                "gross_usd": -0.197534
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 155.05,
+                "gross_usd": -1.137607
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 620.19,
+                "gross_usd": -9.900171
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 2480.75,
+                "gross_usd": -193.740457
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:16.377704+00:00",
+          "evidence_id": "cand:bnb:WETH/USDC:pancakeswap_v3>uniswap_v3:blk120152550"
         },
         {
           "chain": "bnb",
+          "block": 120152550,
           "pair": "WETH/USDT",
           "borrow": "WETH",
           "buy_venue": "pancakeswap_v3",
           "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0xBe141893E4c6AD9272e8C04BAB7E6a10604501a5",
+            "sell": "0xF9878A5dD55EdC120Fde01893ea713a4f032229c"
+          },
+          "token_path": [
+            "WETH",
+            "USDT",
+            "WETH"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 123741668683411813688,
+            "buy_gas_units": 116806,
+            "sell_out_wei": 49949128270417503,
+            "sell_gas_units": 88332
+          },
+          "liquidity": {
+            "buy": 343895385866402614797875,
+            "sell": 11049962936737671833850
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 500
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -701,17 +974,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.038259,
-          "true_net": null,
-          "evidence_id": "cand:bnb:WETH/USDT:pancakeswap_v3>uniswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.039437,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 9.69,
+                "gross_usd": -0.008174
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 38.76,
+                "gross_usd": -0.039437
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 155.05,
+                "gross_usd": -0.265541
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 620.19,
+                "gross_usd": -2.782358
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 2480.75,
+                "gross_usd": -39.636365
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:17.708181+00:00",
+          "evidence_id": "cand:bnb:WETH/USDT:pancakeswap_v3>uniswap_v3:blk120152550"
         },
         {
           "chain": "bnb",
+          "block": 120152550,
           "pair": "USDC/USDT",
           "borrow": "USDT",
           "buy_venue": "uniswap_v3",
           "sell_venue": "pancakeswap_v3",
+          "pools": {
+            "buy": "0xcCDFcd1aaC447D5B29980f64b831c532a6a33726",
+            "sell": "0x4f31Fa980a675570939B737Ebdde0471a4Be40Eb"
+          },
+          "token_path": [
+            "USDT",
+            "USDC",
+            "USDT"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 49988160249334896,
+            "buy_gas_units": 87104,
+            "sell_out_wei": 49966768848312412,
+            "sell_gas_units": 93662
+          },
+          "liquidity": {
+            "buy": 5107943531931908817292082,
+            "sell": 3772011340039831871342106639
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 500
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -722,17 +1056,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
+          "reason": "negative_gross_edge_all_sizes",
           "gross_profit_usd": -3.3e-05,
-          "true_net": null,
-          "evidence_id": "cand:bnb:USDC/USDT:uniswap_v3>pancakeswap_v3"
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 0.01,
+                "gross_usd": -8e-06
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 0.05,
+                "gross_usd": -3.3e-05
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 0.2,
+                "gross_usd": -0.000133
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 0.8,
+                "gross_usd": -0.000532
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 3.2,
+                "gross_usd": -0.002129
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:19.075462+00:00",
+          "evidence_id": "cand:bnb:USDC/USDT:uniswap_v3>pancakeswap_v3:blk120152550"
         },
         {
           "chain": "bnb",
+          "block": 120152550,
           "pair": "WBNB/USDT",
           "borrow": "WBNB",
           "buy_venue": "uniswap_v3",
           "sell_venue": "pancakeswap_v3",
+          "pools": {
+            "buy": "0x6fe9E9de56356F7eDBfcBB29FAB7cd69471a4869",
+            "sell": "0x36696169C63e42cd08ce11f5deeBbCeBae652050"
+          },
+          "token_path": [
+            "WBNB",
+            "USDT",
+            "WBNB"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 38762927895304792939,
+            "buy_gas_units": 79333,
+            "sell_out_wei": 49951541630886447,
+            "sell_gas_units": 115742
+          },
+          "liquidity": {
+            "buy": 2345078988152211961178318,
+            "sell": 1793255480335449975029545
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 500
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -743,17 +1138,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.03877,
-          "true_net": null,
-          "evidence_id": "cand:bnb:WBNB/USDT:uniswap_v3>pancakeswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.037567,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 9.69,
+                "gross_usd": -0.009382
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 38.76,
+                "gross_usd": -0.037567
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 155.05,
+                "gross_usd": -0.150902
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 620.19,
+                "gross_usd": -0.61379
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 2480.75,
+                "gross_usd": -2.618034
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:20.415440+00:00",
+          "evidence_id": "cand:bnb:WBNB/USDT:uniswap_v3>pancakeswap_v3:blk120152550"
         },
         {
           "chain": "bnb",
+          "block": 120152550,
           "pair": "WBNB/USDC",
           "borrow": "WBNB",
           "buy_venue": "pancakeswap_v3",
           "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0x81A9b5F18179cE2bf8f001b8a634Db80771F1824",
+            "sell": "0x6bcb0Ba386E9de0C29006e46B2f01f047cA1806E"
+          },
+          "token_path": [
+            "WBNB",
+            "USDC",
+            "WBNB"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 38772732286499865973,
+            "buy_gas_units": 131719,
+            "sell_out_wei": 49643368569918675,
+            "sell_gas_units": 95458
+          },
+          "liquidity": {
+            "buy": 17332592054604064475451,
+            "sell": 450004034490145432890
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 3000
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -764,10 +1220,42 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.229109,
-          "true_net": null,
-          "evidence_id": "cand:bnb:WBNB/USDC:pancakeswap_v3>uniswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.276473,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 9.69,
+                "gross_usd": -0.046307
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 38.76,
+                "gross_usd": -0.276473
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 155.05,
+                "gross_usd": -2.548702
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 620.19,
+                "gross_usd": -32.237471
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 2480.75,
+                "gross_usd": -423.68843
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:21.937056+00:00",
+          "evidence_id": "cand:bnb:WBNB/USDC:pancakeswap_v3>uniswap_v3:blk120152550"
         }
       ]
     },
@@ -775,8 +1263,8 @@
       "skipped": null,
       "head": {
         "rpc": "ethereum-rpc.publicnode.com",
-        "block": 25912491,
-        "latency_ms": 267,
+        "block": 25912699,
+        "latency_ms": 116,
         "error": null
       },
       "rows": [
@@ -790,9 +1278,9 @@
           "pool_address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123723929,
+          "out_wei": 123773027,
           "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-          "gas_units": 89039,
+          "gas_units": 90009,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -806,9 +1294,9 @@
           "pool_address": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123369628,
+          "out_wei": 123424945,
           "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-          "gas_units": 90005,
+          "gas_units": 89981,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -822,9 +1310,9 @@
           "pool_address": "0x11b815efB8f581194ae79006d24E0d814B7697F6",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123688891,
+          "out_wei": 123733707,
           "out_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-          "gas_units": 91000,
+          "gas_units": 90964,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -838,9 +1326,9 @@
           "pool_address": "0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123262761,
+          "out_wei": 123411504,
           "out_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-          "gas_units": 90966,
+          "gas_units": 90031,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -854,7 +1342,7 @@
           "pool_address": "0x7858E59e0C01EA06Df3aF3D20aC7B0003275D4Bf",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 199936235,
+          "out_wei": 199936055,
           "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
           "gas_units": 92335,
           "reason": "ok",
@@ -886,7 +1374,7 @@
           "pool_address": "0x397FF1542f962076d0BFE58eA045FfA2d347ACa0",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122952235,
+          "out_wei": 123387838,
           "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
           "gas_units": null,
           "reason": "ok",
@@ -902,7 +1390,7 @@
           "pool_address": "0x06da0fd433C1A5d7a4faa01111c044910A184553",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123338185,
+          "out_wei": 123337233,
           "out_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
           "gas_units": null,
           "reason": "ok",
@@ -928,10 +1416,39 @@
       "candidates": [
         {
           "chain": "ethereum",
+          "block": 25912699,
           "pair": "WETH/USDC",
           "borrow": "WETH",
           "buy_venue": "uniswap_v3",
           "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+            "sell": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8"
+          },
+          "token_path": [
+            "WETH",
+            "USDC",
+            "WETH"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 123773027,
+            "buy_gas_units": 90009,
+            "sell_out_wei": 49840524198655117,
+            "sell_gas_units": 87439
+          },
+          "liquidity": {
+            "buy": 4981790991292130690,
+            "sell": 2748688116456341361
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 3000
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -942,17 +1459,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.388264,
-          "true_net": null,
-          "evidence_id": "cand:ethereum:WETH/USDC:uniswap_v3>uniswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.394776,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 30.94,
+                "gross_usd": -0.098657
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 123.77,
+                "gross_usd": -0.394776
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 495.09,
+                "gross_usd": -1.581095
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 1980.37,
+                "gross_usd": -6.357574
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 7921.47,
+                "gross_usd": -25.96142
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:25.612834+00:00",
+          "evidence_id": "cand:ethereum:WETH/USDC:uniswap_v3>uniswap_v3:blk25912699"
         },
         {
           "chain": "ethereum",
+          "block": 25912699,
           "pair": "WETH/USDT",
           "borrow": "WETH",
           "buy_venue": "uniswap_v3",
-          "sell_venue": "sushiswap_v2",
+          "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0x11b815efB8f581194ae79006d24E0d814B7697F6",
+            "sell": "0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36"
+          },
+          "token_path": [
+            "WETH",
+            "USDT",
+            "WETH"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 123733707,
+            "buy_gas_units": 90964,
+            "sell_out_wei": 49830193846026244,
+            "sell_gas_units": 80895
+          },
+          "liquidity": {
+            "buy": 541326846832634814,
+            "sell": 17969694508833185962
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 3000
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -963,17 +1541,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.489549,
-          "true_net": null,
-          "evidence_id": "cand:ethereum:WETH/USDT:uniswap_v3>sushiswap_v2"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.420348,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 30.94,
+                "gross_usd": -0.104978
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 123.77,
+                "gross_usd": -0.420348
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 495.09,
+                "gross_usd": -1.688392
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 1980.37,
+                "gross_usd": -6.865619
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 7921.47,
+                "gross_usd": -29.254828
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:26.884874+00:00",
+          "evidence_id": "cand:ethereum:WETH/USDT:uniswap_v3>uniswap_v3:blk25912699"
         },
         {
           "chain": "ethereum",
+          "block": 25912699,
           "pair": "USDC/USDT",
           "borrow": "USDT",
           "buy_venue": "uniswap_v3",
           "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0x7858E59e0C01EA06Df3aF3D20aC7B0003275D4Bf",
+            "sell": "0xEe4Cf3b78A74aFfa38C6a926282bCd8B5952818d"
+          },
+          "token_path": [
+            "USDT",
+            "USDC",
+            "USDT"
+          ],
+          "input_size_wei": 200000000,
+          "hop_quotes": {
+            "buy_out_wei": 199936055,
+            "buy_gas_units": 92335,
+            "sell_out_wei": 199690818,
+            "sell_gas_units": 106704
+          },
+          "liquidity": {
+            "buy": 210995041174629,
+            "sell": 3973749539305
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 3000
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -984,10 +1623,42 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.309002,
-          "true_net": null,
-          "evidence_id": "cand:ethereum:USDC/USDT:uniswap_v3>uniswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.309182,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 50.0,
+                "gross_usd": -0.075381
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 200.0,
+                "gross_usd": -0.309182
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 800.0,
+                "gross_usd": -1.359284
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 3200.0,
+                "gross_usd": -7.396607
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 12800.0,
+                "gross_usd": -60.833558
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:28.156490+00:00",
+          "evidence_id": "cand:ethereum:USDC/USDT:uniswap_v3>uniswap_v3:blk25912699"
         }
       ]
     },
@@ -995,8 +1666,8 @@
       "skipped": null,
       "head": {
         "rpc": "mainnet.optimism.io",
-        "block": 156514459,
-        "latency_ms": 233,
+        "block": 156515716,
+        "latency_ms": 264,
         "error": null
       },
       "rows": [
@@ -1010,9 +1681,9 @@
           "pool_address": "0x1fb3cf6e48F1E7B10213E7b6d87D4c073C7Fdb7b",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123686567,
+          "out_wei": 123718228,
           "out_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
-          "gas_units": 127671,
+          "gas_units": 98526,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1026,9 +1697,9 @@
           "pool_address": "0xc1738D90E2E26C35784A0d3E3d8A9f795074bcA4",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123243511,
+          "out_wei": 123503930,
           "out_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
-          "gas_units": 89857,
+          "gas_units": 98520,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1042,9 +1713,9 @@
           "pool_address": "0xc858A329Bf053BE78D6239C4A4343B8FbD21472b",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123675823,
+          "out_wei": 123740127,
           "out_token": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
-          "gas_units": 117465,
+          "gas_units": 87425,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1058,9 +1729,9 @@
           "pool_address": "0xdd0c6bAe8Ad5998c358b823df15A2A4181Da1b80",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122943909,
+          "out_wei": 123151642,
           "out_token": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
-          "gas_units": 81093,
+          "gas_units": 110937,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1074,7 +1745,7 @@
           "pool_address": "0x2926736C30EF3649F9e6b5c5918ea88871F79f2B",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 199939542,
+          "out_wei": 199939310,
           "out_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
           "gas_units": 98405,
           "reason": "ok",
@@ -1103,8 +1774,8 @@
       "skipped": null,
       "head": {
         "rpc": "polygon-bor-rpc.publicnode.com",
-        "block": 93281777,
-        "latency_ms": 151,
+        "block": 93283453,
+        "latency_ms": 155,
         "error": null
       },
       "rows": [
@@ -1118,9 +1789,9 @@
           "pool_address": "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123708984,
+          "out_wei": 123766493,
           "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-          "gas_units": 138141,
+          "gas_units": 138175,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1134,9 +1805,9 @@
           "pool_address": "0x19C5505638383337D2972Ce68B493aD78E315147",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123169371,
+          "out_wei": 123280325,
           "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-          "gas_units": 138161,
+          "gas_units": 138159,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1150,9 +1821,9 @@
           "pool_address": "0xBB98B3D2b18aeF63a3178023A920971cf5F29bE4",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123682327,
+          "out_wei": 123737238,
           "out_token": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
-          "gas_units": 117615,
+          "gas_units": 117601,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1166,9 +1837,9 @@
           "pool_address": "0x4CcD010148379ea531D6C587CfDd60180196F9b1",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123236799,
+          "out_wei": 123507454,
           "out_token": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
-          "gas_units": 132134,
+          "gas_units": 132153,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1214,9 +1885,9 @@
           "pool_address": "0xB6e57ed85c4c9dbfEF2a68711e9d6f36c56e0FcB",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 4762,
+          "out_wei": 4750,
           "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-          "gas_units": 123816,
+          "gas_units": 123786,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1230,9 +1901,9 @@
           "pool_address": "0x2DB87C4831B2fec2E35591221455834193b50D1B",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 4748,
+          "out_wei": 4746,
           "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-          "gas_units": 123783,
+          "gas_units": 123771,
           "reason": "ok",
           "borrow_wei": 50000000000000000
         },
@@ -1246,7 +1917,7 @@
           "pool_address": "0xa6AeDF7c4Ed6e821E67a6BfD56FD1702aD9a9719",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123698787,
+          "out_wei": 123732878,
           "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
           "gas_units": null,
           "reason": "ok",
@@ -1262,7 +1933,7 @@
           "pool_address": "0x9CEff2F5138fC59eB925d270b8A7A9C02a1810f2",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123665652,
+          "out_wei": 123748043,
           "out_token": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
           "gas_units": null,
           "reason": "ok",
@@ -1278,7 +1949,7 @@
           "pool_address": "0x0e3Eb2C75Bd7dD0e12249d96b1321d9570764D77",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 200020434,
+          "out_wei": 200028065,
           "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
           "gas_units": null,
           "reason": "ok",
@@ -1294,7 +1965,7 @@
           "pool_address": "0x6669B4706cC152F359e947BCa68E263A87c52634",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 4759,
+          "out_wei": 4745,
           "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
           "gas_units": null,
           "reason": "ok",
@@ -1304,10 +1975,39 @@
       "candidates": [
         {
           "chain": "polygon",
+          "block": 93283453,
           "pair": "WETH/USDC",
           "borrow": "WETH",
           "buy_venue": "uniswap_v3",
           "sell_venue": "quickswap_v3",
+          "pools": {
+            "buy": "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9",
+            "sell": "0xa6AeDF7c4Ed6e821E67a6BfD56FD1702aD9a9719"
+          },
+          "token_path": [
+            "WETH",
+            "USDC",
+            "WETH"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 123766493,
+            "buy_gas_units": 138175,
+            "sell_out_wei": 49916064824099827,
+            "sell_gas_units": null
+          },
+          "liquidity": {
+            "buy": 51408589899907277,
+            "sell": 7727490701214395
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": null
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -1318,17 +2018,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -9e-06,
-          "true_net": null,
-          "evidence_id": "cand:polygon:WETH/USDC:uniswap_v3>quickswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -8e-06,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 0.0,
+                "gross_usd": -2e-06
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 0.0,
+                "gross_usd": -8e-06
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 0.02,
+                "gross_usd": -5.3e-05
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 0.08,
+                "gross_usd": -0.00055
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 0.3,
+                "gross_usd": -0.008746
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:34.846241+00:00",
+          "evidence_id": "cand:polygon:WETH/USDC:uniswap_v3>quickswap_v3:blk93283453"
         },
         {
           "chain": "polygon",
+          "block": 93283453,
           "pair": "WETH/USDT",
           "borrow": "WETH",
-          "buy_venue": "uniswap_v3",
-          "sell_venue": "quickswap_v3",
+          "buy_venue": "quickswap_v3",
+          "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0x9CEff2F5138fC59eB925d270b8A7A9C02a1810f2",
+            "sell": "0xBB98B3D2b18aeF63a3178023A920971cf5F29bE4"
+          },
+          "token_path": [
+            "WETH",
+            "USDT",
+            "WETH"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 123748043,
+            "buy_gas_units": null,
+            "sell_out_wei": 49953022676449930,
+            "sell_gas_units": 126454
+          },
+          "liquidity": {
+            "buy": 13717860154187953,
+            "sell": 183862027019424864
+          },
+          "fees": {
+            "buy_fee": null,
+            "sell_fee": 500
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "algebra"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -1339,17 +2100,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -7e-06,
-          "true_net": null,
-          "evidence_id": "cand:polygon:WETH/USDT:uniswap_v3>quickswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -4e-06,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 0.0,
+                "gross_usd": -1e-06
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 0.0,
+                "gross_usd": -4e-06
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 0.02,
+                "gross_usd": -2.9e-05
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 0.08,
+                "gross_usd": -0.000293
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 0.3,
+                "gross_usd": -0.003969
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:36.542911+00:00",
+          "evidence_id": "cand:polygon:WETH/USDT:quickswap_v3>uniswap_v3:blk93283453"
         },
         {
           "chain": "polygon",
+          "block": 93283453,
           "pair": "USDC/USDT",
           "borrow": "USDT",
           "buy_venue": "quickswap_v3",
           "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0x0e3Eb2C75Bd7dD0e12249d96b1321d9570764D77",
+            "sell": "0xEE95696f77693aF4F9B93850A9f48B4AD8E7a30A"
+          },
+          "token_path": [
+            "USDT",
+            "USDC",
+            "USDT"
+          ],
+          "input_size_wei": 200000000,
+          "hop_quotes": {
+            "buy_out_wei": 200028065,
+            "buy_gas_units": null,
+            "sell_out_wei": 199823089,
+            "sell_gas_units": 130568
+          },
+          "liquidity": {
+            "buy": 12653216435242,
+            "sell": 9850514797147
+          },
+          "fees": {
+            "buy_fee": null,
+            "sell_fee": 500
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "algebra"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -1360,17 +2182,78 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -0.184534,
-          "true_net": null,
-          "evidence_id": "cand:polygon:USDC/USDT:quickswap_v3>uniswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -0.176911,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 50.0,
+                "gross_usd": -0.042876
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 200.0,
+                "gross_usd": -0.176911
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 800.0,
+                "gross_usd": -0.794186
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 3200.0,
+                "gross_usd": -227.117569
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 12800.0,
+                "gross_usd": -9823.581209
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:38.039821+00:00",
+          "evidence_id": "cand:polygon:USDC/USDT:quickswap_v3>uniswap_v3:blk93283453"
         },
         {
           "chain": "polygon",
+          "block": 93283453,
           "pair": "WMATIC/USDC",
           "borrow": "WMATIC",
           "buy_venue": "uniswap_v3",
-          "sell_venue": "quickswap_v3",
+          "sell_venue": "uniswap_v3",
+          "pools": {
+            "buy": "0xB6e57ed85c4c9dbfEF2a68711e9d6f36c56e0FcB",
+            "sell": "0x2DB87C4831B2fec2E35591221455834193b50D1B"
+          },
+          "token_path": [
+            "WMATIC",
+            "USDC",
+            "WMATIC"
+          ],
+          "input_size_wei": 50000000000000000,
+          "hop_quotes": {
+            "buy_out_wei": 4750,
+            "buy_gas_units": 123786,
+            "sell_out_wei": 49734415434593239,
+            "sell_gas_units": 116791
+          },
+          "liquidity": {
+            "buy": 1030001637693060755,
+            "sell": 65958375764633059
+          },
+          "fees": {
+            "buy_fee": 500,
+            "sell_fee": 3000
+          },
+          "provenance": {
+            "rpc": "operator/public read-only",
+            "quoter_family": "univ3"
+          },
           "stages": {
             "DISCOVERED": true,
             "LIQUIDITY_VERIFIED": true,
@@ -1381,10 +2264,42 @@
             "LIMITED_LIVE_ELIGIBLE": false
           },
           "eliminated_at": "NET_ECONOMICS",
-          "reason": "negative_gross_edge",
-          "gross_profit_usd": -7e-06,
-          "true_net": null,
-          "evidence_id": "cand:polygon:WMATIC/USDC:uniswap_v3>quickswap_v3"
+          "reason": "negative_gross_edge_all_sizes",
+          "gross_profit_usd": -2.5e-05,
+          "all_in_net_usd": null,
+          "size_sweep": {
+            "sizes": [
+              {
+                "mult": 0.25,
+                "input_usd": 0.0,
+                "gross_usd": -7e-06
+              },
+              {
+                "mult": 1.0,
+                "input_usd": 0.0,
+                "gross_usd": -2.5e-05
+              },
+              {
+                "mult": 4.0,
+                "input_usd": 0.02,
+                "gross_usd": -9.6e-05
+              },
+              {
+                "mult": 16.0,
+                "input_usd": 0.08,
+                "gross_usd": -0.000379
+              },
+              {
+                "mult": 64.0,
+                "input_usd": 0.3,
+                "gross_usd": -0.001513
+              }
+            ],
+            "max_profitable": null,
+            "note": "all sizes non-positive"
+          },
+          "timestamp": "2026-09-05T17:43:39.794928+00:00",
+          "evidence_id": "cand:polygon:WMATIC/USDC:uniswap_v3>uniswap_v3:blk93283453"
         }
       ]
     }
@@ -1404,7 +2319,7 @@
     "pool_invalid_or_unreadable": 6
   },
   "candidate_gates": {
-    "NET_ECONOMICS:negative_gross_edge": 15
+    "NET_ECONOMICS:negative_gross_edge_all_sizes": 15
   },
   "limited_live_proven": false,
   "execution_ready_candidate": null,

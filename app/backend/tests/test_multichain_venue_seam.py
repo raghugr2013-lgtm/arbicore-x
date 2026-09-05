@@ -224,6 +224,32 @@ def test_algebra_quoter_uses_dynamic_fee_abi(monkeypatch):
     assert seen["selector"] == Q._SEL["algebra_quoteExactInputSingle"]
 
 
+def test_algebra_multihop_route_chains_with_provenance_and_fails_closed(monkeypatch):
+    """Genuine Algebra multi-hop via quote_route_strict: each hop is a real
+    Algebra quote (own provenance); an unsupported hop fails closed (ok=False),
+    never a passthrough."""
+    from arbicore.execution import quoter as Q
+
+    async def fake_eth_call(rpc_url, *, to, data, **kw):
+        return ("0x" + _enc(["uint256", "uint16"], [5 * 10**17, 300]).hex()), 42, None
+    monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
+    reg = Q.QuoterRegistry()
+    a, b, c = "0x" + "11" * 20, "0x" + "22" * 20, "0x" + "33" * 20
+    ok, rq = _run(reg.quote_route_strict(
+        chain="arbitrum", rpc_url="http://rpc.test",
+        hops=[{"dex": "camelot_v3", "token_in": a, "token_out": b, "amount_in_wei": 10**18},
+              {"dex": "camelot_v3", "token_in": b, "token_out": c}]))
+    assert ok is True and rq.status == "ok" and len(rq.hops) == 2
+    assert all(h.status == "ok" and h.quoter_contract == Q.CAMELOT_V3_QUOTER_ARBITRUM
+               for h in rq.hops)
+    assert rq.hops[1].amount_in_wei == rq.hops[0].amount_out_wei   # chained
+    ok2, rq2 = _run(reg.quote_route_strict(
+        chain="arbitrum", rpc_url="http://rpc.test",
+        hops=[{"dex": "camelot_v3", "token_in": a, "token_out": b, "amount_in_wei": 10**18},
+              {"dex": "balancer_v2", "token_in": b, "token_out": c}]))
+    assert ok2 is False and rq2.hops[1].status == "fallback:no_adapter"
+
+
 def test_algebra_quoter_fails_closed_off_map():
     from arbicore.execution import quoter as Q
     reg = Q.QuoterRegistry()

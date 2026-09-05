@@ -114,3 +114,29 @@ relaxed to force a pass.
    approval; kill switch; capital + per-trade-loss ceilings; max-one execution;
    failure limit; no withdrawals; receipt + repayment verification;
    reconciliation; persistent evidence). NOT before — not staged this phase.
+
+---
+
+## PHASE 5 ADDENDUM — multi-hop, dynamic sizing, fork-sim status
+
+- **Algebra multi-hop:** IMPLEMENTED + LIVE-VERIFIED. `QuoterRegistry.quote_route_strict`
+  chains real per-hop Algebra quotes (no UniV3 approximation, no passthrough) and
+  fails closed if ANY hop is unsupported. Live: Camelot WETH→USDC→USDT (both hops
+  real Algebra, per-hop quoter+block provenance) = 123.78 USDT; unsupported middle
+  hop ⇒ ok=False (partial). 
+- **Dynamic trade-size optimization:** each surviving candidate is swept over sizes
+  (0.25×/1×/4×/16×/64× the probe). Every candidate this run is non-positive at ALL
+  sizes ⇒ reason `negative_gross_edge_all_sizes`. A fixed probe size is never used
+  as proof of profitability.
+- **Fork simulation:** `SIMULATION_UNAVAILABLE` (no anvil in this container). No
+  candidate is ever marked SIMULATABLE from a quote alone.
+- **Race result (public RPC):** probe_rows 62 · discoverable 56 · liquidity_verified
+  56 · quotable 56 · candidates 15 · **economically_valid 0** · execution_ready 0.
+  Gate histogram: {NET_ECONOMICS:negative_gross_edge_all_sizes: 15}.
+- **Candidate 7-state matrix:** DISCOVERED 56 → LIQUIDITY_VERIFIED 56 → QUOTABLE 56
+  → ECONOMICALLY_VALID 0 → VERIFIABLE 0 → SIMULATABLE 0 (SIMULATION_UNAVAILABLE) →
+  LIMITED_LIVE_ELIGIBLE 0.
+- **Execution-proof harness:** NOT prepared/armed (precondition NET_POSITIVE+VERIFIED+
+  SIMULATION_PASS unmet). LIMITED_LIVE_PROVEN=false.
+- **Item 1 (operator/archive VPS run):** still BLOCKED — no operator RPC/VPS access;
+  public numbers NOT substituted for operator results.

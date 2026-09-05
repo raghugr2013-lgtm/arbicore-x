@@ -239,3 +239,13 @@ unmet). Evidence: reports/VPS_RUNTIME_CERT_public.json + VPS_RUNTIME_CERTIFICATI
 
 ### Matrix (offline): discoverable 65, quote_path_connected 65 (Algebra now connected),
 limited_live_eligible 0.
+
+---
+
+## TAKEOVER SESSION — PHASE 5 (commit pending): multi-hop + dynamic sizing + fork-sim gate
+- quoter.py: quote_route_strict (all-hops-ok, no passthrough; Algebra multi-hop verified live).
+- vps_runtime_certify: dynamic size sweep + full evidence bundle (block/pools/token_path/hops/
+  liquidity/fees/gas/provenance/timestamp/evidence_id) + 7-state candidate matrix + SIMULATION_UNAVAILABLE.
+- Race (public RPC): 15 candidates, ALL negative_gross_edge_all_sizes; economically_valid 0; execution_ready 0.
+- Item1 VPS operator run BLOCKED (no operator RPC/VPS). Item5 fork sim SIMULATION_UNAVAILABLE (no anvil).
+  Item7 harness NOT staged. LIMITED_LIVE_PROVEN=false. Certify PASS (65/65/0). No new regressions.

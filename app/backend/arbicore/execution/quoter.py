@@ -1072,6 +1072,23 @@ class QuoterRegistry:
 
     # ---- convenience: quote from a plan-dict ---------------------------
 
+    async def quote_route_strict(
+        self, *, chain: str, hops: List[Dict[str, Any]],
+        rpc_url: Optional[str] = None,
+    ) -> Tuple[bool, RouteQuote]:
+        """Multi-hop route quote for EXECUTION-candidate use. Returns
+        ``(ok, RouteQuote)`` where ``ok`` is True ONLY when EVERY hop returned a
+        live quote (``status == 'ok'``). A ``partial``/``fallback`` route (any hop
+        degraded to the passthrough marker, or any unsupported/unadaptered venue)
+        is FAIL-CLOSED (``ok == False``) — the passthrough amount is never treated
+        as a real quote. Works for any venue family including Algebra multi-hop
+        (each hop is verified independently with its own provenance)."""
+        rq = await self.quote_route(chain=chain, hops=hops, rpc_url=rpc_url)
+        ok = (rq.status == "ok"
+              and all(h.status == "ok" for h in rq.hops)
+              and rq.final_amount_out_wei > 0)
+        return ok, rq
+
     async def quote_plan(
         self, plan: Dict[str, Any], *, rpc_url: Optional[str] = None,
     ) -> RouteQuote:

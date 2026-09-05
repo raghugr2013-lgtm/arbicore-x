@@ -29,6 +29,11 @@ import sys
 import time
 from typing import Optional
 
+
+def _now_iso() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
 os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
 os.environ.setdefault("DB_NAME", "arbicore_x_runtime_cert")
 
@@ -154,7 +159,7 @@ async def _certify_chain(chain: str, cap: int = 10):
                 row["reason"] = "no_probe_amount"
         rows.append(row)
 
-    candidates = await _evaluate_candidates(reg, chain, rows, toks)
+    candidates = await _evaluate_candidates(reg, chain, rows, toks, head.get("block"))
     # slim the stored pool ref to keep JSON compact
     for row in rows:
         row.pop("pool", None)
@@ -197,12 +202,51 @@ def _native_usd(chain: str, rows: list, toks: dict) -> Optional[float]:
     return None
 
 
-async def _evaluate_candidates(reg, chain: str, rows: list, toks: dict) -> list:
+async def _size_sweep(reg, chain, buy, sell, toks, native_usd, bsym, bdec, price):
+    """Evaluate the candidate at multiple realistic input sizes (item 4). Returns
+    rows of {mult, input_usd, gross_usd} + the max-profitable / optimal size.
+    A fixed probe amount is NEVER used as proof of execution profitability."""
+    borrow_addr = (toks.get(bsym) or {}).get("address")
+    other_addr = buy["out_token"]
+    base_wei = buy["borrow_wei"]
+    sweep = []
+    best = None
+    for mult in (0.25, 1.0, 4.0, 16.0, 64.0):
+        amt = int(base_wei * mult)
+        if amt <= 0:
+            continue
+        out1, _g1, e1 = await _quote_dir(reg, chain, buy["venue"], borrow_addr,
+                                         other_addr, buy["pool"].get("fee"), amt)
+        if e1 or not out1:
+            sweep.append({"mult": mult, "input_usd": None, "gross_usd": None,
+                          "reason": f"buy_quote_failed:{e1}"})
+            continue
+        back, _g2, e2 = await _quote_dir(reg, chain, sell["venue"], other_addr,
+                                         borrow_addr, sell["pool"].get("fee"), out1)
+        if e2 or back is None:
+            sweep.append({"mult": mult, "input_usd": None, "gross_usd": None,
+                          "reason": f"sell_quote_failed:{e2}"})
+            continue
+        gross_usd = ((back - amt) / 10 ** bdec) * price
+        input_usd = (amt / 10 ** bdec) * price
+        row = {"mult": mult, "input_usd": round(input_usd, 2),
+               "gross_usd": round(gross_usd, 6)}
+        sweep.append(row)
+        if best is None or gross_usd > best["gross_usd"]:
+            best = {"mult": mult, "gross_usd": gross_usd}
+    optimal = (best if (best and best["gross_usd"] > 0) else None)
+    return {"sizes": sweep, "max_profitable": optimal,
+            "note": "all sizes non-positive" if optimal is None else "optimal>0"}
+
+
+async def _evaluate_candidates(reg, chain: str, rows: list, toks: dict,
+                               block=None) -> list:
     """Cross-venue NET-ECONOMICS gate (fail-closed). For each pair with >=2
     quotable venues: do the REAL round (buy borrow->other on the best venue, sell
     other->borrow on another venue), compute gross edge in USD from an on-chain
     price, then run compute_true_net_profit with REAL runtime inputs. Rejects
-    conservatively on any missing/unverifiable input — no synthetic fallbacks."""
+    conservatively on any missing/unverifiable input — no synthetic fallbacks.
+    Emits a full 7-state classification + evidence bundle per candidate."""
     from collections import defaultdict
     from arbicore.chains.evm_gas import make_evm_gas_model
     from arbicore.scanners.flash_loan_arbitrage.multichain_economics import (
@@ -223,28 +267,43 @@ async def _evaluate_candidates(reg, chain: str, rows: list, toks: dict) -> list:
         buy, sell = rs[0], rs[1]           # best borrow->other ; a different venue
         bdec = _sym_decimals(toks, bsym)
         borrow_addr = (toks.get(bsym) or {}).get("address")
-        cand = {"chain": chain, "pair": pair, "borrow": bsym,
+        cand = {"chain": chain, "block": block, "pair": pair, "borrow": bsym,
                 "buy_venue": buy["venue"], "sell_venue": sell["venue"],
+                "pools": {"buy": buy.get("pool_address"), "sell": sell.get("pool_address")},
+                "token_path": [bsym, _addr_to_sym(toks, buy["out_token"]) or "?", bsym],
+                "input_size_wei": buy.get("borrow_wei"),
+                "hop_quotes": {"buy_out_wei": buy.get("out_wei"),
+                               "buy_gas_units": buy.get("gas_units")},
+                "liquidity": {"buy": (buy.get("pool") or {}).get("liquidity")
+                                     or (buy.get("pool") or {}).get("reserve0"),
+                              "sell": (sell.get("pool") or {}).get("liquidity")
+                                      or (sell.get("pool") or {}).get("reserve0")},
+                "fees": {"buy_fee": (buy.get("pool") or {}).get("fee"),
+                         "sell_fee": (sell.get("pool") or {}).get("fee")},
+                "provenance": {"rpc": "operator/public read-only",
+                               "quoter_family": buy.get("abi")},
                 "stages": {"DISCOVERED": True, "LIQUIDITY_VERIFIED": True,
                            "QUOTABLE": True, "ECONOMICALLY_VALID": False,
                            "VERIFIABLE": False, "SIMULATABLE": False,
                            "LIMITED_LIVE_ELIGIBLE": False},
                 "eliminated_at": None, "reason": None,
-                "gross_profit_usd": None, "true_net": None,
-                "evidence_id": f"cand:{chain}:{pair}:{buy['venue']}>{sell['venue']}"}
+                "gross_profit_usd": None, "all_in_net_usd": None,
+                "size_sweep": None, "timestamp": _now_iso(),
+                "evidence_id": f"cand:{chain}:{pair}:{buy['venue']}>{sell['venue']}:blk{block}"}
         # REAL sell-side close: other -> borrow on the sell venue
         other_addr = buy["out_token"]
         sell_pool = sell["pool"]
         back_wei, sell_gas, serr = await _quote_dir(
             reg, chain, sell["venue"], other_addr, borrow_addr,
             sell_pool.get("fee"), buy["out_wei"])
+        cand["hop_quotes"]["sell_out_wei"] = back_wei
+        cand["hop_quotes"]["sell_gas_units"] = sell_gas
         if serr or back_wei is None:
             cand["eliminated_at"] = "QUOTABLE"
             cand["reason"] = f"sell_close_quote_failed:{serr}"
             out.append(cand)
             continue
         gross_borrow_wei = back_wei - buy["borrow_wei"]
-        # price the borrow token in USD (on-chain, no API): stable=1, else native
         if bsym in _STABLES:
             price = 1.0
         elif bsym in _NATIVE_WRAP.values() and native_usd:
@@ -261,18 +320,18 @@ async def _evaluate_candidates(reg, chain: str, rows: list, toks: dict) -> list:
             continue
         gross_usd = (gross_borrow_wei / 10 ** bdec) * price
         cand["gross_profit_usd"] = round(gross_usd, 6)
-        if gross_usd <= 0:
-            # No positive edge even before costs — the most fundamental rejection.
+        # dynamic trade-size optimization (item 4) — never trust a single size
+        cand["size_sweep"] = await _size_sweep(
+            reg, chain, buy, sell, toks, native_usd, bsym, bdec, price)
+        if gross_usd <= 0 and not (cand["size_sweep"].get("max_profitable")):
             cand["eliminated_at"] = "NET_ECONOMICS"
-            cand["reason"] = "negative_gross_edge"
+            cand["reason"] = "negative_gross_edge_all_sizes"
             out.append(cand)
             continue
         notional_usd = (buy["borrow_wei"] / 10 ** bdec) * price
         route_gas = None
         if buy.get("gas_units") and sell_gas:
             route_gas = int(buy["gas_units"]) + int(sell_gas)
-        # authoritative fail-closed net gate (provider liquidity/fee UNKNOWN here
-        # ⇒ conservative DENY — never a synthetic provider assumption)
         verdict = await compute_true_net_profit(
             chain=chain, gas_model=gas_model, gross_profit_usd=gross_usd,
             borrow_amount_usd=notional_usd, notional_usd=notional_usd,
@@ -282,9 +341,12 @@ async def _evaluate_candidates(reg, chain: str, rows: list, toks: dict) -> list:
             cand["eliminated_at"] = "NET_ECONOMICS"
             cand["reason"] = (verdict or {}).get("reason", "net_gate_denied")
         else:
-            cand["true_net"] = verdict.get("true_net_profit_usd")
-            if (cand["true_net"] or -1) > 0:
+            cand["all_in_net_usd"] = verdict.get("true_net_profit_usd")
+            if (cand["all_in_net_usd"] or -1) > 0:
                 cand["stages"]["ECONOMICALLY_VALID"] = True
+                # VERIFIABLE/SIMULATABLE require a fork sim — unavailable here
+                cand["eliminated_at"] = "SIMULATABLE"
+                cand["reason"] = "SIMULATION_UNAVAILABLE_no_anvil"
             else:
                 cand["eliminated_at"] = "NET_ECONOMICS"
                 cand["reason"] = "true_net_not_positive"
@@ -387,9 +449,10 @@ def _human(rep: dict) -> str:
                          f"quotable={str(r['quotable']):<5} out_wei={r['out_wei']} "
                          f"reason={r['reason']}")
         for cand in res.get("candidates", []):
+            sw = (cand.get("size_sweep") or {}).get("max_profitable")
             L.append(f"{'':<12}CANDIDATE {cand['pair']} {cand['buy_venue']}>{cand['sell_venue']} "
-                     f"gross_usd={cand['gross_profit_usd']} net={cand['true_net']} "
-                     f"eliminated_at={cand['eliminated_at']} reason={cand['reason']}")
+                     f"gross_usd={cand['gross_profit_usd']} net={cand['all_in_net_usd']} "
+                     f"best_size={sw} eliminated_at={cand['eliminated_at']} reason={cand['reason']}")
     L += ["-" * 78, f"candidate_gates: {rep.get('candidate_gates')}", rep["note"], "=" * 78]
     return "\n".join(L)
 
