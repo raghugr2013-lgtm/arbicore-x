@@ -148,3 +148,39 @@ Provide PROVIDER_RPC_URL_<CHAIN> for the allowed chain, dedicated low-value fund
 signer, allowed venue/strategy; add fork QuoterV2 adapters (real verified addresses)
 to close quote_path_connected for Sushi V3 / Pancake V3; run m3_0_vps_validate
 read-only, then evidence-gated controlled proof with maximum-one execution + caps.
+
+---
+
+## TAKEOVER SESSION — PHASE 2 (commit dfe3d3b): fork quoters + Algebra resolver
+
+### Delivered (still detection-only; signing/broadcast/auto/full-live/withdrawals OFF)
+- quoter.py: SushiV3QuoterV2 (arb, 0x0524e833cCd057e4d7A296e3aaAb9f7675964Ce1),
+  PancakeV3QuoterV2 (bnb, 0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997),
+  UniV2RouterQuoter (Sushi V2 eth router 0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F,
+  getAmountsOut). ABI-identical forks subclass UniV3QuoterV2; addresses from
+  official docs; fail-closed off-map. Registered in QuoterRegistry.
+- discovery/algebra_pool_resolver.py (NEW): fail-closed poolByPair resolver for
+  Camelot V3 / QuickSwap V3 (dynamic fee). Discovery-only (no quote yet).
+- opportunity_engine: Algebra now DISCOVERABLE; dex-aware parallel race covers
+  univ3/univ2/algebra. Honest per-family blockers preserved.
+- vps_multichain_preflight: venue-aware live probe now exercises univ3 forks +
+  univ2 + algebra (read-only).
+- docs/VPS_MULTICHAIN_RUNTIME_CERTIFICATION.md: VPS runbook.
+
+### Result
+Matrix: discoverable 55->65, quote_path_connected 40->55, limited_live_eligible=0.
+Certify PASS. 110 tests pass in the venue/quote suite; 0 new regressions vs clean
+baseline (1 pre-existing failure test_unsupported_chain, present in baseline).
+Evidence: reports/TAKEOVER_CERTIFICATION_phase2.json. Protected files untouched.
+
+### Remaining venue seams (honest)
+- Algebra QUOTE adapter (dynamic-fee QuoterV2) — Camelot/QuickSwap discoverable
+  but not quote-connected.
+- Solidly/Velodrome + Curve resolvers — not implemented (explicit blockers).
+- Fork quoter addresses must be re-verified live on first VPS run (fail-closed).
+
+### Runtime blocker unchanged / LIMITED_LIVE_PROVEN
+No RPC in this container (no web3 runtime, no operator RPC, no funded signer) ->
+all live dims requires_vps_runtime. LIMITED_LIVE_PROVEN=false. Controlled proof
+needs operator RPC + dedicated funded signer + allowed chain/venue/strategy +
+explicit approval (see VPS runbook §7).
