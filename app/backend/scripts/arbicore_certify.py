@@ -135,6 +135,7 @@ def _human(report: dict) -> str:
         f"safety             : signing={s['signing_enabled']} broadcast={s['broadcast_enabled']} "
         f"auto_exec={s['auto_execution_enabled']} full_live={s['full_live_enabled']}",
         f"matrix rows        : {m['row_count']}  discoverable={m['discoverable_count']}  "
+        f"quote_path_connected={m['quote_path_connected_count']}  "
         f"limited_live_eligible={m['limited_live_eligible_count']}",
         f"runtime            : {report['runtime']['status']}",
         f"first_limited_live : {report['first_limited_live_candidate']}",

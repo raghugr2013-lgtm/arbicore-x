@@ -151,12 +151,22 @@ def _cell_state(chain: str, venue: str, *, quoter_supported: bool) -> Dict[str, 
     else:
         blocker = "requires_vps_runtime_proof"   # quote/liq/econ/sim/evidence
 
+    # STRUCTURAL connectivity ONLY: the discovery → pool-resolution → quoter
+    # adapter path is fully wired in code for this cell, so it CAN reach
+    # QUOTABLE once a real RPC + runtime proof exist. This is NOT a runtime
+    # claim — quote/liquidity/economic below stay ``requires_runtime`` and a
+    # cell is never limited-live eligible from structural connectivity.
+    quote_path_connected = bool(discoverable and quoter_supported)
+
     return {
         "implemented": implemented,
         "rpc_configured": rpc,
         "economic_rpc_configured": econ_rpc,
         "discoverable": discoverable,
         "quoter_supported": quoter_supported,
+        # code-connectivity of discovery→resolver→quoter (offline-verifiable);
+        # distinct from the runtime ``quote`` dimension which needs live RPC.
+        "quote_path_connected": quote_path_connected,
         # live dimensions are never asserted from code/config alone
         "quote": "requires_runtime",
         "liquidity_tvl": "requires_runtime",
@@ -196,6 +206,12 @@ def build_opportunity_matrix(
             "limited_live_eligible_count": sum(
                 1 for r in rows if r["limited_live_eligible"]),
             "discoverable_count": sum(1 for r in rows if r["discoverable"]),
+            # Cells whose discovery→resolver→quoter path is structurally wired
+            # (CAN reach QUOTABLE with a real RPC + VPS runtime proof). This is
+            # NOT a count of runtime-QUOTABLE cells — no cell is QUOTABLE or
+            # limited-live eligible from code/config alone.
+            "quote_path_connected_count": sum(
+                1 for r in rows if r["quote_path_connected"]),
         },
         "note": ("No cell is limited-live eligible from code/config alone. A "
                  "candidate becomes LIMITED-LIVE ELIGIBLE only after a real "

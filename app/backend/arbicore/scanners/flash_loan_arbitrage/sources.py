@@ -24,6 +24,7 @@ from ...models.discovery import (
     DiscoveryCandidate, SourceHealth, make_candidate_id,
 )
 from ...models.enums import DataProvenance, OpportunityType
+from ...chains.registries import probe_amount_wei
 from ..discovery_source import DiscoverySource
 from .route_search import PoolNode, RouteCycle, RouteSearchEngine
 
@@ -38,6 +39,18 @@ _IN_SCOPE_CHAINS = frozenset({
 
 def _now() -> float:
     return time.time()
+
+
+def _fee_ppm_from_pool(pool: PoolNode) -> int:
+    """Authoritative fee tier (ppm) for a hop. The multichain venue id encodes
+    the fee tier as its last ``:``-segment (``dex:tokenlo:tokenhi:fee_ppm``);
+    prefer that exact value, else fall back to ``fee_bps * 100``. No fabricated
+    fee — both sources come from the operator-supplied pool graph."""
+    tail = str(pool.pool_address).rsplit(":", 1)[-1]
+    try:
+        return int(tail)
+    except (TypeError, ValueError):
+        return int(pool.fee_bps) * 100
 
 
 # ============================================================================
@@ -142,6 +155,25 @@ class RouteSearchDiscoverySource(DiscoverySource):
             subject_id=subject, asset=cycle.borrow_token,
             candidate_venues=venues, hint_observed_at=observed,
         )
+        hint_metric: Dict[str, Any] = {
+            "chain": cycle.chain,
+            "provider": provider,
+            "borrow_token": cycle.borrow_token,
+            "hop_count": cycle.hop_count,
+            "min_tvl_usd": cycle.min_tvl_usd,
+            "estimated_total_fee_pct": cycle.estimated_total_fee_pct,
+            "route_pools": list(venues),
+            "route_dex_protocols": [p.dex_protocol for p in cycle.pools],
+            "cycle_token_path": list(cycle.token_path),
+            "route_search_wall_ms": self._engine.last_wall_ms,
+            "route_search_candidates_explored": self._engine.last_explored,
+        }
+        # For genuinely multichain (non-Base) cycles, attach the per-hop route
+        # reconstruction + a deterministic probe borrow amount so the chain/
+        # venue-aware live_quote_provider can quote the route. Base is left
+        # untouched (regression-frozen): it keeps its canonical-registry path
+        # (_plan_base) and ignores these fields entirely.
+        self._augment_multichain_route(cycle, hint_metric)
         return DiscoveryCandidate(
             candidate_id=cid,
             opportunity_type=OpportunityType.FLASH_LOAN_ARBITRAGE,
@@ -150,21 +182,41 @@ class RouteSearchDiscoverySource(DiscoverySource):
             subject_id=subject,
             asset=cycle.borrow_token,
             candidate_venues=venues,
-            hint_metric={
-                "chain": cycle.chain,
-                "provider": provider,
-                "borrow_token": cycle.borrow_token,
-                "hop_count": cycle.hop_count,
-                "min_tvl_usd": cycle.min_tvl_usd,
-                "estimated_total_fee_pct": cycle.estimated_total_fee_pct,
-                "route_pools": list(venues),
-                "route_dex_protocols": [p.dex_protocol for p in cycle.pools],
-                "cycle_token_path": list(cycle.token_path),
-                "route_search_wall_ms": self._engine.last_wall_ms,
-                "route_search_candidates_explored": self._engine.last_explored,
-            },
+            hint_metric=hint_metric,
             reason=f"{self.source_id}:{cycle.route_id}",
         )
+
+    @staticmethod
+    def _augment_multichain_route(cycle: RouteCycle,
+                                  hint_metric: Dict[str, Any]) -> None:
+        """Attach ``route_hops`` + a deterministic probe ``borrow_amount_wei``
+        for a NON-Base cycle so the generic EVM quote path can reconstruct the
+        route. Base/base-sepolia return early (canonical registry path is
+        regression-frozen). Nothing is fabricated: hops carry token SYMBOLS +
+        the venue id + the pool's declared fee tier, and the amount is a
+        decimals-derived probe (``chains.registries.probe_amount_wei``). If the
+        borrow token has no verified registry decimals the amount is OMITTED so
+        the route fails closed downstream — never an invented amount."""
+        chain = (cycle.chain or "").lower()
+        if chain in ("base", "base-sepolia"):
+            return
+        tp = list(cycle.token_path)
+        hops: List[Dict[str, Any]] = []
+        for i, pool in enumerate(cycle.pools):
+            hops.append({
+                "dex": pool.dex_protocol,
+                "token_in": tp[i],
+                "token_out": tp[i + 1],
+                "fee": _fee_ppm_from_pool(pool),
+                "pool": pool.pool_address,
+            })
+        hint_metric["route_hops"] = hops
+        amt = probe_amount_wei(chain, cycle.borrow_token)
+        if amt is not None:
+            hint_metric["borrow_amount_wei"] = int(amt)
+            # Provenance: this is a PROBE only — never executable liquidity,
+            # flash-loan capacity, trade size, or profitability.
+            hint_metric["borrow_amount_provenance"] = "deterministic_probe"
 
 
 # ============================================================================

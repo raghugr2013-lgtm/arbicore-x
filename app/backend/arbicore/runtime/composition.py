@@ -1289,7 +1289,7 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
     from ..scanners.flash_loan_arbitrage.live_quote_provider import make_live_quote_provider
     from ..searcher.runtime import (
         make_base_eth_call_from_env, make_base_price_source_from_env,
-        build_base_tvl_provider,
+        build_base_tvl_provider, make_eth_call_for_chain_from_env,
     )
     from ..searcher.price_feed import build_base_price_feed_from_env
     scanner = get_flash_loan_arb_scanner()
@@ -1353,7 +1353,14 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
     except Exception:  # noqa: BLE001 — fail-closed to None
         tvl_provider = None
     scanner.set_quote_provider(
-        make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider))
+        make_live_quote_provider(
+            quoter_registry, tvl_provider=tvl_provider,
+            # Chain/venue-aware seam for NON-Base routes: a real per-chain
+            # eth_call ONLY when that chain has an operator-configured RPC,
+            # else None → the route stays DISCOVERABLE and fails closed with
+            # no_operator_configured_rpc. Never falls back to Base RPC; Base
+            # routes use the canonical-registry path and ignore this seam.
+            eth_call_for_chain=make_eth_call_for_chain_from_env))
     # M2.5 — wire per-token USD price provenance into the evidence bundle.
     if price_feed is not None:
         try:

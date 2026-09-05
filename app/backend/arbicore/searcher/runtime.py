@@ -229,6 +229,42 @@ def make_base_eth_call_from_env():
     return eth_call
 
 
+def make_eth_call_for_chain_from_env(chain: str):
+    """Return ``async (to, data) -> hex`` over the operator-configured RPC for
+    an ARBITRARY registered chain, or None (fail-closed).
+
+    This is the generic, chain-scoped analogue of
+    ``make_base_eth_call_from_env`` used to wire the chain/venue-aware
+    ``live_quote_provider`` for NON-Base routes. Strict, honest gating:
+
+      * A real eth_call is returned ONLY when the requested chain has an
+        operator-configured RPC (``rpc_explicitly_configured``). A hardcoded
+        public default does NOT count → returns None (⇒ the route stays
+        DISCOVERABLE and fails closed with ``no_operator_configured_rpc``).
+      * The provider is bound to THIS chain — it never falls back to Base (or
+        any other chain's) RPC.
+      * Read-only ``eth_call`` only: never touches signer / broadcast /
+        executor / withdrawal paths. Base behaviour is unchanged (Base routes
+        use the canonical-registry path, not this seam).
+    """
+    from ..runtime.multichain_readiness import rpc_explicitly_configured
+    c = (chain or "").lower()
+    if not rpc_explicitly_configured(c):
+        return None
+    from ..providers.rpc_failover import get_registry_rpc_provider
+    provider = get_registry_rpc_provider(c)
+    if provider is None:
+        return None
+
+    async def eth_call(to: str, data: str):
+        try:
+            return await provider.eth_call({"to": to, "data": data})
+        except Exception:  # noqa: BLE001 — fail-closed
+            return None
+
+    return eth_call
+
+
 def make_base_congestion_source_from_env():
     """Return a genuine Base congestion source using registry failover.
 
@@ -357,4 +393,5 @@ __all__ = ["BaseSearcherRuntime", "ScanMetrics", "searcher_enabled",
            "maybe_build_base_searcher", "build_base_searcher_runtime",
            "populate_from_registry", "build_base_tvl_provider",
            "make_base_eth_call_from_env", "make_base_price_source_from_env",
+           "make_eth_call_for_chain_from_env",
            "make_base_v3_state_initializer_from_env", "STRATEGY", "MODE"]

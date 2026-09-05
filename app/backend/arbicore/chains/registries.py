@@ -12,7 +12,7 @@ them case-insensitively and re-verify on-chain before any economic use.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # token symbol -> {address, decimals}
 # dexes: list of {dex, kind, factory}  (kind: "v3" | "v2" | "stable")
@@ -121,4 +121,33 @@ def dexes_for(chain: str) -> List[Dict[str, Any]]:
     return list(registry_for(chain).get("dexes", []))
 
 
-__all__ = ["CHAIN_REGISTRIES", "registry_for", "tokens_for", "dexes_for"]
+def probe_amount_wei(chain: str, symbol: str) -> Optional[int]:
+    """Deterministic PROBE notional (token base units) for EXERCISING the
+    discovery → quote → liquidity → economics pipeline. Derived ONLY from the
+    VERIFIED registry token decimals — never a production/executable size:
+
+      * decimals <= 6  -> 200 whole units
+      * decimals == 18 -> 0.05 units
+      * otherwise (unknown token / unsupported decimals) -> None (fail closed)
+
+    A probe amount is NOT executable liquidity, flash-loan capacity, expected
+    trade size, profitability proof, or limited-live eligibility. Real
+    liquidity and real economics remain mandatory RUNTIME gates. Returns None
+    (fail closed) for any token absent from the chain registry or whose
+    decimals are unsupported — the caller must NOT invent an amount."""
+    tok = registry_for(chain).get("tokens", {}).get(str(symbol).upper())
+    if not tok:
+        return None
+    try:
+        dec = int(tok["decimals"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if dec <= 6:
+        return 200 * 10 ** dec
+    if dec == 18:
+        return 5 * 10 ** 16
+    return None
+
+
+__all__ = ["CHAIN_REGISTRIES", "registry_for", "tokens_for", "dexes_for",
+           "probe_amount_wei"]
