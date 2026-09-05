@@ -209,3 +209,33 @@ Next highest-value seam by EVIDENCE = Algebra QuoterV2 adapter (7 liquid pools b
 only by missing quoter). Then wire net economic gate into multichain cross-venue path.
 Re-run on VPS operator RPC (archive nodes) for authoritative numbers. No execution proof
 until a genuine net-positive, gate-passing, simulated candidate exists.
+
+---
+
+## TAKEOVER SESSION — PHASE 4 (commit c6cbf7c): Algebra quoter + net-economics candidate gate
+
+### Item 1 (authoritative operator/archive VPS run): BLOCKED here — no operator RPC in
+container, not on VPS, no credentials (per standing instruction). Public-RPC numbers are
+labeled as such and NOT substituted for operator results. Operator run remains a VPS prereq.
+
+### Delivered (safety unchanged: all OFF, kill switch engaged; production untouched)
+- quoter.py: CamelotV3Quoter + QuickSwapV3Quoter (Algebra dynamic-fee ABI
+  quoteExactInputSingle(address,address,uint256,uint160)->(amountOut,uint16 fee)).
+  Addresses: Camelot 0x0Fc73040b26E9bC8514fA028D998E73A254Fa76E (arb),
+  QuickSwap 0xa15F0D7377B2A0C0c10db057f641beD21028FC89 (polygon). LIVE-VERIFIED
+  (0.05 WETH -> 123.63 / 123.52 USDC). Fail-closed off-map. Registered.
+- scripts/vps_runtime_certify.py: real cross-venue NET-ECONOMICS candidate gate wiring
+  existing fail-closed compute_true_net_profit (on-chain gross edge, chain gas model,
+  quoter route-gas, provider optimizer). Conservative DENY on missing input; no synthetic
+  fallbacks. Candidate matrix DISCOVERED->LIQUIDITY->QUOTABLE->ECON->VERIFIABLE->
+  SIMULATABLE->LIMITED_LIVE.
+
+### Live race result (public RPC, 5 EVM chains + base-skipped)
+probe_rows 62 · discoverable 56 · liquidity_verified 56 · quotable 56 (ALL families incl
+Algebra) · candidates 15 · economically_valid 0 · execution_ready 0.
+All 15 cross-venue candidates eliminated at NET_ECONOMICS: negative_gross_edge (no real
+arb at probed block). LIMITED_LIVE_PROVEN=false. Item 7 harness NOT staged (precondition
+unmet). Evidence: reports/VPS_RUNTIME_CERT_public.json + VPS_RUNTIME_CERTIFICATION_REPORT.md.
+
+### Matrix (offline): discoverable 65, quote_path_connected 65 (Algebra now connected),
+limited_live_eligible 0.
