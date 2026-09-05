@@ -54,6 +54,40 @@ CANDIDATES = [
 ]
 
 
+def _controlled_live_unavailable_reason(quoter) -> str:
+    """READ-ONLY diagnosis of WHY build_controlled_live_safety returned None so
+    the operator sees the exact missing controlled-live dependency. Never builds
+    a fake validator — only re-probes the same real constructors (fail-closed).
+    """
+    from arbicore.searcher.runtime import make_base_eth_call_from_env
+    from arbicore.searcher.price_feed import build_base_price_feed_from_env
+    try:
+        if make_base_eth_call_from_env() is None:
+            return ("controlled_live_unavailable: no Base RPC provider "
+                    "(make_base_eth_call_from_env is None) — FAIL-CLOSED")
+        if build_base_price_feed_from_env(quoter) is None:
+            return ("controlled_live_unavailable: no on-chain USD price feed "
+                    "(build_base_price_feed_from_env is None; set "
+                    "ARBICORE_USD_NUMERAIRE) — FAIL-CLOSED")
+    except Exception as exc:  # noqa: BLE001 — diagnosis never raises
+        return f"controlled_live_unavailable: probe_error {type(exc).__name__}: {exc}"
+    return "controlled_live_unavailable: PreBroadcastValidator not constructed — FAIL-CLOSED"
+
+
+async def validate_candidate(validator, plan, unavailable_reason: str) -> dict:
+    """Run the REAL PreBroadcastValidator when it is constructed; otherwise
+    return a fail-closed DENY carrying the exact reason. NEVER fabricates a
+    PASS, NEVER stubs/bypasses the validator, NEVER accepts a fallback. This is
+    the same fail-closed contract m3_0_vps_validate uses and it removes the
+    AttributeError when controlled-live deps (Base RPC / USD price feed) are
+    unavailable."""
+    if validator is None:
+        return {"ok": False, "gates": {}, "reasons": [unavailable_reason]}
+    decision = await validator.validate(plan)
+    return {"ok": decision.ok, "gates": decision.gate,
+            "reasons": decision.reasons}
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr,
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -82,6 +116,12 @@ async def main() -> None:
     validator, breaker = build_controlled_live_safety(quoter)
     audit["validator_constructed"] = isinstance(validator, PreBroadcastValidator)
     audit["breaker_constructed"] = isinstance(breaker, CircuitBreaker)
+    # Fail-closed (no crash) when controlled-live deps are unavailable: record
+    # the exact missing dependency once, and DENY every candidate with it.
+    unavailable_reason = (None if validator is not None
+                          else _controlled_live_unavailable_reason(quoter))
+    if unavailable_reason is not None:
+        audit["validator_unavailable_reason"] = unavailable_reason
 
     best = None
     for c in CANDIDATES:
@@ -96,7 +136,7 @@ async def main() -> None:
                 "deadline_ts": time.time() + 120.0}
 
         probe = await _probe_fresh_stages(plan, quoter)
-        decision = await validator.validate(plan)
+        m3_gates = await validate_candidate(validator, plan, unavailable_reason)
 
         facts = probe.get("stage_6_facts")
         mev = probe.get("stage_8_mev")
@@ -119,11 +159,10 @@ async def main() -> None:
             "aero_propagated": probe.get("stage_2_aero_propagated"),
             "pools": probe.get("stage_2_pools"),
             "first_blocking_stage": probe.get("FIRST_BLOCKING_STAGE"),
-            "m3_final_gates": {"ok": decision.ok, "gates": decision.gate,
-                               "reasons": decision.reasons},
+            "m3_final_gates": m3_gates,
         }
         audit["candidates"].append(entry)
-        if decision.ok and best is None:
+        if m3_gates["ok"] and best is None:
             best = c["name"]
 
     # single confirm=False ladder check → proves no broadcast path is taken

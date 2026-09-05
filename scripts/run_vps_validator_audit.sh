@@ -104,6 +104,7 @@ TESTS=(
   "tests/test_opportunity_engine.py"
   "tests/test_live_quote_provider_multichain.py"
   "tests/test_flash_route_to_quote_pipeline.py"
+  "tests/test_m3_0_real_candidate_scan_failclosed.py"
   "tests/test_m2_2_real_tvl_gate8.py"
   "tests/test_m2_3_evidence_bundle.py"
   "tests/test_d6_1_economics_and_gates.py"
