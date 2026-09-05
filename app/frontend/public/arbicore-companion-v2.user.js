@@ -23,7 +23,7 @@
 
   // ── Config (persisted via GM_setValue) ────────────────────────────────────
   const ARBICORE_BASE = GM_getValue('arbicore_base',
-    'https://p0-3-certification.preview.emergentagent.com');
+    'https://arbi-opps-race.preview.emergentagent.com');
   const QUOTE_KEY = GM_getValue('arbicore_key', '');
   const TEST_MODE = GM_getValue('arbicore_test_mode', false) === true;
   const DEBUG = GM_getValue('arbicore_debug', false) === true;

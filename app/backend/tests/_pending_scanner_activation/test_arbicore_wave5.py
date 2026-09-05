@@ -39,7 +39,7 @@ from arbicore.shadow.mapper import (
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://p0-3-certification.preview.emergentagent.com",
+    "https://arbi-opps-race.preview.emergentagent.com",
 ).rstrip("/")
 
 

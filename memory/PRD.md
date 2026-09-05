@@ -106,3 +106,45 @@ Working branch: `fix/p0-3-runtime-v3-liquidity-filter`.
 stash@{0} "VPS-local changes before P0-3 sync", branch
 `backup/vps-before-p0-3-sync`. Preserve compose mapping `127.0.0.1:18001:8001`.
 No merge to main, no force-push, no auto-deploy.
+
+---
+
+## TAKEOVER SESSION — 2026-09-05 (branch takeover/limited-live-seam-cc8db95, from HEAD cc8db95)
+
+### Scope executed (user-approved): 1b + 2a + 3b + 4a
+Trace architecture; wire missing GENUINE venue/quote/runtime seams (code only,
+no live execution); run certification read-only against available RPC config;
+do NOT attempt live execution / request keys; report LIMITED_LIVE_PROVEN=false
+with exact blocker. Signing/broadcast/auto-exec/full-live/withdrawals OFF.
+
+### Changes (commit 0bd9130)
+- arbicore/chains/registries.py: explicit per-DEX ABI family classification
+  (univ3/univ2/algebra/solidly/curve) + factory_for()/dex_abi()/annotated dexes_for().
+- arbicore/discovery/univ3_pool_resolver.py: univ3_family_factory_for(); resolve_univ3_pool
+  gains dex= to cover DIRECT UniV3 forks (Sushi V3, Pancake V3); new fail-closed
+  resolve_univ2_pool() (getPair + getReserves) for Sushi V2.
+- arbicore/discovery/opportunity_engine.py: venue-aware discoverability + honest
+  per-family blockers; dex-aware discover_pools_parallel; abi surfaced per cell.
+- arbicore/discovery/multichain_venues.py: probe universe now univ3-family +
+  univ2-family; excludes algebra/solidly/curve (no resolver) — never fabricated.
+- scripts/arbicore_certify.py: added provider-readiness + venue-family sections.
+- tests/test_multichain_venue_seam.py: new offline suite (fork resolve, V2
+  resolver fail-closed, matrix honesty). 
+
+### Result
+Certify PASS. Opportunity matrix: 75 rows, discoverable 40->55 (activated Sushi V3
+/ Pancake V3 / Sushi V2), quote_path_connected=40 (unchanged — NO fabricated fork
+quoter adapters), limited_live_eligible=0. Offline seam+regression tests 85 pass,
+0 new regressions vs clean baseline. Protected files untouched.
+
+### Runtime blocker (this container)
+No web3-less RPC config present: no PROVIDER_RPC_URL[S]_*/ARBICORE_RPC_URL_* set;
+provider_readiness blocked_by = {no_operator_configured_rpc: 6}. Live discovery→
+quote→liquidity→economics→simulation→evidence and the controlled execution proof
+are VPS-only (require operator RPC + funded signer). LIMITED_LIVE_PROVEN=false.
+
+### Next (controlled execution-proof phase — needs operator)
+Provide PROVIDER_RPC_URL_<CHAIN> for the allowed chain, dedicated low-value funded
+signer, allowed venue/strategy; add fork QuoterV2 adapters (real verified addresses)
+to close quote_path_connected for Sushi V3 / Pancake V3; run m3_0_vps_validate
+read-only, then evidence-gated controlled proof with maximum-one execution + caps.
