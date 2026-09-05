@@ -1,0 +1,1012 @@
+{
+  "safety": {
+    "posture": "SHADOW / detection-only / fail-closed",
+    "signing": false,
+    "broadcast": false,
+    "auto_execution": false,
+    "full_live": false,
+    "withdrawals": false
+  },
+  "rpc_source": "operator/public read-only (PROVIDER_RPC_URLS_<CHAIN>)",
+  "simulation": {
+    "anvil_available": false,
+    "note": "fork simulation requires anvil (VPS)"
+  },
+  "per_chain": {
+    "base": {
+      "skipped": "base_canonical_use_m3_0_real_candidate_scan",
+      "head": {
+        "rpc": "mainnet.base.org",
+        "block": 50918580,
+        "latency_ms": 142,
+        "error": null
+      },
+      "rows": []
+    },
+    "arbitrum": {
+      "skipped": null,
+      "head": {
+        "rpc": "arb1.arbitrum.io",
+        "block": 502061153,
+        "latency_ms": 106,
+        "error": null
+      },
+      "rows": [
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xC6962004f452bE9203591991D15f6b388e09E8D0",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123329688,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xc473e2aEE3441BF9240Be85eb122aBB059A3B57c",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122787418,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x641C00A822e8b671738d32a431a4Fb6074E5c79d",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123310182,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xc82819F72A9e77E2c0c3A69B3196478f44303cf4",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122745248,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0xbcE73c2e5A623054B0e8e2428E956f4b9d0412a5",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 199911314,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x9957ab69651EfE39b17c778e1435258F6A2cd314",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 199198666,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xf3Eb87C1F6020982173C908E7eB31aA66c1f0296",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123326715,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xC96525298419f7E00dA8826B733Ee52e271662b5",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 27814289,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x96aDA81328abCe21939A51D971A63077e16db26E",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123097215,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x92d543A8a158A6bC2C7018ae17803819Cb9150B2",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122423827,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x13e4caD477cf2bF8D57F366A260c611435115a39",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 17531839,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "borrow_sym": "USDT",
+          "discoverable": false,
+          "pool_address": null,
+          "liquidity_verified": false,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "camelot_v3",
+          "abi": "algebra",
+          "pair": "WETH/USDC",
+          "fee": 0,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xB1026b8e7276e7AC75410F1fcbbe21796e8f7526",
+          "liquidity_verified": true,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "quote:algebra_quoter_not_wired"
+        },
+        {
+          "venue": "camelot_v3",
+          "abi": "algebra",
+          "pair": "WETH/USDT",
+          "fee": 0,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x7CcCBA38E2D959fe135e79AEBB57CCb27B128358",
+          "liquidity_verified": true,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "quote:algebra_quoter_not_wired"
+        },
+        {
+          "venue": "camelot_v3",
+          "abi": "algebra",
+          "pair": "USDC/USDT",
+          "fee": 0,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0xa17aFCAb059F3C6751F5B64347b5a503C3291868",
+          "liquidity_verified": true,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "quote:algebra_quoter_not_wired"
+        }
+      ],
+      "cross_venue": [
+        {
+          "pair": "WETH/USDC",
+          "borrow": "WETH",
+          "venues": {
+            "uniswap_v3": "122787418",
+            "sushiswap_v3": "27814289"
+          },
+          "gross_spread_pct": 341.4545
+        },
+        {
+          "pair": "WETH/USDT",
+          "borrow": "WETH",
+          "venues": {
+            "uniswap_v3": "122745248",
+            "sushiswap_v3": "122423827"
+          },
+          "gross_spread_pct": 0.2625
+        },
+        {
+          "pair": "USDC/USDT",
+          "borrow": "USDT",
+          "venues": {
+            "uniswap_v3": "199198666",
+            "sushiswap_v3": "17531839"
+          },
+          "gross_spread_pct": 1036.2109
+        }
+      ]
+    },
+    "bnb": {
+      "skipped": null,
+      "head": {
+        "rpc": "bsc-dataseed.binance.org",
+        "block": 120144369,
+        "latency_ms": 167,
+        "error": null
+      },
+      "rows": [
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x539e0EBfffd39e54A0f7E5F8FEc40ade7933A664",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123313663999246288869,
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": false,
+          "pool_address": null,
+          "liquidity_verified": false,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xBe141893E4c6AD9272e8C04BAB7E6a10604501a5",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123302267025140100064,
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": false,
+          "pool_address": null,
+          "liquidity_verified": false,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x4f31Fa980a675570939B737Ebdde0471a4Be40Eb",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 49971474633894324,
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "borrow_sym": "USDT",
+          "discoverable": false,
+          "pool_address": null,
+          "liquidity_verified": false,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDT",
+          "fee": 500,
+          "borrow_sym": "WBNB",
+          "discoverable": true,
+          "pool_address": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 38584359750843682144,
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDT",
+          "fee": 3000,
+          "borrow_sym": "WBNB",
+          "discoverable": false,
+          "pool_address": null,
+          "liquidity_verified": false,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDC",
+          "fee": 500,
+          "borrow_sym": "WBNB",
+          "discoverable": true,
+          "pool_address": "0x81A9b5F18179cE2bf8f001b8a634Db80771F1824",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 38583693289913543677,
+          "reason": "ok"
+        },
+        {
+          "venue": "pancakeswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDC",
+          "fee": 3000,
+          "borrow_sym": "WBNB",
+          "discoverable": false,
+          "pool_address": null,
+          "liquidity_verified": false,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "pool_invalid_or_unreadable"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xd8cc6BFDEe087148c220E9141a075D18418aBBaC",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122665121949474773821,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x17507bEF4c3abC1Bc715be723eE1baF571256E05",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122670761671385331783,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xF9878A5dD55EdC120Fde01893ea713a4f032229c",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123283910818180711087,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xdE67D05242B18AF00b28678dB34FEEC883cc9Cd6",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 121945302213719695472,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0xcCDFcd1aaC447D5B29980f64b831c532a6a33726",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 49988220352502604,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x18fC1E95aDb68B556212ebBAD777F3FBb644db98",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 49841532762504437,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDT",
+          "fee": 500,
+          "borrow_sym": "WBNB",
+          "discoverable": true,
+          "pool_address": "0x6fe9E9de56356F7eDBfcBB29FAB7cd69471a4869",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 38585608629809447611,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDT",
+          "fee": 3000,
+          "borrow_sym": "WBNB",
+          "discoverable": true,
+          "pool_address": "0x7862D9B4bE2156B15d54F41ee4EDE2d5b0b455e4",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 38459648501911223920,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDC",
+          "fee": 500,
+          "borrow_sym": "WBNB",
+          "discoverable": true,
+          "pool_address": "0x5289A8Dbf7029eE0b0498a84777ed3941D9acfEc",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 37843844972612255323,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WBNB/USDC",
+          "fee": 3000,
+          "borrow_sym": "WBNB",
+          "discoverable": true,
+          "pool_address": "0x6bcb0Ba386E9de0C29006e46B2f01f047cA1806E",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 38326340315993963297,
+          "reason": "ok"
+        }
+      ],
+      "cross_venue": [
+        {
+          "pair": "WETH/USDC",
+          "borrow": "WETH",
+          "venues": {
+            "pancakeswap_v3": "123313663999246288869",
+            "uniswap_v3": "122670761671385331783"
+          },
+          "gross_spread_pct": 0.5241
+        },
+        {
+          "pair": "WETH/USDT",
+          "borrow": "WETH",
+          "venues": {
+            "pancakeswap_v3": "123302267025140100064",
+            "uniswap_v3": "121945302213719695472"
+          },
+          "gross_spread_pct": 1.1128
+        },
+        {
+          "pair": "USDC/USDT",
+          "borrow": "USDT",
+          "venues": {
+            "pancakeswap_v3": "49971474633894324",
+            "uniswap_v3": "49841532762504437"
+          },
+          "gross_spread_pct": 0.2607
+        },
+        {
+          "pair": "WBNB/USDT",
+          "borrow": "WBNB",
+          "venues": {
+            "pancakeswap_v3": "38584359750843682144",
+            "uniswap_v3": "38459648501911223920"
+          },
+          "gross_spread_pct": 0.3243
+        },
+        {
+          "pair": "WBNB/USDC",
+          "borrow": "WBNB",
+          "venues": {
+            "pancakeswap_v3": "38583693289913543677",
+            "uniswap_v3": "38326340315993963297"
+          },
+          "gross_spread_pct": 0.6715
+        }
+      ]
+    },
+    "ethereum": {
+      "skipped": null,
+      "head": {
+        "rpc": "ethereum-rpc.publicnode.com",
+        "block": 25912394,
+        "latency_ms": 127,
+        "error": null
+      },
+      "rows": [
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123335722,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122764494,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x11b815efB8f581194ae79006d24E0d814B7697F6",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123306977,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122739598,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x7858E59e0C01EA06Df3aF3D20aC7B0003275D4Bf",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 199936258,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0xEe4Cf3b78A74aFfa38C6a926282bCd8B5952818d",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 199025972,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v2",
+          "abi": "univ2",
+          "pair": "WETH/USDC",
+          "fee": 0,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x397FF1542f962076d0BFE58eA045FfA2d347ACa0",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122952235,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v2",
+          "abi": "univ2",
+          "pair": "WETH/USDT",
+          "fee": 0,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x06da0fd433C1A5d7a4faa01111c044910A184553",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122680555,
+          "reason": "ok"
+        },
+        {
+          "venue": "sushiswap_v2",
+          "abi": "univ2",
+          "pair": "USDC/USDT",
+          "fee": 0,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0xD86A120a06255Df8D4e2248aB04d4267E23aDfaA",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 153023430,
+          "reason": "ok"
+        }
+      ],
+      "cross_venue": [
+        {
+          "pair": "WETH/USDC",
+          "borrow": "WETH",
+          "venues": {
+            "uniswap_v3": "122764494",
+            "sushiswap_v2": "122952235"
+          },
+          "gross_spread_pct": 0.1529
+        },
+        {
+          "pair": "WETH/USDT",
+          "borrow": "WETH",
+          "venues": {
+            "uniswap_v3": "122739598",
+            "sushiswap_v2": "122680555"
+          },
+          "gross_spread_pct": 0.0481
+        },
+        {
+          "pair": "USDC/USDT",
+          "borrow": "USDT",
+          "venues": {
+            "uniswap_v3": "199025972",
+            "sushiswap_v2": "153023430"
+          },
+          "gross_spread_pct": 30.0624
+        }
+      ]
+    },
+    "optimism": {
+      "skipped": null,
+      "head": {
+        "rpc": "mainnet.optimism.io",
+        "block": 156513869,
+        "latency_ms": 186,
+        "error": null
+      },
+      "rows": [
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x1fb3cf6e48F1E7B10213E7b6d87D4c073C7Fdb7b",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123304834,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xc1738D90E2E26C35784A0d3E3d8A9f795074bcA4",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122782287,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xc858A329Bf053BE78D6239C4A4343B8FbD21472b",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123286353,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xdd0c6bAe8Ad5998c358b823df15A2A4181Da1b80",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122552227,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x2926736C30EF3649F9e6b5c5918ea88871F79f2B",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 199939542,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x9B0c2660B535a156aDf827481b2F9b61f31EBc49",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 199406739,
+          "reason": "ok"
+        }
+      ],
+      "cross_venue": []
+    },
+    "polygon": {
+      "skipped": null,
+      "head": {
+        "rpc": "polygon-bor-rpc.publicnode.com",
+        "block": 93280990,
+        "latency_ms": 142,
+        "error": null
+      },
+      "rows": [
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123330736,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDC",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x19C5505638383337D2972Ce68B493aD78E315147",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122569136,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 500,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xBB98B3D2b18aeF63a3178023A920971cf5F29bE4",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 123308397,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WETH/USDT",
+          "fee": 3000,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x4CcD010148379ea531D6C587CfDd60180196F9b1",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 122746868,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 500,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0xEE95696f77693aF4F9B93850A9f48B4AD8E7a30A",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 199996883,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "USDC/USDT",
+          "fee": 3000,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x1Cb770fC7C7367c6aD5E88D32072b7f4bf881304",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 199031616,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WMATIC/USDC",
+          "fee": 500,
+          "borrow_sym": "WMATIC",
+          "discoverable": true,
+          "pool_address": "0xB6e57ed85c4c9dbfEF2a68711e9d6f36c56e0FcB",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 4755,
+          "reason": "ok"
+        },
+        {
+          "venue": "uniswap_v3",
+          "abi": "univ3",
+          "pair": "WMATIC/USDC",
+          "fee": 3000,
+          "borrow_sym": "WMATIC",
+          "discoverable": true,
+          "pool_address": "0x2DB87C4831B2fec2E35591221455834193b50D1B",
+          "liquidity_verified": true,
+          "quotable": true,
+          "out_wei": 4748,
+          "reason": "ok"
+        },
+        {
+          "venue": "quickswap_v3",
+          "abi": "algebra",
+          "pair": "WETH/USDC",
+          "fee": 0,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0xa6AeDF7c4Ed6e821E67a6BfD56FD1702aD9a9719",
+          "liquidity_verified": true,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "quote:algebra_quoter_not_wired"
+        },
+        {
+          "venue": "quickswap_v3",
+          "abi": "algebra",
+          "pair": "WETH/USDT",
+          "fee": 0,
+          "borrow_sym": "WETH",
+          "discoverable": true,
+          "pool_address": "0x9CEff2F5138fC59eB925d270b8A7A9C02a1810f2",
+          "liquidity_verified": true,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "quote:algebra_quoter_not_wired"
+        },
+        {
+          "venue": "quickswap_v3",
+          "abi": "algebra",
+          "pair": "USDC/USDT",
+          "fee": 0,
+          "borrow_sym": "USDT",
+          "discoverable": true,
+          "pool_address": "0x0e3Eb2C75Bd7dD0e12249d96b1321d9570764D77",
+          "liquidity_verified": true,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "quote:algebra_quoter_not_wired"
+        },
+        {
+          "venue": "quickswap_v3",
+          "abi": "algebra",
+          "pair": "WMATIC/USDC",
+          "fee": 0,
+          "borrow_sym": "WMATIC",
+          "discoverable": true,
+          "pool_address": "0x6669B4706cC152F359e947BCa68E263A87c52634",
+          "liquidity_verified": true,
+          "quotable": false,
+          "out_wei": null,
+          "reason": "quote:algebra_quoter_not_wired"
+        }
+      ],
+      "cross_venue": []
+    }
+  },
+  "aggregate": {
+    "probe_rows": 62,
+    "discoverable": 56,
+    "liquidity_verified": 56,
+    "quotable": 49,
+    "algebra_quote_gap": 7,
+    "cross_venue_pairs": 11,
+    "cross_venue_best_pct": 1036.2109
+  },
+  "blockers": {
+    "ok": 49,
+    "pool_invalid_or_unreadable": 6,
+    "quote:algebra_quoter_not_wired": 7
+  },
+  "limited_live_proven": false,
+  "execution_ready_candidate": null,
+  "note": "Cross-venue gross spread is PRE-COST (no gas/flash-loan/slippage) and is the DEX-arb signal only \u2014 never net profit or execution readiness. Real NET economics + fork simulation + limited-live eligibility remain separate downstream gates (Base: scripts.m3_0_real_candidate_scan). No cell is limited-live eligible from this read-only report."
+}
