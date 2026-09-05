@@ -371,12 +371,23 @@ async def _eth_call(
 # --------------------------------------------------------------------------- #
 
 class UniV3QuoterV2:
-    """Live quoter for Uniswap V3 pools on Base (all fee tiers)."""
+    """Live quoter for Uniswap V3 pools — Base + base-sepolia + the registered
+    multichain EVM chains (ethereum, arbitrum, optimism, polygon, bnb), all fee
+    tiers. Chains absent from ``_CONTRACT_BY_CHAIN`` fail closed."""
     dex = "uniswap_v3"
 
     _CONTRACT_BY_CHAIN: Dict[str, str] = {
         "base": BASE_UNIV3_QUOTER_V2,
         "base-sepolia": BASE_SEPOLIA_UNIV3_QUOTER_V2,
+        # Multichain UniV3 QuoterV2 (canonical public addresses — identical to
+        # providers/dex.py::UniswapV3Quoter.QUOTER_ADDRESSES). Additive only;
+        # Base behaviour above is unchanged. A chain absent here fails closed
+        # ('fallback:no_adapter').
+        "ethereum": to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
+        "arbitrum": to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
+        "optimism": to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
+        "polygon":  to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
+        "bnb":      to_checksum_address("0x78D78E420Da98ad378D7799bE8f4AF69033EB077"),
     }
 
     async def quote_hop(

@@ -100,6 +100,8 @@ TESTS=(
   "tests/test_multichain_readiness_gate.py"
   "tests/test_flashloan_limited_live_readiness.py"
   "tests/test_m2_1_live_quote_provider.py"
+  "tests/test_multichain_univ3_support.py"
+  "tests/test_opportunity_engine.py"
   "tests/test_m2_2_real_tvl_gate8.py"
   "tests/test_m2_3_evidence_bundle.py"
   "tests/test_d6_1_economics_and_gates.py"
