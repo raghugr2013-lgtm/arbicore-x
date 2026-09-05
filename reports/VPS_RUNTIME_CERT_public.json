@@ -17,8 +17,8 @@
       "skipped": "base_canonical_use_m3_0_real_candidate_scan",
       "head": {
         "rpc": "mainnet.base.org",
-        "block": 50918580,
-        "latency_ms": 142,
+        "block": 50919168,
+        "latency_ms": 157,
         "error": null
       },
       "rows": []
@@ -27,8 +27,8 @@
       "skipped": null,
       "head": {
         "rpc": "arb1.arbitrum.io",
-        "block": 502061153,
-        "latency_ms": 106,
+        "block": 502065831,
+        "latency_ms": 130,
         "error": null
       },
       "rows": [
@@ -42,8 +42,11 @@
           "pool_address": "0xC6962004f452bE9203591991D15f6b388e09E8D0",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123329688,
-          "reason": "ok"
+          "out_wei": 123645617,
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": 97369,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -55,8 +58,11 @@
           "pool_address": "0xc473e2aEE3441BF9240Be85eb122aBB059A3B57c",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122787418,
-          "reason": "ok"
+          "out_wei": 123456118,
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": 97343,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -68,8 +74,11 @@
           "pool_address": "0x641C00A822e8b671738d32a431a4Fb6074E5c79d",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123310182,
-          "reason": "ok"
+          "out_wei": 123619286,
+          "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+          "gas_units": 96333,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -81,8 +90,11 @@
           "pool_address": "0xc82819F72A9e77E2c0c3A69B3196478f44303cf4",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122745248,
-          "reason": "ok"
+          "out_wei": 123369016,
+          "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+          "gas_units": 135008,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -95,7 +107,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 199911314,
-          "reason": "ok"
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": 97139,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "uniswap_v3",
@@ -108,7 +123,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 199198666,
-          "reason": "ok"
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": 135961,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "sushiswap_v3",
@@ -120,8 +138,11 @@
           "pool_address": "0xf3Eb87C1F6020982173C908E7eB31aA66c1f0296",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123326715,
-          "reason": "ok"
+          "out_wei": 123618095,
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": 106030,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "sushiswap_v3",
@@ -134,7 +155,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 27814289,
-          "reason": "ok"
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": 536548,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "sushiswap_v3",
@@ -146,8 +170,11 @@
           "pool_address": "0x96aDA81328abCe21939A51D971A63077e16db26E",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123097215,
-          "reason": "ok"
+          "out_wei": 123470765,
+          "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+          "gas_units": 105050,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "sushiswap_v3",
@@ -159,8 +186,11 @@
           "pool_address": "0x92d543A8a158A6bC2C7018ae17803819Cb9150B2",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122423827,
-          "reason": "ok"
+          "out_wei": 122891221,
+          "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+          "gas_units": 101699,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "sushiswap_v3",
@@ -173,7 +203,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 17531839,
-          "reason": "ok"
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": 588110,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "sushiswap_v3",
@@ -186,6 +219,8 @@
           "liquidity_verified": false,
           "quotable": false,
           "out_wei": null,
+          "out_token": null,
+          "gas_units": null,
           "reason": "pool_invalid_or_unreadable"
         },
         {
@@ -197,9 +232,12 @@
           "discoverable": true,
           "pool_address": "0xB1026b8e7276e7AC75410F1fcbbe21796e8f7526",
           "liquidity_verified": true,
-          "quotable": false,
-          "out_wei": null,
-          "reason": "quote:algebra_quoter_not_wired"
+          "quotable": true,
+          "out_wei": 123720941,
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "camelot_v3",
@@ -210,9 +248,12 @@
           "discoverable": true,
           "pool_address": "0x7CcCBA38E2D959fe135e79AEBB57CCb27B128358",
           "liquidity_verified": true,
-          "quotable": false,
-          "out_wei": null,
-          "reason": "quote:algebra_quoter_not_wired"
+          "quotable": true,
+          "out_wei": 123251461,
+          "out_token": "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "camelot_v3",
@@ -223,38 +264,77 @@
           "discoverable": true,
           "pool_address": "0xa17aFCAb059F3C6751F5B64347b5a503C3291868",
           "liquidity_verified": true,
-          "quotable": false,
-          "out_wei": null,
-          "reason": "quote:algebra_quoter_not_wired"
+          "quotable": true,
+          "out_wei": 200038332,
+          "out_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 200000000
         }
       ],
-      "cross_venue": [
+      "candidates": [
         {
+          "chain": "arbitrum",
           "pair": "WETH/USDC",
           "borrow": "WETH",
-          "venues": {
-            "uniswap_v3": "122787418",
-            "sushiswap_v3": "27814289"
+          "buy_venue": "camelot_v3",
+          "sell_venue": "uniswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 341.4545
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.034537,
+          "true_net": null,
+          "evidence_id": "cand:arbitrum:WETH/USDC:camelot_v3>uniswap_v3"
         },
         {
+          "chain": "arbitrum",
           "pair": "WETH/USDT",
           "borrow": "WETH",
-          "venues": {
-            "uniswap_v3": "122745248",
-            "sushiswap_v3": "122423827"
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "sushiswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 0.2625
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.442717,
+          "true_net": null,
+          "evidence_id": "cand:arbitrum:WETH/USDT:uniswap_v3>sushiswap_v3"
         },
         {
+          "chain": "arbitrum",
           "pair": "USDC/USDT",
           "borrow": "USDT",
-          "venues": {
-            "uniswap_v3": "199198666",
-            "sushiswap_v3": "17531839"
+          "buy_venue": "camelot_v3",
+          "sell_venue": "uniswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 1036.2109
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.077697,
+          "true_net": null,
+          "evidence_id": "cand:arbitrum:USDC/USDT:camelot_v3>uniswap_v3"
         }
       ]
     },
@@ -262,8 +342,8 @@
       "skipped": null,
       "head": {
         "rpc": "bsc-dataseed.binance.org",
-        "block": 120144369,
-        "latency_ms": 167,
+        "block": 120146986,
+        "latency_ms": 188,
         "error": null
       },
       "rows": [
@@ -277,8 +357,11 @@
           "pool_address": "0x539e0EBfffd39e54A0f7E5F8FEc40ade7933A664",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123313663999246288869,
-          "reason": "ok"
+          "out_wei": 123692164391053354270,
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 128557,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "pancakeswap_v3",
@@ -291,6 +374,8 @@
           "liquidity_verified": false,
           "quotable": false,
           "out_wei": null,
+          "out_token": null,
+          "gas_units": null,
           "reason": "pool_invalid_or_unreadable"
         },
         {
@@ -303,8 +388,11 @@
           "pool_address": "0xBe141893E4c6AD9272e8C04BAB7E6a10604501a5",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123302267025140100064,
-          "reason": "ok"
+          "out_wei": 123718398278842890181,
+          "out_token": "0x55d398326f99059fF775485246999027B3197955",
+          "gas_units": 116806,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "pancakeswap_v3",
@@ -317,6 +405,8 @@
           "liquidity_verified": false,
           "quotable": false,
           "out_wei": null,
+          "out_token": null,
+          "gas_units": null,
           "reason": "pool_invalid_or_unreadable"
         },
         {
@@ -329,8 +419,11 @@
           "pool_address": "0x4f31Fa980a675570939B737Ebdde0471a4Be40Eb",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 49971474633894324,
-          "reason": "ok"
+          "out_wei": 49971475520350611,
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 94532,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "pancakeswap_v3",
@@ -343,6 +436,8 @@
           "liquidity_verified": false,
           "quotable": false,
           "out_wei": null,
+          "out_token": null,
+          "gas_units": null,
           "reason": "pool_invalid_or_unreadable"
         },
         {
@@ -355,8 +450,11 @@
           "pool_address": "0x36696169C63e42cd08ce11f5deeBbCeBae652050",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38584359750843682144,
-          "reason": "ok"
+          "out_wei": 38733375001305757051,
+          "out_token": "0x55d398326f99059fF775485246999027B3197955",
+          "gas_units": 115291,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "pancakeswap_v3",
@@ -369,6 +467,8 @@
           "liquidity_verified": false,
           "quotable": false,
           "out_wei": null,
+          "out_token": null,
+          "gas_units": null,
           "reason": "pool_invalid_or_unreadable"
         },
         {
@@ -381,8 +481,11 @@
           "pool_address": "0x81A9b5F18179cE2bf8f001b8a634Db80771F1824",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38583693289913543677,
-          "reason": "ok"
+          "out_wei": 38728878843873742683,
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 101252,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "pancakeswap_v3",
@@ -395,6 +498,8 @@
           "liquidity_verified": false,
           "quotable": false,
           "out_wei": null,
+          "out_token": null,
+          "gas_units": null,
           "reason": "pool_invalid_or_unreadable"
         },
         {
@@ -407,8 +512,11 @@
           "pool_address": "0xd8cc6BFDEe087148c220E9141a075D18418aBBaC",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122665121949474773821,
-          "reason": "ok"
+          "out_wei": 122971324815841119389,
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 96383,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -420,8 +528,11 @@
           "pool_address": "0x17507bEF4c3abC1Bc715be723eE1baF571256E05",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122670761671385331783,
-          "reason": "ok"
+          "out_wei": 123259067253323663161,
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 96319,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -433,8 +544,11 @@
           "pool_address": "0xF9878A5dD55EdC120Fde01893ea713a4f032229c",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123283910818180711087,
-          "reason": "ok"
+          "out_wei": 123661265819543940273,
+          "out_token": "0x55d398326f99059fF775485246999027B3197955",
+          "gas_units": 89131,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -446,8 +560,11 @@
           "pool_address": "0xdE67D05242B18AF00b28678dB34FEEC883cc9Cd6",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 121945302213719695472,
-          "reason": "ok"
+          "out_wei": 122302781029070948133,
+          "out_token": "0x55d398326f99059fF775485246999027B3197955",
+          "gas_units": 89082,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -459,8 +576,11 @@
           "pool_address": "0xcCDFcd1aaC447D5B29980f64b831c532a6a33726",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 49988220352502604,
-          "reason": "ok"
+          "out_wei": 49988160249334896,
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 87104,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -473,7 +593,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 49841532762504437,
-          "reason": "ok"
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 87322,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -485,8 +608,11 @@
           "pool_address": "0x6fe9E9de56356F7eDBfcBB29FAB7cd69471a4869",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38585608629809447611,
-          "reason": "ok"
+          "out_wei": 38733388668724067689,
+          "out_token": "0x55d398326f99059fF775485246999027B3197955",
+          "gas_units": 79319,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -498,8 +624,11 @@
           "pool_address": "0x7862D9B4bE2156B15d54F41ee4EDE2d5b0b455e4",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38459648501911223920,
-          "reason": "ok"
+          "out_wei": 38618984253411268857,
+          "out_token": "0x55d398326f99059fF775485246999027B3197955",
+          "gas_units": 88016,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -511,8 +640,11 @@
           "pool_address": "0x5289A8Dbf7029eE0b0498a84777ed3941D9acfEc",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 37843844972612255323,
-          "reason": "ok"
+          "out_wei": 37974445346532494919,
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 95214,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -524,55 +656,118 @@
           "pool_address": "0x6bcb0Ba386E9de0C29006e46B2f01f047cA1806E",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 38326340315993963297,
-          "reason": "ok"
+          "out_wei": 38488230362295241376,
+          "out_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "gas_units": 95252,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         }
       ],
-      "cross_venue": [
+      "candidates": [
         {
+          "chain": "bnb",
           "pair": "WETH/USDC",
           "borrow": "WETH",
-          "venues": {
-            "pancakeswap_v3": "123313663999246288869",
-            "uniswap_v3": "122670761671385331783"
+          "buy_venue": "pancakeswap_v3",
+          "sell_venue": "uniswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 0.5241
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.14072,
+          "true_net": null,
+          "evidence_id": "cand:bnb:WETH/USDC:pancakeswap_v3>uniswap_v3"
         },
         {
+          "chain": "bnb",
           "pair": "WETH/USDT",
           "borrow": "WETH",
-          "venues": {
-            "pancakeswap_v3": "123302267025140100064",
-            "uniswap_v3": "121945302213719695472"
+          "buy_venue": "pancakeswap_v3",
+          "sell_venue": "uniswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 1.1128
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.038259,
+          "true_net": null,
+          "evidence_id": "cand:bnb:WETH/USDT:pancakeswap_v3>uniswap_v3"
         },
         {
+          "chain": "bnb",
           "pair": "USDC/USDT",
           "borrow": "USDT",
-          "venues": {
-            "pancakeswap_v3": "49971474633894324",
-            "uniswap_v3": "49841532762504437"
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "pancakeswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 0.2607
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -3.3e-05,
+          "true_net": null,
+          "evidence_id": "cand:bnb:USDC/USDT:uniswap_v3>pancakeswap_v3"
         },
         {
+          "chain": "bnb",
           "pair": "WBNB/USDT",
           "borrow": "WBNB",
-          "venues": {
-            "pancakeswap_v3": "38584359750843682144",
-            "uniswap_v3": "38459648501911223920"
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "pancakeswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 0.3243
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.03877,
+          "true_net": null,
+          "evidence_id": "cand:bnb:WBNB/USDT:uniswap_v3>pancakeswap_v3"
         },
         {
+          "chain": "bnb",
           "pair": "WBNB/USDC",
           "borrow": "WBNB",
-          "venues": {
-            "pancakeswap_v3": "38583693289913543677",
-            "uniswap_v3": "38326340315993963297"
+          "buy_venue": "pancakeswap_v3",
+          "sell_venue": "uniswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 0.6715
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.229109,
+          "true_net": null,
+          "evidence_id": "cand:bnb:WBNB/USDC:pancakeswap_v3>uniswap_v3"
         }
       ]
     },
@@ -580,8 +775,8 @@
       "skipped": null,
       "head": {
         "rpc": "ethereum-rpc.publicnode.com",
-        "block": 25912394,
-        "latency_ms": 127,
+        "block": 25912491,
+        "latency_ms": 267,
         "error": null
       },
       "rows": [
@@ -595,8 +790,11 @@
           "pool_address": "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123335722,
-          "reason": "ok"
+          "out_wei": 123723929,
+          "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "gas_units": 89039,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -608,8 +806,11 @@
           "pool_address": "0x8ad599c3A0ff1De082011EFDDc58f1908eb6e6D8",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122764494,
-          "reason": "ok"
+          "out_wei": 123369628,
+          "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "gas_units": 90005,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -621,8 +822,11 @@
           "pool_address": "0x11b815efB8f581194ae79006d24E0d814B7697F6",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123306977,
-          "reason": "ok"
+          "out_wei": 123688891,
+          "out_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+          "gas_units": 91000,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -634,8 +838,11 @@
           "pool_address": "0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122739598,
-          "reason": "ok"
+          "out_wei": 123262761,
+          "out_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+          "gas_units": 90966,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -647,8 +854,11 @@
           "pool_address": "0x7858E59e0C01EA06Df3aF3D20aC7B0003275D4Bf",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 199936258,
-          "reason": "ok"
+          "out_wei": 199936235,
+          "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "gas_units": 92335,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "uniswap_v3",
@@ -661,7 +871,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 199025972,
-          "reason": "ok"
+          "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "gas_units": 101079,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "sushiswap_v2",
@@ -674,7 +887,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 122952235,
-          "reason": "ok"
+          "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "sushiswap_v2",
@@ -686,8 +902,11 @@
           "pool_address": "0x06da0fd433C1A5d7a4faa01111c044910A184553",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122680555,
-          "reason": "ok"
+          "out_wei": 123338185,
+          "out_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "sushiswap_v2",
@@ -700,36 +919,75 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 153023430,
-          "reason": "ok"
+          "out_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 200000000
         }
       ],
-      "cross_venue": [
+      "candidates": [
         {
+          "chain": "ethereum",
           "pair": "WETH/USDC",
           "borrow": "WETH",
-          "venues": {
-            "uniswap_v3": "122764494",
-            "sushiswap_v2": "122952235"
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "uniswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 0.1529
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.388264,
+          "true_net": null,
+          "evidence_id": "cand:ethereum:WETH/USDC:uniswap_v3>uniswap_v3"
         },
         {
+          "chain": "ethereum",
           "pair": "WETH/USDT",
           "borrow": "WETH",
-          "venues": {
-            "uniswap_v3": "122739598",
-            "sushiswap_v2": "122680555"
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "sushiswap_v2",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 0.0481
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.489549,
+          "true_net": null,
+          "evidence_id": "cand:ethereum:WETH/USDT:uniswap_v3>sushiswap_v2"
         },
         {
+          "chain": "ethereum",
           "pair": "USDC/USDT",
           "borrow": "USDT",
-          "venues": {
-            "uniswap_v3": "199025972",
-            "sushiswap_v2": "153023430"
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "uniswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
           },
-          "gross_spread_pct": 30.0624
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.309002,
+          "true_net": null,
+          "evidence_id": "cand:ethereum:USDC/USDT:uniswap_v3>uniswap_v3"
         }
       ]
     },
@@ -737,8 +995,8 @@
       "skipped": null,
       "head": {
         "rpc": "mainnet.optimism.io",
-        "block": 156513869,
-        "latency_ms": 186,
+        "block": 156514459,
+        "latency_ms": 233,
         "error": null
       },
       "rows": [
@@ -752,8 +1010,11 @@
           "pool_address": "0x1fb3cf6e48F1E7B10213E7b6d87D4c073C7Fdb7b",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123304834,
-          "reason": "ok"
+          "out_wei": 123686567,
+          "out_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "gas_units": 127671,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -765,8 +1026,11 @@
           "pool_address": "0xc1738D90E2E26C35784A0d3E3d8A9f795074bcA4",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122782287,
-          "reason": "ok"
+          "out_wei": 123243511,
+          "out_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "gas_units": 89857,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -778,8 +1042,11 @@
           "pool_address": "0xc858A329Bf053BE78D6239C4A4343B8FbD21472b",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123286353,
-          "reason": "ok"
+          "out_wei": 123675823,
+          "out_token": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
+          "gas_units": 117465,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -791,8 +1058,11 @@
           "pool_address": "0xdd0c6bAe8Ad5998c358b823df15A2A4181Da1b80",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122552227,
-          "reason": "ok"
+          "out_wei": 122943909,
+          "out_token": "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58",
+          "gas_units": 81093,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -805,7 +1075,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 199939542,
-          "reason": "ok"
+          "out_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "gas_units": 98405,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "uniswap_v3",
@@ -818,17 +1091,20 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 199406739,
-          "reason": "ok"
+          "out_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "gas_units": 126534,
+          "reason": "ok",
+          "borrow_wei": 200000000
         }
       ],
-      "cross_venue": []
+      "candidates": []
     },
     "polygon": {
       "skipped": null,
       "head": {
         "rpc": "polygon-bor-rpc.publicnode.com",
-        "block": 93280990,
-        "latency_ms": 142,
+        "block": 93281777,
+        "latency_ms": 151,
         "error": null
       },
       "rows": [
@@ -842,8 +1118,11 @@
           "pool_address": "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123330736,
-          "reason": "ok"
+          "out_wei": 123708984,
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": 138141,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -855,8 +1134,11 @@
           "pool_address": "0x19C5505638383337D2972Ce68B493aD78E315147",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122569136,
-          "reason": "ok"
+          "out_wei": 123169371,
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": 138161,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -868,8 +1150,11 @@
           "pool_address": "0xBB98B3D2b18aeF63a3178023A920971cf5F29bE4",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 123308397,
-          "reason": "ok"
+          "out_wei": 123682327,
+          "out_token": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+          "gas_units": 117615,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -881,8 +1166,11 @@
           "pool_address": "0x4CcD010148379ea531D6C587CfDd60180196F9b1",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 122746868,
-          "reason": "ok"
+          "out_wei": 123236799,
+          "out_token": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+          "gas_units": 132134,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -895,7 +1183,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 199996883,
-          "reason": "ok"
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": 146599,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "uniswap_v3",
@@ -908,7 +1199,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 199031616,
-          "reason": "ok"
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": 183922,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "uniswap_v3",
@@ -920,8 +1214,11 @@
           "pool_address": "0xB6e57ed85c4c9dbfEF2a68711e9d6f36c56e0FcB",
           "liquidity_verified": true,
           "quotable": true,
-          "out_wei": 4755,
-          "reason": "ok"
+          "out_wei": 4762,
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": 123816,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "uniswap_v3",
@@ -934,7 +1231,10 @@
           "liquidity_verified": true,
           "quotable": true,
           "out_wei": 4748,
-          "reason": "ok"
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": 123783,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "quickswap_v3",
@@ -945,9 +1245,12 @@
           "discoverable": true,
           "pool_address": "0xa6AeDF7c4Ed6e821E67a6BfD56FD1702aD9a9719",
           "liquidity_verified": true,
-          "quotable": false,
-          "out_wei": null,
-          "reason": "quote:algebra_quoter_not_wired"
+          "quotable": true,
+          "out_wei": 123698787,
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "quickswap_v3",
@@ -958,9 +1261,12 @@
           "discoverable": true,
           "pool_address": "0x9CEff2F5138fC59eB925d270b8A7A9C02a1810f2",
           "liquidity_verified": true,
-          "quotable": false,
-          "out_wei": null,
-          "reason": "quote:algebra_quoter_not_wired"
+          "quotable": true,
+          "out_wei": 123665652,
+          "out_token": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         },
         {
           "venue": "quickswap_v3",
@@ -971,9 +1277,12 @@
           "discoverable": true,
           "pool_address": "0x0e3Eb2C75Bd7dD0e12249d96b1321d9570764D77",
           "liquidity_verified": true,
-          "quotable": false,
-          "out_wei": null,
-          "reason": "quote:algebra_quoter_not_wired"
+          "quotable": true,
+          "out_wei": 200020434,
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 200000000
         },
         {
           "venue": "quickswap_v3",
@@ -984,29 +1293,120 @@
           "discoverable": true,
           "pool_address": "0x6669B4706cC152F359e947BCa68E263A87c52634",
           "liquidity_verified": true,
-          "quotable": false,
-          "out_wei": null,
-          "reason": "quote:algebra_quoter_not_wired"
+          "quotable": true,
+          "out_wei": 4759,
+          "out_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "gas_units": null,
+          "reason": "ok",
+          "borrow_wei": 50000000000000000
         }
       ],
-      "cross_venue": []
+      "candidates": [
+        {
+          "chain": "polygon",
+          "pair": "WETH/USDC",
+          "borrow": "WETH",
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "quickswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
+          },
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -9e-06,
+          "true_net": null,
+          "evidence_id": "cand:polygon:WETH/USDC:uniswap_v3>quickswap_v3"
+        },
+        {
+          "chain": "polygon",
+          "pair": "WETH/USDT",
+          "borrow": "WETH",
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "quickswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
+          },
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -7e-06,
+          "true_net": null,
+          "evidence_id": "cand:polygon:WETH/USDT:uniswap_v3>quickswap_v3"
+        },
+        {
+          "chain": "polygon",
+          "pair": "USDC/USDT",
+          "borrow": "USDT",
+          "buy_venue": "quickswap_v3",
+          "sell_venue": "uniswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
+          },
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -0.184534,
+          "true_net": null,
+          "evidence_id": "cand:polygon:USDC/USDT:quickswap_v3>uniswap_v3"
+        },
+        {
+          "chain": "polygon",
+          "pair": "WMATIC/USDC",
+          "borrow": "WMATIC",
+          "buy_venue": "uniswap_v3",
+          "sell_venue": "quickswap_v3",
+          "stages": {
+            "DISCOVERED": true,
+            "LIQUIDITY_VERIFIED": true,
+            "QUOTABLE": true,
+            "ECONOMICALLY_VALID": false,
+            "VERIFIABLE": false,
+            "SIMULATABLE": false,
+            "LIMITED_LIVE_ELIGIBLE": false
+          },
+          "eliminated_at": "NET_ECONOMICS",
+          "reason": "negative_gross_edge",
+          "gross_profit_usd": -7e-06,
+          "true_net": null,
+          "evidence_id": "cand:polygon:WMATIC/USDC:uniswap_v3>quickswap_v3"
+        }
+      ]
     }
   },
   "aggregate": {
     "probe_rows": 62,
     "discoverable": 56,
     "liquidity_verified": 56,
-    "quotable": 49,
-    "algebra_quote_gap": 7,
-    "cross_venue_pairs": 11,
-    "cross_venue_best_pct": 1036.2109
+    "quotable": 56,
+    "algebra_quote_gap": 0,
+    "candidates": 15,
+    "economically_valid": 0,
+    "execution_ready": 0
   },
   "blockers": {
-    "ok": 49,
-    "pool_invalid_or_unreadable": 6,
-    "quote:algebra_quoter_not_wired": 7
+    "ok": 56,
+    "pool_invalid_or_unreadable": 6
+  },
+  "candidate_gates": {
+    "NET_ECONOMICS:negative_gross_edge": 15
   },
   "limited_live_proven": false,
   "execution_ready_candidate": null,
-  "note": "Cross-venue gross spread is PRE-COST (no gas/flash-loan/slippage) and is the DEX-arb signal only \u2014 never net profit or execution readiness. Real NET economics + fork simulation + limited-live eligibility remain separate downstream gates (Base: scripts.m3_0_real_candidate_scan). No cell is limited-live eligible from this read-only report."
+  "note": "Candidates use REAL cross-venue rounds + the fail-closed net gate (compute_true_net_profit): gross edge priced on-chain, gas via chain gas model, route gas via quoter estimate, flash-loan fee/liquidity via provider optimizer. Any missing/unverifiable input \u21d2 conservative DENY (no synthetic fallback). Fork simulation requires anvil (VPS). No cell is limited-live eligible from this read-only report."
 }

@@ -27,6 +27,7 @@ import json
 import os
 import sys
 import time
+from typing import Optional
 
 os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
 os.environ.setdefault("DB_NAME", "arbicore_x_runtime_cert")
@@ -71,28 +72,34 @@ def _probe_tasks(chain: str):
     return _build_probe_tasks(chain)
 
 
-async def _quote_pool(reg, chain: str, pool: dict, borrow_addr: str, borrow_wei: int):
-    """Single FORWARD quote borrow_addr -> other token at the probe notional.
-    Returns (quotable, amount_out_wei, out_token, err). Read-only. Algebra has no
-    quoter adapter yet (reported honestly, not fabricated)."""
-    dex = pool.get("dex")
-    t0, t1 = pool.get("token0"), pool.get("token1")
-    fee = pool.get("fee")               # present for univ3 family; None for v2
-    if dex in ("camelot_v3", "quickswap_v3"):
-        return False, None, None, "algebra_quoter_not_wired"
-    other = t1 if (borrow_addr or "").lower() == (t0 or "").lower() else t0
-    hop = {"dex": dex, "token_in": borrow_addr, "token_out": other,
-           "amount_in_wei": borrow_wei}
+async def _quote_dir(reg, chain, dex, token_in, token_out, fee, amount_wei):
+    """One directional live quote. Returns (out_wei, gas_units, err)."""
+    hop = {"dex": dex, "token_in": token_in, "token_out": token_out,
+           "amount_in_wei": amount_wei}
     if fee is not None:
         hop["fee"] = fee
     try:
         rq = await reg.quote_route(chain=chain, hops=[hop])
     except Exception as exc:  # noqa: BLE001
-        return False, None, None, f"{type(exc).__name__}: {exc}"
+        return None, None, f"{type(exc).__name__}: {exc}"
     if rq.status != "ok":
         h0 = rq.hops[0] if rq.hops else None
-        return False, None, None, (h0.status if h0 else rq.status)
-    return True, rq.final_amount_out_wei, other, None
+        return None, None, (h0.status if h0 else rq.status)
+    g = rq.hops[0].gas_estimate_units if rq.hops else None
+    return rq.final_amount_out_wei, g, None
+
+
+async def _quote_pool(reg, chain: str, pool: dict, borrow_addr: str, borrow_wei: int):
+    """Single FORWARD quote borrow_addr -> other token at the probe notional.
+    Returns (quotable, amount_out_wei, out_token, gas_units, err). Read-only."""
+    t0, t1 = pool.get("token0"), pool.get("token1")
+    fee = pool.get("fee")
+    other = t1 if (borrow_addr or "").lower() == (t0 or "").lower() else t0
+    out_wei, gas_units, err = await _quote_dir(
+        reg, chain, pool.get("dex"), borrow_addr, other, fee, borrow_wei)
+    if err:
+        return False, None, None, None, err
+    return True, out_wei, other, gas_units, None
 
 
 async def _certify_chain(chain: str, cap: int = 10):
@@ -118,8 +125,6 @@ async def _certify_chain(chain: str, cap: int = 10):
     toks = tokens_for(chain)
     reg = QuoterRegistry()
     rows = []
-    # (pair, borrow_sym) -> {venue: out_wei} for cross-venue spread
-    xven: dict = {}
     for t, r in zip(tasks, resolved):
         pool = r.get("pool") or {}
         borrow_sym = _borrow_symbol(tuple(t["pair"].split("/")))
@@ -127,37 +132,164 @@ async def _certify_chain(chain: str, cap: int = 10):
                "borrow_sym": borrow_sym,
                "discoverable": bool(r.get("resolved")),
                "pool_address": pool.get("pool_address"),
+               "pool": pool,
                "liquidity_verified": bool((pool.get("liquidity") or 0) > 0
                                           or (pool.get("reserve0") or 0) > 0),
-               "quotable": False, "out_wei": None, "reason": r.get("reason")}
+               "quotable": False, "out_wei": None, "out_token": None,
+               "gas_units": None, "reason": r.get("reason")}
         if row["discoverable"]:
             borrow_addr = (toks.get(borrow_sym) or {}).get("address")
             borrow_wei = probe_amount_wei(chain, borrow_sym) or 0
             if borrow_addr and borrow_wei > 0:
-                q, out_wei, _out_tok, qerr = await _quote_pool(
+                q, out_wei, out_tok, gas_u, qerr = await _quote_pool(
                     reg, chain, pool, borrow_addr, borrow_wei)
                 row["quotable"] = q
                 row["out_wei"] = out_wei
+                row["out_token"] = out_tok
+                row["gas_units"] = gas_u
+                row["borrow_wei"] = borrow_wei
                 if not q:
                     row["reason"] = f"quote:{qerr}"
-                elif out_wei and out_wei > 0:
-                    key = (t["pair"], borrow_sym)
-                    xven.setdefault(key, {})[t["venue"] if False else t["dex"]] = out_wei
             else:
                 row["reason"] = "no_probe_amount"
         rows.append(row)
 
-    # cross-venue gross spread (PRE-COST): same input, same output token, ≥2 venues
-    cross = []
-    for (pair, bsym), outs in xven.items():
-        if len(outs) < 2:
+    candidates = await _evaluate_candidates(reg, chain, rows, toks)
+    # slim the stored pool ref to keep JSON compact
+    for row in rows:
+        row.pop("pool", None)
+    return {"skipped": None, "head": head, "rows": rows, "candidates": candidates}
+
+
+def _sym_decimals(toks: dict, sym: str) -> Optional[int]:
+    d = (toks.get(sym) or {}).get("decimals")
+    return int(d) if d is not None else None
+
+
+def _addr_to_sym(toks: dict, addr: str) -> Optional[str]:
+    a = (addr or "").lower()
+    for sym, meta in toks.items():
+        if (meta.get("address") or "").lower() == a:
+            return sym
+    return None
+
+
+_STABLES = {"USDC", "USDT", "DAI", "USDC.E", "USDBC", "BUSD"}
+_NATIVE_WRAP = {"ETH": "WETH", "POL": "WMATIC", "MATIC": "WMATIC", "BNB": "WBNB"}
+
+
+def _native_usd(chain: str, rows: list, toks: dict) -> Optional[float]:
+    """Derive the chain native token USD price ON-CHAIN from a quotable
+    native-wrapped -> stable row. Returns None (⇒ DENY) if underivable."""
+    from arbicore.chains.evm_gas import CHAIN_SPECS
+    native = str((CHAIN_SPECS.get(chain, {}) or {}).get("native", "ETH")).upper()
+    wrap = _NATIVE_WRAP.get(native, "WETH")
+    for r in rows:
+        if not r["quotable"] or not r.get("out_wei"):
             continue
-        lo, hi = min(outs.values()), max(outs.values())
-        gross_pct = ((hi / lo) - 1.0) * 100.0 if lo else None
-        cross.append({"pair": pair, "borrow": bsym,
-                      "venues": {k: str(v) for k, v in outs.items()},
-                      "gross_spread_pct": round(gross_pct, 4) if gross_pct is not None else None})
-    return {"skipped": None, "head": head, "rows": rows, "cross_venue": cross}
+        bsym = r["borrow_sym"]
+        osym = _addr_to_sym(toks, r.get("out_token"))
+        if bsym == wrap and osym in _STABLES:
+            bdec = _sym_decimals(toks, bsym)
+            odec = _sym_decimals(toks, osym)
+            if bdec and odec:
+                return (r["out_wei"] / 10 ** odec) / (r["borrow_wei"] / 10 ** bdec)
+    return None
+
+
+async def _evaluate_candidates(reg, chain: str, rows: list, toks: dict) -> list:
+    """Cross-venue NET-ECONOMICS gate (fail-closed). For each pair with >=2
+    quotable venues: do the REAL round (buy borrow->other on the best venue, sell
+    other->borrow on another venue), compute gross edge in USD from an on-chain
+    price, then run compute_true_net_profit with REAL runtime inputs. Rejects
+    conservatively on any missing/unverifiable input — no synthetic fallbacks."""
+    from collections import defaultdict
+    from arbicore.chains.evm_gas import make_evm_gas_model
+    from arbicore.scanners.flash_loan_arbitrage.multichain_economics import (
+        compute_true_net_profit)
+
+    gas_model = make_evm_gas_model(chain)
+    native_usd = _native_usd(chain, rows, toks)
+    by_pair = defaultdict(list)
+    for r in rows:
+        if r["quotable"] and r.get("out_wei"):
+            by_pair[(r["pair"], r["borrow_sym"])].append(r)
+
+    out = []
+    for (pair, bsym), rs in by_pair.items():
+        if len({r["venue"] for r in rs}) < 2:
+            continue
+        rs.sort(key=lambda r: r["out_wei"], reverse=True)
+        buy, sell = rs[0], rs[1]           # best borrow->other ; a different venue
+        bdec = _sym_decimals(toks, bsym)
+        borrow_addr = (toks.get(bsym) or {}).get("address")
+        cand = {"chain": chain, "pair": pair, "borrow": bsym,
+                "buy_venue": buy["venue"], "sell_venue": sell["venue"],
+                "stages": {"DISCOVERED": True, "LIQUIDITY_VERIFIED": True,
+                           "QUOTABLE": True, "ECONOMICALLY_VALID": False,
+                           "VERIFIABLE": False, "SIMULATABLE": False,
+                           "LIMITED_LIVE_ELIGIBLE": False},
+                "eliminated_at": None, "reason": None,
+                "gross_profit_usd": None, "true_net": None,
+                "evidence_id": f"cand:{chain}:{pair}:{buy['venue']}>{sell['venue']}"}
+        # REAL sell-side close: other -> borrow on the sell venue
+        other_addr = buy["out_token"]
+        sell_pool = sell["pool"]
+        back_wei, sell_gas, serr = await _quote_dir(
+            reg, chain, sell["venue"], other_addr, borrow_addr,
+            sell_pool.get("fee"), buy["out_wei"])
+        if serr or back_wei is None:
+            cand["eliminated_at"] = "QUOTABLE"
+            cand["reason"] = f"sell_close_quote_failed:{serr}"
+            out.append(cand)
+            continue
+        gross_borrow_wei = back_wei - buy["borrow_wei"]
+        # price the borrow token in USD (on-chain, no API): stable=1, else native
+        if bsym in _STABLES:
+            price = 1.0
+        elif bsym in _NATIVE_WRAP.values() and native_usd:
+            price = native_usd
+        else:
+            cand["eliminated_at"] = "NET_ECONOMICS"
+            cand["reason"] = "borrow_usd_price_unavailable"
+            out.append(cand)
+            continue
+        if not bdec:
+            cand["eliminated_at"] = "NET_ECONOMICS"
+            cand["reason"] = "token_decimals_unavailable"
+            out.append(cand)
+            continue
+        gross_usd = (gross_borrow_wei / 10 ** bdec) * price
+        cand["gross_profit_usd"] = round(gross_usd, 6)
+        if gross_usd <= 0:
+            # No positive edge even before costs — the most fundamental rejection.
+            cand["eliminated_at"] = "NET_ECONOMICS"
+            cand["reason"] = "negative_gross_edge"
+            out.append(cand)
+            continue
+        notional_usd = (buy["borrow_wei"] / 10 ** bdec) * price
+        route_gas = None
+        if buy.get("gas_units") and sell_gas:
+            route_gas = int(buy["gas_units"]) + int(sell_gas)
+        # authoritative fail-closed net gate (provider liquidity/fee UNKNOWN here
+        # ⇒ conservative DENY — never a synthetic provider assumption)
+        verdict = await compute_true_net_profit(
+            chain=chain, gas_model=gas_model, gross_profit_usd=gross_usd,
+            borrow_amount_usd=notional_usd, notional_usd=notional_usd,
+            route_gas_units=route_gas, native_usd=native_usd,
+            borrow_token=bsym, liquidity_by_provider=None, fee_bps_by_provider=None)
+        if verdict is None or verdict.get("denied"):
+            cand["eliminated_at"] = "NET_ECONOMICS"
+            cand["reason"] = (verdict or {}).get("reason", "net_gate_denied")
+        else:
+            cand["true_net"] = verdict.get("true_net_profit_usd")
+            if (cand["true_net"] or -1) > 0:
+                cand["stages"]["ECONOMICALLY_VALID"] = True
+            else:
+                cand["eliminated_at"] = "NET_ECONOMICS"
+                cand["reason"] = "true_net_not_positive"
+        out.append(cand)
+    return out
 
 
 def _anvil_available() -> bool:
@@ -173,12 +305,12 @@ async def build_runtime_certification(max_pairs=None) -> dict:
     for c in chains:
         per_chain[c] = await _certify_chain(c, cap=cap)
 
-    # aggregate the state ladder counts over ALL probe rows (real evidence only)
+    # aggregate the state ladder + candidate matrix (real evidence only)
     agg = {"probe_rows": 0, "discoverable": 0, "liquidity_verified": 0,
            "quotable": 0, "algebra_quote_gap": 0,
-           "cross_venue_pairs": 0, "cross_venue_best_pct": None}
+           "candidates": 0, "economically_valid": 0, "execution_ready": 0}
     blockers: dict = {}
-    best = None
+    cand_gates: dict = {}
     for c, res in per_chain.items():
         for row in res["rows"]:
             agg["probe_rows"] += 1
@@ -188,16 +320,16 @@ async def build_runtime_certification(max_pairs=None) -> dict:
                 agg["liquidity_verified"] += 1
             if row["quotable"]:
                 agg["quotable"] += 1
-            if row.get("reason") == "quote:algebra_quoter_not_wired":
-                agg["algebra_quote_gap"] += 1
             rsn = row.get("reason") or ("quotable" if row["quotable"] else "?")
             blockers[rsn] = blockers.get(rsn, 0) + 1
-        for cv in res.get("cross_venue", []):
-            agg["cross_venue_pairs"] += 1
-            g = cv.get("gross_spread_pct")
-            if g is not None and (best is None or g > best):
-                best = g
-    agg["cross_venue_best_pct"] = best
+        for cand in res.get("candidates", []):
+            agg["candidates"] += 1
+            if cand["stages"]["ECONOMICALLY_VALID"]:
+                agg["economically_valid"] += 1
+            if cand["stages"]["LIMITED_LIVE_ELIGIBLE"]:
+                agg["execution_ready"] += 1
+            g = f"{cand.get('eliminated_at')}:{cand.get('reason')}"
+            cand_gates[g] = cand_gates.get(g, 0) + 1
 
     return {
         "safety": {"posture": "SHADOW / detection-only / fail-closed",
@@ -209,13 +341,15 @@ async def build_runtime_certification(max_pairs=None) -> dict:
         "per_chain": per_chain,
         "aggregate": agg,
         "blockers": blockers,
+        "candidate_gates": cand_gates,
         "limited_live_proven": False,
-        "execution_ready_candidate": None,
-        "note": ("Cross-venue gross spread is PRE-COST (no gas/flash-loan/slippage) "
-                 "and is the DEX-arb signal only — never net profit or execution "
-                 "readiness. Real NET economics + fork simulation + limited-live "
-                 "eligibility remain separate downstream gates (Base: "
-                 "scripts.m3_0_real_candidate_scan). No cell is limited-live "
+        "execution_ready_candidate": None if agg["execution_ready"] == 0 else "SEE_CANDIDATES",
+        "note": ("Candidates use REAL cross-venue rounds + the fail-closed net "
+                 "gate (compute_true_net_profit): gross edge priced on-chain, gas "
+                 "via chain gas model, route gas via quoter estimate, flash-loan "
+                 "fee/liquidity via provider optimizer. Any missing/unverifiable "
+                 "input ⇒ conservative DENY (no synthetic fallback). Fork "
+                 "simulation requires anvil (VPS). No cell is limited-live "
                  "eligible from this read-only report."),
     }
 
@@ -232,8 +366,8 @@ def _human(rep: dict) -> str:
          f"discoverable      : {a['discoverable']}",
          f"liquidity_verified: {a['liquidity_verified']}",
          f"quotable          : {a['quotable']}",
-         f"algebra_quote_gap : {a['algebra_quote_gap']}",
-         f"cross_venue_pairs : {a['cross_venue_pairs']}  best_gross_precost%={a['cross_venue_best_pct']}",
+         f"candidates        : {a['candidates']}  economically_valid={a['economically_valid']}  "
+         f"execution_ready={a['execution_ready']}",
          f"limited_live_proven: {rep['limited_live_proven']}",
          f"execution_ready   : {rep['execution_ready_candidate']}",
          "-" * 78]
@@ -252,10 +386,11 @@ def _human(rep: dict) -> str:
                 L.append(f"{'':<12}{r['venue']:<16} {r['pair']:<11} fee={str(r['fee']):<5} "
                          f"quotable={str(r['quotable']):<5} out_wei={r['out_wei']} "
                          f"reason={r['reason']}")
-        for cv in res.get("cross_venue", []):
-            L.append(f"{'':<12}CROSS-VENUE {cv['pair']} borrow={cv['borrow']} "
-                     f"gross_precost%={cv['gross_spread_pct']} venues={list(cv['venues'])}")
-    L += ["-" * 78, rep["note"], "=" * 78]
+        for cand in res.get("candidates", []):
+            L.append(f"{'':<12}CANDIDATE {cand['pair']} {cand['buy_venue']}>{cand['sell_venue']} "
+                     f"gross_usd={cand['gross_profit_usd']} net={cand['true_net']} "
+                     f"eliminated_at={cand['eliminated_at']} reason={cand['reason']}")
+    L += ["-" * 78, f"candidate_gates: {rep.get('candidate_gates')}", rep["note"], "=" * 78]
     return "\n".join(L)
 
 

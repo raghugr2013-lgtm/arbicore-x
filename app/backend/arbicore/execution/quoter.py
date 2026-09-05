@@ -88,6 +88,11 @@ SUSHI_V3_QUOTER_V2_ARBITRUM = to_checksum_address("0x0524e833cCd057e4d7A296e3aaA
 PANCAKE_V3_QUOTER_V2_BNB    = to_checksum_address("0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997")
 # SushiSwap V2 Router02 · Ethereum mainnet — getAmountsOut(uint256,address[])
 SUSHI_V2_ROUTER02_ETHEREUM  = to_checksum_address("0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
+# Algebra (dynamic-fee) quoters — verified against live chain state:
+# Camelot V3 quoter · Arbitrum — docs.algebra.finance / docs.camelot.exchange
+CAMELOT_V3_QUOTER_ARBITRUM  = to_checksum_address("0x0Fc73040b26E9bC8514fA028D998E73A254Fa76E")
+# QuickSwap V3 quoter · Polygon — docs.quickswap.exchange/overview/contracts
+QUICKSWAP_V3_QUOTER_POLYGON = to_checksum_address("0xa15F0D7377B2A0C0c10db057f641beD21028FC89")
 
 
 # Selector cache — computed once at import.
@@ -112,6 +117,11 @@ _SEL = {
     #   returns uint256[] (last element = final output). Sushi V2 shares this ABI.
     "univ2_getAmountsOut": "0x" + function_signature_to_4byte_selector(
         "getAmountsOut(uint256,address[])"
+    ).hex(),
+    # Algebra dynamic-fee quoter: quoteExactInputSingle(tokenIn,tokenOut,amountIn,
+    #   limitSqrtPrice) -> (amountOut, uint16 fee).  NO fee-tier argument.
+    "algebra_quoteExactInputSingle": "0x" + function_signature_to_4byte_selector(
+        "quoteExactInputSingle(address,address,uint256,uint160)"
     ).hex(),
 }
 
@@ -707,6 +717,87 @@ class UniV2RouterQuoter:
 
 
 # --------------------------------------------------------------------------- #
+# Algebra (dynamic-fee) Quoter backends — Camelot V3 / QuickSwap V3            #
+# --------------------------------------------------------------------------- #
+
+class _AlgebraQuoter:
+    """Live quoter for Algebra Integral DEXs (Camelot V3, QuickSwap V3).
+
+    Algebra pools carry a DYNAMIC fee (no fee tier), so the quoter ABI differs
+    from Uniswap V3: ``quoteExactInputSingle(address tokenIn, address tokenOut,
+    uint256 amountIn, uint160 limitSqrtPrice)`` returning ``(uint256 amountOut,
+    uint16 fee)`` (limitSqrtPrice = 0). This is NOT a Uniswap getPool/fee-tier
+    path — never fabricated as one. Fails closed for any chain without a
+    configured Algebra quoter. Address verified against live chain state."""
+    dex = "_algebra"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {}
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote:
+        quoter = self._CONTRACT_BY_CHAIN.get(chain)
+        if not quoter:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, "unknown", _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  f"no Algebra quoter for chain '{chain}'")
+        params = abi_encode(
+            ["address", "address", "uint256", "uint160"],
+            [to_checksum_address(token_in), to_checksum_address(token_out),
+             int(amount_in_wei), 0])
+        data = _SEL["algebra_quoteExactInputSingle"] + params.hex()
+        try:
+            result_hex, block_number, err = await _eth_call(rpc_url, to=quoter, data=data, max_retries=max_retries)
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, quoter, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"{type(exc).__name__}: {exc}")
+        if err:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, quoter, _redact_host(rpc_url),
+                                  "fallback:revert",
+                                  f"code={err.get('code')} {err.get('message','')[:120]}")
+        try:
+            amount_out, dyn_fee = abi_decode(["uint256", "uint16"], bytes.fromhex(result_hex[2:]))
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, quoter, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"decode error: {exc}")
+        return HopQuote(
+            hop_index=hop_index, dex=self.dex,
+            token_in=to_checksum_address(token_in),
+            token_out=to_checksum_address(token_out),
+            amount_in_wei=int(amount_in_wei),
+            amount_out_wei=int(amount_out),
+            sqrt_price_x96_after=None,
+            gas_estimate_units=None,          # Algebra quoter returns no gas est.
+            price_impact_bps=None,
+            quoter_contract=quoter,
+            rpc_host=_redact_host(rpc_url),
+            block_number=block_number,
+            status="ok", error=None, generated_at=_now_iso(),
+        )
+
+
+class CamelotV3Quoter(_AlgebraQuoter):
+    """Camelot V3 (Algebra) quoter · Arbitrum — verified against live chain."""
+    dex = "camelot_v3"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "arbitrum": CAMELOT_V3_QUOTER_ARBITRUM,
+    }
+
+
+class QuickSwapV3Quoter(_AlgebraQuoter):
+    """QuickSwap V3 (Algebra) quoter · Polygon — verified against live chain."""
+    dex = "quickswap_v3"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "polygon": QUICKSWAP_V3_QUOTER_POLYGON,
+    }
+
+
+# --------------------------------------------------------------------------- #
 # Helpers                                                                     #
 # --------------------------------------------------------------------------- #
 
@@ -767,6 +858,8 @@ class QuoterRegistry:
             SushiV3QuoterV2(),
             PancakeV3QuoterV2(),
             UniV2RouterQuoter(),
+            CamelotV3Quoter(),
+            QuickSwapV3Quoter(),
         ]
         self._backends: Dict[str, QuoterBackend] = {
             b.dex: b for b in (backends or default_backends)

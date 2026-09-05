@@ -182,11 +182,12 @@ def test_matrix_activates_forks_and_is_honest_about_families():
     assert _cell(m, "arbitrum", "sushiswap_v3")["quote_path_connected"] is True
     assert _cell(m, "bnb", "pancakeswap_v3")["quote_path_connected"] is True
     assert _cell(m, "ethereum", "sushiswap_v2")["quote_path_connected"] is True
-    # Algebra (Camelot V3 / QuickSwap V3) now DISCOVERABLE via poolByPair, but
-    # quote path is a separate future seam ⇒ NOT quote-connected (honest).
+    # Algebra (Camelot V3 / QuickSwap V3) DISCOVERABLE via poolByPair AND now
+    # QUOTE-CONNECTED via the verified Algebra dynamic-fee quoter.
     assert _cell(m, "arbitrum", "camelot_v3")["discoverable"] is True
     assert _cell(m, "polygon", "quickswap_v3")["discoverable"] is True
-    assert _cell(m, "arbitrum", "camelot_v3")["quote_path_connected"] is False
+    assert _cell(m, "arbitrum", "camelot_v3")["quote_path_connected"] is True
+    assert _cell(m, "polygon", "quickswap_v3")["quote_path_connected"] is True
     # Solidly / Curve still have no resolver ⇒ explicit family blocker
     assert _cell(m, "optimism", "velodrome_v2")["blocker"] == "solidly_resolver_not_implemented"
     assert _cell(m, "ethereum", "curve_stable")["blocker"] == "curve_resolver_not_implemented"
@@ -198,8 +199,41 @@ def test_matrix_activates_forks_and_is_honest_about_families():
 def test_quoter_registry_registers_fork_backends():
     from arbicore.execution.quoter import QuoterRegistry
     supported = set(QuoterRegistry().supported_dexes)
-    for dex in ("uniswap_v3", "sushiswap_v3", "pancakeswap_v3", "sushiswap_v2"):
+    for dex in ("uniswap_v3", "sushiswap_v3", "pancakeswap_v3", "sushiswap_v2",
+                "camelot_v3", "quickswap_v3"):
         assert dex in supported, dex
+
+
+def test_algebra_quoter_uses_dynamic_fee_abi(monkeypatch):
+    from arbicore.execution import quoter as Q
+    seen = {}
+
+    async def fake_eth_call(rpc_url, *, to, data, **kw):
+        seen["to"] = to
+        seen["selector"] = data[:10]
+        # Algebra returns (uint256 amountOut, uint16 fee) — NOT the UniV3 tuple
+        return ("0x" + _enc(["uint256", "uint16"], [4_444_444, 300]).hex()), 55, None
+    monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
+    reg = Q.QuoterRegistry()
+    rq = _run(reg.quote_route(
+        chain="arbitrum", rpc_url="http://rpc.test",
+        hops=[{"dex": "camelot_v3", "token_in": "0x" + "11" * 20,
+               "token_out": "0x" + "22" * 20, "amount_in_wei": 10**18}]))
+    assert rq.status == "ok" and rq.final_amount_out_wei == 4_444_444
+    assert seen["to"] == Q.CAMELOT_V3_QUOTER_ARBITRUM
+    assert seen["selector"] == Q._SEL["algebra_quoteExactInputSingle"]
+
+
+def test_algebra_quoter_fails_closed_off_map():
+    from arbicore.execution import quoter as Q
+    reg = Q.QuoterRegistry()
+    # camelot_v3 has no ethereum quoter ⇒ fail closed (no fabrication)
+    rq = _run(reg.quote_route(
+        chain="ethereum", rpc_url="http://rpc.test",
+        hops=[{"dex": "camelot_v3", "token_in": "0x" + "11" * 20,
+               "token_out": "0x" + "22" * 20, "amount_in_wei": 10**18}]))
+    assert rq.status == "fallback:break_even"
+    assert rq.hops[0].status == "fallback:no_adapter"
 
 
 def test_sushi_v3_quoter_uses_its_own_address_not_uniswap():

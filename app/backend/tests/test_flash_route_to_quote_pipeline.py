@@ -337,8 +337,11 @@ def test_certification_structural_vs_runtime():
     forks = [r for r in m["rows"] if r["venue"] in
              ("sushiswap_v3", "pancakeswap_v3", "sushiswap_v2")]
     assert forks and all(r["quote_path_connected"] for r in forks)
-    # Venues that are discoverable but have NO quoter adapter yet (Algebra) OR
-    # no resolver at all (Solidly/Curve) are NOT quote-connected — honest.
+    # Algebra venues (Camelot/QuickSwap) are now quote-connected via the verified
+    # Algebra dynamic-fee quoter. Only Solidly/Curve remain without a quoter.
+    connected_algebra = [r for r in m["rows"] if r["venue"] in
+                         ("camelot_v3", "quickswap_v3")]
+    assert connected_algebra and all(r["quote_path_connected"] for r in connected_algebra)
     no_quoter = [r for r in m["rows"] if r["venue"] in
-                 ("camelot_v3", "quickswap_v3", "velodrome_v2", "curve_stable")]
+                 ("velodrome_v2", "curve_stable")]
     assert no_quoter and all(not r["quote_path_connected"] for r in no_quoter)
