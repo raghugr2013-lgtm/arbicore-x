@@ -162,6 +162,8 @@ def _cell_state(chain: str, venue: str, *, quoter_supported: bool) -> Dict[str, 
         "liquidity_tvl": "requires_runtime",
         "economic": "requires_runtime",
         "simulation": "requires_runtime",
+        "evidence": "requires_runtime",
+        "reached_state": "DISCOVERABLE" if discoverable else "IMPLEMENTED",
         "limited_live_eligible": False,
         "blocker": blocker,
     }
