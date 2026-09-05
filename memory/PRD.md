@@ -60,6 +60,17 @@ Working branch: `fix/p0-3-runtime-v3-liquidity-filter`.
   NOTE: code/config certification (`repo_capability_pass`) is NOT P0-3; the real
   Base runtime proof requires the VPS (Base RPC). In the Emergent pod all chains
   correctly report `no_operator_configured_rpc` (no RPC ⇒ fail-closed).
+- 2026-06: m3_0_real_candidate_scan fail-closed fix (commit `d00e894`).
+  build_controlled_live_safety returns (None,None) when a Base controlled-live
+  dep is missing (RPC provider / on-chain USD price feed); the scan called
+  validator.validate() unguarded → AttributeError. Fixed via validate_candidate()
+  (runs the REAL PreBroadcastValidator when present, else fail-closed DENY with
+  the exact missing-dep reason — no fake validator/stub/bypass) +
+  _controlled_live_unavailable_reason() read-only diagnosis. Regression
+  tests/test_m3_0_real_candidate_scan_failclosed.py (4) wired into validator
+  (235 passed/0). On the VPS the None-crash is now an explicit fail-closed reason
+  (typically: set ARBICORE_USD_NUMERAIRE=USDC). Chains/venues preserved; signing/
+  broadcast/auto-exec/full-live OFF.
 - 2026-06: RouteSearch → chain/venue-aware quote wiring (commit `1f1d68f`).
   RouteSearchDiscoverySource now emits `route_hops` + a deterministic probe
   `borrow_amount_wei` for NON-Base cycles so the generic EVM path in
