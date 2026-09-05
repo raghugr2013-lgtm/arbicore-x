@@ -184,3 +184,28 @@ No RPC in this container (no web3 runtime, no operator RPC, no funded signer) ->
 all live dims requires_vps_runtime. LIMITED_LIVE_PROVEN=false. Controlled proof
 needs operator RPC + dedicated funded signer + allowed chain/venue/strategy +
 explicit approval (see VPS runbook §7).
+
+---
+
+## TAKEOVER SESSION — PHASE 3 (commits 9e379d0, fc301b5): live read-only runtime certification
+
+### What ran (read-only, against LIVE mainnet RPC via public endpoints — proxy for VPS)
+- scripts/vps_runtime_certify.py (NEW): per chain×venue×pair discover→quote→liquidity
+  + cross-venue pre-cost spread + head/latency. No signing/broadcast/keys.
+- scripts/vps_multichain_preflight.py: venue-aware live probe (phase-2 extension).
+- Evidence: reports/VPS_RUNTIME_CERT_public.json + VPS_RUNTIME_CERTIFICATION_REPORT.md.
+
+### Live runtime results (public RPC)
+- probe_rows 62 · discoverable 56 · liquidity_verified 56 · quotable 49.
+- univ3 (Uniswap V3 + Sushi V3 + Pancake V3): 46/46/46 → QUOTABLE proven live.
+- univ2 (Sushi V2): 3/3/3 → QUOTABLE proven live.
+- algebra (Camelot V3 + QuickSwap V3): 7 discoverable+liquid, 0 quotable (no quoter adapter).
+- Cross-venue big spreads (1036%/341%/30%) = illiquid-pool artifacts (gate rejects).
+  Plausible ones (0.05–1.1%) below net cost. NET economics 0, fork sim 0 (no anvil here).
+- Execution-ready candidate: NONE. LIMITED_LIVE_PROVEN=false.
+
+### Recommendation
+Next highest-value seam by EVIDENCE = Algebra QuoterV2 adapter (7 liquid pools blocked
+only by missing quoter). Then wire net economic gate into multichain cross-venue path.
+Re-run on VPS operator RPC (archive nodes) for authoritative numbers. No execution proof
+until a genuine net-positive, gate-passing, simulated candidate exists.
