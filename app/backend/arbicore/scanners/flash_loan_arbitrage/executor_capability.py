@@ -30,6 +30,13 @@ class ExecutorCapabilityStatus(str, enum.Enum):
 # The deployed executor can only encode Uniswap V3 swap hops today.
 SUPPORTED_DEXES = frozenset({"uniswap_v3"})
 
+# The deployed FlashLoanReceiver's flash-loan heads, reconciled to the on-chain
+# ABI (E1): Balancer V2 (`execute`/`receiveFlashLoan`) AND Aave V3
+# (`executeAave`/`executeOperation`). This is the canonical single source of
+# truth consumed by the Executor V2 settlement dispatcher and the offline
+# capability audit — keep the two in lock-step (asserted by tests).
+SUPPORTED_FLASH_PROVIDERS = frozenset({"balancer_v2", "aave_v3"})
+
 
 @dataclass
 class ExecutorCapability:
@@ -109,4 +116,5 @@ def evaluate_executor_capability(
 
 
 __all__ = ["ExecutorCapabilityStatus", "ExecutorCapability",
-           "evaluate_executor_capability", "SUPPORTED_DEXES"]
+           "evaluate_executor_capability", "SUPPORTED_DEXES",
+           "SUPPORTED_FLASH_PROVIDERS"]
