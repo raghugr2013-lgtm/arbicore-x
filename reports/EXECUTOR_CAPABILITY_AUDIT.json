@@ -1,0 +1,235 @@
+{
+  "safety": {
+    "posture": "SHADOW / detection-only / fail-closed",
+    "signing": false,
+    "broadcast": false,
+    "execution": false
+  },
+  "note": "Static execution-capability classification from the REAL registries. SIMULATION and EXECUTION are VPS runtime gates (requires_vps_runtime); never asserted here. No SUPPORTED_DEXES change, no synthetic adapter, no fabricated capability.",
+  "summary": {
+    "venue_cells": 15,
+    "discoverable": 13,
+    "quotable": 13,
+    "route_constructable": 7,
+    "execution_capable": 6,
+    "executor_supported_dexes": [
+      "uniswap_v3"
+    ],
+    "executor_supported_flash": [
+      "balancer_v2"
+    ],
+    "dex_adapters_available": [
+      "aerodrome",
+      "uniswap_v3"
+    ],
+    "flash_adapters_available": [
+      "aave_v3",
+      "balancer_v2",
+      "uniswap_v3"
+    ]
+  },
+  "venues": [
+    {
+      "chain": "base",
+      "venue": "uniswap_v3",
+      "abi": "canonical_base",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": true,
+      "execution_capable": true,
+      "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
+    },
+    {
+      "chain": "base",
+      "venue": "aerodrome_slipstream",
+      "abi": "canonical_base",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": false,
+      "execution_capable": false,
+      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+    },
+    {
+      "chain": "base",
+      "venue": "aerodrome",
+      "abi": "canonical_base",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": true,
+      "execution_capable": false,
+      "blocker": "execution: deployed FlashLoanReceiver encodes uniswap_v3 swap hops only \u2014 this venue requires an upgraded/redeployed on-chain receiver before it is execution-capable"
+    },
+    {
+      "chain": "arbitrum",
+      "venue": "uniswap_v3",
+      "abi": "univ3",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": true,
+      "execution_capable": true,
+      "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
+    },
+    {
+      "chain": "arbitrum",
+      "venue": "sushiswap_v3",
+      "abi": "univ3",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": false,
+      "execution_capable": false,
+      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+    },
+    {
+      "chain": "arbitrum",
+      "venue": "camelot_v3",
+      "abi": "algebra",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": false,
+      "execution_capable": false,
+      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+    },
+    {
+      "chain": "bnb",
+      "venue": "pancakeswap_v3",
+      "abi": "univ3",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": false,
+      "execution_capable": false,
+      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+    },
+    {
+      "chain": "bnb",
+      "venue": "uniswap_v3",
+      "abi": "univ3",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": true,
+      "execution_capable": true,
+      "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
+    },
+    {
+      "chain": "ethereum",
+      "venue": "uniswap_v3",
+      "abi": "univ3",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": true,
+      "execution_capable": true,
+      "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
+    },
+    {
+      "chain": "ethereum",
+      "venue": "sushiswap_v2",
+      "abi": "univ2",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": false,
+      "execution_capable": false,
+      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+    },
+    {
+      "chain": "ethereum",
+      "venue": "curve_stable",
+      "abi": "curve",
+      "discoverable": false,
+      "quotable": false,
+      "route_constructable": false,
+      "execution_capable": false,
+      "blocker": "discovery: curve_resolver_not_implemented"
+    },
+    {
+      "chain": "optimism",
+      "venue": "uniswap_v3",
+      "abi": "univ3",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": true,
+      "execution_capable": true,
+      "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
+    },
+    {
+      "chain": "optimism",
+      "venue": "velodrome_v2",
+      "abi": "solidly",
+      "discoverable": false,
+      "quotable": false,
+      "route_constructable": false,
+      "execution_capable": false,
+      "blocker": "discovery: solidly_resolver_not_implemented"
+    },
+    {
+      "chain": "polygon",
+      "venue": "uniswap_v3",
+      "abi": "univ3",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": true,
+      "execution_capable": true,
+      "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
+    },
+    {
+      "chain": "polygon",
+      "venue": "quickswap_v3",
+      "abi": "algebra",
+      "discoverable": true,
+      "quotable": true,
+      "route_constructable": false,
+      "execution_capable": false,
+      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+    }
+  ],
+  "flash_providers": [
+    {
+      "provider": "aave_v3",
+      "supports_chains": [
+        "ethereum",
+        "arbitrum",
+        "base",
+        "optimism",
+        "polygon",
+        "bnb"
+      ],
+      "adapter_available": true,
+      "execution_capable": false,
+      "blocker": "adapter exists but deployed FlashLoanReceiver supports balancer_v2 borrow only \u2014 requires upgraded receiver"
+    },
+    {
+      "provider": "balancer_v2",
+      "supports_chains": [
+        "ethereum",
+        "arbitrum",
+        "base",
+        "optimism",
+        "polygon"
+      ],
+      "adapter_available": true,
+      "execution_capable": true,
+      "blocker": "execution-capable borrow provider; runtime availability (vault liquidity, RPC) proven on VPS"
+    },
+    {
+      "provider": "morpho_blue",
+      "supports_chains": [
+        "ethereum",
+        "base"
+      ],
+      "adapter_available": false,
+      "execution_capable": false,
+      "blocker": "no FlashLoanAdapter in execution.adapters (borrow/repay calldata not implemented)"
+    },
+    {
+      "provider": "uniswap_v3",
+      "supports_chains": [
+        "ethereum",
+        "arbitrum",
+        "base",
+        "optimism",
+        "polygon"
+      ],
+      "adapter_available": true,
+      "execution_capable": false,
+      "blocker": "adapter exists but deployed FlashLoanReceiver supports balancer_v2 borrow only \u2014 requires upgraded receiver"
+    }
+  ]
+}

@@ -17,6 +17,10 @@ ARG BUILD_TIME=unset
 ARG APP_VERSION=unset
 ARG IMAGE_DIGEST=unset
 ARG IMAGE_REF=unset
+# Certification/isolated image builds pass GIT_STRICT=1 so gen_build_info FAILS
+# the build if the source SHA cannot be resolved to a 40-hex id (no silent
+# "unknown"). Production builds default to 0 (unchanged behavior).
+ARG GIT_STRICT=0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -24,6 +28,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     ARBICORE_GIT_SHA=${GITSHA} \
     ARBICORE_GIT_TAG=${GITTAG} \
+    ARBICORE_GIT_STRICT=${GIT_STRICT} \
     ARBICORE_BUILD_TIME=${BUILD_TIME} \
     ARBICORE_VERSION=${APP_VERSION} \
     ARBICORE_IMAGE_DIGEST=${IMAGE_DIGEST} \
@@ -72,7 +77,9 @@ COPY app/backend/ /app/
 
 # Stamp deployment identity into the image so GET /api/arbicore/version reports
 # real Git SHA / tag / build time / version even without .git (env ARGs feed it).
-RUN python -m scripts.gen_build_info || true
+# NOT wrapped in `|| true`: a malformed GITSHA, or GIT_STRICT=1 with an
+# unresolved SHA, MUST fail the build rather than embed a placeholder identity.
+RUN python -m scripts.gen_build_info
 
 # Non-root runtime user.
 RUN useradd --create-home --shell /bin/bash --uid 1001 arbicore \

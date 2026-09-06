@@ -100,6 +100,68 @@ async def validate_candidate(validator, plan, unavailable_reason: str) -> dict:
             "reasons": decision.reasons}
 
 
+async def _mongo_reachable(timeout_ms: int = 1500) -> tuple:
+    """Quick, read-only reachability probe of the execution-policy Mongo. Returns
+    (reachable: bool, detail: str). Never raises; never writes."""
+    url = os.environ.get("MONGO_URL")
+    if not url:
+        return False, "MONGO_URL unset"
+    try:
+        from motor.motor_asyncio import AsyncIOMotorClient
+        client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=timeout_ms)
+        try:
+            await client.admin.command("ping")
+            return True, "ping ok"
+        finally:
+            client.close()
+    except Exception as exc:  # noqa: BLE001 — unreachable => defer, never fake
+        return False, f"{type(exc).__name__}: {exc}"
+
+
+async def _broadcast_ladder_proof(candidates, validator, breaker) -> dict:
+    """confirm=False broadcast-ladder proof — the ONLY Mongo-dependent step.
+
+    Runs the real LimitedLiveBroadcaster ladder (which reads the Motor-backed
+    kill-switch / execution-mode / capital-policy stores) to PROVE
+    broadcast_sent=False. If Mongo is unreachable, DEFER with an explicit status
+    instead of hanging or masking the dependency — the read-only candidate scan
+    itself does not require Mongo."""
+    if not candidates:
+        return {"status": "skipped_no_candidates", "broadcast_sent": False}
+    reachable, detail = await _mongo_reachable()
+    if not reachable:
+        return {
+            "status": "deferred_mongo_unavailable",
+            "broadcast_sent": False,
+            "mongo_detail": detail,
+            "note": ("execution-policy store (kill-switch/mode/capital) is "
+                     "Mongo-backed and required only for the broadcast-ladder "
+                     "safety proof; the read-only candidate scan does not need "
+                     "it. Run this step where Mongo is reachable to certify the "
+                     "ladder independently."),
+        }
+    try:
+        from arbicore.execution.broadcast import LimitedLiveBroadcaster
+        from arbicore.execution.mode import ExecutionModeRepo
+        from arbicore.execution.kill_switch import KillSwitchRepo
+        from arbicore.execution.capital_policy import (
+            CapitalPolicyRepo, CapitalAllocator)
+        from motor.motor_asyncio import AsyncIOMotorClient
+        db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+        b = LimitedLiveBroadcaster(
+            kill_switch=KillSwitchRepo(db), mode_repo=ExecutionModeRepo(db),
+            wallet_registry=None, secret_registry=None,
+            capital_allocator=CapitalAllocator(CapitalPolicyRepo(db)),
+            pre_broadcast_validator=validator, circuit_breaker=breaker,
+            require_revalidation=True)
+        rc = await b.broadcast_plan(candidates[0]["plan"], confirm=False)
+        return {"status": "ran", "broadcast_sent": rc.broadcast_sent,
+                "denied_reasons": rc.denied_reasons}
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "error", "broadcast_sent": False,
+                "error": f"{type(exc).__name__}: {exc}"}
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr,
                         format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -177,32 +239,28 @@ async def main() -> None:
         if m3_gates["ok"] and best is None:
             best = c["name"]
 
-    # single confirm=False ladder check → proves no broadcast path is taken
-    try:
-        from arbicore.execution.broadcast import LimitedLiveBroadcaster
-        from arbicore.execution.mode import ExecutionModeRepo
-        from arbicore.execution.kill_switch import KillSwitchRepo
-        from arbicore.execution.capital_policy import CapitalPolicyRepo, CapitalAllocator
-        from motor.motor_asyncio import AsyncIOMotorClient
-        db = AsyncIOMotorClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
-        b = LimitedLiveBroadcaster(
-            kill_switch=KillSwitchRepo(db), mode_repo=ExecutionModeRepo(db),
-            wallet_registry=None, secret_registry=None,
-            capital_allocator=CapitalAllocator(CapitalPolicyRepo(db)),
-            pre_broadcast_validator=validator, circuit_breaker=breaker,
-            require_revalidation=True)
-        rc = await b.broadcast_plan(audit["candidates"][0]["plan"], confirm=False)
-        audit["broadcast_ladder"] = {"broadcast_sent": rc.broadcast_sent,
-                                     "denied_reasons": rc.denied_reasons}
-    except Exception as exc:  # noqa: BLE001
-        audit["broadcast_ladder"] = {"error": f"{type(exc).__name__}: {exc}"}
+    # ── Broadcast-ladder safety proof (EXPLICIT Mongo dependency, isolated) ──
+    # This confirm=False ladder check proves no broadcast path is taken. It is
+    # the ONLY part of this scan that needs Mongo: LimitedLiveBroadcaster reads
+    # the kill-switch / execution-mode / capital-policy stores (Motor-backed).
+    # The candidate scan above is fully Mongo-free and read-only. To keep
+    # read-only certification from hanging on an unavailable execution-policy
+    # store (e.g. factory-mongo:27017), we PING Mongo first (short timeout) and
+    # DEFER the ladder proof with an explicit status when it is unreachable —
+    # the dependency is surfaced honestly, never hidden or faked.
+    audit["broadcast_ladder"] = await _broadcast_ladder_proof(
+        audit["candidates"], validator, breaker)
 
     n_green = sum(1 for e in audit["candidates"] if e["m3_final_gates"]["ok"])
+    bl = audit.get("broadcast_ladder", {})
     audit["summary"] = {
         "candidates_scanned": len(audit["candidates"]),
         "green": n_green, "best_green_candidate": best,
-        "broadcast_sent": bool(audit.get("broadcast_ladder", {}).get("broadcast_sent")),
-        "safe": not bool(audit.get("broadcast_ladder", {}).get("broadcast_sent")),
+        "broadcast_sent": bool(bl.get("broadcast_sent")),
+        # SAFE means no broadcast happened. A deferred/skipped ladder (no Mongo)
+        # is strictly safe: no broadcast path was ever exercised.
+        "safe": not bool(bl.get("broadcast_sent")),
+        "broadcast_ladder_status": bl.get("status", "ran"),
     }
 
     payload = json.dumps(audit, indent=2, default=str)

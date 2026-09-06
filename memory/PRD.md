@@ -283,3 +283,42 @@ otherwise unchanged; 3 protected files + main/production untouched; all executio
   isolated image), no operator/archive RPC, no anvil, no funded signer.
 - Certify offline: git_sha=ad64a50, provenance clean, repo_capability_pass=True.
   Commit pending → push via "Save to Github".
+
+
+## TAKEOVER SESSION — PHASE 5c (2026-06): cert blockers 1-4 + honest activation matrix
+Branch takeover/limited-live-seam-cc8db95. All execution OFF; main/production +
+3 protected files untouched; no fabrication; no SUPPORTED_DEXES change.
+
+- BLOCKER 1 (Docker provenance): scripts/gen_build_info.py hardened — pure
+  resolve_git_identity + is_valid_full_sha (40-hex). STRICT mode (ARBICORE_GIT_STRICT)
+  FAILS the build if SHA would be unknown/malformed; a malformed explicit SHA always
+  raises. Dockerfile (deployment/docker/backend/Dockerfile — NOT protected) adds
+  ARG GIT_STRICT + ENV ARBICORE_GIT_STRICT and drops `|| true` so cert builds cannot
+  silently embed a placeholder. Cert build cmd: `--build-arg GITSHA=$(git rev-parse HEAD)
+  --build-arg GIT_STRICT=1`. arbicore.gitsha LABEL already embeds GITSHA.
+- BLOCKER 2 (multichain operator RPC): verified all 6 chains
+  (base,eth,arb,op,poly,bnb) consume PROVIDER_RPC_URLS_<CHAIN> (economic gate) and
+  ARBICORE_RPC_URL_<CHAIN> (discovery only), fail-closed when unset. Public-RPC PROXY
+  race resolved pools on all 6 (eth 9/9, op 6/6, poly 12/12, arb 14/15, bnb 15/20).
+- BLOCKER 3 (executor capability audit): scripts/executor_capability_audit.py (read-only)
+  classifies 15 venue cells across DISCOVER/QUOTE/ROUTE-CONSTRUCT/EXECUTION. Findings:
+  on-chain FlashLoanReceiver executes uniswap_v3 swaps + balancer_v2 borrow ONLY.
+  execution_capable=6 (uniswap_v3 × 6 chains). Aerodrome swap adapter EXISTS
+  (route_constructable) but NOT execution-capable (receiver=UniV3 only). sushi_v3/
+  pancake_v3/camelot_v3/quickswap_v3/sushi_v2 quotable but no DEX calldata adapter.
+  curve/velodrome not discoverable (resolver not implemented). aave_v3/uniswap_v3 flash
+  adapters exist but receiver borrows balancer_v2 only; morpho_blue no adapter. NO
+  SUPPORTED_DEXES change (adding venues would fabricate execution capability).
+- BLOCKER 4 (Mongo/broadcast-ladder): m3_0_real_candidate_scan.py — the ONLY Mongo
+  dependency was the optional confirm=False broadcast-ladder proof (kill-switch/mode/
+  capital Motor repos → hung on factory-mongo:27017). Now isolated via _mongo_reachable()
+  ping + _broadcast_ladder_proof() that DEFERS with explicit `deferred_mongo_unavailable`
+  when Mongo unreachable. Core candidate scan is Mongo-free/read-only. Dependency made
+  explicit, not hidden.
+- Tests: tests/test_phase5b_activation_audit.py (16) + existing harness/provenance (8);
+  venue/cert/provenance suites 71 passed. Compile OK. Certify PASS, provenance clean.
+- Evidence: reports/EXECUTOR_CAPABILITY_AUDIT.json, reports/PHASE5B_ACTIVATION_MATRIX.md.
+- Activation truth: economically-valid cells 0 (real negative edge), Limited-Live-eligible 0,
+  LIMITED_LIVE_PROVEN=false. Runtime SIMULATION/EXECUTION + operator-authoritative numbers
+  remain VPS-only (no Docker/anvil/operator RPC/funded signer here). Commit pending → push
+  via "Save to Github".
