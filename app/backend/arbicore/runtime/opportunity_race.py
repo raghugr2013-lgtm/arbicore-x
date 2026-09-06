@@ -60,12 +60,93 @@ async def _default_chain_evaluator(chain: str, pairs_cap: int) -> Dict[str, Any]
 
 
 async def _default_base_evaluator(chain: str, pairs_cap: int) -> Dict[str, Any]:
-    """Base: reuse the SAME read-only certifier, which fail-closed defers Base to
-    its canonical M3 path (``m3_0_real_candidate_scan``). The real M3 candidate
-    scan is composed here by injecting a ``base_evaluator`` — the frozen Base
-    engine is never rewritten inside this orchestrator."""
-    from scripts.vps_runtime_certify import _certify_chain
-    return await _certify_chain(chain, cap=pairs_cap)
+    """Base leg: COMPOSE the existing canonical Base M3 candidate path.
+
+    This reuses the canonical read-only building blocks WITHOUT modifying or
+    duplicating the Base engine / ContinuousScanner:
+      * ``m3_0_real_candidate_scan.CANDIDATES``            — genuine Base cycles
+      * ``runtime.composition.build_controlled_live_safety`` — real validator
+      * ``m3_0_vps_validate._probe_fresh_stages``          — the real quote →
+        liquidity/TVL → gas → flash-loan → MEV/slippage → all-in-cost pipeline
+      * ``m3_0_real_candidate_scan.validate_candidate``    — the real
+        PreBroadcastValidator gates (authoritative ``m3_final_gates.ok``)
+
+    Emits the SAME ``_certify_chain``-shaped dict the orchestrator normalizes.
+    Genuinely fail-closed: no Base RPC ⇒ SKIPPED; a candidate is only
+    ECONOMICALLY_VALID when the real M3 gate passes, and only surfaced as a
+    positive-NET opportunity when the on-chain all-in net (>0) is verified. No
+    fabrication, no gross-only positives, no signing/broadcast."""
+    import time as _time
+
+    from arbicore.config.persistent import resolve_rpc_url_from_env
+    url = resolve_rpc_url_from_env("base")
+    if not url:
+        return {"skipped": "no_operator_configured_rpc",
+                "head": {"block": None, "error": "no_rpc"},
+                "rows": [], "candidates": []}
+
+    from arbicore.providers.rpc import EthJsonRpcProvider
+    try:
+        head_block = await EthJsonRpcProvider(chain="base", url=url).eth_get_block_number()
+    except Exception as exc:  # noqa: BLE001 — RPC fault fail-closed (isolated)
+        return {"skipped": None, "head": {"block": None,
+                "error": f"{type(exc).__name__}: {exc}"}, "rows": [], "candidates": []}
+
+    from arbicore.execution.quoter import QuoterRegistry
+    from arbicore.runtime.composition import build_controlled_live_safety
+    from scripts.m3_0_real_candidate_scan import (
+        CANDIDATES, validate_candidate, _controlled_live_unavailable_reason)
+    from scripts.m3_0_vps_validate import _probe_fresh_stages
+
+    quoter = QuoterRegistry()
+    validator, _breaker = build_controlled_live_safety(quoter)
+    unavailable = None if validator is not None else _controlled_live_unavailable_reason(quoter)
+
+    rows: List[Dict[str, Any]] = []
+    candidates: List[Dict[str, Any]] = []
+    for c in CANDIDATES:
+        plan = {"strategy": "flash_loan_arbitrage", "chain": "base",
+                "opportunity_id": f"race-scan:{c['name']}",
+                "borrow_token": c["borrow_token"],
+                "borrow_amount_usd": c["borrow_amount_usd"],
+                "flash_loan_provider": "balancer_v2",
+                "route_pools": c["route_pools"],
+                "cycle_token_path": c["cycle_token_path"],
+                "quoted_block": head_block,
+                "deadline_ts": _time.time() + 120.0}
+        probe = await _probe_fresh_stages(plan, quoter)
+        m3 = await validate_candidate(validator, plan, unavailable)
+
+        facts = probe.get("stage_6_facts")
+        quotable = bool(isinstance(facts, dict) and facts.get("route_quote_status") == "ok")
+        liq_ok = bool(isinstance(facts, dict)
+                      and (facts.get("min_pool_tvl_usd_in_route") or 0) > 0)
+        all_in = probe.get("stage_10_all_in_cost") or {}
+        net = (all_in.get("net_profit_all_in_usd")
+               if isinstance(all_in, dict) and all_in.get("available") else None)
+        ok = bool(m3.get("ok"))
+        rows.append({"venue": "base_canonical_m3", "pair": c["name"],
+                     "quotable": quotable, "liquidity_verified": liq_ok})
+        candidates.append({
+            "chain": "base", "block": head_block,
+            "pair": c["name"], "venue": "base_canonical_m3",
+            "strategy": "flash_loan_arbitrage",
+            "token_path": c["cycle_token_path"],
+            "borrow": c["borrow_token"],
+            "stages": {"DISCOVERED": True, "QUOTABLE": quotable,
+                       "LIQUIDITY_VERIFIED": liq_ok,
+                       "ECONOMICALLY_VALID": ok, "LIMITED_LIVE_ELIGIBLE": False},
+            "all_in_net_usd": net,
+            "gross_profit_usd": (facts.get("gross_profit_pct")
+                                 if isinstance(facts, dict) else None),
+            "m3_final_gates": m3.get("gates"),
+            "eliminated_at": None if ok else "M3_GATES",
+            "reason": None if ok else ((m3.get("reasons") or ["m3_gates_denied"])[0]),
+            "evidence_id": f"cand:base:m3:{c['name']}:blk{head_block}",
+        })
+
+    return {"skipped": None, "head": {"block": head_block, "error": None},
+            "rows": rows, "candidates": candidates}
 
 
 @dataclass
