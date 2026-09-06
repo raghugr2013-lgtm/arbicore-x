@@ -50,16 +50,18 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-ChainEvaluator = Callable[[str, int], Awaitable[Dict[str, Any]]]
+ChainEvaluator = Callable[[str, Optional[int]], Awaitable[Dict[str, Any]]]
 
 
-async def _default_chain_evaluator(chain: str, pairs_cap: int) -> Dict[str, Any]:
-    """Non-Base chains: reuse the existing read-only per-chain certifier."""
+async def _default_chain_evaluator(chain: str, pairs_cap: Optional[int]) -> Dict[str, Any]:
+    """Non-Base chains: reuse the existing read-only per-chain certifier over the
+    COMPLETE per-chain probe universe. ``pairs_cap=None`` (the race default)
+    forwards as ``cap=None`` → ``_probe_tasks(chain)[:None]`` (no truncation)."""
     from scripts.vps_runtime_certify import _certify_chain
     return await _certify_chain(chain, cap=pairs_cap)
 
 
-async def _default_base_evaluator(chain: str, pairs_cap: int) -> Dict[str, Any]:
+async def _default_base_evaluator(chain: str, pairs_cap: Optional[int]) -> Dict[str, Any]:
     """Base leg: COMPOSE the existing canonical Base M3 candidate path.
 
     This reuses the canonical read-only building blocks WITHOUT modifying or
@@ -251,7 +253,7 @@ class SixChainOpportunityRace:
         interval_s: int = 60,
         per_chain_timeout_s: float = 45.0,
         max_chain_concurrency: int = 6,
-        pairs_cap: int = 10,
+        pairs_cap: Optional[int] = None,
         max_block_lag: Optional[int] = None,
         history_limit: int = 20,
         chain_evaluator: Optional[ChainEvaluator] = None,
@@ -262,7 +264,9 @@ class SixChainOpportunityRace:
         self._interval = int(interval_s)
         self._per_chain_timeout = float(per_chain_timeout_s)
         self._max_conc = max(1, int(max_chain_concurrency))
-        self._pairs_cap = int(pairs_cap)
+        # None ⇒ evaluate the COMPLETE per-chain universe (no implicit cap). An
+        # explicit integer cap is honoured only when deliberately supplied.
+        self._pairs_cap = None if pairs_cap is None else int(pairs_cap)
         self._max_block_lag = max_block_lag
         self._history_limit = int(history_limit)
         self._chain_eval = chain_evaluator or _default_chain_evaluator
