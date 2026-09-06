@@ -84,6 +84,29 @@ def test_certify_direct_path_invocation_imports_arbicore():
     assert "opportunity_matrix" in rep and "repository" in rep
 
 
+def test_m3_0_real_candidate_scan_direct_path_imports_arbicore():
+    """Authoritative Base M3 scanner must import arbicore (incl.
+    ``arbicore.execution.quoter.QuoterRegistry``) under the production-style
+    direct-path invocation. Before the fix this raised ModuleNotFoundError:
+    No module named 'arbicore'. With no Base RPC configured it must fail CLOSED
+    (explicit reason), NEVER crash on import and NEVER fabricate a candidate."""
+    script = SCRIPTS / "m3_0_real_candidate_scan.py"
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    env["MONGO_URL"] = "mongodb://localhost:27017"
+    env["DB_NAME"] = "arbicore_x_test_invocation"
+    # Ensure no Base RPC leaks in — assert the fail-closed path is reached.
+    for k in ("ARBICORE_RPC_URL_BASE", "PROVIDER_RPC_URLS_BASE",
+              "PROVIDER_RPC_URL_BASE", "BASE_RPC_URL"):
+        env.pop(k, None)
+    proc = subprocess.run([sys.executable, str(script)], cwd="/tmp", env=env,
+                          capture_output=True, text=True, timeout=120)
+    assert "ModuleNotFoundError" not in proc.stderr
+    assert "No module named 'arbicore'" not in proc.stderr
+    # Import succeeded → the scanner ran its real fail-closed gate (no RPC).
+    rep = json.loads(proc.stdout)
+    assert "no Base RPC configured" in json.dumps(rep)
+
+
 # ─────────────────────────── (B) PROVENANCE ────────────────────────────────
 def test_image_mode_build_info_is_authoritative_over_stale_env():
     """IMAGE mode (no .git): the baked BUILD_INFO stamp is authoritative; an
