@@ -399,18 +399,26 @@ def first_rpc_endpoint(raw: Optional[str]) -> Optional[str]:
 def resolve_rpc_url_from_env(chain: str = "base") -> Optional[str]:
     """T0-5 canonical *synchronous* RPC precedence resolver (no DB).
 
-    Precedence (deterministic):
-        ARBICORE_RPC_URL_<CHAIN>  >  ARBICORE_RPC_URL  >  legacy <CHAIN>_RPC_URL
+    Precedence (deterministic, PER-CHAIN, fail-closed):
+        ARBICORE_RPC_URL_<CHAIN>  >  (ARBICORE_RPC_URL, BASE ONLY)  >  <CHAIN>_RPC_URL
+
+    The non-chain-specific ``ARBICORE_RPC_URL`` is a BASE-only convenience alias
+    (the historical single-chain default) and is DELIBERATELY NOT applied to any
+    other chain: letting it fall through would leak Base's endpoint to
+    Ethereum/Arbitrum/Optimism/Polygon/BNB and falsely mark them configured. For
+    the six-chain seam every non-Base chain must be configured explicitly via its
+    own ``ARBICORE_RPC_URL_<CHAIN>`` (or legacy ``<CHAIN>_RPC_URL``).
 
     A comma-separated value is reduced to its first endpoint (never used whole).
     Returns None when unset — callers fail fast; no fabricated default.
     """
     c = chain.upper()
-    raw = (os.environ.get(f"ARBICORE_RPC_URL_{c}")
-           or os.environ.get("ARBICORE_RPC_URL")
-           or os.environ.get(f"{c}_RPC_URL")
-           or None)
-    return first_rpc_endpoint(raw)
+    raw = os.environ.get(f"ARBICORE_RPC_URL_{c}")
+    if not raw and chain.lower() == "base":
+        raw = os.environ.get("ARBICORE_RPC_URL")   # base-only global alias
+    if not raw:
+        raw = os.environ.get(f"{c}_RPC_URL")
+    return first_rpc_endpoint(raw or None)
 
 
 async def resolve_rpc_url(*, network_repo: NetworkConfigRepo,
@@ -423,9 +431,9 @@ async def resolve_rpc_url(*, network_repo: NetworkConfigRepo,
             return urls[0]
     except Exception:
         pass
-    return (os.environ.get(f"ARBICORE_RPC_URL_{chain.upper()}")
-            or first_rpc_endpoint(os.environ.get("ARBICORE_RPC_URL"))
-            or None)
+    # Env fallback uses the SAME per-chain, base-only-global resolver so no
+    # cross-chain leakage of the Base endpoint.
+    return resolve_rpc_url_from_env(chain)
 
 
 async def resolve_executor_address(*, network_repo: NetworkConfigRepo,

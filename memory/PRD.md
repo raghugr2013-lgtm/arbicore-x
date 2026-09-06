@@ -352,3 +352,34 @@ Branch takeover/limited-live-seam-cc8db95. All execution OFF; main/production +
   Curve/Solidly resolvers still not implemented (exact remediation documented).
   Commit pending → push via "Save to Github".
 
+
+## TAKEOVER SESSION — PHASE 5e (2026-06): six-chain operator-RPC configuration seam
+Branch takeover/limited-live-seam-cc8db95. Config-infra only; NO production change;
+signing/broadcast/auto-execution/Full-Live/Limited-Live/withdrawals OFF; 3 protected
+files + main untouched; no secrets/RPC URLs committed.
+
+- Canonical mechanism: per-chain env vars consumed by
+  arbicore/runtime/multichain_readiness (rpc_explicitly_configured →
+  PROVIDER_RPC_URLS_<CHAIN>/PROVIDER_RPC_URL_<CHAIN>/ARBICORE_RPC_URL_<CHAIN>/<CHAIN>_RPC_URL;
+  provider_registry_rpc_configured → PROVIDER_RPC_URLS/PROVIDER_RPC_URL only) — already
+  per-chain-strict, fail-closed, no URL values in reports.
+- FIX (cross-chain leakage): arbicore/config/persistent.py resolve_rpc_url_from_env +
+  async resolve_rpc_url — the non-chain-specific ARBICORE_RPC_URL global is now a
+  BASE-ONLY alias; it no longer leaks Base's endpoint to eth/arb/op/poly/bnb (which
+  previously made them falsely "configured" and routed their RPC calls to Base).
+  Base precedence unchanged: ARBICORE_RPC_URL_BASE > ARBICORE_RPC_URL > BASE_RPC_URL.
+- Config template (names only, no values): deployment/cert/.env.example lists all 12
+  keys (6 PROVIDER_RPC_URLS_<CHAIN> + 6 ARBICORE_RPC_URL_<CHAIN>) + base-only aliases;
+  real values file deployment/cert/.env is git-ignored (verified). VPS injects via
+  `docker run --env-file` or `set -a; . .env; set +a`.
+- Tests: tests/test_six_chain_rpc_seam.py (10) — six chains keyed independently;
+  missing=fail-closed; correct-chain consumption; no cross-chain leakage from base
+  alias; Base precedence preserved; five non-Base chains independently authoritative;
+  readiness report emits NO RPC values; template lists all names/no values. Offline
+  regression: seam+t0+phase5b 43 passed; config/env-sync suites 92 passed.
+- Required env var names (values supplied ONLY on VPS, never in Git):
+  PROVIDER_RPC_URLS_{BASE,ETHEREUM,ARBITRUM,OPTIMISM,POLYGON,BNB},
+  ARBICORE_RPC_URL_{BASE,ETHEREUM,ARBITRUM,OPTIMISM,POLYGON,BNB}.
+- Opportunity Race NOT run (per instruction). Six chains NOT declared configured until
+  real operator RPCs supplied on VPS. Commit pending → push via "Save to Github".
+
