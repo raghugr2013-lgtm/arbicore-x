@@ -6387,6 +6387,40 @@ async def v2_autoexec_tick() -> Dict[str, Any]:
     return {"summary": summary, "generated_at": _iso_now()}
 
 
+# ── Six-Chain READ-ONLY Opportunity Race (operator-controlled; no autostart) ──
+@api_router.get("/arbicore/opportunity-race/status",
+                dependencies=[Depends(_require_operator_dep)])
+async def opportunity_race_status() -> Dict[str, Any]:
+    """READ-ONLY status of the six-chain Opportunity Race (RUNNING/STOPPED,
+    per-chain health, positive NET candidates, best candidate)."""
+    from arbicore.runtime.opportunity_race import get_opportunity_race
+    return {"status": get_opportunity_race().status(), "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/opportunity-race/start",
+                 dependencies=[Depends(_require_operator_dep)])
+async def opportunity_race_start() -> Dict[str, Any]:
+    """Explicit operator start. SHADOW / read-only; never signs/broadcasts/executes."""
+    from arbicore.runtime.opportunity_race import get_opportunity_race
+    return {"status": await get_opportunity_race().start(), "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/opportunity-race/stop",
+                 dependencies=[Depends(_require_operator_dep)])
+async def opportunity_race_stop() -> Dict[str, Any]:
+    from arbicore.runtime.opportunity_race import get_opportunity_race
+    return {"status": await get_opportunity_race().stop(), "generated_at": _iso_now()}
+
+
+@api_router.post("/arbicore/opportunity-race/scan-once",
+                 dependencies=[Depends(_require_operator_dep)])
+async def opportunity_race_scan_once() -> Dict[str, Any]:
+    """Force a single read-only six-chain race scan (operator/cron/debug)."""
+    from arbicore.runtime.opportunity_race import get_opportunity_race
+    result = await get_opportunity_race().scan_once()
+    return {"result": result.to_dict(), "generated_at": _iso_now()}
+
+
 
 
 # Include the router in the main app
