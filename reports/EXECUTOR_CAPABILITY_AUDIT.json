@@ -6,11 +6,41 @@
     "execution": false
   },
   "note": "Static execution-capability classification from the REAL registries. SIMULATION and EXECUTION are VPS runtime gates (requires_vps_runtime); never asserted here. No SUPPORTED_DEXES change, no synthetic adapter, no fabricated capability.",
+  "certification_state_model": {
+    "states": [
+      "IMPLEMENTED",
+      "CONFIGURED",
+      "RPC_VERIFIED",
+      "STATE_VERIFIED",
+      "QUOTABLE",
+      "ECONOMICALLY_VALID",
+      "ROUTE_CONSTRUCTABLE",
+      "SIMULATABLE",
+      "EXECUTION_CAPABLE",
+      "RUNTIME_CERTIFIED",
+      "LIMITED_LIVE_ELIGIBLE"
+    ],
+    "offline_provable": [
+      "IMPLEMENTED",
+      "QUOTABLE",
+      "ROUTE_CONSTRUCTABLE",
+      "EXECUTION_CAPABLE"
+    ],
+    "runtime_only": [
+      "CONFIGURED",
+      "ECONOMICALLY_VALID",
+      "LIMITED_LIVE_ELIGIBLE",
+      "RPC_VERIFIED",
+      "RUNTIME_CERTIFIED",
+      "SIMULATABLE",
+      "STATE_VERIFIED"
+    ]
+  },
   "summary": {
     "venue_cells": 15,
     "discoverable": 13,
     "quotable": 13,
-    "route_constructable": 7,
+    "route_constructable": 13,
     "execution_capable": 6,
     "executor_supported_dexes": [
       "uniswap_v3"
@@ -20,11 +50,18 @@
     ],
     "dex_adapters_available": [
       "aerodrome",
+      "aerodrome_slipstream",
+      "camelot_v3",
+      "pancakeswap_v3",
+      "quickswap_v3",
+      "sushiswap_v2",
+      "sushiswap_v3",
       "uniswap_v3"
     ],
     "flash_adapters_available": [
       "aave_v3",
       "balancer_v2",
+      "morpho_blue",
       "uniswap_v3"
     ]
   },
@@ -37,6 +74,19 @@
       "quotable": true,
       "route_constructable": true,
       "execution_capable": true,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": true,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
     },
     {
@@ -45,9 +95,22 @@
       "abi": "canonical_base",
       "discoverable": true,
       "quotable": true,
-      "route_constructable": false,
+      "route_constructable": true,
       "execution_capable": false,
-      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
+      "blocker": "execution: deployed FlashLoanReceiver encodes uniswap_v3 swap hops only \u2014 this venue requires an upgraded/redeployed on-chain receiver before it is execution-capable"
     },
     {
       "chain": "base",
@@ -57,6 +120,19 @@
       "quotable": true,
       "route_constructable": true,
       "execution_capable": false,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "execution: deployed FlashLoanReceiver encodes uniswap_v3 swap hops only \u2014 this venue requires an upgraded/redeployed on-chain receiver before it is execution-capable"
     },
     {
@@ -67,6 +143,19 @@
       "quotable": true,
       "route_constructable": true,
       "execution_capable": true,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": true,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
     },
     {
@@ -75,9 +164,22 @@
       "abi": "univ3",
       "discoverable": true,
       "quotable": true,
-      "route_constructable": false,
+      "route_constructable": true,
       "execution_capable": false,
-      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
+      "blocker": "execution: deployed FlashLoanReceiver encodes uniswap_v3 swap hops only \u2014 this venue requires an upgraded/redeployed on-chain receiver before it is execution-capable"
     },
     {
       "chain": "arbitrum",
@@ -85,9 +187,22 @@
       "abi": "algebra",
       "discoverable": true,
       "quotable": true,
-      "route_constructable": false,
+      "route_constructable": true,
       "execution_capable": false,
-      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
+      "blocker": "execution: deployed FlashLoanReceiver encodes uniswap_v3 swap hops only \u2014 this venue requires an upgraded/redeployed on-chain receiver before it is execution-capable"
     },
     {
       "chain": "bnb",
@@ -95,9 +210,22 @@
       "abi": "univ3",
       "discoverable": true,
       "quotable": true,
-      "route_constructable": false,
+      "route_constructable": true,
       "execution_capable": false,
-      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
+      "blocker": "execution: deployed FlashLoanReceiver encodes uniswap_v3 swap hops only \u2014 this venue requires an upgraded/redeployed on-chain receiver before it is execution-capable"
     },
     {
       "chain": "bnb",
@@ -107,6 +235,19 @@
       "quotable": true,
       "route_constructable": true,
       "execution_capable": true,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": true,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
     },
     {
@@ -117,6 +258,19 @@
       "quotable": true,
       "route_constructable": true,
       "execution_capable": true,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": true,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
     },
     {
@@ -125,9 +279,22 @@
       "abi": "univ2",
       "discoverable": true,
       "quotable": true,
-      "route_constructable": false,
+      "route_constructable": true,
       "execution_capable": false,
-      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
+      "blocker": "execution: deployed FlashLoanReceiver encodes uniswap_v3 swap hops only \u2014 this venue requires an upgraded/redeployed on-chain receiver before it is execution-capable"
     },
     {
       "chain": "ethereum",
@@ -137,6 +304,19 @@
       "quotable": false,
       "route_constructable": false,
       "execution_capable": false,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": false,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": false,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "discovery: curve_resolver_not_implemented"
     },
     {
@@ -147,6 +327,19 @@
       "quotable": true,
       "route_constructable": true,
       "execution_capable": true,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": true,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
     },
     {
@@ -157,6 +350,19 @@
       "quotable": false,
       "route_constructable": false,
       "execution_capable": false,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": false,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": false,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "discovery: solidly_resolver_not_implemented"
     },
     {
@@ -167,6 +373,19 @@
       "quotable": true,
       "route_constructable": true,
       "execution_capable": true,
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": true,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
       "blocker": "execution_capable at construction level; runtime SIMULATION + EXECUTION require VPS (anvil + operator RPC + funded signer + Limited-Live approval)"
     },
     {
@@ -175,9 +394,22 @@
       "abi": "algebra",
       "discoverable": true,
       "quotable": true,
-      "route_constructable": false,
+      "route_constructable": true,
       "execution_capable": false,
-      "blocker": "route_construction: no DEX calldata adapter in execution.adapters (implement DexAdapter)"
+      "states": {
+        "IMPLEMENTED": true,
+        "CONFIGURED": "requires_runtime",
+        "RPC_VERIFIED": "requires_runtime",
+        "STATE_VERIFIED": "requires_runtime",
+        "QUOTABLE": true,
+        "ECONOMICALLY_VALID": "requires_runtime",
+        "ROUTE_CONSTRUCTABLE": true,
+        "SIMULATABLE": "requires_runtime",
+        "EXECUTION_CAPABLE": false,
+        "RUNTIME_CERTIFIED": "requires_runtime",
+        "LIMITED_LIVE_ELIGIBLE": "requires_runtime"
+      },
+      "blocker": "execution: deployed FlashLoanReceiver encodes uniswap_v3 swap hops only \u2014 this venue requires an upgraded/redeployed on-chain receiver before it is execution-capable"
     }
   ],
   "flash_providers": [
@@ -214,9 +446,9 @@
         "ethereum",
         "base"
       ],
-      "adapter_available": false,
+      "adapter_available": true,
       "execution_capable": false,
-      "blocker": "no FlashLoanAdapter in execution.adapters (borrow/repay calldata not implemented)"
+      "blocker": "adapter exists but deployed FlashLoanReceiver supports balancer_v2 borrow only \u2014 requires upgraded receiver"
     },
     {
       "provider": "uniswap_v3",

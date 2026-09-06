@@ -46,6 +46,36 @@ def _norm(v):
     return v.strip().lower() if isinstance(v, str) else v
 
 
+# Explicit certification state model (never collapsed). Offline evidence can
+# only advance IMPLEMENTED / STATE_VERIFIED(discovery seam) / QUOTABLE /
+# ROUTE_CONSTRUCTABLE / EXECUTION_CAPABLE(construction level). The runtime
+# states below require the VPS (operator RPC probe, on-chain state, anvil fork,
+# funded signer) and are reported requires_runtime — NEVER asserted here.
+CERTIFICATION_STATES = [
+    "IMPLEMENTED", "CONFIGURED", "RPC_VERIFIED", "STATE_VERIFIED", "QUOTABLE",
+    "ECONOMICALLY_VALID", "ROUTE_CONSTRUCTABLE", "SIMULATABLE",
+    "EXECUTION_CAPABLE", "RUNTIME_CERTIFIED", "LIMITED_LIVE_ELIGIBLE",
+]
+_RUNTIME_ONLY_STATES = frozenset({
+    "CONFIGURED", "RPC_VERIFIED", "STATE_VERIFIED", "ECONOMICALLY_VALID",
+    "SIMULATABLE", "RUNTIME_CERTIFIED", "LIMITED_LIVE_ELIGIBLE"})
+
+
+def _cell_states(discoverable, quotable, route_ok, exec_ok) -> dict:
+    """Per-cell state evidence. Offline-provable states carry a bool; runtime
+    states carry ``"requires_runtime"`` (never fabricated to True)."""
+    offline = {
+        "IMPLEMENTED": True,
+        "QUOTABLE": bool(quotable),
+        "ROUTE_CONSTRUCTABLE": bool(route_ok),
+        "EXECUTION_CAPABLE": bool(exec_ok),     # on-chain receiver supports venue
+    }
+    out = {}
+    for s in CERTIFICATION_STATES:
+        out[s] = "requires_runtime" if s in _RUNTIME_ONLY_STATES else offline[s]
+    return out
+
+
 def audit_execution_capability() -> dict:
     from arbicore.discovery.opportunity_engine import build_opportunity_matrix
     from arbicore.execution.adapters import AdapterRegistry
@@ -95,6 +125,7 @@ def audit_execution_capability() -> dict:
             "abi": r.get("abi"),
             "discoverable": discoverable, "quotable": quotable,
             "route_constructable": route_ok, "execution_capable": exec_ok,
+            "states": _cell_states(discoverable, quotable, route_ok, exec_ok),
             "blocker": blocker,
         })
 
@@ -138,6 +169,12 @@ def audit_execution_capability() -> dict:
                  "registries. SIMULATION and EXECUTION are VPS runtime gates "
                  "(requires_vps_runtime); never asserted here. No SUPPORTED_DEXES "
                  "change, no synthetic adapter, no fabricated capability."),
+        "certification_state_model": {
+            "states": CERTIFICATION_STATES,
+            "offline_provable": [s for s in CERTIFICATION_STATES
+                                 if s not in _RUNTIME_ONLY_STATES],
+            "runtime_only": sorted(_RUNTIME_ONLY_STATES),
+        },
         "summary": summary, "venues": venues, "flash_providers": flash,
     }
 

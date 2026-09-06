@@ -295,6 +295,196 @@ class AerodromeSwapAdapter:
 
 
 # ---------------------------------------------------------------------------
+# Additional DEX adapters (route-construction / calldata only).
+#
+# These build the correct per-family swap calldata SHAPE and connect into the
+# real ExecutionPlanner path. Router addresses are OPERATOR-configured via env
+# (fail-closed to None when unset — never a guessed/hard-coded on-chain address;
+# the address MUST be verified live on the VPS). Presence of one of these
+# adapters advances a venue to ROUTE_CONSTRUCTABLE only — EXECUTION_CAPABLE
+# remains gated by the deployed on-chain FlashLoanReceiver (Uniswap V3 swaps +
+# Balancer V2 borrow), so no execution capability is fabricated here.
+# ---------------------------------------------------------------------------
+
+def _router_env(chain: str, dex: str) -> Optional[str]:
+    key = f"{chain}_{dex}_ROUTER".upper()
+    val = os.environ.get(key)
+    return val.strip() if isinstance(val, str) and val.strip() else None
+
+
+class UniswapV2SwapAdapter:
+    """Generic UniswapV2-family router (``swapExactTokensForTokens``). Used by
+    Sushi V2 and any UniV2 fork with a configured router."""
+
+    def __init__(self, *, dex: str, supports_chains):
+        self.dex = dex
+        self.version = f"{dex}_univ2_swap@1"
+        self.supports_chains = tuple(supports_chains)
+
+    def supports(self, chain: str) -> bool:
+        return chain in self.supports_chains
+
+    def swap_step(self, *, chain: str, token_in: str, token_out: str,
+                  amount_in_wei: int, min_amount_out_wei: int,
+                  step_index: int, depends_on: List[int],
+                  fee_tier_bps: Optional[int] = None) -> Dict[str, Any]:
+        return {
+            "step_index": step_index, "kind": "swap", "provider": self.dex,
+            "chain": chain, "contract_address": _router_env(chain, self.dex),
+            "function_signature": (
+                "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)"),
+            "args": [amount_in_wei, min_amount_out_wei,
+                     [token_in, token_out], "__signer_wallet__",
+                     "__deadline_plus_5m__"],
+            "value_wei": 0, "depends_on": list(depends_on),
+            "notes": f"{self.dex} UniV2 swapExactTokensForTokens (single hop)",
+        }
+
+
+class UniV3ForkSwapAdapter:
+    """UniswapV3-family DIRECT fork (Sushi V3, Pancake V3) — identical
+    ``exactInputSingle`` struct to Uniswap V3 SwapRouter02, own router."""
+
+    def __init__(self, *, dex: str, supports_chains):
+        self.dex = dex
+        self.version = f"{dex}_univ3fork_swap@1"
+        self.supports_chains = tuple(supports_chains)
+
+    def supports(self, chain: str) -> bool:
+        return chain in self.supports_chains
+
+    def swap_step(self, *, chain: str, token_in: str, token_out: str,
+                  amount_in_wei: int, min_amount_out_wei: int,
+                  step_index: int, depends_on: List[int],
+                  fee_tier_bps: Optional[int] = None) -> Dict[str, Any]:
+        tier = int(fee_tier_bps if fee_tier_bps is not None else 30)
+        return {
+            "step_index": step_index, "kind": "swap", "provider": self.dex,
+            "chain": chain, "contract_address": _router_env(chain, self.dex),
+            "function_signature": (
+                "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))"),
+            "args": [{"tokenIn": token_in, "tokenOut": token_out,
+                      "fee": tier * 100, "recipient": "__signer_wallet__",
+                      "amountIn": amount_in_wei,
+                      "amountOutMinimum": min_amount_out_wei,
+                      "sqrtPriceLimitX96": 0}],
+            "value_wei": 0, "depends_on": list(depends_on),
+            "notes": f"{self.dex} UniV3-fork exactInputSingle (fee tier {tier} bps)",
+        }
+
+
+class AlgebraSwapAdapter:
+    """Algebra dynamic-fee router (Camelot V3, QuickSwap V3). ``exactInputSingle``
+    has NO fee tier (dynamic) and carries a deadline + limitSqrtPrice."""
+
+    def __init__(self, *, dex: str, supports_chains):
+        self.dex = dex
+        self.version = f"{dex}_algebra_swap@1"
+        self.supports_chains = tuple(supports_chains)
+
+    def supports(self, chain: str) -> bool:
+        return chain in self.supports_chains
+
+    def swap_step(self, *, chain: str, token_in: str, token_out: str,
+                  amount_in_wei: int, min_amount_out_wei: int,
+                  step_index: int, depends_on: List[int],
+                  fee_tier_bps: Optional[int] = None) -> Dict[str, Any]:
+        return {
+            "step_index": step_index, "kind": "swap", "provider": self.dex,
+            "chain": chain, "contract_address": _router_env(chain, self.dex),
+            "function_signature": (
+                "exactInputSingle((address,address,address,uint256,uint256,uint256,uint160))"),
+            "args": [{"tokenIn": token_in, "tokenOut": token_out,
+                      "recipient": "__signer_wallet__",
+                      "deadline": "__deadline_plus_5m__",
+                      "amountIn": amount_in_wei,
+                      "amountOutMinimum": min_amount_out_wei,
+                      "limitSqrtPrice": 0}],
+            "value_wei": 0, "depends_on": list(depends_on),
+            "notes": f"{self.dex} Algebra exactInputSingle (dynamic fee)",
+        }
+
+
+class SlipstreamSwapAdapter:
+    """Aerodrome Slipstream (Base CL) — UniV3-style with ``tickSpacing`` in place
+    of a fee tier, and a deadline field."""
+
+    def __init__(self, *, dex: str = "aerodrome_slipstream",
+                 supports_chains=("base",)):
+        self.dex = dex
+        self.version = f"{dex}_slipstream_swap@1"
+        self.supports_chains = tuple(supports_chains)
+
+    def supports(self, chain: str) -> bool:
+        return chain in self.supports_chains
+
+    def swap_step(self, *, chain: str, token_in: str, token_out: str,
+                  amount_in_wei: int, min_amount_out_wei: int,
+                  step_index: int, depends_on: List[int],
+                  fee_tier_bps: Optional[int] = None) -> Dict[str, Any]:
+        # For Slipstream the routing selector is the pool tickSpacing, passed
+        # through the same hop field (caller supplies the real tickSpacing).
+        tick_spacing = int(fee_tier_bps) if fee_tier_bps is not None else 0
+        return {
+            "step_index": step_index, "kind": "swap", "provider": self.dex,
+            "chain": chain, "contract_address": _router_env(chain, self.dex),
+            "function_signature": (
+                "exactInputSingle((address,address,int24,address,uint256,uint256,uint256,uint160))"),
+            "args": [{"tokenIn": token_in, "tokenOut": token_out,
+                      "tickSpacing": tick_spacing, "recipient": "__signer_wallet__",
+                      "deadline": "__deadline_plus_5m__",
+                      "amountIn": amount_in_wei,
+                      "amountOutMinimum": min_amount_out_wei,
+                      "sqrtPriceLimitX96": 0}],
+            "value_wei": 0, "depends_on": list(depends_on),
+            "notes": f"{self.dex} Slipstream exactInputSingle (tickSpacing routed)",
+        }
+
+
+class MorphoBlueFlashLoanAdapter:
+    """Morpho Blue singleton ``flashLoan(address,uint256,bytes)`` — 0-fee flash.
+    Singleton address is operator-configured via env (fail-closed None)."""
+    provider = "morpho_blue"
+    version = "morpho_blue_flashloan@1"
+    fee_bps_default = 0
+    supports_chains = ("ethereum", "base")
+
+    def supports(self, chain: str) -> bool:
+        return chain in self.supports_chains
+
+    def _singleton(self, chain: str) -> Optional[str]:
+        val = os.environ.get(f"{chain}_MORPHO_BLUE".upper())
+        return val.strip() if isinstance(val, str) and val.strip() else None
+
+    def borrow_step(self, *, chain: str, asset: str, amount_wei: int,
+                    step_index: int, callback_receiver: str,
+                    callback_data: bytes = b"") -> Dict[str, Any]:
+        return {
+            "step_index": step_index, "kind": "borrow",
+            "provider": self.provider, "chain": chain,
+            "contract_address": self._singleton(chain),
+            "function_signature": "flashLoan(address,uint256,bytes)",
+            "args": [asset, amount_wei,
+                     callback_data.hex() if callback_data else "0x"],
+            "value_wei": 0, "depends_on": [],
+            "notes": "Morpho Blue flashLoan — 0 bps premium",
+        }
+
+    def repay_step(self, *, chain: str, asset: str, amount_wei: int,
+                   fee_bps: Optional[int], step_index: int,
+                   depends_on: List[int]) -> Dict[str, Any]:
+        return {
+            "step_index": step_index, "kind": "repay",
+            "provider": self.provider, "chain": chain,
+            "contract_address": self._singleton(chain),
+            "function_signature": "__morpho_blue_repay_within_flashloan_callback",
+            "args": [asset, amount_wei, 0],
+            "value_wei": 0, "depends_on": list(depends_on),
+            "notes": "Morpho Blue repay = principal exactly (0 bps premium)",
+        }
+
+
+# ---------------------------------------------------------------------------
 # Adapter registry
 # ---------------------------------------------------------------------------
 
@@ -302,10 +492,22 @@ _DEFAULT_FLASH: Dict[str, Any] = {
     "aave_v3": AaveV3FlashLoanAdapter(),
     "balancer_v2": BalancerV2FlashLoanAdapter(),
     "uniswap_v3": UniswapV3FlashLoanAdapter(),
+    "morpho_blue": MorphoBlueFlashLoanAdapter(),
 }
 _DEFAULT_DEX: Dict[str, Any] = {
     "uniswap_v3": UniswapV3SwapAdapter(),
     "aerodrome": AerodromeSwapAdapter(),
+    "sushiswap_v2": UniswapV2SwapAdapter(dex="sushiswap_v2",
+                                         supports_chains=("ethereum",)),
+    "sushiswap_v3": UniV3ForkSwapAdapter(dex="sushiswap_v3",
+                                         supports_chains=("arbitrum",)),
+    "pancakeswap_v3": UniV3ForkSwapAdapter(dex="pancakeswap_v3",
+                                           supports_chains=("bnb",)),
+    "camelot_v3": AlgebraSwapAdapter(dex="camelot_v3",
+                                     supports_chains=("arbitrum",)),
+    "quickswap_v3": AlgebraSwapAdapter(dex="quickswap_v3",
+                                       supports_chains=("polygon",)),
+    "aerodrome_slipstream": SlipstreamSwapAdapter(),
 }
 
 

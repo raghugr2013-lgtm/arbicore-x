@@ -322,3 +322,33 @@ Branch takeover/limited-live-seam-cc8db95. All execution OFF; main/production +
   LIMITED_LIVE_PROVEN=false. Runtime SIMULATION/EXECUTION + operator-authoritative numbers
   remain VPS-only (no Docker/anvil/operator RPC/funded signer here). Commit pending → push
   via "Save to Github".
+
+## TAKEOVER SESSION — PHASE 5d (2026-06): DEX/flash adapter route-construction expansion
+Branch takeover/limited-live-seam-cc8db95. All execution OFF; main/production +
+3 protected files untouched; no fabrication; SUPPORTED_DEXES UNCHANGED.
+
+- Implemented REAL calldata adapters in arbicore/execution/adapters.py, wired into
+  the ExecutionPlanner path (planner.py consumes AdapterRegistry.dex()/flash() —
+  NOT registry-only): UniswapV2SwapAdapter (sushiswap_v2), UniV3ForkSwapAdapter
+  (sushiswap_v3, pancakeswap_v3), AlgebraSwapAdapter (camelot_v3, quickswap_v3),
+  SlipstreamSwapAdapter (aerodrome_slipstream), MorphoBlueFlashLoanAdapter.
+  Router/singleton addresses are ENV-first (f"{CHAIN}_{DEX}_ROUTER") with fail-closed
+  None default — NO guessed/hard-coded on-chain addresses (verify live on VPS).
+- Effect (executor_capability_audit): route_constructable 7→13; execution_capable
+  UNCHANGED at 6 (uniswap_v3 × 6 chains) because the deployed on-chain FlashLoanReceiver
+  executes UniV3 swaps + Balancer V2 borrow only. Adding venues to SUPPORTED_DEXES would
+  fabricate execution capability → NOT done. flash adapters now: aave_v3, balancer_v2,
+  uniswap_v3, morpho_blue (exec-capable still balancer_v2 only).
+- Added explicit 11-state CERTIFICATION_STATES model to the audit (per-cell states;
+  runtime states = requires_runtime, never asserted offline).
+- Tests: tests/test_phase5c_dex_adapter_expansion.py (9) incl. real ExecutionPlanner
+  integration + fail-closed router + honesty (execution_capable⊆SUPPORTED_DEXES).
+  32 passed across phase5b+5c+harness suites. Existing offline adapter/planner unit
+  tests pass (44); server/auth-dependent wave6 tests fail 401 (pre-existing infra only).
+- Evidence: reports/EXECUTOR_CAPABILITY_AUDIT.json (regenerated),
+  reports/PHASE5C_ACTIVATION_MATRIX.md (full item-11 matrix).
+- Activation truth: economically-valid 0 (real negative edge), Limited-Live-eligible 0,
+  LIMITED_LIVE_PROVEN=false. Runtime SIM/EXEC + operator numbers remain VPS-only.
+  Curve/Solidly resolvers still not implemented (exact remediation documented).
+  Commit pending → push via "Save to Github".
+
