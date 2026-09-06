@@ -212,12 +212,15 @@ def _redact_host(url: Optional[str]) -> str:
 # JSON-RPC helper — used by every backend                                     #
 # --------------------------------------------------------------------------- #
 
-# Global client-side throttle + retry so the free public Base RPC does not
-# trip `-32016 over rate limit`. Shared across all quoter backends.
+# Client-side throttle + retry so a free public RPC does not trip
+# `-32016 over rate limit`. The throttle is scoped PER RPC HOST (provider), so
+# unrelated chains/providers never serialise through one another — each host
+# gets its own lock + pacing clock. Same-host calls remain paced (flood-safe).
 _RPC_MIN_INTERVAL_S = float(os.environ.get("ARBICORE_RPC_MIN_INTERVAL_MS", "140")) / 1000.0
 _RPC_MAX_RETRIES = int(os.environ.get("ARBICORE_RPC_MAX_RETRIES", "4"))
-_RPC_LOCK = asyncio.Lock()
-_RPC_LAST_TS = {"t": 0.0}
+# host → its own throttle lock; host → last-request monotonic timestamp.
+_RPC_LOCKS: Dict[str, "asyncio.Lock"] = {}
+_RPC_LAST_TS: Dict[str, float] = {}
 
 # Per-host batch-capability cache. Some providers (e.g. Alchemy on certain
 # plans) reject or mishandle JSON-RPC batch arrays even though they answer
@@ -243,14 +246,29 @@ def _is_rate_limited(err: Optional[Dict[str, Any]]) -> bool:
     return code == -32016 or "rate limit" in msg or "too many requests" in msg
 
 
-async def _throttle() -> None:
-    """Serialise RPC calls with a minimum inter-request interval."""
-    async with _RPC_LOCK:
+def _throttle_scope(rpc_url: str) -> str:
+    """Throttle scope key — the RPC host. Independent hosts (⇒ independent
+    chains/providers) throttle independently and can run concurrently."""
+    return _host_key(rpc_url)
+
+
+def _throttle_lock_for(scope: str) -> "asyncio.Lock":
+    lock = _RPC_LOCKS.get(scope)
+    if lock is None:                      # atomic in single-threaded asyncio
+        lock = asyncio.Lock()
+        _RPC_LOCKS[scope] = lock
+    return lock
+
+
+async def _throttle(scope: str) -> None:
+    """Serialise RPC calls to the SAME host with a minimum inter-request
+    interval. Different hosts use different locks ⇒ never block each other."""
+    async with _throttle_lock_for(scope):
         now = asyncio.get_event_loop().time()
-        wait = _RPC_MIN_INTERVAL_S - (now - _RPC_LAST_TS["t"])
+        wait = _RPC_MIN_INTERVAL_S - (now - _RPC_LAST_TS.get(scope, 0.0))
         if wait > 0:
             await asyncio.sleep(wait)
-        _RPC_LAST_TS["t"] = asyncio.get_event_loop().time()
+        _RPC_LAST_TS[scope] = asyncio.get_event_loop().time()
 
 
 async def _post_json(rpc_url: str, payload: Any, timeout: float):
@@ -314,10 +332,11 @@ async def _eth_call(
     429). Fail-closed: on any unrecovered error it returns an ``error_dict`` and
     never a fabricated quote."""
     host = _host_key(rpc_url)
+    scope = _throttle_scope(rpc_url)
     last_err: Optional[Dict[str, Any]] = None
     retries = _RPC_MAX_RETRIES if max_retries is None else max(0, int(max_retries))
     for attempt in range(retries + 1):
-        await _throttle()
+        await _throttle(scope)
         use_batch = with_block_number and _HOST_BATCH_OK.get(host, True)
 
         # ---- Single-request mode (host known batch-averse, or no block wanted)
