@@ -24,7 +24,7 @@ from arbicore.models import CanonicalOpportunity, DataProvenance, OpportunityTyp
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://arbi-opps-race.preview.emergentagent.com",
+    "https://opportunity-race.preview.emergentagent.com",
 ).rstrip("/")
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "ArbiCore2026!"

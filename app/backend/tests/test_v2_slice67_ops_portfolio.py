@@ -9,7 +9,7 @@ import requests
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://arbi-opps-race.preview.emergentagent.com",
+    "https://opportunity-race.preview.emergentagent.com",
 ).rstrip("/")
 
 ADMIN_USER = "admin"
