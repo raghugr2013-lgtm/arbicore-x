@@ -10,9 +10,9 @@ candidate can currently advance:
     ROUTE_CONSTRUCTABLE   a DEX calldata adapter exists (execution.adapters)
     EXECUTION_CAPABLE     the DEPLOYED on-chain FlashLoanReceiver can actually
                           encode/execute this venue — TODAY that is Uniswap V3
-                          swap hops + Balancer V2 borrow ONLY
-                          (arbicore.runtime.composition authoritative restriction;
-                          executor_capability.SUPPORTED_DEXES)
+                          swap hops ONLY, borrowable via Balancer V2 OR Aave V3
+                          flash (both flash heads exist in the deployed receiver
+                          ABI; executor_capability.SUPPORTED_DEXES)
 
 SIMULATION and real EXECUTION are runtime gates that require the VPS (anvil fork
 + operator RPC + funded signer + Limited-Live approval) and are reported as
@@ -37,9 +37,10 @@ if _APP_ROOT not in sys.path:
 os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
 os.environ.setdefault("DB_NAME", "arbicore_x_exec_audit")
 
-# The deployed executor's authoritative flash-loan support (mirrors the
-# runtime.composition DENY: "current executor supports balancer_v2 only").
-EXECUTOR_SUPPORTED_FLASH = frozenset({"balancer_v2"})
+# The deployed executor's authoritative flash-loan support, reconciled to the
+# deployed FlashLoanReceiver ABI: Balancer V2 (`execute`/`receiveFlashLoan`)
+# AND Aave V3 (`executeAave`/`executeOperation`) flash heads both exist.
+EXECUTOR_SUPPORTED_FLASH = frozenset({"balancer_v2", "aave_v3"})
 
 
 def _norm(v):
@@ -138,8 +139,9 @@ def audit_execution_capability() -> dict:
             blocker = ("no FlashLoanAdapter in execution.adapters "
                        "(borrow/repay calldata not implemented)")
         elif not exec_ok:
-            blocker = ("adapter exists but deployed FlashLoanReceiver supports "
-                       "balancer_v2 borrow only — requires upgraded receiver")
+            blocker = ("adapter exists but deployed FlashLoanReceiver flash heads "
+                       "are balancer_v2 + aave_v3 only — this provider requires "
+                       "an upgraded receiver")
         else:
             blocker = ("execution-capable borrow provider; runtime availability "
                        "(vault liquidity, RPC) proven on VPS")

@@ -143,11 +143,11 @@ def test_flash_provider_execution_capability_honest():
     rep = audit_execution_capability()
     fp = {f["provider"]: f for f in rep["flash_providers"]}
     assert fp["balancer_v2"]["execution_capable"] is True
-    # Adapters exist but the deployed receiver borrows via Balancer V2 only.
+    # Reconciled to the deployed receiver ABI: Balancer V2 AND Aave V3 flash.
     assert fp["aave_v3"]["adapter_available"] is True
-    assert fp["aave_v3"]["execution_capable"] is False
+    assert fp["aave_v3"]["execution_capable"] is True
     assert fp["uniswap_v3"]["execution_capable"] is False
-    assert set(EXECUTOR_SUPPORTED_FLASH) == {"balancer_v2"}
+    assert set(EXECUTOR_SUPPORTED_FLASH) == {"balancer_v2", "aave_v3"}
 
 
 # ─────────────── (4) M3 broadcast-ladder Mongo isolation ────────────────────

@@ -3,8 +3,9 @@
 Produces explicit, persistable evidence that the deployed flash-loan executor
 can actually execute a candidate's route — rather than *inferring* "UniV3-only
 ⇒ executable". Mirrors the authoritative M3 restriction in
-``runtime.composition`` (the executor supports Balancer V2 borrow + Uniswap V3
-swap hops only) but is STRICTER for eligibility: unknown/missing venue metadata
+``runtime.composition`` (the deployed receiver borrows via Balancer V2 or Aave
+V3 flash and settles Uniswap V3 swap hops only) but is STRICTER for eligibility:
+unknown/missing venue metadata
 is UNVERIFIABLE (never silently treated as supported).
 
 Status ladder:
