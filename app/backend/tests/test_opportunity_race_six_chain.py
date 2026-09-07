@@ -329,5 +329,6 @@ def test_e1_e2_capability_unchanged():
     assert set(SUPPORTED_DEXES) == {"uniswap_v3"}
     assert set(SUPPORTED_FLASH_PROVIDERS) == {"balancer_v2", "aave_v3"}
     d = evaluate_settlement(flash_provider="balancer_v2",
-                            swap_venues=["uniswap_v3"], chain="base")
+                            swap_venues=["uniswap_v3"], chain="base",
+                            executor_deployed=True)
     assert d.verdict is Verdict.EXECUTABLE

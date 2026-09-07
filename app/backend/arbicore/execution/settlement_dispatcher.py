@@ -121,6 +121,7 @@ def evaluate_settlement(
     swap_venues: List[Optional[str]],
     chain: str,
     executor_address: Optional[str] = None,
+    executor_deployed: Optional[bool] = None,
     registry: Optional[AdapterRegistry] = None,
 ) -> SettlementDecision:
     """Classify whether a concrete route is executable through the deployed V1
@@ -133,6 +134,9 @@ def evaluate_settlement(
         chain: target chain name (e.g. ``"base"``).
         executor_address: optional deployed executor address (recorded only;
             its presence is NEVER treated as execution proof).
+        executor_deployed: authoritative "is an executor genuinely deployed on
+            this chain?" When ``None`` the canonical ``executor_registry`` is
+            consulted (deploy_status=="success"). Fail-closed when unknown.
         registry: optional AdapterRegistry (defaults to the canonical one).
     """
     reg = registry or AdapterRegistry()
@@ -240,6 +244,34 @@ def evaluate_settlement(
                        f"calldata_not_constructable:{provider}")
     cells.append(CapabilityCell("calldata_constructable", CellStatus.PASS,
                                 f"executor-relayed encoder available for '{provider}'"))
+
+    # ── Cell 8: EXECUTOR_DEPLOYED (a verified executor exists on this chain) ─
+    # Venue/flash/schema/calldata compatibility is necessary but NOT sufficient:
+    # execution also requires a genuinely DEPLOYED executor on the target chain.
+    # Authoritative source = executor_registry (deploy_status=="success"); the
+    # runtime may pass ``executor_deployed`` (env-resolved truth). An
+    # ``executor_address`` alone is NEVER treated as proof. This is the gate that
+    # keeps every chain WITHOUT a deployed executor fail-closed (e.g. all five
+    # non-Base chains today) while auto-including a chain the moment its executor
+    # is genuinely deployed + registered — no code change required.
+    if executor_deployed is None:
+        try:
+            from . import executor_registry as _exreg
+            deployed = bool(_exreg.is_deployed(chain))
+            if executor_address is None:
+                executor_address = _exreg.deployed_address(chain)
+        except Exception:  # noqa: BLE001 — any registry fault ⇒ fail-closed
+            deployed = False
+    else:
+        deployed = bool(executor_deployed)
+    if not deployed:
+        cells.append(CapabilityCell(
+            "executor_deployed", CellStatus.FAIL,
+            f"no verified deployed executor on chain '{chain}' — fail-closed"))
+        return _decide(Verdict.REJECTED, "executor_deployed",
+                       f"no_deployed_executor_on_chain:{chain}")
+    cells.append(CapabilityCell("executor_deployed", CellStatus.PASS,
+                                f"verified deployed executor on chain '{chain}'"))
 
     # ── All cells passed ───────────────────────────────────────────────────
     return _decide(Verdict.EXECUTABLE, None,

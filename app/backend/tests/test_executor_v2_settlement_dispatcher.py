@@ -26,7 +26,8 @@ from arbicore.scanners.flash_loan_arbitrage.executor_capability import (
 # ── (1)+(2)+(8) Supported flash providers × native swap venue → EXECUTABLE ──
 def test_balancer_v2_uniswap_v3_executable():
     d = evaluate_settlement(flash_provider="balancer_v2",
-                            swap_venues=["uniswap_v3"], chain="base")
+                            swap_venues=["uniswap_v3"], chain="base",
+                            executor_deployed=True)
     assert d.executable is True
     assert d.verdict is Verdict.EXECUTABLE
     assert d.first_blocker is None
@@ -35,7 +36,8 @@ def test_balancer_v2_uniswap_v3_executable():
 
 def test_aave_v3_uniswap_v3_executable():
     d = evaluate_settlement(flash_provider="aave_v3",
-                            swap_venues=["uniswap_v3"], chain="base")
+                            swap_venues=["uniswap_v3"], chain="base",
+                            executor_deployed=True)
     assert d.executable is True
     assert d.verdict is Verdict.EXECUTABLE
     # Dispatch selection is explicit and correct.
@@ -45,7 +47,8 @@ def test_aave_v3_uniswap_v3_executable():
 
 def test_multi_hop_all_native_executable():
     d = evaluate_settlement(flash_provider="balancer_v2",
-                            swap_venues=["uniswap_v3", "uniswap_v3"], chain="base")
+                            swap_venues=["uniswap_v3", "uniswap_v3"], chain="base",
+                            executor_deployed=True)
     assert d.verdict is Verdict.EXECUTABLE
 
 
