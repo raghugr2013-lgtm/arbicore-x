@@ -176,3 +176,27 @@ def test_bnb_has_no_flash_head_fail_closed():
         assert r["ok"] is False and r["execution_document"] is None
         assert r["verdict"] == "REJECTED"
         assert "flash_provider_chain_supported" in r["reason"]
+
+
+# ── Base MAINNET first-production-target proof ───────────────────────────────
+def test_base_mainnet_canonical_document_all_fields():
+    doc = build_execution_document(_dex_dex("base"), executor_deployed=True)["execution_document"]
+    for k in ("chain", "borrow_token", "borrow_amount_wei", "flash_loan_provider",
+              "swap_hops", "dex_path", "token_path", "net_profit_usd",
+              "opportunity_type", "executor_address", "strategy"):
+        assert k in doc, k
+    assert doc["chain"] == "base"
+    assert doc["strategy"] == "flash_loan_arbitrage"
+    assert doc["flash_loan_provider"] == "balancer_v2"
+    assert doc["swap_hops"] and doc["dex_path"] == ["uniswap_v3", "uniswap_v3"]
+
+
+def test_base_mainnet_requires_deployed_executor_not_config():
+    from arbicore.execution import executor_registry
+    # Base mainnet is NOT deployed in the registry → config/presence must NOT
+    # be treated as execution readiness.
+    assert executor_registry.is_deployed("base") is False
+    r = build_execution_document(_dex_dex("base"))          # executor_deployed=None
+    assert r["ok"] is False and r["execution_document"] is None
+    assert r["verdict"] == "REJECTED"
+    assert "executor_deployed" in r["reason"]
