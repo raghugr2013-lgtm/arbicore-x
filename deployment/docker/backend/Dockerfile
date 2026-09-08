@@ -75,6 +75,11 @@ RUN pip install --no-cache-dir -r /app/requirements.txt \
 # Copy the audited backend source. .dockerignore excludes .env, caches, .git.
 COPY app/backend/ /app/
 
+# Package the read-only executor deployment registry.
+# This contains PUBLIC deployment provenance only; it has no private keys and
+# never enables signing, broadcasting, or Limited Live.
+COPY deploy/executor_deployments.json /app/deploy/executor_deployments.json
+
 # Stamp deployment identity into the image so GET /api/arbicore/version reports
 # real Git SHA / tag / build time / version even without .git (env ARGs feed it).
 # NOT wrapped in `|| true`: a malformed GITSHA, or GIT_STRICT=1 with an

@@ -332,7 +332,7 @@ async def probe_executor_identity(
     inspector: Optional[Any] = None,
 ) -> Dict[str, Any]:
     """READ-ONLY on-chain identity check of the deployed executor via
-    ``inspect_executor`` (eth_getCode + owner()/ROUTER()/VAULT()). Verifies the
+    ``inspect_executor`` (eth_getCode + owner()/uniRouter()/balancerVault()). Verifies the
     contract exists, has bytecode, exposes the expected entrypoint selector, and
     that its router/vault match the expected (registry) constructor args. Never
     signs/broadcasts, never fabricates READY:

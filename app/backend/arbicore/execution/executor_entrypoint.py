@@ -31,7 +31,7 @@ _KNOWN_SELECTORS: Dict[str, str] = {
     "f04f2707": "receiveFlashLoan(address[],uint256[],uint256[],bytes)",  # Balancer callback
     "5c38449e": "flashLoan(address,address[],uint256[],bytes)",   # internal call TO Balancer Vault
     "04e45aaf": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",  # UniV3
-    "32fe7b26": "ROUTER()", "411557d1": "VAULT()", "8da5cb5b": "owner()",
+    "a0e47bf6": "uniRouter()", "158274a5": "balancerVault()", "8da5cb5b": "owner()",
     "62c06767": "sweep(address,address,uint256)",
     "095ea7b3": "approve(address,uint256)", "70a08231": "balanceOf(address)",
     "a9059cbb": "transfer(address,uint256)",
@@ -53,7 +53,7 @@ def _extract_selectors(bytecode_hex: str) -> List[str]:
 
 async def inspect_executor(rpc_url: str, executor: str) -> Dict[str, Any]:
     """READ-ONLY on-chain inspection of the deployed executor: extract its
-    function selectors from bytecode and read its owner()/ROUTER()/VAULT()
+    function selectors from bytecode and read its owner()/uniRouter()/balancerVault()
     getters. Determines the real entrypoint signature instead of guessing.
 
     Never signs/broadcasts — only eth_getCode + eth_call getters."""
@@ -93,8 +93,8 @@ async def inspect_executor(rpc_url: str, executor: str) -> Dict[str, Any]:
         return to_checksum_address("0x" + res[-40:]) if (res and len(res) >= 42) else None
 
     owner = await _getter("owner()")
-    router = await _getter("ROUTER()")
-    vault = await _getter("VAULT()")
+    router = await _getter("uniRouter()")
+    vault = await _getter("balancerVault()")
 
     entry_present = "64ba4bc1" in sels   # execute(address[],uint256[],bytes)
     return {

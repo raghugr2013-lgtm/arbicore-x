@@ -21,19 +21,18 @@ SEPOLIA_ADDR = "0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052"
 
 
 # --- executor provenance reconciliation (env vs registry; observability) ---
-def test_provenance_env_address_unverified_for_mainnet(monkeypatch):
-    # VPS-style drift: env configures a Base-mainnet address the registry still
-    # records as not_deployed (address null). Must be surfaced as UNVERIFIED,
-    # never fabricated as a recorded deployment.
+def test_provenance_env_address_differs_from_mainnet_registry(monkeypatch):
+    # Runtime env points at a different Base-mainnet address than the
+    # registry-recorded deployment. This must be surfaced as drift.
     addr = "0x91c0bf28E32b76889BB2B61E1A2dDE9F7e4f3DE3"
     monkeypatch.setenv("ARBICORE_EXECUTOR_ADDRESS_BASE", addr)
     p = executor_provenance(8453)
     assert p["env_address"] == addr
-    assert p["registry_status"] == "not_deployed"
-    assert p["registry_address"] is None
+    assert p["registry_status"] == "success"
+    assert p["registry_address"].lower() == "0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f"
     assert p["source"] == "env"
-    assert p["matches_registry"] is None
-    assert "UNVERIFIED" in p["note"]
+    assert p["matches_registry"] is False
+    assert "drift" in p["note"].lower()
 
 
 def test_provenance_registry_match_for_sepolia(monkeypatch):
@@ -44,11 +43,13 @@ def test_provenance_registry_match_for_sepolia(monkeypatch):
     assert p["source"] == "env"
 
 
-def test_provenance_none_when_unconfigured(monkeypatch):
+def test_provenance_registry_when_env_unconfigured(monkeypatch):
     monkeypatch.delenv("ARBICORE_EXECUTOR_ADDRESS_BASE", raising=False)
     p = executor_provenance(8453)
     assert p["env_address"] is None
-    assert p["source"] == "none"
+    assert p["registry_status"] == "success"
+    assert p["registry_address"].lower() == "0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f"
+    assert p["source"] == "registry"
     assert p["matches_registry"] is None
 
 
@@ -63,9 +64,9 @@ def test_resolve_falls_back_to_registry_for_sepolia(monkeypatch):
     assert resolve_executor_address(84532) == SEPOLIA_ADDR
 
 
-def test_resolve_none_for_mainnet_when_not_deployed(monkeypatch):
+def test_resolve_mainnet_from_registry_when_env_unconfigured(monkeypatch):
     monkeypatch.delenv("ARBICORE_EXECUTOR_ADDRESS_BASE", raising=False)
-    assert resolve_executor_address(8453) is None
+    assert resolve_executor_address(8453).lower() == "0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f"
 
 
 # --- signer readiness (no keys) --------------------------------------------

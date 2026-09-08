@@ -3431,7 +3431,7 @@ async def v2_execution_mode_audit(strategy: Optional[str] = None,
             "strategy": strategy, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/wallets")
+@api_router.get("/arbicore/execution/wallets", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallets(chain: Optional[str] = None,
                                execution_role: Optional[str] = None) -> Dict[str, Any]:
     try:
@@ -3444,7 +3444,7 @@ async def v2_execution_wallets(chain: Optional[str] = None,
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/wallets/{wallet_id}")
+@api_router.get("/arbicore/execution/wallets/{wallet_id}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallet_one(wallet_id: str) -> Dict[str, Any]:
     try:
         row = await _WALLET_REGISTRY.get(wallet_id)
@@ -3456,7 +3456,7 @@ async def v2_execution_wallet_one(wallet_id: str) -> Dict[str, Any]:
     return {"item": row, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/wallets")
+@api_router.post("/arbicore/execution/wallets", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallet_register(body: Dict[str, Any]) -> Dict[str, Any]:
     """Register a wallet with an execution role.  Never accepts private
     key material — only a reference to a secret handle (see
@@ -3482,7 +3482,7 @@ async def v2_execution_wallet_register(body: Dict[str, Any]) -> Dict[str, Any]:
     return {"item": row, "generated_at": _iso_now()}
 
 
-@api_router.patch("/arbicore/execution/wallets/{wallet_id}/role")
+@api_router.patch("/arbicore/execution/wallets/{wallet_id}/role", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallet_role(wallet_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
     b = body or {}
     try:
@@ -3500,7 +3500,7 @@ async def v2_execution_wallet_role(wallet_id: str, body: Dict[str, Any]) -> Dict
     return {"item": row, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/wallets/audit/history")
+@api_router.get("/arbicore/execution/wallets/audit/history", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallet_audit(wallet_id: Optional[str] = None,
                                     limit: int = 50) -> Dict[str, Any]:
     try:
@@ -3511,7 +3511,7 @@ async def v2_execution_wallet_audit(wallet_id: Optional[str] = None,
             "wallet_id": wallet_id, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/secrets")
+@api_router.get("/arbicore/execution/secrets", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets() -> Dict[str, Any]:
     """List registered secret handles.  Metadata only — never plaintext
     or cipher material."""
@@ -3528,7 +3528,7 @@ async def v2_execution_secrets() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/secrets/status")
+@api_router.get("/arbicore/execution/secrets/status", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_status() -> Dict[str, Any]:
     """Backend availability + default provider — never leaks material."""
     return {"registry": _SECRET_REGISTRY.status,
@@ -3556,7 +3556,7 @@ def _mask_plaintext(plaintext: str) -> str:
     return plaintext[:4] + "…" + plaintext[-4:]
 
 
-@api_router.post("/arbicore/execution/secrets")
+@api_router.post("/arbicore/execution/secrets", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_put(body: Dict[str, Any]) -> Dict[str, Any]:
     """Wrap and store an operator-supplied secret.
 
@@ -3612,7 +3612,7 @@ async def v2_execution_secrets_put(body: Dict[str, Any]) -> Dict[str, Any]:
              "generated_at": _iso_now()}
 
 
-@api_router.delete("/arbicore/execution/secrets/{handle_id}")
+@api_router.delete("/arbicore/execution/secrets/{handle_id}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_delete(handle_id: str) -> Dict[str, Any]:
     try:
         ok = await _SECRET_REGISTRY.delete(handle_id)
@@ -3623,7 +3623,7 @@ async def v2_execution_secrets_delete(handle_id: str) -> Dict[str, Any]:
              "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/secrets/{handle_id}/rotate")
+@api_router.post("/arbicore/execution/secrets/{handle_id}/rotate", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_rotate(handle_id: str,
                                         body: Dict[str, Any]) -> Dict[str, Any]:
     """Atomically rotate a secret.
@@ -3676,7 +3676,7 @@ async def v2_execution_secrets_rotate(handle_id: str,
              "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/secrets/{handle_id}/test")
+@api_router.post("/arbicore/execution/secrets/{handle_id}/test", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_test(handle_id: str) -> Dict[str, Any]:
     """Structural test — resolve the handle from the backend, confirm
     the plaintext decrypts (mask the first few bytes), verify algorithm-
@@ -4122,7 +4122,7 @@ async def v2_execution_certification_run(body: Dict[str, Any]) -> Dict[str, Any]
 # Wave-7A · Wallet Balance + Health
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/wallets/{wallet_id}/balance")
+@api_router.get("/arbicore/execution/wallets/{wallet_id}/balance", dependencies=[Depends(_require_operator_dep)])
 async def v2_wallet_balance(wallet_id: str) -> Dict[str, Any]:
     wallet = await _WALLET_REGISTRY.get(wallet_id)
     if not wallet:
@@ -4136,7 +4136,7 @@ async def v2_wallet_balance(wallet_id: str) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/wallets/{wallet_id}/health")
+@api_router.get("/arbicore/execution/wallets/{wallet_id}/health", dependencies=[Depends(_require_operator_dep)])
 async def v2_wallet_health(wallet_id: str,
                             strategy: str = "flash_loan_arbitrage",
                             min_gas_native: float = 0.001) -> Dict[str, Any]:

@@ -28,8 +28,27 @@ _CHAIN_ALIASES: Dict[str, int] = {
 
 
 def _default_registry_path() -> Path:
-    # app/backend/arbicore/execution/executor_registry.py -> repo root is parents[4]
-    return Path(__file__).resolve().parents[4] / "deploy" / "executor_deployments.json"
+    """Return the canonical packaged registry path.
+
+    Production images package the read-only deployment registry at
+    ``/app/deploy/executor_deployments.json``.  Development/test checkouts
+    resolve it relative to this module without relying on a fixed
+    ``Path.parents[N]`` depth, which is not valid inside the container.
+    """
+    candidates = (
+        Path("/app/deploy/executor_deployments.json"),
+        Path(__file__).resolve().parents[4] / "deploy" / "executor_deployments.json"
+        if len(Path(__file__).resolve().parents) > 4
+        else Path(__file__).resolve().parents[-1] / "deploy" / "executor_deployments.json",
+    )
+
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    # Preserve fail-closed behaviour when neither packaged nor checkout
+    # registry exists.
+    return candidates[0]
 
 
 def registry_path() -> Path:

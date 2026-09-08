@@ -5,8 +5,8 @@ swaps) exposes exactly these public getters and entrypoint. Every executor
 verification path — the operator wizard, fork validation, execution-capability
 checks and atomic simulation — MUST read this module instead of hard-coding its
 own selectors. This prevents the historical drift where the wizard probed
-``balancerVault()/uniRouter()/aavePool()`` while the contract actually exposes
-``VAULT()/ROUTER()`` (and no aavePool()), which BLOCKED executor_verified
+``balancerVault()/uniRouter()/aavePool()/owner()`` on the deployed executor.
+The verifier previously used the stale ``VAULT()/ROUTER()`` ABI, which BLOCKED executor_verified.
 despite a correctly deployed contract.
 
 Verified against the recovered bytecode selector map in
@@ -23,8 +23,8 @@ def selector(sig: str) -> str:
 
 
 # --- Public getters actually present on the deployed executor -------------- #
-GETTER_VAULT_SIG = "VAULT()"      # 0x411557d1  → Balancer V2 Vault
-GETTER_ROUTER_SIG = "ROUTER()"    # 0x32fe7b26  → Uniswap V3 SwapRouter02
+GETTER_VAULT_SIG = "balancerVault()"  # 0x158274a5  → Balancer V2 Vault
+GETTER_ROUTER_SIG = "uniRouter()"      # 0xa0e47bf6  → Uniswap V3 SwapRouter02
 GETTER_OWNER_SIG = "owner()"      # 0x8da5cb5b
 
 SEL_VAULT = selector(GETTER_VAULT_SIG)

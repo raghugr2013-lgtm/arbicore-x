@@ -117,8 +117,8 @@ class WizardStep:
 # --------------------------------------------------------------------------- #
 
 # Canonical executor getters — sourced from arbicore.execution.executor_interface
-# (the deployed contract exposes VAULT()/ROUTER()/owner(); NOT balancerVault()/
-# uniRouter()/aavePool()). This reconciles the historical verification drift.
+# (the deployed contract exposes balancerVault()/uniRouter()/aavePool()/owner()).
+# This reconciles the historical verification drift.
 _SEL_VAULT  = SEL_VAULT
 _SEL_ROUTER = SEL_ROUTER
 _SEL_OWNER  = SEL_OWNER
@@ -141,8 +141,8 @@ async def verify_executor(*, address: Optional[str] = None,
     Steps performed (all read-only, none broadcast a tx):
         1. Resolve address — argument > ``ARBICORE_EXECUTOR_ADDRESS_BASE``.
         2. ``eth_getCode`` — proves the contract is deployed.
-        3. ``eth_call VAULT()``  — must equal the Balancer V2 Vault on chain.
-        4. ``eth_call ROUTER()`` — must equal the Uniswap V3 SwapRouter on chain.
+        3. ``eth_call balancerVault()`` — must equal the Balancer V2 Vault on chain.
+        4. ``eth_call uniRouter()`` — must equal the Uniswap V3 SwapRouter on chain.
         5. ``eth_call owner()``  — optional match against ``expected_owner``.
         6. Aggregate → READY | WAIT | BLOCKED.
 
@@ -244,7 +244,7 @@ async def verify_executor(*, address: Optional[str] = None,
         result["ready"] = False
         return result
 
-    # (4) eth_call VAULT()
+    # (4) eth_call balancerVault()
     def _call_returns_address(selector: str) -> Optional[str]:
         try:
             resp = _rpc_post(rpc_url, "eth_call",
@@ -264,27 +264,27 @@ async def verify_executor(*, address: Optional[str] = None,
     if vault and exp_vault and vault.lower() == exp_vault.lower():
         result["checks"]["vault_matches"] = {
             "status": _STATUS_READY,
-            "detail": f"VAULT() = {vault}",
+            "detail": f"balancerVault() = {vault}",
         }
     else:
         result["checks"]["vault_matches"] = {
             "status": _STATUS_BLOCKED,
-            "detail": (f"VAULT() = {vault} (expected {exp_vault})"
-                       if vault else "VAULT() call reverted or returned empty"),
+            "detail": (f"balancerVault() = {vault} (expected {exp_vault})"
+                       if vault else "balancerVault() call reverted or returned empty"),
         }
 
-    # (5) eth_call ROUTER()
+    # (5) eth_call uniRouter()
     router = _call_returns_address(_SEL_ROUTER)
     if router and exp_router and router.lower() == exp_router.lower():
         result["checks"]["router_matches"] = {
             "status": _STATUS_READY,
-            "detail": f"ROUTER() = {router}",
+            "detail": f"uniRouter() = {router}",
         }
     else:
         result["checks"]["router_matches"] = {
             "status": _STATUS_BLOCKED,
-            "detail": (f"ROUTER() = {router} (expected {exp_router})"
-                       if router else "ROUTER() call reverted or returned empty"),
+            "detail": (f"uniRouter() = {router} (expected {exp_router})"
+                       if router else "uniRouter() call reverted or returned empty"),
         }
 
     # (5b) Aave pool — the deployed head is Balancer V2 + UniV3, which has NO
@@ -554,7 +554,7 @@ async def build_wizard_state(*,
         key="executor_verify",
         label="Executor identity verification",
         status=(steps[-1].status if exec_addr else _STATUS_WAIT),
-        detail=("VAULT() + ROUTER() checks — see step 5"
+        detail=("balancerVault() + uniRouter() checks — see step 5"
                 if exec_addr else "cannot verify — no executor address"),
     ))
 
@@ -672,7 +672,7 @@ async def build_wizard_state(*,
         "secret":           "The wallet's private key must be Fernet-wrapped so the signer can resolve it.",
         "gas_balance":      "The burner needs ETH on Base to pay gas.",
         "executor":         "FlashLoanReceiver.sol must be deployed on Base and its address configured.",
-        "executor_verify":  "The deployed contract's VAULT() and ROUTER() must match the Balancer + Uniswap addresses.",
+        "executor_verify":  "The deployed contract's balancerVault() and uniRouter() must match the Balancer + Uniswap addresses.",
         "kill_switch":      "Broadcast is refused at gate 1 while the kill switch is engaged.",
         "certification":    "The 11-stage certifier must pass before LIMITED_LIVE broadcasts.",
         "mode":             "The strategy must be in LIMITED_LIVE mode; SHADOW blocks the broadcast at gate 2.",

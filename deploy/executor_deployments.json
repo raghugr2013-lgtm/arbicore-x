@@ -20,13 +20,21 @@
     },
     "8453": {
       "network": "base_mainnet",
-      "address": null,
-      "deploy_status": "not_deployed",
+      "address": "0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f",
+      "deploy_status": "success",
       "constructor_args_expected": {
         "balancerVault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
         "aavePool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
         "uniRouter": "0x2626664c2603336E57B271c5C0b26F421741e481"
-      }
+      },
+      "deploy_tx": "0x39ce6224caffb17ee4fb846d2239157daa5a1af5ea5fcfdea0548f7020b336ff",
+      "deploy_block": 50991980,
+      "constructor_args": {
+        "balancerVault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+        "aavePool": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+        "uniRouter": "0x2626664c2603336E57B271c5C0b26F421741e481"
+      },
+      "source_artifact": "contracts/broadcast/Deploy.s.sol/8453/run-latest.json"
     }
   }
 }

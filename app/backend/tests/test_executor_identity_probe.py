@@ -92,9 +92,15 @@ async def test_gather_and_build_shadow_posture(monkeypatch):
 
 
 async def test_gather_and_build_no_executor_blocked(monkeypatch):
+    # Deliberately isolate this test from the real production deployment
+    # registry so it exercises the fail-closed no-executor path.
     monkeypatch.delenv("ARBICORE_EXECUTOR_ADDRESS_BASE", raising=False)
+    monkeypatch.setenv(
+        "ARBICORE_EXECUTOR_REGISTRY_PATH",
+        "/tmp/arbicore-test-registry-does-not-exist.json",
+    )
     out = await gather_and_build(
-        db=None, rpc_url="", chain="8453", confirmed_count=0)  # mainnet not deployed
+        db=None, rpc_url="", chain="8453", confirmed_count=0)
     assert out["executor_address_resolved"] is False
     assert "executor_deployed" in out["matrix"]["blocked"]
     assert out["matrix"]["signed"] is False and out["matrix"]["broadcast"] is False

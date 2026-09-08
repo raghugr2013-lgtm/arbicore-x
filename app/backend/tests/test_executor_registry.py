@@ -43,12 +43,19 @@ def test_deployed_address_for_sepolia_by_id_and_alias():
     assert reg.is_deployed("base_sepolia") is True
 
 
-def test_mainnet_not_deployed_fails_closed():
-    assert reg.deployed_address(8453) is None
-    assert reg.deployed_address("base") is None
-    assert reg.is_deployed("base_mainnet") is False
+def test_mainnet_deployment_matches_record():
+    addr = "0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f"
+    tx = "0x39ce6224caffb17ee4fb846d2239157daa5a1af5ea5fcfdea0548f7020b336ff"
+
     rec = reg.get_deployment(8453)
-    assert rec is not None and rec["deploy_status"] == "not_deployed"
+
+    assert rec is not None
+    assert rec["deploy_status"] == "success"
+    assert rec["address"].lower() == addr.lower()
+    assert rec["deploy_tx"].lower() == tx.lower()
+    assert reg.deployed_address(8453) == rec["address"]
+    assert reg.deployed_address("base") == rec["address"]
+    assert reg.is_deployed("base_mainnet") is True
 
 
 def test_unknown_chain_fails_closed():
