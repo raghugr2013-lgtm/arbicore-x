@@ -21,7 +21,7 @@ from eth_utils import to_checksum_address
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://opportunity-race.preview.emergentagent.com",
+    "https://arbicore-audit-1.preview.emergentagent.com",
 ).rstrip("/")
 OPERATOR = ("operator", "ShadowOperator!2026")
 

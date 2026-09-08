@@ -8,7 +8,7 @@ import requests
 
 BASE = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://opportunity-race.preview.emergentagent.com",
+    "https://arbicore-audit-1.preview.emergentagent.com",
 ).rstrip("/")
 API = f"{BASE}/api"
 

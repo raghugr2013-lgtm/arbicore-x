@@ -383,3 +383,58 @@ files + main untouched; no secrets/RPC URLs committed.
 - Opportunity Race NOT run (per instruction). Six chains NOT declared configured until
   real operator RPCs supplied on VPS. Commit pending → push via "Save to Github".
 
+---
+
+## INDEPENDENT READ-ONLY AUDIT — 2026-09-08
+
+### Current user assignment (supersedes earlier implementation next steps)
+Perform a TWO-PHASE independent, READ-ONLY audit of ArbiCore X v2: Phase A
+current-state whole-app assessment at commit
+`2e6f253dd354248e0ad861b2011bdfbcef63eb97` on
+`astra-audit-limited-live-5f8475a`; Phase B prioritized forward engineering.
+Preserve Base, Ethereum, Arbitrum, Optimism, Polygon and BNB scope. No source,
+config or secret changes; no tests/app execution/RPC/signing/broadcast; no
+commits/merges/PRs. STOP after the report; no fixes authorized. Latest user
+instruction: prioritize depth/evidence, control credits, avoid unnecessary
+delegation; core whole-app audit before materially relevant targeted checks.
+
+### Delivered
+- `/app/audit_report.md`: both phases, executive summary, subsystem/strategy
+  inventory, six-chain and 15-cell venue matrices, flash-provider matrix,
+  10 High findings, 6 Medium observation groups, P0/P1/P2/P3 roadmap and
+  per-chain acceptance evidence. No confirmed Critical finding.
+- Target remote ref verified. Checkout remained on
+  `takeover/limited-live-seam-cc8db95` at `5f8475a`; pre-existing edits were not
+  the audit basis. All authoritative source read from target Git objects.
+- Static reference validation: 101 cited ranges across 43 files resolve.
+  Targeted AST inspection confirmed missing throttle arguments and missing
+  endpoint auth dependencies. No application tests or runtime probes run.
+  JavaScript static lint unavailable (engine error); no passing JS claim.
+- No source/config fixes implemented. Only report and this memory entry written.
+
+### Findings that correct stale historical readiness claims
+- High: unauthenticated network, strategy-mode and operational mutations.
+- High: `_throttle(scope)` called without scope in atomic simulator and wallet
+  token reads; exact simulation not usable through these calls at audit commit.
+- High: probe-size quote percentage reused at different USD trade notional;
+  quoter global-RPC precedence leaks Base endpoints into non-Base quote paths.
+- High: non-Base canonical flash forks rejected, TVL remains Base-composed,
+  BNB excluded; runtime certification lacks provider liquidity and actual
+  candidate simulation; executor identity can report READY on missing getters.
+- Receiver source supports Balancer AND Aave, not Balancer only; swaps remain
+  one immutable UniV3 router. Final Base M3 still only admits Balancer. Target
+  registry records Base mainnet and Sepolia, not five other requested mainnets.
+- No requested mainnet is demonstrated profitable/runtime-certified by this
+  static audit. Historical public-RPC reports are not fresh target-commit proof.
+
+### Recommendations only — NOT approved implementation tasks
+- P0: authorization, throttle consumers, exact-size economics, chain isolation,
+  strict executor identity and truthful candidate evidence.
+- P1: full canonical six-chain/provider/venue composition; versioned receiver
+  and verified per-chain deployments; real liquidity/net/simulation harness.
+- P2: nonce/idempotency/finality/P&L reconciliation, operational recovery,
+  private submission, coherent modes/UI and broader strategy execution.
+- P3: measured ranking/calibration/performance and evidence-backed expansion.
+- Enhancement: evidence-linked chain/venue/strategy dashboard with first blocker
+  and evidence age. No further work until a new user-authorized task.
+

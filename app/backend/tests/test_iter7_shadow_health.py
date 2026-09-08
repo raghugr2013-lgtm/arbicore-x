@@ -4,7 +4,7 @@ import re
 import requests
 import pytest
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://opportunity-race.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://arbicore-audit-1.preview.emergentagent.com").rstrip("/")
 
 FORBIDDEN = ["private_key", "signed_tx", "raw_tx", "eth_sendtransaction",
              "eth_sendrawtransaction", "personal_sign"]

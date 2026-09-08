@@ -230,7 +230,7 @@ def test_coingecko_respects_cadence_throttle():
 
 BASE_URL = os.environ.get(
     "REACT_APP_BACKEND_URL",
-    "https://opportunity-race.preview.emergentagent.com",
+    "https://arbicore-audit-1.preview.emergentagent.com",
 ).rstrip("/")
 
 
