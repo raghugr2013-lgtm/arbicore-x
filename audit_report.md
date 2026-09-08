@@ -1,4 +1,4 @@
-# ArbiCore X v2 — Independent Two-Phase Audit
+# ArbiCore X v2 — Complete Independent Two-Phase Audit
 
 **Audit date:** 2026-09-08 UTC  
 **Audited commit:** `2e6f253dd354248e0ad861b2011bdfbcef63eb97`  
@@ -16,13 +16,13 @@ The workspace checkout was **not** the requested version: it was on `takeover/li
 
 No application processes, imports, tests, RPC probes, API requests, database queries, fork simulations, signer operations, or transactions were run for this audit. Static analysis included source inspection and separate functional and security reviews; the functional review reported a Python static lint scan with unused-import/local findings, but JavaScript lint was unavailable due to a linter-engine error. Neither is runtime verification. Existing reports were inspected as historical artifacts, not independently reproduced evidence.
 
-No source, configuration, or secret changes were made. Deliverables are this report and an administrative audit entry in the handoff memory. Actual environment values, private keys, credentials, operator permissions, wallet funding, current markets, deployed bytecode, and production access controls were not inspected or attested.
+No source, configuration, or secret changes were made. The original audit produced this report and an administrative handoff entry. The subsequent report-only export updates **only this report**, with an identical downloadable copy outside the repository; it does not update source, configuration, secrets, or handoff memory. Actual environment values, private keys, credentials, operator permissions, wallet funding, current markets, deployed bytecode, and production access controls were not inspected or attested.
 
 Coverage includes every major subsystem and the principal discovery-to-execution flows. It is **not** a formal proof of every function, a complete smart-contract security certification, or a claim that all defects have been found. Broad legacy CEX/operator workflows and frontend behavior received sampled static coverage, not browser or execution testing.
 
 ---
 
-# Phase A — Current-State Audit
+# Phase A — COMPLETE CURRENT-STATE AUDIT
 
 ## 1. Executive summary
 
@@ -38,11 +38,61 @@ However, the presence of these components does not constitute a connected, profi
 6. **Receiver support is narrower than the discovery surface.** Source implements Balancer V2 **and Aave V3** borrowing, but swaps use one immutable Uniswap V3 router. Other venues require a new/versioned receiver. Only Base mainnet and Base Sepolia deployments are recorded; five requested mainnets have no deployment record. A recorded deployment is not an independently verified deployment.
 7. **The multichain certification path cannot currently prove the promised end state.** It supplies no provider-liquidity inputs to a mandatory liquidity-gated optimizer and does not execute its candidate simulation stage. Historical negative candidates do not exercise these missing positive-path dependencies.
 
-**Finding totals:** 0 confirmed Critical; **10 High** (including capability/activation blockers, not all exploitable defects); 6 Medium observation groups. Severity and engineering priority are separate: a High six-chain capability gap may be P1, whereas a High integrity/security defect is P0.
+**Finding totals:** **0 confirmed Critical; 10 High; 7 Medium observation groups; 4 Low groups.** The Low groups include the complete 38-item unused-import/local inventory in the inspected Python subset, plus an operator-only diagnostic-RPC hardening observation. H07-H09 include capability/activation blockers, not merely exploitable defects. Severity and engineering priority are separate: a High six-chain capability gap may be P1, whereas a High integrity/security defect is P0. Detailed export preparation added M07's directly evidenced mocked status responses; no earlier finding was removed or shortened.
 
 **Readiness conclusion:** 0/6 requested mainnets are demonstrated by this audit to have fresh, exact-size, economically valid, fully simulated, authorized profitable execution. This means **not proven**, not “arbitrage never exists” or “no transaction has ever occurred.”
 
 ## 2. What the application actually contains
+
+### Whole-app architecture assessment
+
+The system is an evolutionary architecture with **multiple overlapping orchestration and readiness layers**, not one uniformly composed multichain execution engine. That distinction explains many of the findings.
+
+```text
+React operator / legacy settings / v2 dashboards
+                 |
+           FastAPI server.py
+                 |
+    +------------+-------------------+----------------------+
+    |                                |                      |
+Canonical scanners             Base opportunity       Manual plans /
+and verifiers                  engine / discovery     operator workflow
+    |                                |                      |
+DiscoveryCandidate             Route graph / search        |
+    |                                |                      |
+Chain/venue quote + liquidity + economics + provenance      |
+    |                                |                      |
+CanonicalOpportunity --> emission / Mongo evidence / journal|
+    +--------------------------------+----------------------+
+                                     |
+                       planner / quote / simulation
+                                     |
+                      readiness / mode / capital controls
+                                     |
+                    LimitedLiveBroadcaster.broadcast_plan
+                                     |
+               preflight + confirmation + final validation
+                                     |
+                    verified-chain RPC submission
+                                     |
+                   FlashLoanReceiver (UniV3 router)
+                   Balancer receiveFlashLoan callback
+                   or Aave executeOperation callback
+                                     |
+                       repayment / profit forwarding
+```
+
+This is a **logical subsystem map**, not an assertion that every arrow is currently connected for every chain or strategy. The read-only multichain opportunity race/certifier is another evaluation path; it does not cure the canonical scanner's missing composition or constitute a six-chain live broadcaster.
+
+**Composition:** `app/backend/arbicore/runtime/composition.py` supplies scanner factories and final controlled-live safety. `app/backend/server.py:288-408` additionally assembles journal, paper validation, shadow certification, operator readiness and Base atomic simulation. Factory defaults must be considered together with startup injection: bridge/Helius providers can be attached later. Conversely, `server.py` leaves automatic broadcast confirmation off (`app/backend/server.py:447-480`). This dispersed construction makes it easy for standalone capability to diverge from the live path.
+
+**Persistence:** Motor connects through `MONGO_URL` and `DB_NAME` (`app/backend/services/db.py:10-11`). Evidence storage creates unique bundle IDs and run attribution indexes and strips Mongo `_id` before returning inserted documents (`app/backend/arbicore/data/mongo/evidence_bundles_repo.py:25-45`). These are useful implementation properties, not proof that production indexes exist, backups restore, or runtime evidence is complete. The audit did not query Mongo or certify every repository serialization path.
+
+**Front/back boundaries:** the browser can request operator actions but must not be the authorization boundary. `AuthContext` implements cookie-based user state; v2 pages consume several backend-specific notions of READY, connected, certified and signing-eligible. H01-H03 show missing server-side access checks; M01/M06/M07 show why authenticated UI presentation still cannot attest trading capability.
+
+**Evolution and duplication:** global control modes, per-strategy execution modes, wallet readiness, operator wizard readiness, canonical flash assessment, shadow certification and execution certification coexist. They are not interchangeable. For example, the Control Center refuses live modes while the per-strategy route can transition toward them, and `LiveSigner` is an unsigned-envelope preview while `LimitedLiveBroadcaster` is a real transaction path.
+
+**Architectural conclusion:** retain the implemented research/evidence/safety components, but require one authoritative chain/venue/provider capability contract and one candidate-bound execution proof. Do not solve the duplication by hiding unsupported chains or counting registry entries as integrations.
 
 | Subsystem | Factual source state | Boundary / evidence |
 |---|---|---|
@@ -75,6 +125,17 @@ However, the presence of these components does not constitute a connected, profi
 
 Startup context matters: `app/backend/arbicore/runtime/composition.py:1816-1843` attaches bridge providers/liveness; `app/backend/arbicore/runtime/composition.py:1768-1773` attaches Helius in its conditional startup path. Factory-level `None` providers alone would incorrectly imply those integrations never attach. Conversely, source registration does not mean a scanner is enabled or a venue is reachable.
 
+#### Strategy implementation evidence index
+
+| Strategy | Exact implementation anchors | Classification |
+|---|---|---|
+| CEX | `app/backend/arbicore/scanners/cex_arbitrage/scanner.py` — `CEXArbitrageScanner`; `app/backend/arbicore/runtime/composition.py:851-894` — `get_cex_arb_scanner` and CoinGecko source registration | Discovery/verifier implementation; live exchange trading not established |
+| Funding | `app/backend/arbicore/scanners/funding_arbitrage/scanner.py` — scanner implementation; `app/backend/arbicore/runtime/composition.py` — `get_funding_arb_scanner` | Research/verification implementation; hedge execution and liability management not established |
+| DEX | `app/backend/arbicore/scanners/dex_arbitrage/scanner.py` — scanner implementation; `app/backend/arbicore/scanners/flash_loan_arbitrage/route_search.py` — route-search module | Partially connected execution scope; standalone search and quotes are broader than receiver compatibility |
+| Flash | `app/backend/arbicore/scanners/flash_loan_arbitrage/scanner.py`; `app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py` — `FlashLoanOpportunityVerifier.verify`; `app/backend/arbicore/runtime/composition.py` — `_wire_canonical_flash_loan_scanner` | Partially implemented and blocked by H04-H10 |
+| Cross-chain | `app/backend/arbicore/scanners/cross_chain_arbitrage/scanner.py` — `CrossChainArbitrageScanner`; `app/backend/arbicore/scanners/cross_chain_arbitrage/transfer_provider.py` — `LiFiTransferProvider`; `app/backend/arbicore/runtime/composition.py:1816-1843` — provider/liveness registration | Transfer quote and verification implementation; asynchronous execution/finality/recovery not proven |
+| Launch | `app/backend/arbicore/scanners/launch_arbitrage/scanner.py` — `LaunchArbitrageScanner`; `app/backend/arbicore/runtime/composition.py:964-1011` — `get_launch_arb_scanner`; startup Helius attachment at `app/backend/arbicore/runtime/composition.py:1768-1773` | Optional provider integration, not six-chain EVM launch execution |
+
 ## 3. Certification vocabulary
 
 These states must remain distinct and candidate-specific:
@@ -93,6 +154,19 @@ These states must remain distinct and candidate-specific:
 12. **EXECUTION PROVEN:** an authorized submitted transaction has a receipt, finality, repayment and reconciled realized net outcome. Not attempted here.
 
 Code-level flags do not advance later states. A pool balance is not active concentrated-liquidity depth; an RPC URL is not a verified RPC; a quoter is not a swap executor; a gas-wallet balance is not flash capacity; an Anvil process is not a simulated route.
+
+### Implementation-state classification used in this report
+
+| State | Meaning | Concrete examples at the audited commit |
+|---|---|---|
+| **IMPLEMENTED** | Non-placeholder source implements a bounded function; current runtime success remains a separate claim | UniV3 quoting, pool resolver families, Mongo evidence repository, real broadcaster signing/submission code |
+| **PARTIALLY IMPLEMENTED** | Important pieces exist but the complete specified flow is not composed/provisioned | Six-chain flash path, Aave live integration, broad cross-venue execution, bridge execution |
+| **BLOCKED** | A known source constraint, missing mandatory input or deployment record prevents promotion | `_throttle` mismatch; BNB source exclusion; unsupported receiver venue; missing non-Base deployment; missing provider liquidity |
+| **MISSING** | No required implementation was identified in the relevant authoritative path | Curve and Velodrome resolver/quote/plan support; Morpho/UniV3-flash receiver heads; exact candidate simulation in the multichain harness |
+| **MOCKED / SIMULATED / HEURISTIC** | Output is synthetic, symbolic, test-oriented or derived from model assumptions rather than measured execution | `NoopSimulator`; placeholder paper calldata; unsigned `LiveSigner` envelopes; hardcoded vault/exchange status and exchange-test responses (M07) |
+| **GENUINELY EXECUTION-CAPABLE CODE** | Source can actually invoke a signer and submit a transaction when all reachable conditions are met | `LimitedLiveBroadcaster.broadcast_plan` plus the compatible receiver; not categorically mock-only |
+| **GENUINELY EXECUTION-CAPABLE CHAIN / ROUTE** | Exact deployment, provider, venue, caller, amount, economics and simulation are verified together | **Not established for any of the six mainnets by this static audit.** Source capability is not chain/route certification |
+| **UNKNOWN / UNVERIFIED** | Evidence was not gathered or was insufficient; not converted to PASS or to “does not exist” | Actual environment/RPC access, deployed bytecode, vault key custody, current pools/profitability, historical transaction outcomes |
 
 ## 4. Six-chain capability matrix
 
@@ -143,6 +217,10 @@ This is broader than the canonical flash path: its non-Base `_plan_generic_evm` 
 Evidence: `app/backend/arbicore/scanners/flash_loan_arbitrage/economics.py:29-56`; `app/backend/arbicore/scanners/flash_loan_arbitrage/provider_liquidity.py:143-232`; `app/backend/arbicore/execution/adapters.py:86-93`; `app/backend/arbicore/runtime/composition.py:524-550`.
 
 ## 5. Critical / High findings
+
+### Critical findings
+
+**No Critical finding was confirmed in the completed audit.** This is not a guarantee of absence. No anonymous direct signing or demonstrated loss-of-funds exploit was established, and the audit did not attempt one. Security severity remains High where a reachable unauthorized state change was proven statically but broadcast has additional independent barriers.
 
 ### H01 — Unauthenticated network configuration can redirect signer RPC and executor settings
 
@@ -270,6 +348,114 @@ Evidence: `app/backend/arbicore/scanners/flash_loan_arbitrage/economics.py:29-56
 
 **Required fix:** unify mode/readiness semantics, label wallet-only readiness as such, require candidate certification for any “ready to broadcast” banner, distinguish unsigned previews from signed transactions, and do not imply private MEV submission or market-accurate valuation from metadata. Also restrict credentialed CORS origins and explicitly require secure cookie settings for production (`app/backend/server.py:6528-6534`; `app/backend/services/auth.py:85-90`).
 
+### M07 — Vault readiness, exchange connectivity and connection tests are explicitly MOCKED
+
+**Severity:** Medium · **Priority:** P1 · **Class:** false readiness / misleading operator information · **Confidence:** confirmed statically during export evidence completion.
+
+- **Files / functions:** `app/backend/server.py:3039-3047` — `v2_settings_vaults`; `app/backend/server.py:3050-3052` — `v2_settings_vault_reconcile`; `app/backend/server.py:3070-3088` — `v2_settings_exchanges`, `v2_settings_exchange_test`.
+- **Evidence:** `v2_settings_vaults` returns literal cold/hot/multisig/exchange entries, abbreviated placeholder addresses and `state="READY"`, stamping them with the current time. `v2_settings_vault_reconcile` simply echoes `ok=True` and timestamps; it does not reconcile custody. `v2_settings_exchanges` returns a literal list with placeholder masked keys and connection/read-only flags. `v2_settings_exchange_test` computes `ok = key != "gate-io"` and returns a fixed 62 ms latency on success. It performs no exchange API call or credential validation.
+- **Impact:** an operator can mistake a canned status and newly generated timestamp for current custody, permission or connectivity evidence. An arbitrary unknown exchange key other than `gate-io` receives this synthetic success response. This is particularly misleading in an application whose purpose depends on genuine financial connectivity.
+- **Boundary:** these responses do not prove actual credentials, account access, balances, custody or live trading. They do not invalidate separate real balance/provider implementations elsewhere. No secret value was read; the masked strings in this handler are source literals.
+- **Required fix:** explicitly mark these surfaces **MOCKED** and never use them as readiness evidence; replace them with authenticated, provider-derived state and measured tests in a separately authorized engineering task. Missing integrations must be UNKNOWN/NOT_CONFIGURED, not CONNECTED or READY. A reconcile action must either perform a verifiable operation or state that it is unavailable.
+
+### Medium-finding function/class evidence index
+
+The following index makes the supporting symbol explicit where a grouped finding spans multiple modules. All substantive evidence and impact are retained above.
+
+| Finding | Functions/classes and exact paths |
+|---|---|
+| M01 | `ExecutionReadinessEngine._simulation`, `ExecutionReadinessEngine._contracts` — `app/backend/arbicore/control/readiness.py:335-365`; `NoopSimulator.simulate` — `app/backend/arbicore/execution/simulation.py:160-192`; `ExecutionCertifier.certify` — `app/backend/arbicore/execution/certification.py:232-243`; `OpportunityPipeline._run_simulate_stage` — `app/backend/arbicore/execution/pipeline.py:482-510`; `AnvilForkHarness` — `app/backend/arbicore/execution/executor_entrypoint.py:217-244` |
+| M02 | `_cell_state`, `build_opportunity_matrix` — `app/backend/arbicore/discovery/opportunity_engine.py:192-237`; `audit_execution_capability` — `app/backend/scripts/executor_capability_audit.py` |
+| M03 | `FlashLoanEconomicsAssessor.assess` — `app/backend/arbicore/scanners/flash_loan_arbitrage/economics.py:161-170`; `FlashLoanOpportunityVerifier._chain_congestion` — `app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py:477-484`; `read_aave_liquidity` — `app/backend/arbicore/scanners/flash_loan_arbitrage/provider_liquidity.py:173-217`; `EvmGasConfig.from_env`, `make_evm_all_in_cost_estimator.estimate` — `app/backend/arbicore/chains/evm_gas.py:94-110`, `app/backend/arbicore/chains/evm_gas.py:183-208`; `compute_true_net_profit` — `app/backend/arbicore/scanners/flash_loan_arbitrage/multichain_economics.py:78-101` |
+| M04 | `_size_sweep`, `_evaluate_candidates` — `app/backend/scripts/vps_runtime_certify.py:216-250`, `app/backend/scripts/vps_runtime_certify.py:317-350` |
+| M05 | `PreBroadcastValidator.validate` — `app/backend/arbicore/execution/pre_broadcast.py:120-137`; `build_controlled_live_safety.fresh_fn` — `app/backend/arbicore/runtime/composition.py:757-767`; `FlashLoanReceiver.receiveFlashLoan`, `FlashLoanReceiver.executeOperation` — `contracts/contracts/core/FlashLoanReceiver.sol:158-177`, `contracts/contracts/core/FlashLoanReceiver.sol:218-229` |
+| M06 | `ExecutionReadinessEngine.can_transition` — `app/backend/arbicore/control/readiness.py:489-505`; `ExecutionModeRepo.transition` — `app/backend/arbicore/execution/mode.py:183-211`; `build_wizard_state` — `app/backend/arbicore/execution/operator_wizard.py:631-643`; `LiveSigner.sign_plan` — `app/backend/arbicore/execution/live_signer.py:222-233`; `WalletIntelligenceEngine._token_price_usd` — `app/backend/arbicore/capital/wallet_intelligence.py:128-133`; `_cookie_flags` — `app/backend/services/auth.py:85-90`; module-level CORS registration — `app/backend/server.py:6528-6534` |
+| M07 | `v2_settings_vaults`, `v2_settings_vault_reconcile`, `v2_settings_exchanges`, `v2_settings_exchange_test` — `app/backend/server.py:3039-3052`, `app/backend/server.py:3070-3088` |
+
+## 6A. All Low findings and static-maintenance observations
+
+### L01 — Readiness calculations assign two unused gate variables
+
+**Severity:** Low · **Priority:** P2 · **Class:** maintainability / misleading safety logic · **Confidence:** confirmed by static lint and source inspection.
+
+**Evidence:** `assess_candidate_readiness`, `app/backend/arbicore/scanners/flash_loan_arbitrage/readiness_assessment.py:77-81`, assigns `executor_pass` and `balancer_pass` but never reads them. `_as_pass` in `app/backend/arbicore/execution/limited_live_eligibility.py:79-101` maps only explicit allow/deny words; other status words become unknown. The unused assignments can misleadingly suggest that they are the operative gate.
+
+**Impact/boundary:** unnecessary ambiguity in code that should make denial semantics obvious. This finding does not establish an active bypass; the current readiness function uses other results for its final assessment.
+
+**Required fix:** remove or deliberately integrate the redundant values only after documenting one canonical typed status contract. Do not change a fail-closed result simply to make a dead variable appear useful. No cleanup was performed.
+
+### L02 — Three execution/operator locals are created but not consumed
+
+**Severity:** Low · **Priority:** P2 · **Class:** maintenance / unfinished-path ambiguity · **Confidence:** confirmed statically.
+
+| Exact location | Function/class | Evidence |
+|---|---|---|
+| `app/backend/arbicore/execution/discovery.py:283` | `ContinuousDiscovery._evaluate_candidate` | `canonical = CanonicalOpportunity(...)` is assigned but the local is never read |
+| `app/backend/arbicore/execution/operator_journey.py:56` | `build_journey` | `prereq_by_key` is constructed but never read |
+| `app/backend/arbicore/execution/pipeline.py:650` | `OpportunityPipeline._extract_quote` | `synth_hops` is constructed but never read |
+
+**Impact/boundary:** dead local results make it difficult to tell whether intended canonical evidence, prerequisite mapping or synthetic quote data actually participates in the flow. The assignment alone does not prove that all canonical persistence is missing or that another correct path does not exist. Constructor side effects must be considered before removal.
+
+**Required fix:** document and connect any intended consumer, or remove the unused calculation after confirming no necessary side effect. Keep synthetic quote behavior explicitly identified and outside financial certification.
+
+### L03 — Complete unused-import inventory in the inspected execution/runtime subset
+
+**Severity:** Low · **Priority:** P3 · **Class:** static maintenance / dependency clarity · **Confidence:** confirmed lint diagnostics, with explicit-export intent requiring human review.
+
+The targeted inventory used the **audited Git source via standard input**, `ruff check` limited to `F401,F841`, and disabled its cache. It did not execute/import application code, install anything, fix files, or create application test files. Exact scope: `app/backend/arbicore/execution`, `app/backend/arbicore/runtime`, `app/backend/arbicore/chains`, and `app/backend/arbicore/scanners/flash_loan_arbitrage`. It produced **38 diagnostics: 33 F401 imports below, plus the 5 F841 locals in L01-L02**. This is not a whole-repository clean-lint claim, nor a runtime test pass.
+
+All entries below are **module-level imports**, not methods. No items in this verified subset have been omitted for length.
+
+| Exact path and line | Unused imported symbol (F401) |
+|---|---|
+| `app/backend/arbicore/execution/auto_executor.py:42` | `..data.journal.ExecutionStatus` |
+| `app/backend/arbicore/execution/auto_executor.py:42` | `..data.journal.LearningLabel` |
+| `app/backend/arbicore/execution/broadcast.py:28` | `dataclasses.field` |
+| `app/backend/arbicore/execution/calldata.py:33` | `dataclasses.field` |
+| `app/backend/arbicore/execution/calldata.py:34` | `datetime.datetime` |
+| `app/backend/arbicore/execution/calldata.py:34` | `datetime.timezone` |
+| `app/backend/arbicore/execution/calldata.py:35` | `typing.Tuple` |
+| `app/backend/arbicore/execution/discovery.py:37` | `dataclasses.field` |
+| `app/backend/arbicore/execution/gas.py:25` | `dataclasses.field` |
+| `app/backend/arbicore/execution/mev.py:21` | `dataclasses.field` |
+| `app/backend/arbicore/execution/operator_wizard.py:32` | `arbicore.execution.calldata.BALANCER_V2_VAULT_BY_CHAIN` |
+| `app/backend/arbicore/execution/operator_wizard.py:33` | `arbicore.execution.calldata.UNISWAP_V3_ROUTER_BY_CHAIN` |
+| `app/backend/arbicore/execution/operator_wizard.py:37` | `arbicore.execution.executor_interface.GETTER_VAULT_SIG` |
+| `app/backend/arbicore/execution/operator_wizard.py:37` | `arbicore.execution.executor_interface.GETTER_ROUTER_SIG` |
+| `app/backend/arbicore/execution/planner.py:23` | `datetime.datetime` |
+| `app/backend/arbicore/execution/planner.py:23` | `datetime.timezone` |
+| `app/backend/arbicore/execution/planner.py:31` | `.gas.StaticGasOracle` |
+| `app/backend/arbicore/execution/planner.py:34` | `.simulation.SimulatorBackend` |
+| `app/backend/arbicore/execution/quoter.py:53` | `dataclasses.field` |
+| `app/backend/arbicore/execution/settlement_simulator.py:24` | `typing.Optional` |
+| `app/backend/arbicore/execution/wallet_health.py:20` | `dataclasses.field` |
+| `app/backend/arbicore/runtime/__init__.py:12` | `.composition.get_regime_classifier` — may be intended as a package export |
+| `app/backend/arbicore/runtime/__init__.py:14` | `.composition.get_regime_worker` — may be intended as a package export |
+| `app/backend/arbicore/runtime/__init__.py:16` | `.composition.get_sequence_miner` — may be intended as a package export |
+| `app/backend/arbicore/runtime/__init__.py:18` | `.composition.get_survival_analytics` — may be intended as a package export |
+| `app/backend/arbicore/scanners/flash_loan_arbitrage/filter.py:14` | `typing.Optional` |
+| `app/backend/arbicore/scanners/flash_loan_arbitrage/provider_liquidity.py:27` | `dataclasses.field` |
+| `app/backend/arbicore/scanners/flash_loan_arbitrage/route_search.py:21` | `dataclasses.field` |
+| `app/backend/arbicore/scanners/flash_loan_arbitrage/route_search.py:22` | `typing.Tuple` |
+| `app/backend/arbicore/scanners/flash_loan_arbitrage/scanner.py:14` | `typing.Awaitable` |
+| `app/backend/arbicore/scanners/flash_loan_arbitrage/shadow_route.py:12` | `typing.Optional` |
+| `app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py:15` | `...intelligence.roi_probability.ROIProbabilityEngine` |
+| `app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py:18` | `...models.enums.MevRiskLevel` |
+
+**Impact/boundary:** misleading dependencies, review noise and uncertain export intent. These diagnostics are not evidence of a trading failure or security compromise by themselves. Public re-exports may be intentional and must not be removed blindly.
+
+**Required fix:** remove genuine dead imports; explicitly declare intentional package exports. Run a scoped static check after any separately authorized cleanup. Do not mix cosmetic cleanup into emergency financial-control repairs.
+
+### L04 — Operator-provided diagnostic RPC needs an explicit network-access policy
+
+**Severity:** Low, conditional hardening observation · **Priority:** P2/P3 · **Class:** privileged outbound-request surface · **Confidence:** input-to-request path confirmed; exploit not attempted.
+
+**Evidence:** `v2_engine_run_atomic_sim`, `app/backend/server.py:5285-5304`, accepts `fork_rpc` and passes it to `_run_live_atomic_sim`. The latter uses the endpoint override at `app/backend/server.py:5131-5142`; `AtomicExecutorSimulator` sends JSON-RPC via its HTTP client. The route **does** require `_require_operator_dep`; this is distinct from H01's anonymous configuration mutation.
+
+**Impact/boundary:** an authorized or compromised operator session can direct diagnostics toward an arbitrary reachable endpoint. Internal/private fork endpoints may be legitimate, so this is a policy/control requirement, not a claim that every private URL is an exploit. No metadata-service access, response exfiltration or unrestricted anonymous SSRF was demonstrated.
+
+**Required fix:** define permitted schemes/destinations and private-network exceptions explicitly, reject credentials in URLs, enforce timeouts/response limits and an appropriate egress policy. Keep secrets out of errors and evidence. Preserve authenticated, clearly labeled read-only fork diagnostics.
+
 ## 7. Historical evidence reconciliation
 
 | Artifact in target commit | What it records | What it does not prove |
@@ -280,7 +466,7 @@ Evidence: `app/backend/arbicore/scanners/flash_loan_arbitrage/economics.py:29-56
 | `reports/VPS_RUNTIME_CERT_public_phase5_harnessfix.json` | Historical public-RPC report: 45 rows, 40 quotable, 7 candidates, 0 economic/execution-ready; Base skipped; Anvil unavailable | Successful provider/economic/simulation stages; H09 means zero results are not solely a market issue |
 | `scripts/arbicore_certify.py` implementation | `repo_capability_pass` covers selected compilation, protected integrity and safety settings; explicitly leaves P0-3 false and runtime unverified | Whole-app integration correctness, authorization coverage, deployment identity, exact route execution or profitability |
 
-No historical pass count was rerun or accepted as proof for this commit. The handoff PRD was useful orientation but is stale in places, including receiver flash-provider support and broad “non-Base only needs RPC” claims. Final document checks resolved all 101 line-range references across 43 distinct files against the target Git snapshot. Targeted AST inspection additionally confirmed the throttle signature/call mismatch and the unprotected router/endpoint declarations, without executing application code.
+No historical pass count was rerun or accepted as proof for this commit. The handoff PRD was useful orientation but is stale in places, including receiver flash-provider support and broad “non-Base only needs RPC” claims. The initial report's 101 line-range references across 43 distinct files were resolved against the target Git snapshot. Export preparation adds precise symbol and Low-severity evidence, and the expanded report is reference-checked again before export. Targeted AST inspection additionally confirmed the throttle signature/call mismatch and the unprotected router/endpoint declarations, without executing application code.
 
 ## 8. Existing safeguards worth preserving
 
@@ -293,9 +479,148 @@ No historical pass count was rerun or accepted as proof for this commit. The han
 
 These strengths are real source features, **not** a global safety certification. H01-H10 show why safety must be assessed across the complete composed path rather than from selected safe modules.
 
+## 8A. Detailed execution architecture assessment
+
+### The real submission path
+
+`LimitedLiveBroadcaster.broadcast_plan` in `app/backend/arbicore/execution/broadcast.py:422-778` is the financial boundary. It is not the same object as `LiveSigner.sign_plan`, whose receipt remains an unsigned preview. The server wires controlled-live safety rather than granting unconditional submission.
+
+| Execution stage | Implemented source boundary | Current assessment |
+|---|---|---|
+| Plan / flash head encoding | `encode_plan_head_call`, `app/backend/arbicore/execution/calldata.py:532-632` | Balancer and Aave heads implemented. The function resolves an executor recipient; a missing one raises. It may fall back to empty callback data in exercise mode, which should not be treated as a valid arbitrage payload. |
+| Venue/deployment compatibility | `evaluate_settlement`, `app/backend/arbicore/execution/settlement_dispatcher.py:165-278` | Unsupported current-receiver venues and missing deployment records are denied; adapter existence does not bypass this. |
+| Kill switch and strategy mode | `LimitedLiveBroadcaster.broadcast_plan`, `app/backend/arbicore/execution/broadcast.py:422-479` | Independent guards exist, but the mode/config inputs need the authorization repairs in H01-H03. |
+| Capital, secret and preflight eligibility | `LimitedLiveBroadcaster.broadcast_plan`, `app/backend/arbicore/execution/broadcast.py:480-707` | Several sequential constraints; source presence does not prove actual funding/key custody, endpoint integrity or policy adequacy. |
+| Confirmation and revalidation | `LimitedLiveBroadcaster.broadcast_plan`, `app/backend/arbicore/execution/broadcast.py:708-778`; `build_controlled_live_safety.fresh_fn`, `app/backend/arbicore/runtime/composition.py:659-767` | Explicit confirmation and late validation exist. Exact-size and chain-composition defects remain. |
+| Sign/send | `LimitedLiveBroadcaster.broadcast_plan`, `app/backend/arbicore/execution/broadcast.py:708-778` | Actual signing and RPC submission code is present; not invoked by this audit. Public RPC submission is not private MEV protection. |
+| Contract callbacks | `FlashLoanReceiver.receiveFlashLoan`, `FlashLoanReceiver.executeOperation`, `contracts/contracts/core/FlashLoanReceiver.sol:135-229` | Owner-authorized entry/callback protocol and repayment constraints exist; one UniV3 router restricts venue coverage. |
+| Post-trade evidence | Journal/outcome/evidence repositories and post-trade UI | Existing surfaces do not by themselves demonstrate durable transaction idempotency, nonce coordination, reorg handling, finality and reconciled realized net profit. These require explicit acceptance evidence. |
+
+### Important execution boundaries
+
+- **Detection versus spending:** background scanners, opportunity race, discovery tick and auto-executor scheduling must not be equated with authorized transaction broadcast. The default `auto_confirm=False` is material.
+- **Borrow source versus swap venue:** Aave/Balancer callback support and UniV3 hop support are separate dimensions. Adding a flash-provider class cannot make a different swap ABI executable, and adding a swap quoter cannot add a receiver callback.
+- **Source versus deployed code:** the source receiver has an Aave head, but the recorded Base deployment must be independently matched to exact bytecode and constructor inputs. This audit does not assert that every historical recorded deployment contains the target source's features.
+- **On-chain solvency versus net profitability:** repayment of principal/premium is necessary, not sufficient. Gas and off-chain risk can make a solvent transaction economically negative. Quote and minimum-output protections must match the actual amount and route.
+- **Continuous same-chain arbitrage versus cross-chain execution:** one EVM transaction cannot wait for an ordinary asynchronous bridge and repay a flash loan after destination finality. Cross-chain strategy requires separately designed inventory, funding and recovery.
+
+## 8B. Security and authentication/authorization assessment
+
+### Authentication implemented; authorization incomplete
+
+`app/backend/services/auth.py` implements bcrypt password verification, JWT access/refresh tokens, cookie transport, session-version checks and lockout. `app/backend/routes/auth.py` provides the auth routes, and `app/frontend/src/context/AuthContext.jsx` maintains browser user state. These are real components. This audit did not test login, password recovery, session expiry, cookie delivery, vault decryption or deployed role provisioning.
+
+The primary confirmed security issue is **not that authentication is entirely absent**. It is that sensitive routes fail to require it. `api_router` is created without a global authentication dependency at `app/backend/server.py:584`; selected handlers attach `_require_operator_dep`, others do not. A UI login page and CORS policy cannot protect direct backend requests.
+
+### Exact mutation surface supporting H01-H03
+
+All paths below are within the `/api` prefix. This is the concrete reviewed surface, not a claim that every route in the application has been exhaustively classified.
+
+| Handler / exact source | Route family | Evidence / effect |
+|---|---|---|
+| `v2_settings_account_update` — `app/backend/server.py:3030-3036` | PATCH `/arbicore/settings/account` | Writes `_ACCOUNT_REPO.patch`, actor is literal `operator`; no handler operator dependency |
+| `v2_settings_execution_update` — `app/backend/server.py:3061-3067` | PATCH `/arbicore/settings/execution` | Writes `_EXECUTION_SETTINGS.patch`; no operator dependency |
+| `v2_execution_mode_transition` — `app/backend/server.py:3400-3413` | POST `/arbicore/execution/mode/{strategy}` | Client-controlled actor and transition target; H02 |
+| `v2_discovery_tick`, `v2_discovery_start`, `v2_discovery_stop` — `app/backend/server.py:4160-4181` | POST `/arbicore/execution/discovery/{tick,start,stop}` | Calls worker methods without authentication |
+| `v2_settings_network_draft`, `v2_settings_network_apply`, `v2_settings_network_rollback` — `app/backend/server.py:5879-5924` | Network configuration draft/apply/rollback | Persistent and process-environment execution inputs; H01 |
+| `v2_settings_telegram_update`, `v2_settings_telegram_test`, `v2_settings_telegram_emit` — `app/backend/server.py:5960-6004` | Telegram update/test/manual alert | Changes notification settings and initiates sends; no operator dependency. No bot token was inspected. |
+| `v2_settings_scanner_global_draft`, `v2_settings_scanner_global_apply` — `app/backend/server.py:6037-6058` | Scanner global draft/apply | Writes/applies scanner settings with non-authenticated actor attribution |
+| `v2_settings_scanner_family_draft`, `v2_settings_scanner_family_apply` — `app/backend/server.py:6103-6128` | Scanner family draft/apply | Same pattern at per-family scope |
+| `v2_settings_scanner_pause`, `v2_settings_scanner_resume`, `v2_settings_scanner_reload` — `app/backend/server.py:6159-6186` | Scanner operational control | Direct operational state changes without operator dependency |
+| `v2_ledger_emit` — `app/backend/server.py:6309-6319` | POST `/arbicore/learning/ledger/emit` | Triggers journal-to-learning consumption; authorization absent at handler |
+| `v2_pipeline_evaluate` — `app/backend/server.py:6332-6354` | POST `/arbicore/pipeline/evaluate` | Accepts evaluation input and runs pipeline work without operator dependency |
+| `v2_autoexec_start`, `v2_autoexec_stop`, `v2_autoexec_tick` — `app/backend/server.py:6371-6386` | Auto-executor scheduling/control | Starts/stops/ticks worker without authentication; automatic confirmation remains off |
+
+Validation/rollback and notification/operational settings handlers in these same families must be included in the eventual deny-by-default authorization inventory, not repaired piecemeal. The mocked reconcile and exchange-test handlers in M07 are misleading responses, not evidence that genuine custody reconciliation or exchange tests can be performed anonymously.
+
+### Protected/limiting controls and remaining uncertainty
+
+- Operator dependency is explicitly present on signer ingestion/deletion (`app/backend/server.py:4995-5024`) and the atomic-simulation endpoint (`app/backend/server.py:5285-5304`), as well as selected discovery actions. The review did not claim every endpoint is anonymous.
+- The security review found role/confirmation barriers around direct broadcast and kill-switch operations. H01-H03 therefore describe unauthorized **control-state/input mutation**, not a reproduced direct signing bypass.
+- Owner/provider callback checks constrain the contract. They do not authenticate HTTP settings or validate off-chain market data.
+- Cookie security is configuration-dependent (`_cookie_flags`), and credentialed wildcard CORS is an inappropriate default boundary; no specific browser exploit was tested (M06).
+- Operator-configured diagnostic RPCs require a considered egress policy (L04). No generalized secret-exfiltration proof is claimed.
+- Secret custody, encryption-key strength, production network ACLs, account permissions and incident controls remain unverified. No secret inventory or value scan was performed.
+
+## 8C. RPC assessment
+
+The code has real RPC functionality, retries, rate-limit handling, fallbacks, quote cache and chain-identity-aware components. Its weakness is **inconsistent use across consumers**.
+
+1. **Configuration is not connectivity.** `build_multichain_readiness_report` in `app/backend/arbicore/runtime/multichain_readiness.py` differentiates structural readiness and required runtime proof. Actual URLs/keys were not inspected; this audit does not certify any chain as configured or reachable.
+2. **Discovery and economics have different config contracts.** `_cell_state` distinguishes `rpc_explicitly_configured` from `provider_registry_rpc_configured` (`app/backend/arbicore/discovery/opportunity_engine.py:144-148`). A URL used by one component may not provision the other.
+3. **Persistent resolver hardening is not universal.** `QuoterRegistry` maintains its own endpoint precedence and can leak global Base RPC into non-Base requests (H06). Chain identity must be validated before quote use, not only before transaction submission.
+4. **Throttle API drift breaks consumers.** `_throttle(scope)` changed while two call sites still invoke it without a parameter (H04). This is a deterministic interface failure, not a rate-limit diagnosis.
+5. **Fresh block height is not coherent state.** `_single_call` can collect block height separately from the quote; cached/unpinned hops need block/hash binding (M05). Merely including a block number in a report does not prove that all route facts came from that state.
+6. **Endpoint trust remains a security boundary.** RPCs can influence quotes, contract getters, balances, gas and preflight results. H01 permits unauthorized endpoint changes; L04 covers authorized diagnostics. Logs/evidence must avoid leaking credentials embedded in URLs.
+
+Relevant exact functions: `QuoterRegistry._rpc_url_candidates`, `_rpc_url`, `quote_route`, `_single_call`, `_eth_call`, `_throttle_scope`, `_throttle` in `app/backend/arbicore/execution/quoter.py`; `make_eth_call_for_chain_from_env` in `app/backend/arbicore/searcher/runtime.py`; `EvmChainAdapter.capability` in `app/backend/arbicore/chains/evm_adapter.py`. Source-level failover exists; no live provider outage or failover experiment was run.
+
+## 8D. Economic and trading-correctness assessment
+
+### Inputs that must refer to the same exact candidate
+
+The economic object should bind chain, provider, input token/decimals, token-unit amount, USD conversion, ordered venues/pools/hops, fee tiers, output quotes, minimum outputs, block/hash and expiry. The current probe/notional mismatch (H05) violates that binding before the final dollar-profit comparison. A generic percent edge, token TVL or nominal flash notional cannot repair it.
+
+### Findings by economic layer
+
+| Layer | Current source behavior | Consequence / finding |
+|---|---|---|
+| Input sizing | `_plan_base` uses a probe; verifier and final safety multiply percentage return by a separately selected USD size | H05: nonlinear price impact not represented at execution size |
+| Size search | `_size_sweep` chooses gross-profit best; later net evaluation still references the original amount | M04: neither net-optimal nor coherently propagated |
+| Borrow capacity | Provider optimizer requires liquidity; multichain caller supplies `None` | H09: positive economic certification cannot complete |
+| DEX depth | Base TVL provider installed for canonical multichain verification; token-balance TVL differs from active V3 depth | H07/M03: non-Base composition and execution-depth proof missing |
+| Premium | Aave reader default 5 bps; configurable gas flash-fee term can coexist with provider premium deduction | M03: unmeasured fee assumption / conditional double counting |
+| Gas and data | Chain-aware models exist, but canonical estimates and configurable calldata-size assumptions coexist with actual estimation paths | M03: model estimate must not be presented as exact all-in cost |
+| USD prices | Stable/derivative assumptions appear in harness and wallet reporting | M03/M04/M06: nominal units are not measured dollar value |
+| MEV and expiry | Metadata-only MEV router, public submission, optional deadline and height-only freshness | M05/M06: slippage/repayment alone do not guarantee intended net outcome |
+| Post-trade learning | Evidence/outcome framework exists; research outcomes differ from realized account P&L | P2: calibrate against reconciled receipts and costs before profitability claims |
+
+**Positive accounting property:** quote-return amounts already reflect pool trading fees in the paths designed that way; do not blindly deduct DEX fees twice when revising cost logic. Conversely, flash premiums, transaction gas/L1 costs, revert risk and bridge/CEX costs where applicable require explicit ownership. The report does not claim that every path currently double-counts fees; M03's flash-fee issue is conditional on the relevant nonzero configuration term.
+
+**Market conclusion:** the historical samples recorded no economic winner. That does not establish universal absence of profit. Equally, an assumed positive edge or a high confidence score cannot override missing exact-size market/liquidity/economic evidence.
+
+## 8E. Certification/readiness assessment and FALSE READINESS register
+
+The newer opportunity matrix is careful to leave runtime states unverified and limited-live false. The problem is that **other component labels and reports still admit broader interpretations**, and the canonical path is narrower than raw adapter registries.
+
+| ID / apparent readiness | Actual supporting evidence | What is falsely inferred | Finding / correct classification |
+|---|---|---|---|
+| FR01 — “RPC configured” | Environment-key presence | Correct chain, healthy endpoint, valid market/economic data | H06 / RPC configured only; runtime UNKNOWN |
+| FR02 — “quote path connected” | Resolver flag plus quote-backend membership, repeated across strategy labels | Every strategy reaches canonical quoting/execution | H07, M02 / structural component support, not complete integration |
+| FR03 — “execution capable” six-cell count | UniV3 adapter/DEX membership | Six deployed, adapter-compatible execution engines | H08, M02 / chain/deployment/receiver constraints missing |
+| FR04 — “executor deployed” / identity READY | Registry/env address and sometimes incomplete getter observations | Correct deployed bytecode and all immutables verified | H10 / known record or UNKNOWN identity; not READY on missing evidence |
+| FR05 — “Aave supported” | Catalog, liquidity helper and receiver head | Final canonical M3 accepts Aave, including BNB | H07/H08 / partial implementation; M3 Balancer-only and BNB adapter mismatch |
+| FR06 — “profitable” / profit buffer PASS | Probe return percentage multiplied by another USD size | Exact transaction is net profitable | H05 / mismatched modeled economics |
+| FR07 — “simulation PASS” | Noop/heuristic or RPC capability result | Exact deployed-state candidate was simulated | H04, M01 / MOCKED/HEURISTIC or capability-only evidence |
+| FR08 — “Anvil available” | Binary/process/capability check | Positive candidate simulation completed | H09, M01 / infrastructure only |
+| FR09 — “repo capability PASS” | Selected compilation, integrity and safety configuration | Whole-app runtime/production certification | Historical evidence section / static repository check only |
+| FR10 — “ready to broadcast” wizard | Component aggregation excluding certification WAIT | Candidate-specific economic/simulation approval complete | M06 / prerequisites only, not eligibility |
+| FR11 — “signing eligible” receipt | `LiveSigner` unsigned placeholders | Signed transaction or broadcast capability proof | M06 / preview; distinguish actual `LimitedLiveBroadcaster` |
+| FR12 — “private/MEV routing” | Routing decision metadata | Private submission/inclusion protection | M06 / metadata only |
+| FR13 — “vault READY / reconciled now” | Literal placeholder objects / timestamp echo | Verified custody, signers, balances or reconciliation | M07 / **MOCKED** |
+| FR14 — “exchange CONNECTED / 62 ms test” | Literal statuses; `key != "gate-io"` | Valid credentials, permissions and actual exchange request | M07 / **MOCKED** |
+| FR15 — “real learning outcomes” | Post-emission market/state observation | Realized live arbitrage net returns | P2 / distinguish research labels from receipt-reconciled P&L |
+
+This register covers false-readiness **claims or interpretations**, not assertions that every corresponding frontend label is malicious or every handler broadcasts unsafely. Some modules already label their own limitations correctly. The remedy is consistent evidence semantics throughout the application.
+
+### High-finding symbol index
+
+| Finding | Principal exact symbols (paths/ranges appear in each finding) |
+|---|---|
+| H01 | `v2_settings_network_draft`, `v2_settings_network_apply`, `v2_settings_network_rollback` (`app/backend/server.py`); environment sync module (`app/backend/arbicore/config/env_sync.py`); `LimitedLiveBroadcaster._rpc_url` (`app/backend/arbicore/execution/broadcast.py`) |
+| H02 | `v2_execution_mode_transition`; `ExecutionModeRepo.transition`; `LimitedLiveBroadcaster.broadcast_plan`; `ExecutionReadinessEngine.can_transition` |
+| H03 | `v2_pipeline_evaluate`; `v2_autoexec_start`, `v2_autoexec_stop`, `v2_autoexec_tick`; additional exact mutation handlers listed in section 8B |
+| H04 | `_throttle`; `AtomicExecutorSimulator._raw_eth_call`; `WalletIntelligenceEngine._eth_call` |
+| H05 | `_plan_base`, `make_live_quote_provider._provider`; `FlashLoanOpportunityVerifier.verify`; `FlashLoanEconomicsAssessor.assess`; `build_controlled_live_safety.fresh_fn` |
+| H06 | `QuoterRegistry._rpc_url_candidates`, `QuoterRegistry._rpc_url`, `QuoterRegistry.quote_route`; `_single_call` |
+| H07 | `_plan_generic_evm`; `_wire_canonical_flash_loan_scanner`; `build_base_tvl_provider`; Base V3 reserve-reader closure; `_IN_SCOPE_CHAINS`; `build_controlled_live_safety._flashloan_available`, `build_controlled_live_safety.fresh_fn` |
+| H08 | `FlashLoanReceiver.receiveFlashLoan`, `FlashLoanReceiver.executeOperation`; `evaluate_settlement`; `AaveV3FlashLoanAdapter`, `UniswapV3SwapAdapter`; deployment registry document |
+| H09 | `_evaluate_candidates`; `compute_true_net_profit`; provider optimizer; `_certify_chain` |
+| H10 | `inspect_executor`; `probe_executor_identity`; `resolve_executor_address`; independent `probe_signer_readiness` boundary |
+
 ---
 
-# Phase B — Forward Engineering Assessment
+# Phase B — FORWARD ENGINEERING / UPGRADE ASSESSMENT
 
 ## 9. Prioritized engineering program
 
@@ -350,6 +675,39 @@ Recommendations only. **Nothing in this section has been implemented or executed
 - Provider/venue expansion with versioned compatibility certification instead of global “supported” labels.
 - Confidence calibration, market-regime analysis and capital optimization evaluated against held-out real outcomes, not synthetic success counts.
 
+## 9A. Recommended safe engineering sequence
+
+**This is a proposed sequence, not execution instructions or approval. No step below was performed.** The user must separately authorize any future repository changes, tests, runtime checks, contract work or live actions. Preserve all six chains and all specified strategy/venue requirements throughout.
+
+| Step | Work and dependency | Exit criterion before progressing |
+|---|---|---|
+| 0 — Evidence handoff | Preserve exact audited commit/tree, report and open findings; record a separate authorized change baseline | Scope and acceptance criteria agreed; no accidental remediation mixed into audit/export |
+| 1 — Close unauthorized control paths | P0 H01-H03 before relying on runtime inputs/modes; review all mutating routes together | Deny-by-default role enforcement; authenticated actor attribution; unauthorized cases denied without side effects |
+| 2 — Unify chain/RPC and configuration identity | H06 plus H01 dependent-state invalidation; one per-chain resolver and immutable config revision | Wrong-chain endpoints rejected before evidence use; no global Base leakage; caches bound to verified identity |
+| 3 — Repair hard interface failures | H04 using isolated, deterministic RPC substitutes first | Atomic/wallet consumers follow common RPC contract; malformed/timeout/429/error conditions remain explicit and safe |
+| 4 — Bind amounts and economics | H05 and M03-M05; one exact-size candidate representation across consumers | Independently recomputable route, token amount, fee, gas and net; selected size propagated; expiry mandatory |
+| 5 — Make all readiness states truthful | H10, M01/M02/M06/M07; remove implicit promotion of mocked/config-only evidence | Missing mandatory evidence never READY; MOCKED/HEURISTIC visibly separated; all matrices agree on stage semantics |
+| 6 — Complete six-chain canonical composition | H07/H09 after shared invariants; parallel chain-specific implementation is appropriate | Each chain's actual scanner and final validator share quote, liquidity, provider, gas and evidence services; no allowlist-only activation |
+| 7 — Complete/version receiver compatibility | H08 with independently reviewed contract/ABI design before any deployment decision | Exact flash heads and swap ABIs covered; callback/approval/repayment/min-output/min-profit/expiry constraints assessed; chain deployment plan explicit |
+| 8 — Certify deterministic and fork behavior | Separately authorized offline/unit/contract tests, then isolated fork tests of exact candidates | Reproducible caller/calldata/block/evidence; no synthetic result admitted as deployed-state proof; negative cases covered |
+| 9 — Read-only operator-environment proof | Separately authorized RPC/bytecode/market/evidence checks on **all six chains**, no signer enabling | Verified chain/deployment/immutables, fresh liquidity/quotes, real costs, exact-call success and persisted evidence for each candidate |
+| 10 — Production operating controls | P2 idempotency, nonce/finality/P&L, backups, alerts, stop/recovery and egress controls | Durable restart/reorg/revert handling, measured risk limits, coherent operator authorization and reconciled outcomes |
+| 11 — Separate promotion decision | No automatic promotion from this audit, a green dashboard or test pass | Explicit user/operator authorization, bounded policy and independent review; any live transaction belongs to a new task |
+| 12 — Evidence-led expansion/optimization | P2/P3 wider strategies/providers/universe after safe baseline | Measured, held-out outcome improvement; no scope removed to manufacture a green matrix |
+
+**Do not invert this order:** do not fund/enable a signer to debug a quoter; do not broaden supported-chain lists before wiring chain-valid liquidity/execution; do not disable provider/TVL/simulation checks to obtain a profitable candidate; do not install Anvil and assume H09 is fixed; do not deploy a receiver before its exact compatibility and security requirements are reviewed.
+
+### Finding-to-priority index
+
+| Priority | Findings / required work |
+|---|---|
+| **P0** | H01-H06 and H10; mandatory evidence/expiry and security-dependent portions of M01/M05/M06 |
+| **P1** | H07-H09; M01-M05 and M07; candidate/chain/provider composition, receiver engineering, exact certification and coherent readiness |
+| **P2** | M06 operational convergence, L01-L02, L04 policy hardening; transaction lifecycle/P&L/recovery; broader strategy execution |
+| **P3** | L03 maintenance, low-risk L04 polish after policy exists; measured search/ranking/calibration/provider expansion |
+
+Severity and priority are intentionally not identical. A Low unused import should not consume emergency security credits, and a High six-chain capability gap must remain on the roadmap even when a Base-only path is nearer completion.
+
 ## 10. Proposed acceptance evidence for each chain
 
 To progress beyond “implemented,” a future separately authorized engineering/certification effort should produce a single candidate-bound bundle containing:
@@ -368,12 +726,20 @@ First live execution would be a separate decision after those conditions: bounde
 
 ## 11. Final disposition
 
-**Phase A complete:** fixed-commit source review, major subsystem inventory, six-chain and venue/provider matrices, historical-evidence reconciliation, ten High findings and six Medium observation groups.
+**Phase A complete:** fixed-commit source review; whole-app, execution, security, authentication/authorization, RPC, economics and certification assessments; six-chain, venue, strategy and flash-provider matrices; explicit false-readiness register; historical-evidence reconciliation; **0 confirmed Critical, 10 High, 7 Medium groups and 4 Low groups**, with all 38 scoped static-maintenance diagnostics enumerated.
 
 **Phase B complete:** P0/P1/P2/P3 roadmap and per-chain acceptance evidence without narrowing the six-chain target.
 
 **Not performed:** application tests, runtime probes, live simulation, source/configuration fixes, signer enabling, transaction broadcast, deployment, commits, merges or PRs. No profitable execution or production readiness is claimed.
 
 **Suggested product improvement:** an evidence-linked capability dashboard showing, for every chain/venue/strategy, the exact last completed gate, first blocker and evidence age would make false readiness much harder to introduce or misunderstand.
+
+### Standalone export
+
+- Requested complete report: `/app/audit_report.md`.
+- Identical downloadable Markdown artifact outside the repository: `/mnt/data/audit_report.md`.
+- Both phases and all findings are in this single document; no external appendix, application account, repository checkout or network access is needed to read it.
+- Source paths and line ranges refer to the audited commit, not the current worktree. The exported file is checked for byte-for-byte equality with the requested report.
+- No Git add/commit/push, PR, merge, deployment, source/configuration edit or remediation was performed as part of preparing this export.
 
 **STOP — report delivered; no fixes implemented.**
