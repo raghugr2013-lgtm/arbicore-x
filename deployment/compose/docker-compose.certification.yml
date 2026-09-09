@@ -82,7 +82,7 @@ services:
       ARBICORE_SCANNER_AUTOSTART: "false"
       ARBICORE_FULL_LIVE_ENABLED: "false"
       ARBICORE_LIMITED_LIVE_ENABLED: "false"
-    working_dir: /app/backend
+    working_dir: /app          # code root in the image (Dockerfile: COPY app/backend/ /app/)
     command: ["python3", "-m", "scripts.vps_certify"]
     volumes:
       - ./vps_cert_out:/out          # human + machine report land here (no secrets)

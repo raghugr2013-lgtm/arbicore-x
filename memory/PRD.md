@@ -592,3 +592,20 @@ P0+P1+cert regression 76 passed. testing_agent N/A (CLI harness, no live endpoin
 
 Next: operator runs the runbook on the VPS staging container and returns the real
 12-section report; then await approval before Opportunity Race / Limited Live.
+
+---
+
+## VPS CERT RUNNER FIX — 2026-09-09 (branch vps-cert-p1b2-fix, HEAD b2b4977)
+
+BUG: `python -m scripts.vps_certify` → ModuleNotFoundError: No module named
+'scripts' in arbicore-cert-runner. ROOT CAUSE: backend Dockerfile does
+`COPY app/backend/ /app/` (code root=/app, WORKDIR /app), but the cert compose
+set `working_dir: /app/backend` (absent in image) ⇒ parent of `scripts` not on
+sys.path for `-m`. FIX (one line): certify service working_dir /app/backend→/app
+in deployment/compose/docker-compose.certification.yml. Added regression test
+app/backend/tests/test_vps_cert_container_entrypoint.py (ties compose working_dir
+to the Dockerfile COPY dest; asserts scripts package + module resolvability + safe
+isolation). Verified by testing_agent (/app/test_reports/iteration_3.json): exit 0,
+no ModuleNotFoundError, report written, status_counts zero PASS (fail-closed), 18/18
+tests pass. No production/protected/gate/receiver changes. Docker unavailable in pod
+⇒ verified via code-root bash reproduction; real image rebuild runs on the VPS.
