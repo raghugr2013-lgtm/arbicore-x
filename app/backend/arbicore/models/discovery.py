@@ -53,6 +53,13 @@ class VerifiedOutcome(str):
     # A quote that is not economically calculable MUST fail closed here and
     # never reach economics, Gate 7 or CONFIRMED.
     DENIED_QUOTE_INVALID_PREFIX = "denied:quote_invalid:"
+    # denied:size_not_quoted — H05 fail-closed: the live quote was taken at a
+    # research PROBE size, so its gross-profit ratio cannot certify the
+    # requested borrow notional (price impact is nonlinear). A probe-sized
+    # quote MUST NOT be extrapolated to a larger dollar notional and can never
+    # reach economics / Gate 7 / CONFIRMED. Exact-size quoting (or a quote whose
+    # own USD notional is bound via ``quote_notional_usd``) is required.
+    DENIED_SIZE_NOT_QUOTED = "denied:size_not_quoted"
     ERROR_PREFIX = "error:"
     EXPIRED_UNCLAIMED = "expired_unclaimed"
 

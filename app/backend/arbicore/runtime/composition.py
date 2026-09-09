@@ -667,6 +667,21 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
                     "break_even, malformed route, or unknown token). "
                     "route_pools=%s token_path=%s", route_pools, token_path)
                 return None
+            # H05 FAIL-CLOSED: the final broadcast-time revalidation must never
+            # extrapolate a research PROBE ratio onto the real ``borrow_usd``
+            # notional (price impact is nonlinear). If the quote was not taken
+            # at the exact requested size (``size_basis != "exact"``), deny —
+            # ``gross_profit_usd`` below would otherwise scale a probe edge.
+            _size_basis = str(facts.get("size_basis") or "").lower()
+            if _size_basis and _size_basis != "exact":
+                _M3_LOG.warning(
+                    "DENY stage=live_quote size_basis=%r — probe-sized quote "
+                    "cannot certify borrow_usd=%s (H05 exact-size binding "
+                    "required)", _size_basis, borrow_usd)
+                return None
+            _qn = facts.get("quote_notional_usd")
+            if isinstance(_qn, (int, float)) and float(_qn) > 0.0:
+                borrow_usd = float(_qn)
             stage = "hop_legs"
             hop_legs = list(facts.get("hop_legs") or [])
             if not hop_legs:

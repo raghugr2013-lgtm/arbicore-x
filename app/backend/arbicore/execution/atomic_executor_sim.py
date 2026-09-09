@@ -43,11 +43,12 @@ class AtomicExecutorSimulator:
 
     async def _raw_eth_call(self, params: List[Any],
                             rpc_url: Optional[str] = None) -> Dict[str, Any]:
-        from .quoter import _throttle, _is_rate_limited
+        from .quoter import _throttle, _throttle_scope, _is_rate_limited
         target = rpc_url or self._rpc
+        scope = _throttle_scope(target)
         last: Dict[str, Any] = {}
         for attempt in range(5):
-            await _throttle()
+            await _throttle(scope)
             async with httpx.AsyncClient(timeout=15) as c:
                 r = await c.post(target, json={"jsonrpc": "2.0", "id": 1,
                                                "method": "eth_call", "params": params})

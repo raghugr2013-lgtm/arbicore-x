@@ -269,16 +269,20 @@ async def probe_mode_and_kill_switch(
 # Executor address resolution + signer readiness (read-only; no keys)
 # ---------------------------------------------------------------------------
 def resolve_executor_address(chain: Any = None) -> Optional[str]:
-    """Resolve the executor address: environment FIRST
-    (ARBICORE_EXECUTOR_ADDRESS_BASE — the sole runtime source), else the
-    READ-ONLY deployment registry for ``chain`` (default ARBICORE_CHAIN_ID or
-    Base mainnet 8453). Returns None (fail closed) when neither is available.
-    Never writes any environment variable and never enables anything."""
-    env = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
-    if env:
-        return env
+    """Resolve the executor address per REQUESTED chain (H10 — no cross-chain
+    fall-through). ``ARBICORE_EXECUTOR_ADDRESS_BASE`` is a BASE-MAINNET-ONLY
+    source and must never be returned for another chain; a non-Base chain
+    resolves ONLY from the read-only deployment registry for that chain. Returns
+    None (fail closed) when nothing is recorded for the requested chain. Never
+    writes any environment variable and never enables anything."""
     if chain is None:
         chain = os.environ.get("ARBICORE_CHAIN_ID", "8453")
+    chain_s = str(chain).strip().lower()
+    is_base_mainnet = chain_s in ("base", "8453", "base-mainnet", "basemainnet")
+    if is_base_mainnet:
+        env = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
+        if env:
+            return env
     try:
         from ...execution.executor_registry import deployed_address
     except Exception:  # noqa: BLE001
@@ -395,22 +399,58 @@ async def probe_executor_identity(
                   vault=info.get("vault"),
                   entrypoint_selector_present=info.get("entrypoint_selector_present"))
 
-    mismatches: List[str] = []
+    # H10 — FAIL CLOSED executor identity. READY requires POSITIVE evidence on
+    # every axis; missing/unknown/unreadable evidence is UNKNOWN/BLOCKED, never
+    # READY. Specifically:
+    #   * the expected entrypoint selector must be positively present (True);
+    #   * the expected identity (registry constructor args vault+router) must be
+    #     known — without it there is nothing to confirm against → UNKNOWN;
+    #   * the on-chain getter reads (owner + router + vault) must all be present
+    #     (non-None) — a None read is unverifiable, not a silent pass → UNKNOWN;
+    #   * only when both expected and observed are present are they compared,
+    #     and any mismatch → BLOCKED. Exact match on all → READY.
     exp_vault = (expected or {}).get("vault")
     exp_router = (expected or {}).get("router")
-    if exp_vault and info.get("vault") and info["vault"].lower() != exp_vault.lower():
+    obs_owner = info.get("owner")
+    obs_router = info.get("router")
+    obs_vault = info.get("vault")
+
+    if info.get("entrypoint_selector_present") is not True:
+        result.update(status="BLOCKED",
+                      reason="expected_entrypoint_selector_absent")
+        return result
+
+    if not exp_vault or not exp_router:
+        result.update(
+            status="UNKNOWN",
+            reason="expected_identity_unavailable (registry constructor args "
+                   "vault/router missing) — cannot confirm identity, fail closed")
+        return result
+
+    missing_evidence: List[str] = [
+        name for name, obs in (("owner", obs_owner), ("router", obs_router),
+                               ("vault", obs_vault)) if not obs]
+    if missing_evidence:
+        result["missing_evidence"] = missing_evidence
+        result.update(
+            status="UNKNOWN",
+            reason=(f"getter_reads_missing:{','.join(missing_evidence)} — "
+                    "on-chain identity unverifiable, fail closed"))
+        return result
+
+    mismatches: List[str] = []
+    if obs_vault.lower() != exp_vault.lower():
         mismatches.append("vault")
-    if exp_router and info.get("router") and info["router"].lower() != exp_router.lower():
+    if obs_router.lower() != exp_router.lower():
         mismatches.append("router")
     result["mismatches"] = mismatches
 
-    if info.get("entrypoint_selector_present") is False:
-        result.update(status="BLOCKED", reason="expected_entrypoint_selector_absent")
-    elif mismatches:
+    if mismatches:
         result.update(status="BLOCKED",
                       reason=f"identity_mismatch:{','.join(mismatches)}")
     else:
-        result.update(status="READY", reason="executor_identity_confirmed_onchain")
+        result.update(status="READY",
+                      reason="executor_identity_confirmed_onchain")
     return result
 
 

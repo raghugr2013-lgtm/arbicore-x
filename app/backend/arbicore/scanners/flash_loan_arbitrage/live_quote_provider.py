@@ -181,6 +181,7 @@ def make_live_quote_provider(
     *,
     tvl_provider=None,
     eth_call_for_chain: Optional[Callable[[str], Optional[Any]]] = None,
+    borrow_sizer: Optional[Callable[[str, str, float], Optional[int]]] = None,
 ) -> Callable[[Dict[str, Any], float], Awaitable[Optional[Dict[str, Any]]]]:
     """Return an async ``QuoteProvider`` bound to a live ``QuoterRegistry``.
 
@@ -189,6 +190,16 @@ def make_live_quote_provider(
     an async ``eth_call`` for NON-Base chains' on-chain pool validation; when it
     is ``None`` (or returns ``None`` for a chain), non-Base routes fail closed.
     Base is unaffected and uses the canonical registry.
+
+    ``borrow_sizer(chain, borrow_token, borrow_amount_usd) -> Optional[int]``
+    (H05, optional) converts the requested borrow *dollar* notional into the
+    EXACT borrow-token wei amount to quote, using a trustworthy price + decimals.
+    When it is supplied and returns a positive size, the route is quoted at that
+    EXACT size and the facts are stamped ``size_basis="exact"`` with a bound
+    ``quote_notional_usd``. When it is absent (or returns ``None``), the route is
+    quoted at a research PROBE size and stamped ``size_basis="probe"`` — the
+    verifier then fails closed (``DENIED_SIZE_NOT_QUOTED``) rather than
+    extrapolate a probe ratio onto a different dollar notional.
     """
 
     async def _provider(cycle_metadata: Dict[str, Any],
@@ -204,6 +215,27 @@ def make_live_quote_provider(
         if planned is None:
             return None
         plans, token_path, amount_in_wei = planned
+
+        # ---- H05: exact-size binding -------------------------------------
+        # By default the plan carries a PROBE amount (Base ``probe_amount`` /
+        # non-Base ``borrow_amount_wei``). A probe ratio may NOT be applied to
+        # the requested dollar notional. If a ``borrow_sizer`` is configured and
+        # can price the borrow token, re-size the first hop to the EXACT
+        # requested notional and bind ``quote_notional_usd``. Otherwise keep the
+        # probe and mark it ``probe`` so the verifier fails closed.
+        borrow_token = str(hm.get("borrow_token")
+                           or (token_path[0] if token_path else "")).upper()
+        size_basis = "probe"
+        quote_notional_usd: Optional[float] = None
+        if borrow_sizer is not None:
+            try:
+                sized = borrow_sizer(chain, borrow_token, float(borrow_amount_usd))
+            except Exception:  # noqa: BLE001 — sizer never fabricates
+                sized = None
+            if sized is not None and int(sized) > 0:
+                amount_in_wei = int(sized)
+                size_basis = "exact"
+                quote_notional_usd = float(borrow_amount_usd)
 
         hops: List[Dict[str, Any]] = []
         for i, p in enumerate(plans):
@@ -280,6 +312,12 @@ def make_live_quote_provider(
             "chain": chain,
             "quote_block": max(quote_blocks) if quote_blocks else None,
             "verified_at_ts": time.time(),
+            # H05 exact-size binding provenance.
+            "size_basis": size_basis,
+            "exact_size": (size_basis == "exact"),
+            "quoted_amount_in_wei": int(amount_in_wei),
+            "quote_notional_usd": quote_notional_usd,
+            "borrow_token": borrow_token,
         }
 
     return _provider

@@ -897,16 +897,18 @@ class QuoterRegistry:
         return sorted(self._backends)
 
     def _rpc_url(self, chain: Optional[str] = None) -> Optional[str]:
-        # Prefer the explicit env (default ``ARBICORE_RPC_URL``); fall back to
-        # the canonical per-chain precedence resolver
-        # (``ARBICORE_RPC_URL_<CHAIN>`` > ``ARBICORE_RPC_URL`` > ``<CHAIN>_RPC_URL``)
-        # so a Base deployment configured only with ``ARBICORE_RPC_URL_BASE``
-        # resolves the SAME RPC the TVL/aero/price paths already use
-        # (make_base_eth_call_from_env). No fabricated default — returns None
-        # when nothing is configured (⇒ fail-closed fallback hops).
-        v = os.environ.get(self._rpc_url_env)
-        if v:
-            return v
+        # H06: the bare ``ARBICORE_RPC_URL`` (and the default ``rpc_url_env``)
+        # is a BASE-ONLY global alias. It must NEVER be used to resolve a
+        # non-Base chain's endpoint, or a non-Base quote would silently run
+        # against Base (wrong-chain quote/cache poisoning). For non-Base chains
+        # we defer entirely to the canonical per-chain resolver, which itself
+        # treats the global as a Base-only alias. No fabricated default —
+        # returns None when nothing is configured (⇒ fail-closed fallback hops).
+        chain_l = (chain or "base").lower()
+        if chain_l == "base":
+            v = os.environ.get(self._rpc_url_env)
+            if v:
+                return v
         try:
             from ..config.persistent import resolve_rpc_url_from_env
             return resolve_rpc_url_from_env(chain or "base")
@@ -916,14 +918,16 @@ class QuoterRegistry:
     def _rpc_url_candidates(self, chain: Optional[str] = None) -> List[str]:
         """Ordered, de-duplicated list of RPC endpoints for failover.
 
-        Precedence: the configured primary (``ARBICORE_RPC_URL_<CHAIN>`` /
-        ``rpc_url_env``, which itself may be a comma-separated list) FIRST, then
-        the same failover pool the P0 registry uses
-        (``PROVIDER_RPC_URLS_<CHAIN>`` / ``PROVIDER_RPC_URLS``), then legacy
-        single vars. This lets a transient 429 or a provider fault on the
-        primary fail over to a healthy secondary/free RPC instead of forcing
-        ``fallback:break_even``. No fabricated default — empty list ⇒ fail-closed."""
-        c = (chain or "base").upper().replace("-", "_")
+        H06 (chain isolation): only CHAIN-SCOPED endpoints are used for the
+        requested chain. The bare global aliases (``ARBICORE_RPC_URL`` /
+        ``rpc_url_env`` / ``PROVIDER_RPC_URLS``) are BASE-ONLY and are added
+        exclusively when the requested chain is Base. This prevents a non-Base
+        quote from failing over onto a Base endpoint and caching/accepting a
+        quote under the wrong intended-chain key. No fabricated default —
+        empty list ⇒ fail-closed (break_even)."""
+        chain_l = (chain or "base").lower()
+        c = chain_l.upper().replace("-", "_")
+        is_base = chain_l == "base"
         seen: set = set()
         out: List[str] = []
 
@@ -936,12 +940,15 @@ class QuoterRegistry:
                     seen.add(u)
                     out.append(u)
 
-        _add(os.environ.get(self._rpc_url_env))
+        # Chain-specific endpoints FIRST (authoritative for this chain).
         _add(os.environ.get(f"ARBICORE_RPC_URL_{c}"))
-        _add(os.environ.get("ARBICORE_RPC_URL"))
         _add(os.environ.get(f"{c}_RPC_URL"))
         _add(os.environ.get(f"PROVIDER_RPC_URLS_{c}"))
-        _add(os.environ.get("PROVIDER_RPC_URLS"))
+        # Global Base-only aliases — ONLY for Base, never for other chains.
+        if is_base:
+            _add(os.environ.get(self._rpc_url_env))
+            _add(os.environ.get("ARBICORE_RPC_URL"))
+            _add(os.environ.get("PROVIDER_RPC_URLS"))
         if not out:
             try:
                 from ..config.persistent import resolve_rpc_url_from_env

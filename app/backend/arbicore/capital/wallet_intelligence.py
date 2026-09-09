@@ -88,9 +88,10 @@ class WalletIntelligenceEngine:
     async def _eth_call(self, to: str, data: str) -> Optional[str]:
         if not self._rpc:
             return None
-        from ..execution.quoter import _throttle, _is_rate_limited
+        from ..execution.quoter import _throttle, _throttle_scope, _is_rate_limited
+        scope = _throttle_scope(self._rpc)
         for attempt in range(4):
-            await _throttle()
+            await _throttle(scope)
             try:
                 async with httpx.AsyncClient(timeout=12) as c:
                     r = await c.post(self._rpc, json={

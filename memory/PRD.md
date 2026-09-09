@@ -438,3 +438,58 @@ delegation; core whole-app audit before materially relevant targeted checks.
 - Enhancement: evidence-linked chain/venue/strategy dashboard with first blocker
   and evidence age. No further work until a new user-authorized task.
 
+
+---
+
+## PHASE P0 REMEDIATION — 2026-09-09 (branch takeover/limited-live-seam-cc8db95)
+
+Authority: Astra audit at commit 2e6f253. Scope executed: P0 ONLY (H01,H02,H03,
+H04,H05,H06,H10). STOPPED before P1/M01-M07/H07-H09 per directive. Full report:
+`/app/P0_EXIT_REPORT.md`. Safety envelopes (signing/broadcast/auto-exec/Full-Live)
+stayed OFF; protected files (dex_arbitrage/scanner.py, deployment/compose/
+docker-compose.yml, deployment/cert/.env.example) untouched; no commit/merge/deploy.
+
+### Environment fix (fork had lost .env)
+- Restored `/app/backend/.env` (from /app/memory backup) + `/app/frontend/.env`
+  (REACT_APP_BACKEND_URL). Backend was crashing on missing MONGO_URL.
+- Seeded test accounts (pod-local, git-ignored, NOT committed):
+  admin/ArbiCore2026! , operator/ShadowOperator!2026 (see test_credentials.md).
+- Fixed recurring pre-completion "linter engine error": root `eslint.config.js`
+  was ESM in a no-package.json dir → converted to CommonJS (tooling-only).
+
+### P0 fixes (all verified; testing_agent 19/20, 1 env-only admin-seed drift, resolved)
+- H01/H02/H03 (server.py): request-scoped `_CURRENT_ACTOR` ContextVar +
+  `_audit_actor()`; `_require_operator_dep` stamps server-derived actor; added
+  `dependencies=[Depends(_require_operator_dep)]` to 42 /arbicore/* mutation
+  routes (deny-by-default; /status template stays public); replaced 21
+  client-supplied `actor` reads with `_audit_actor()` (spoof-proof, confirmed
+  via /arbicore/execution/mode/audit/history).
+- H04: quoter._throttle(scope) consumers fixed in atomic_executor_sim.py +
+  capital/wallet_intelligence.py (pass `_throttle_scope(rpc_url)`).
+- H05: live_quote_provider emits size_basis/exact_size/quote_notional_usd;
+  verifier + composition M3 fail closed (DENIED_SIZE_NOT_QUOTED) on probe-sized
+  quotes and bind economics notional to the exact quoted size. New
+  `VerifiedOutcome.DENIED_SIZE_NOT_QUOTED`. Regression: test_h05_exact_size_binding.py (5/5).
+- H06: quoter _rpc_url/_rpc_url_candidates chain-scoped; global ARBICORE_RPC_URL/
+  PROVIDER_RPC_URLS are Base-only aliases → non-Base fails closed (no leakage).
+- H10: probe_executor_identity fail-closed (positive selector + known expected
+  identity + all getter reads present + exact match, else UNKNOWN/BLOCKED);
+  resolve_executor_address chain-scoped (Base env not returned for other chains).
+
+### Regression status
+- Offline unit sweep (215 files): with-changes vs baseline (changes stashed) =
+  IDENTICAL failure set → 0 regressions. 59 pre-existing offline failures are
+  environmental (no operator RPC / empty Mongo / no anvil / no seeded CONFIRMED
+  evidence bundle) and fail identically without the P0 changes.
+- Live E2E suites (72 files) intentionally not chased: many use drifted hardcoded
+  creds and unauth calls that now (correctly) 401 under H03.
+
+### VPS-only follow-ups (P0 evidence that needs operator)
+- H05 exact-size CONFIRM needs an operator price feed / borrow_sizer (pod fails
+  closed = honest). H06 optional eth_chainId challenge is defense-in-depth. H10
+  positive READY needs a real deployment + archive RPC.
+
+### Next (NOT started — awaiting user go-ahead for P1)
+- P1: M01 evidence tiers, M02 real capability matrix, M03 actual economic inputs,
+  M04 true net-optimal size, M05 deadline/freshness/blockhash, M06 one readiness
+  model, M07 remove false financial readiness; H07/H08/H09.

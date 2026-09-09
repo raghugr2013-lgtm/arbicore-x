@@ -593,6 +593,16 @@ api_router = APIRouter(prefix="/api")
 # ---------------------------------------------------------------------------
 
 
+import contextvars as _contextvars
+
+# Request-scoped, server-derived audit actor (see ``_audit_actor``). Set by
+# ``_require_operator_dep`` from the authenticated session on every protected
+# mutation route so a client cannot spoof the recorded actor (P0/H01-H03).
+_CURRENT_ACTOR: "_contextvars.ContextVar[str]" = _contextvars.ContextVar(
+    "arbicore_current_actor", default="operator"
+)
+
+
 async def _require_operator_ctx(
     request: Request,
     authorization: Optional[str] = None,
@@ -619,8 +629,29 @@ async def _require_operator_dep(
     Used with ``dependencies=[Depends(_require_operator_dep)]`` on the
     APIRouter or per-route so protected endpoints don't need to plumb
     ``request`` / ``authorization`` through their signatures.
+
+    Side effect (P0/H01-H03): stashes the *server-derived* actor identity for
+    the current request into a ContextVar so downstream mutation handlers can
+    attribute audit records to the authenticated session instead of trusting a
+    client-supplied ``actor`` field. FastAPI runs this dependency in the same
+    async context as the route handler, so the value is visible there.
     """
-    return await _require_operator_ctx(request, authorization)
+    ctx = await _require_operator_ctx(request, authorization)
+    _CURRENT_ACTOR.set(str(ctx.get("username") or ctx.get("user_id") or "operator"))
+    return ctx
+
+
+def _audit_actor() -> str:
+    """Server-derived audit actor for the current request.
+
+    Never trusts a client-supplied ``actor``; the value is set by
+    ``_require_operator_dep`` from the authenticated session. Defaults to
+    ``"operator"`` only when no request-scoped actor was resolved (e.g. an
+    internal/boot call path), which is a non-privileged, non-spoofable label."""
+    try:
+        return _CURRENT_ACTOR.get()
+    except LookupError:
+        return "operator"
 
 
 # Define Models
@@ -3027,7 +3058,7 @@ async def v2_settings_account() -> Dict[str, Any]:
     return {"account": acct, "generated_at": _iso_now()}
 
 
-@api_router.patch("/arbicore/settings/account")
+@api_router.patch("/arbicore/settings/account", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_account_update(patch: Dict[str, Any]) -> Dict[str, Any]:
     try:
         updated = await _ACCOUNT_REPO.patch(patch or {}, actor="operator")
@@ -3047,7 +3078,7 @@ async def v2_settings_vaults() -> Dict[str, Any]:
     return {"items": items, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/vaults/{vault}/reconcile")
+@api_router.post("/arbicore/settings/vaults/{vault}/reconcile", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_vault_reconcile(vault: str) -> Dict[str, Any]:
     return {"ok": True, "vault": vault, "reconciled_at": _iso_now(), "generated_at": _iso_now()}
 
@@ -3058,7 +3089,7 @@ async def v2_settings_execution() -> Dict[str, Any]:
     return {"config": cfg, "generated_at": _iso_now()}
 
 
-@api_router.patch("/arbicore/settings/execution")
+@api_router.patch("/arbicore/settings/execution", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_execution_update(patch: Dict[str, Any]) -> Dict[str, Any]:
     try:
         updated = await _EXECUTION_SETTINGS.patch(patch or {}, actor="operator")
@@ -3081,7 +3112,7 @@ async def v2_settings_exchanges() -> Dict[str, Any]:
     return {"items": items, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/exchanges/{key}/test")
+@api_router.post("/arbicore/settings/exchanges/{key}/test", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_exchange_test(key: str) -> Dict[str, Any]:
     ok = key != "gate-io"
     return {"ok": ok, "key": key, "state": "CONNECTED" if ok else "DISCONNECTED",
@@ -3112,7 +3143,7 @@ async def v2_settings_notifications() -> Dict[str, Any]:
     }
 
 
-@api_router.patch("/arbicore/settings/notifications")
+@api_router.patch("/arbicore/settings/notifications", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_notifications_update(patch: Dict[str, Any]) -> Dict[str, Any]:
     """Legacy PATCH — maps the small legacy schema onto the Telegram service."""
     p = patch or {}
@@ -3153,7 +3184,7 @@ async def v2_settings_operational() -> Dict[str, Any]:
     return {"config": cfg, "generated_at": _iso_now()}
 
 
-@api_router.patch("/arbicore/settings/operational")
+@api_router.patch("/arbicore/settings/operational", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_operational_update(patch: Dict[str, Any]) -> Dict[str, Any]:
     try:
         updated = await _OPERATIONAL_FLAGS.patch(patch or {}, actor="operator")
@@ -3340,7 +3371,7 @@ async def v2_evidence_keys() -> Dict[str, Any]:
     }
 
 
-@api_router.post("/arbicore/intelligence/evidence/verify")
+@api_router.post("/arbicore/intelligence/evidence/verify", dependencies=[Depends(_require_operator_dep)])
 async def v2_evidence_verify(bundle: Dict[str, Any]) -> Dict[str, Any]:
     """Verify a supplied bundle.  Deterministic — no wall-clock inputs.
     Works for historical bundles as long as the referenced
@@ -3397,13 +3428,13 @@ async def v2_execution_mode_one(strategy: str) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/mode/{strategy}")
+@api_router.post("/arbicore/execution/mode/{strategy}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_mode_transition(strategy: str, body: Dict[str, Any]) -> Dict[str, Any]:
     """Apply an audit-logged mode transition.  Enforces the 5-step ladder
     (forward = one step at a time, backward = any distance is allowed)."""
     to_mode = (body or {}).get("to_mode")
     reason = (body or {}).get("reason", "")
-    actor = (body or {}).get("actor", "operator")
+    actor = _audit_actor()
     if not to_mode:
         return {"error": "to_mode is required",
                 "ladder": list(MODES),
@@ -3456,7 +3487,7 @@ async def v2_execution_wallet_one(wallet_id: str) -> Dict[str, Any]:
     return {"item": row, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/wallets")
+@api_router.post("/arbicore/execution/wallets", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallet_register(body: Dict[str, Any]) -> Dict[str, Any]:
     """Register a wallet with an execution role.  Never accepts private
     key material — only a reference to a secret handle (see
@@ -3471,7 +3502,7 @@ async def v2_execution_wallet_register(body: Dict[str, Any]) -> Dict[str, Any]:
             label=b.get("label"),
             whitelisted_venues=b.get("whitelisted_venues") or [],
             secret_handle_id=b.get("secret_handle_id"),
-            actor=b.get("actor", "operator"),
+            actor=_audit_actor(),
             reason=b.get("reason", ""),
         )
     except ValueError as e:
@@ -3482,14 +3513,14 @@ async def v2_execution_wallet_register(body: Dict[str, Any]) -> Dict[str, Any]:
     return {"item": row, "generated_at": _iso_now()}
 
 
-@api_router.patch("/arbicore/execution/wallets/{wallet_id}/role")
+@api_router.patch("/arbicore/execution/wallets/{wallet_id}/role", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallet_role(wallet_id: str, body: Dict[str, Any]) -> Dict[str, Any]:
     b = body or {}
     try:
         row = await _WALLET_REGISTRY.update_role(
             wallet_id=wallet_id,
             execution_role=b.get("execution_role") or "",
-            actor=b.get("actor", "operator"),
+            actor=_audit_actor(),
             reason=b.get("reason", ""),
         )
     except ValueError as e:
@@ -3556,7 +3587,7 @@ def _mask_plaintext(plaintext: str) -> str:
     return plaintext[:4] + "…" + plaintext[-4:]
 
 
-@api_router.post("/arbicore/execution/secrets")
+@api_router.post("/arbicore/execution/secrets", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_put(body: Dict[str, Any]) -> Dict[str, Any]:
     """Wrap and store an operator-supplied secret.
 
@@ -3612,7 +3643,7 @@ async def v2_execution_secrets_put(body: Dict[str, Any]) -> Dict[str, Any]:
              "generated_at": _iso_now()}
 
 
-@api_router.delete("/arbicore/execution/secrets/{handle_id}")
+@api_router.delete("/arbicore/execution/secrets/{handle_id}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_delete(handle_id: str) -> Dict[str, Any]:
     try:
         ok = await _SECRET_REGISTRY.delete(handle_id)
@@ -3623,7 +3654,7 @@ async def v2_execution_secrets_delete(handle_id: str) -> Dict[str, Any]:
              "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/secrets/{handle_id}/rotate")
+@api_router.post("/arbicore/execution/secrets/{handle_id}/rotate", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_rotate(handle_id: str,
                                         body: Dict[str, Any]) -> Dict[str, Any]:
     """Atomically rotate a secret.
@@ -3676,7 +3707,7 @@ async def v2_execution_secrets_rotate(handle_id: str,
              "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/secrets/{handle_id}/test")
+@api_router.post("/arbicore/execution/secrets/{handle_id}/test", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_test(handle_id: str) -> Dict[str, Any]:
     """Structural test — resolve the handle from the backend, confirm
     the plaintext decrypts (mask the first few bytes), verify algorithm-
@@ -3963,7 +3994,7 @@ async def v2_execution_capital_policy_update(strategy: str,
     try:
         updated = await _CAPITAL_POLICY_REPO.update(
             strategy, body or {},
-            actor=(body or {}).get("actor") or "operator",
+            actor=_audit_actor(),
             reason=(body or {}).get("reason") or "",
         )
         return {"ok": True, "strategy": strategy, "policy": updated,
@@ -4013,7 +4044,7 @@ async def v2_execution_kill_switch_engage(body: Dict[str, Any]) -> Dict[str, Any
         return {"ok": False, "error": "reason is required",
                 "generated_at": _iso_now()}
     state = await _KILL_SWITCH_REPO.engage(reason=reason,
-                                            actor=b.get("actor") or "operator")
+                                            actor=_audit_actor())
     return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
 
 
@@ -4025,7 +4056,7 @@ async def v2_execution_kill_switch_disengage(body: Dict[str, Any]) -> Dict[str, 
         return {"ok": False, "error": "reason is required",
                 "generated_at": _iso_now()}
     state = await _KILL_SWITCH_REPO.disengage(reason=reason,
-                                                actor=b.get("actor") or "operator")
+                                                actor=_audit_actor())
     return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
 
 
@@ -4059,7 +4090,7 @@ async def v2_execution_plan_sign(plan_id: str,
     try:
         receipt = await _LIVE_SIGNER.sign_plan(
             plan_doc,
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             available_liquidity_usd=float(b.get("available_liquidity_usd") or 1_000_000.0),
             reference_capital_usd=float(b.get("reference_capital_usd") or 5_000.0),
             expected_net_profit_usd=(float(b["expected_net_profit_usd"])
@@ -4157,7 +4188,7 @@ async def v2_discovery_status() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/discovery/tick")
+@api_router.post("/arbicore/execution/discovery/tick", dependencies=[Depends(_require_operator_dep)])
 async def v2_discovery_tick() -> Dict[str, Any]:
     try:
         result = await _CONTINUOUS_DISCOVERY.tick_once()
@@ -4167,14 +4198,14 @@ async def v2_discovery_tick() -> Dict[str, Any]:
                 "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/discovery/start")
+@api_router.post("/arbicore/execution/discovery/start", dependencies=[Depends(_require_operator_dep)])
 async def v2_discovery_start() -> Dict[str, Any]:
     await _CONTINUOUS_DISCOVERY.start()
     return {"ok": True, "status": _CONTINUOUS_DISCOVERY.status(),
             "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/discovery/stop")
+@api_router.post("/arbicore/execution/discovery/stop", dependencies=[Depends(_require_operator_dep)])
 async def v2_discovery_stop() -> Dict[str, Any]:
     await _CONTINUOUS_DISCOVERY.stop()
     return {"ok": True, "status": _CONTINUOUS_DISCOVERY.status(),
@@ -4344,7 +4375,7 @@ async def v2_flash_loan_prereqs(chain: str = "base") -> Dict[str, Any]:
 
 
 
-@api_router.post("/arbicore/wizard/opportunity-probe")
+@api_router.post("/arbicore/wizard/opportunity-probe", dependencies=[Depends(_require_operator_dep)])
 async def v2_opportunity_probe(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Operator-triggered LIVE quote probe against the configured RPC.
 
@@ -5832,21 +5863,21 @@ async def v2_wizard_journey() -> Dict[str, Any]:
                  "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/wizard/journey/mark-vps-ready")
+@api_router.post("/arbicore/wizard/journey/mark-vps-ready", dependencies=[Depends(_require_operator_dep)])
 async def v2_mark_vps_ready(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Operator affirms the system is validated and ready for VPS deploy."""
     b = body or {}
     try:
         cfg = await _OPERATIONAL_FLAGS.patch(
             {"feature_flags": {"vps_ready": True}},
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason=(b.get("reason") or "operator marked VPS-ready").strip(),
         )
         # Store both at root and feature_flags level for compat.
         await _CONFIG_REPO.apply(
             "operational_flags",
             patch={"vps_ready": True, "vps_ready_at": _iso_now()},
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason="mark VPS-ready",
         )
         return {"ok": True, "config": cfg, "generated_at": _iso_now()}
@@ -5870,13 +5901,13 @@ async def v2_settings_network() -> Dict[str, Any]:
                  "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/network/validate")
+@api_router.post("/arbicore/settings/network/validate", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_network_validate(patch: Dict[str, Any]) -> Dict[str, Any]:
     return {**_NETWORK_CONFIG.validate(patch or {}),
              "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/network/draft")
+@api_router.post("/arbicore/settings/network/draft", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_network_draft(patch: Dict[str, Any]) -> Dict[str, Any]:
     try:
         d = await _NETWORK_CONFIG.save_draft(patch or {}, actor="operator")
@@ -5885,7 +5916,7 @@ async def v2_settings_network_draft(patch: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/network/apply")
+@api_router.post("/arbicore/settings/network/apply", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_network_apply(body: Optional[Dict[str, Any]] = None
                                      ) -> Dict[str, Any]:
     b = body or {}
@@ -5893,7 +5924,7 @@ async def v2_settings_network_apply(body: Optional[Dict[str, Any]] = None
     try:
         cfg = await _NETWORK_CONFIG.apply(
             patch=b.get("patch"),
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason=reason,
         )
         # Phase 10.10 — hot-load the newly applied config into os.environ
@@ -5907,14 +5938,14 @@ async def v2_settings_network_apply(body: Optional[Dict[str, Any]] = None
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/network/rollback")
+@api_router.post("/arbicore/settings/network/rollback", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_network_rollback(body: Optional[Dict[str, Any]] = None
                                         ) -> Dict[str, Any]:
     b = body or {}
     try:
         cfg = await _NETWORK_CONFIG.rollback(
             revision_id=b.get("revision_id"),
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason=(b.get("reason") or "").strip(),
         )
         # Phase 10.10 — same hot-load on rollback so runtime env tracks
@@ -5957,7 +5988,7 @@ async def v2_settings_telegram() -> Dict[str, Any]:
     return {"config": settings, "generated_at": _iso_now()}
 
 
-@api_router.put("/arbicore/settings/telegram")
+@api_router.put("/arbicore/settings/telegram", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_telegram_update(body: Dict[str, Any]) -> Dict[str, Any]:
     b = body or {}
     try:
@@ -5966,7 +5997,7 @@ async def v2_settings_telegram_update(body: Dict[str, Any]) -> Dict[str, Any]:
             chat_id=b.get("chat_id"),
             rules=b.get("rules"),
             bot_token=b.get("bot_token"),
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason=(b.get("reason") or "").strip(),
         )
         return {"ok": True, "config": settings, "generated_at": _iso_now()}
@@ -5975,7 +6006,7 @@ async def v2_settings_telegram_update(body: Dict[str, Any]) -> Dict[str, Any]:
                  "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/telegram/test")
+@api_router.post("/arbicore/settings/telegram/test", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_telegram_test() -> Dict[str, Any]:
     result = await _TELEGRAM.send_test(actor="operator")
     return {**result, "generated_at": _iso_now()}
@@ -5990,7 +6021,7 @@ async def v2_settings_telegram_log(limit: int = 50,
              "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/telegram/emit")
+@api_router.post("/arbicore/settings/telegram/emit", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_telegram_emit(body: Dict[str, Any]) -> Dict[str, Any]:
     """Manually emit an alert of the given ``kind`` — used by tests +
     integrations that want to notify without going through a live event
@@ -6003,7 +6034,7 @@ async def v2_settings_telegram_emit(body: Dict[str, Any]) -> Dict[str, Any]:
                  "generated_at": _iso_now()}
     r = await _TELEGRAM.emit(kind=kind, text=text,
                               payload=b.get("payload"),
-                              actor=b.get("actor") or "operator")
+                              actor=_audit_actor())
     return {**r, "generated_at": _iso_now()}
 
 
@@ -6028,13 +6059,13 @@ async def v2_settings_scanner() -> Dict[str, Any]:
              "family_drafts": family_drafts}
 
 
-@api_router.post("/arbicore/settings/scanner/global/validate")
+@api_router.post("/arbicore/settings/scanner/global/validate", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_global_validate(patch: Dict[str, Any]) -> Dict[str, Any]:
     r = await _SCANNER_CONFIG.validate_global_live(patch or {})
     return {**r, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/global/draft")
+@api_router.post("/arbicore/settings/scanner/global/draft", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_global_draft(patch: Dict[str, Any]) -> Dict[str, Any]:
     try:
         d = await _SCANNER_CONFIG.save_global_draft(patch or {}, actor="operator")
@@ -6043,14 +6074,14 @@ async def v2_settings_scanner_global_draft(patch: Dict[str, Any]) -> Dict[str, A
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/global/apply")
+@api_router.post("/arbicore/settings/scanner/global/apply", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_global_apply(body: Optional[Dict[str, Any]] = None
                                             ) -> Dict[str, Any]:
     b = body or {}
     try:
         cfg = await _SCANNER_CONFIG.apply_global(
             patch=b.get("patch"),
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason=(b.get("reason") or "").strip(),
         )
         return {"ok": True, "config": cfg, "generated_at": _iso_now()}
@@ -6058,14 +6089,14 @@ async def v2_settings_scanner_global_apply(body: Optional[Dict[str, Any]] = None
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/global/rollback")
+@api_router.post("/arbicore/settings/scanner/global/rollback", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_global_rollback(body: Optional[Dict[str, Any]] = None
                                                ) -> Dict[str, Any]:
     b = body or {}
     try:
         cfg = await _SCANNER_CONFIG.rollback_global(
             revision_id=b.get("revision_id"),
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason=(b.get("reason") or "").strip(),
         )
         return {"ok": True, "config": cfg, "generated_at": _iso_now()}
@@ -6093,14 +6124,14 @@ async def v2_settings_scanner_family_get(family_id: str) -> Dict[str, Any]:
              "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/family/{family_id}/validate")
+@api_router.post("/arbicore/settings/scanner/family/{family_id}/validate", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_family_validate(family_id: str,
                                                 patch: Dict[str, Any]) -> Dict[str, Any]:
     r = _SCANNER_CONFIG.validate_family(family_id, patch or {})
     return {**r, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/family/{family_id}/draft")
+@api_router.post("/arbicore/settings/scanner/family/{family_id}/draft", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_family_draft(family_id: str,
                                              patch: Dict[str, Any]) -> Dict[str, Any]:
     try:
@@ -6111,7 +6142,7 @@ async def v2_settings_scanner_family_draft(family_id: str,
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/family/{family_id}/apply")
+@api_router.post("/arbicore/settings/scanner/family/{family_id}/apply", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_family_apply(family_id: str,
                                              body: Optional[Dict[str, Any]] = None
                                              ) -> Dict[str, Any]:
@@ -6120,7 +6151,7 @@ async def v2_settings_scanner_family_apply(family_id: str,
         cfg = await _SCANNER_CONFIG.apply_family(
             family_id,
             patch=b.get("patch"),
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason=(b.get("reason") or "").strip(),
         )
         return {"ok": True, "config": cfg, "generated_at": _iso_now()}
@@ -6128,7 +6159,7 @@ async def v2_settings_scanner_family_apply(family_id: str,
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/family/{family_id}/rollback")
+@api_router.post("/arbicore/settings/scanner/family/{family_id}/rollback", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_family_rollback(family_id: str,
                                                 body: Optional[Dict[str, Any]] = None
                                                 ) -> Dict[str, Any]:
@@ -6137,7 +6168,7 @@ async def v2_settings_scanner_family_rollback(family_id: str,
         cfg = await _SCANNER_CONFIG.rollback_family(
             family_id,
             revision_id=b.get("revision_id"),
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             reason=(b.get("reason") or "").strip(),
         )
         return {"ok": True, "config": cfg, "generated_at": _iso_now()}
@@ -6156,31 +6187,31 @@ async def v2_settings_scanner_family_history(family_id: str,
 
 # ----- Runtime controls (map to global) -----
 
-@api_router.post("/arbicore/settings/scanner/pause")
+@api_router.post("/arbicore/settings/scanner/pause", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_pause(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     b = body or {}
     cfg = await _SCANNER_CONFIG.pause(
-        actor=b.get("actor") or "operator",
+        actor=_audit_actor(),
         reason=(b.get("reason") or "").strip(),
     )
     return {"ok": True, "config": cfg, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/resume")
+@api_router.post("/arbicore/settings/scanner/resume", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_resume(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     b = body or {}
     cfg = await _SCANNER_CONFIG.resume(
-        actor=b.get("actor") or "operator",
+        actor=_audit_actor(),
         reason=(b.get("reason") or "").strip(),
     )
     return {"ok": True, "config": cfg, "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/scanner/reload")
+@api_router.post("/arbicore/settings/scanner/reload", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_reload(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     b = body or {}
     cfg = await _SCANNER_CONFIG.reload(
-        actor=b.get("actor") or "operator",
+        actor=_audit_actor(),
         reason=(b.get("reason") or "").strip(),
     )
     return {"ok": True, "config": cfg, "generated_at": _iso_now()}
@@ -6233,7 +6264,7 @@ async def v2_plan_broadcast(plan_id: str,
     try:
         receipt = await _LIMITED_LIVE_BROADCASTER.broadcast_plan(
             plan_doc,
-            actor=b.get("actor") or "operator",
+            actor=_audit_actor(),
             confirm=bool(b.get("confirm", False)),
             expected_net_profit_usd=(float(b["expected_net_profit_usd"])
                                      if "expected_net_profit_usd" in b else None),
@@ -6306,7 +6337,7 @@ async def v2_ledger_status() -> Dict[str, Any]:
     return await _LEARNING_LEDGER.status()
 
 
-@api_router.post("/arbicore/learning/ledger/emit")
+@api_router.post("/arbicore/learning/ledger/emit", dependencies=[Depends(_require_operator_dep)])
 async def v2_ledger_emit(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Consume pending terminal journal rows into training samples.
 
@@ -6329,7 +6360,7 @@ async def v2_ledger_emit(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any
 # directly on a single opportunity (useful for debugging discovery output).
 # ---------------------------------------------------------------------------
 
-@api_router.post("/arbicore/pipeline/evaluate")
+@api_router.post("/arbicore/pipeline/evaluate", dependencies=[Depends(_require_operator_dep)])
 async def v2_pipeline_evaluate(body: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Walk one opportunity through Discovery→Quote→Gas→Profit→Policy→
     Certification→(Shadow|Broadcast) and journal every stage.
@@ -6368,19 +6399,19 @@ async def v2_autoexec_status() -> Dict[str, Any]:
     return _AUTO_EXECUTOR.status()
 
 
-@api_router.post("/arbicore/auto-executor/start")
+@api_router.post("/arbicore/auto-executor/start", dependencies=[Depends(_require_operator_dep)])
 async def v2_autoexec_start() -> Dict[str, Any]:
     await _AUTO_EXECUTOR.start()
     return {"started": True, **_AUTO_EXECUTOR.status()}
 
 
-@api_router.post("/arbicore/auto-executor/stop")
+@api_router.post("/arbicore/auto-executor/stop", dependencies=[Depends(_require_operator_dep)])
 async def v2_autoexec_stop() -> Dict[str, Any]:
     await _AUTO_EXECUTOR.stop()
     return {"stopped": True, **_AUTO_EXECUTOR.status()}
 
 
-@api_router.post("/arbicore/auto-executor/tick")
+@api_router.post("/arbicore/auto-executor/tick", dependencies=[Depends(_require_operator_dep)])
 async def v2_autoexec_tick() -> Dict[str, Any]:
     """Force a single tick — useful for tests, debugging, and cron."""
     summary = await _AUTO_EXECUTOR.tick_once()

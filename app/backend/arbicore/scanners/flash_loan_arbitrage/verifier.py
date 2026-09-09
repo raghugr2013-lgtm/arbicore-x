@@ -157,6 +157,26 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
                 outcome=(f"{VerifiedOutcome.DENIED_QUOTE_INVALID_PREFIX}"
                          f"{q_err}"))
 
+        # ---- H05: exact-size economic binding (FAIL CLOSED) ----------------
+        # ``gross_profit_pct`` is a RATIO measured at the exact amount the quote
+        # was taken for. Price impact is nonlinear, so this ratio may NOT be
+        # applied to a different (larger) dollar notional. If the live provider
+        # marked the quote as PROBE-sized, fail closed — it can never certify
+        # the requested borrow. If it bound its own USD notional
+        # (``quote_notional_usd``), use THAT as the economics notional so the
+        # ratio and the notional describe the SAME size. Legacy/injected facts
+        # that carry no ``size_basis`` are left unchanged (the fixture owns its
+        # own consistency).
+        size_basis = str(facts.get("size_basis") or "").lower()
+        if size_basis == "probe":
+            return await self._finalize(
+                ev, status="DENIED", canonical=None,
+                outcome=VerifiedOutcome.DENIED_SIZE_NOT_QUOTED)
+        _q_notional = facts.get("quote_notional_usd")
+        if isinstance(_q_notional, (int, float)) and float(_q_notional) > 0.0:
+            borrow_amount = float(_q_notional)
+            ev["borrow_amount_usd"] = borrow_amount
+
         # Chain congestion read (optional).
         cong = self._chain_congestion(chain)
 
