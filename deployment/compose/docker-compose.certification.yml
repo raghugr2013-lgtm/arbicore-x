@@ -1,0 +1,101 @@
+# ArbiCore X — VPS CERTIFICATION / STAGING compose (NON-PRODUCTION).
+#
+# Purpose: run the READ-ONLY software-certification harness against operator
+# infrastructure on the VPS, ISOLATED from the healthy production stack.
+#
+# Non-negotiable isolation invariants (do NOT change to reuse prod resources):
+#   * distinct project name:   -p arbicore-cert
+#   * distinct container names: arbicore-cert-*
+#   * distinct network:        arbicore-cert-net
+#   * distinct volume:         arbicore-cert-mongo-data
+#   * publishes NO host ports; runs NO nginx/certbot/frontend/opportunity_center
+#   * the certify service is ONE-SHOT (restart: "no") and exits after writing
+#     the report — it never serves traffic and never runs a scanner/executor.
+#
+# Safety: signing / broadcast / auto-exec / full-live / limited-live are forced
+# OFF below and MUST stay OFF. This stack performs NO real transaction, deploys
+# NO contract, and does NOT touch the production container, volume, or network.
+#
+# Operator secrets (six RPC URLs, executor address, etc.) come ONLY from the
+# git-ignored env_file `deployment/cert/cert.env` on the VPS — never committed.
+#
+# Run:
+#   docker compose -p arbicore-cert \
+#     -f deployment/compose/docker-compose.certification.yml \
+#     --env-file deployment/cert/cert.env up --build --abort-on-container-exit
+# Report lands in ./vps_cert_out on the host.
+
+x-log-defaults: &log-defaults
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "3"
+
+services:
+  cert-mongo:
+    image: ${MONGO_IMAGE:-mongo:4.4}
+    container_name: arbicore-cert-mongo
+    restart: "no"
+    command: ["mongod", "--bind_ip_all", "--quiet"]
+    volumes:
+      - arbicore-cert-mongo-data:/data/db
+    networks:
+      - arbicore-cert-net
+    healthcheck:
+      test: ["CMD", "sh", "-c", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" 2>/dev/null || mongo --quiet --eval \"db.adminCommand('ping').ok\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging: *log-defaults
+    labels:
+      arbicore.role: cert-mongo
+
+  # One-shot certification runner. Builds the SAME backend image, then runs the
+  # READ-ONLY harness and exits. No API is served; no scanner/executor starts.
+  certify:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/backend/Dockerfile
+      args:
+        GITSHA: ${GITSHA:-unknown}
+        SCHEMA: v1
+    image: arbicore-cert-backend:${GITSHA:-local}
+    container_name: arbicore-cert-runner
+    restart: "no"
+    depends_on:
+      cert-mongo:
+        condition: service_healthy
+    env_file:
+      - ../cert/cert.env          # operator RPCs / executor address (git-ignored)
+    environment:
+      # DB isolated to the cert mongo (never the production DB).
+      MONGO_URL: "mongodb://cert-mongo:27017"
+      DB_NAME: "arbicore_cert"
+      ARBICORE_CERT_OUT_DIR: "/out"
+      # Hard safety OFF (certification/staging only).
+      ARBICORE_SIGNING_ENABLED: "false"
+      ARBICORE_BROADCAST_ENABLED: "false"
+      ARBICORE_AUTOEXEC_AUTOSTART: "false"
+      ARBICORE_RUNTIME_AUTOSTART: "false"
+      ARBICORE_DISCOVERY_AUTOSTART: "false"
+      ARBICORE_SCANNER_AUTOSTART: "false"
+      ARBICORE_FULL_LIVE_ENABLED: "false"
+      ARBICORE_LIMITED_LIVE_ENABLED: "false"
+    working_dir: /app/backend
+    command: ["python3", "-m", "scripts.vps_certify"]
+    volumes:
+      - ./vps_cert_out:/out          # human + machine report land here (no secrets)
+    networks:
+      - arbicore-cert-net
+    logging: *log-defaults
+    labels:
+      arbicore.role: cert-runner
+
+networks:
+  arbicore-cert-net:
+    name: arbicore-cert-net
+
+volumes:
+  arbicore-cert-mongo-data:
+    name: arbicore-cert-mongo-data

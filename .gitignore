@@ -80,3 +80,7 @@ test_reports/
 # platform-injected git identity — not part of releases
 .gitconfig
 
+
+# VPS certification (operator secrets + generated reports) — never commit
+deployment/cert/cert.env
+vps_cert_out/

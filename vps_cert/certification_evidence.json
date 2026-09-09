@@ -1,0 +1,479 @@
+{
+  "schema": "arbicore.vps_certification/v1",
+  "generated_at": "2026-09-09T09:33:06.861959+00:00",
+  "commit": "878f78597234993a01076534a5f15adefb198085",
+  "receiver_target_chain": "84532",
+  "safety_state": {
+    "signing_off": true,
+    "broadcast_off": true,
+    "auto_exec_off": true,
+    "full_live_off": true,
+    "limited_live_off": true
+  },
+  "status_counts": {
+    "NOT_CONFIGURED": 19,
+    "BLOCKED": 3
+  },
+  "sections": {
+    "1_six_chain_rpc": [
+      {
+        "check": "rpc:base",
+        "status": "NOT_CONFIGURED",
+        "detail": "no operator RPC configured for this chain",
+        "evidence": {
+          "expected_chain_id": 8453,
+          "endpoints": 0
+        }
+      },
+      {
+        "check": "rpc:ethereum",
+        "status": "NOT_CONFIGURED",
+        "detail": "no operator RPC configured for this chain",
+        "evidence": {
+          "expected_chain_id": 1,
+          "endpoints": 0
+        }
+      },
+      {
+        "check": "rpc:arbitrum",
+        "status": "NOT_CONFIGURED",
+        "detail": "no operator RPC configured for this chain",
+        "evidence": {
+          "expected_chain_id": 42161,
+          "endpoints": 0
+        }
+      },
+      {
+        "check": "rpc:optimism",
+        "status": "NOT_CONFIGURED",
+        "detail": "no operator RPC configured for this chain",
+        "evidence": {
+          "expected_chain_id": 10,
+          "endpoints": 0
+        }
+      },
+      {
+        "check": "rpc:polygon",
+        "status": "NOT_CONFIGURED",
+        "detail": "no operator RPC configured for this chain",
+        "evidence": {
+          "expected_chain_id": 137,
+          "endpoints": 0
+        }
+      },
+      {
+        "check": "rpc:bnb",
+        "status": "NOT_CONFIGURED",
+        "detail": "no operator RPC configured for this chain",
+        "evidence": {
+          "expected_chain_id": 56,
+          "endpoints": 0
+        }
+      }
+    ],
+    "2_chain_id": [
+      {
+        "check": "rpc:base",
+        "expected_chain_id": 8453,
+        "status": "NOT_CONFIGURED"
+      },
+      {
+        "check": "rpc:ethereum",
+        "expected_chain_id": 1,
+        "status": "NOT_CONFIGURED"
+      },
+      {
+        "check": "rpc:arbitrum",
+        "expected_chain_id": 42161,
+        "status": "NOT_CONFIGURED"
+      },
+      {
+        "check": "rpc:optimism",
+        "expected_chain_id": 10,
+        "status": "NOT_CONFIGURED"
+      },
+      {
+        "check": "rpc:polygon",
+        "expected_chain_id": 137,
+        "status": "NOT_CONFIGURED"
+      },
+      {
+        "check": "rpc:bnb",
+        "expected_chain_id": 56,
+        "status": "NOT_CONFIGURED"
+      }
+    ],
+    "3_h05_exact_size": {
+      "check": "h05:exact_size_sizer",
+      "status": "NOT_CONFIGURED",
+      "detail": "operator price feed / borrow_sizer not enabled \u21d2 quotes remain PROBE-sized and economics fail closed (DENIED_SIZE_NOT_QUOTED). This is the required fail-closed state without a sizer.",
+      "evidence": {
+        "price_feed_enabled": false,
+        "borrow_sizer_enabled": false
+      }
+    },
+    "4_h07_runtime": [
+      {
+        "check": "h07:base",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 composition fails closed",
+        "evidence": {
+          "rpc": false
+        }
+      },
+      {
+        "check": "h07:ethereum",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 composition fails closed",
+        "evidence": {
+          "rpc": false
+        }
+      },
+      {
+        "check": "h07:arbitrum",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 composition fails closed",
+        "evidence": {
+          "rpc": false
+        }
+      },
+      {
+        "check": "h07:optimism",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 composition fails closed",
+        "evidence": {
+          "rpc": false
+        }
+      },
+      {
+        "check": "h07:polygon",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 composition fails closed",
+        "evidence": {
+          "rpc": false
+        }
+      },
+      {
+        "check": "h07:bnb",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 composition fails closed",
+        "evidence": {
+          "rpc": false
+        }
+      }
+    ],
+    "5_h08_receiver_capability": {
+      "check": "h08:receiver",
+      "status": "BLOCKED",
+      "detail": "receiver deployed but declares NO supported_providers \u21d2 every venue rejected (H08 stays FALSE until explicitly declared AND on-chain verified)",
+      "evidence": {
+        "chain": "84532",
+        "deployed": true,
+        "address": "0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052",
+        "receiver_version": "unversioned",
+        "abi_version": "unversioned",
+        "version_verified": false,
+        "bytecode_verified": false,
+        "supported_providers": [],
+        "constructor_args": {
+          "balancerVault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "aavePool": "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27",
+          "uniRouter": "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4"
+        },
+        "note": "deployed receiver present; NO supported_providers declared \u21d2 all venues rejected (fail closed); receiver_version missing \u21d2 unversioned/unverified"
+      }
+    },
+    "6_h09_simulation": {
+      "check": "h09:simulation_prereq",
+      "status": "BLOCKED",
+      "detail": "no exact candidate-bound simulator configured (ARBICORE_SIM_METHOD=''); infra availability is NOT a PASS. Certifying methods: atomic_exact/atomic_state_override/fork_exact/exact_call.",
+      "evidence": {
+        "sim_method": "",
+        "certifying_method": false,
+        "contract_demo_denied_reasons": [
+          "incomplete_binding:chain,block_number,token,token_decimals,exact_input_wei,route,calldata,liquidity_state,economics,executor_address,receiver_version",
+          "non_certifying_sim_method:'' (noop/symbolic/paper/heuristic/infra never certifies)",
+          "simulation_not_ok"
+        ]
+      }
+    },
+    "7_bytecode_immutables": {
+      "check": "b:bytecode_immutables",
+      "status": "BLOCKED",
+      "detail": "no operator RPC to inspect bytecode/immutables",
+      "evidence": {
+        "chain": "84532",
+        "address": "0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052",
+        "rpc_configured": false
+      }
+    },
+    "8_isolation_tvl_pricing": [
+      {
+        "check": "isolation:base",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+        "evidence": {
+          "rpc": false,
+          "price_feed_enabled": false
+        }
+      },
+      {
+        "check": "isolation:ethereum",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+        "evidence": {
+          "rpc": false,
+          "price_feed_enabled": false
+        }
+      },
+      {
+        "check": "isolation:arbitrum",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+        "evidence": {
+          "rpc": false,
+          "price_feed_enabled": false
+        }
+      },
+      {
+        "check": "isolation:optimism",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+        "evidence": {
+          "rpc": false,
+          "price_feed_enabled": false
+        }
+      },
+      {
+        "check": "isolation:polygon",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+        "evidence": {
+          "rpc": false,
+          "price_feed_enabled": false
+        }
+      },
+      {
+        "check": "isolation:bnb",
+        "status": "NOT_CONFIGURED",
+        "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+        "evidence": {
+          "rpc": false,
+          "price_feed_enabled": false
+        }
+      }
+    ]
+  },
+  "all_checks": [
+    {
+      "check": "rpc:base",
+      "status": "NOT_CONFIGURED",
+      "detail": "no operator RPC configured for this chain",
+      "evidence": {
+        "expected_chain_id": 8453,
+        "endpoints": 0
+      }
+    },
+    {
+      "check": "rpc:ethereum",
+      "status": "NOT_CONFIGURED",
+      "detail": "no operator RPC configured for this chain",
+      "evidence": {
+        "expected_chain_id": 1,
+        "endpoints": 0
+      }
+    },
+    {
+      "check": "rpc:arbitrum",
+      "status": "NOT_CONFIGURED",
+      "detail": "no operator RPC configured for this chain",
+      "evidence": {
+        "expected_chain_id": 42161,
+        "endpoints": 0
+      }
+    },
+    {
+      "check": "rpc:optimism",
+      "status": "NOT_CONFIGURED",
+      "detail": "no operator RPC configured for this chain",
+      "evidence": {
+        "expected_chain_id": 10,
+        "endpoints": 0
+      }
+    },
+    {
+      "check": "rpc:polygon",
+      "status": "NOT_CONFIGURED",
+      "detail": "no operator RPC configured for this chain",
+      "evidence": {
+        "expected_chain_id": 137,
+        "endpoints": 0
+      }
+    },
+    {
+      "check": "rpc:bnb",
+      "status": "NOT_CONFIGURED",
+      "detail": "no operator RPC configured for this chain",
+      "evidence": {
+        "expected_chain_id": 56,
+        "endpoints": 0
+      }
+    },
+    {
+      "check": "isolation:base",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+      "evidence": {
+        "rpc": false,
+        "price_feed_enabled": false
+      }
+    },
+    {
+      "check": "isolation:ethereum",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+      "evidence": {
+        "rpc": false,
+        "price_feed_enabled": false
+      }
+    },
+    {
+      "check": "isolation:arbitrum",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+      "evidence": {
+        "rpc": false,
+        "price_feed_enabled": false
+      }
+    },
+    {
+      "check": "isolation:optimism",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+      "evidence": {
+        "rpc": false,
+        "price_feed_enabled": false
+      }
+    },
+    {
+      "check": "isolation:polygon",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+      "evidence": {
+        "rpc": false,
+        "price_feed_enabled": false
+      }
+    },
+    {
+      "check": "isolation:bnb",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 no chain-scoped TVL/pricing possible (fail closed)",
+      "evidence": {
+        "rpc": false,
+        "price_feed_enabled": false
+      }
+    },
+    {
+      "check": "h05:exact_size_sizer",
+      "status": "NOT_CONFIGURED",
+      "detail": "operator price feed / borrow_sizer not enabled \u21d2 quotes remain PROBE-sized and economics fail closed (DENIED_SIZE_NOT_QUOTED). This is the required fail-closed state without a sizer.",
+      "evidence": {
+        "price_feed_enabled": false,
+        "borrow_sizer_enabled": false
+      }
+    },
+    {
+      "check": "h07:base",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 composition fails closed",
+      "evidence": {
+        "rpc": false
+      }
+    },
+    {
+      "check": "h07:ethereum",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 composition fails closed",
+      "evidence": {
+        "rpc": false
+      }
+    },
+    {
+      "check": "h07:arbitrum",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 composition fails closed",
+      "evidence": {
+        "rpc": false
+      }
+    },
+    {
+      "check": "h07:optimism",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 composition fails closed",
+      "evidence": {
+        "rpc": false
+      }
+    },
+    {
+      "check": "h07:polygon",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 composition fails closed",
+      "evidence": {
+        "rpc": false
+      }
+    },
+    {
+      "check": "h07:bnb",
+      "status": "NOT_CONFIGURED",
+      "detail": "no RPC \u21d2 composition fails closed",
+      "evidence": {
+        "rpc": false
+      }
+    },
+    {
+      "check": "h08:receiver",
+      "status": "BLOCKED",
+      "detail": "receiver deployed but declares NO supported_providers \u21d2 every venue rejected (H08 stays FALSE until explicitly declared AND on-chain verified)",
+      "evidence": {
+        "chain": "84532",
+        "deployed": true,
+        "address": "0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052",
+        "receiver_version": "unversioned",
+        "abi_version": "unversioned",
+        "version_verified": false,
+        "bytecode_verified": false,
+        "supported_providers": [],
+        "constructor_args": {
+          "balancerVault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "aavePool": "0x8bAB6d1b75f19e9eD9fCe8b9BD338844fF79aE27",
+          "uniRouter": "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4"
+        },
+        "note": "deployed receiver present; NO supported_providers declared \u21d2 all venues rejected (fail closed); receiver_version missing \u21d2 unversioned/unverified"
+      }
+    },
+    {
+      "check": "b:bytecode_immutables",
+      "status": "BLOCKED",
+      "detail": "no operator RPC to inspect bytecode/immutables",
+      "evidence": {
+        "chain": "84532",
+        "address": "0x99c0b64e8F24fc1aADb07dAbA938d9f11dCD1052",
+        "rpc_configured": false
+      }
+    },
+    {
+      "check": "h09:simulation_prereq",
+      "status": "BLOCKED",
+      "detail": "no exact candidate-bound simulator configured (ARBICORE_SIM_METHOD=''); infra availability is NOT a PASS. Certifying methods: atomic_exact/atomic_state_override/fork_exact/exact_call.",
+      "evidence": {
+        "sim_method": "",
+        "certifying_method": false,
+        "contract_demo_denied_reasons": [
+          "incomplete_binding:chain,block_number,token,token_decimals,exact_input_wei,route,calldata,liquidity_state,economics,executor_address,receiver_version",
+          "non_certifying_sim_method:'' (noop/symbolic/paper/heuristic/infra never certifies)",
+          "simulation_not_ok"
+        ]
+      }
+    }
+  ]
+}

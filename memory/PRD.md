@@ -562,3 +562,33 @@ is a separate app-wide decision. test_m07_truthfulness GET tests re-aligned to t
 
 Next (awaiting approval): VPS-gated runtime proofs (operator RPC, deployed versioned
 receiver, exact candidate simulator, funded signer) — NOT startable in-pod.
+
+---
+
+## VPS CERTIFICATION HARNESS — 2026-09-09 (branch vps-cert-p1b2, off Batch 2)
+
+In-pod engineering of a READ-ONLY, fail-closed certification harness + isolated
+NON-PRODUCTION compose + operator runbook. No VPS access from pod → tooling only;
+real six-RPC/on-chain evidence is produced by the operator on the VPS. Report:
+`/app/VPS_CERT_HARNESS_COMPLETION_REPORT.md`. Safety OFF; protected files (incl.
+production docker-compose.yml) untouched; no secrets committed; no merge/deploy.
+
+- arbicore/certification/vps_harness.py — checks → PASS/FAIL/BLOCKED/UNKNOWN/
+  NOT_CONFIGURED, reusing quoter(H06)/receiver_capability(H08)/candidate_simulation
+  (H09)/probe_executor_identity(H10)/executor_registry. VPS-unavailable never PASS.
+- scripts/vps_certify.py — 12-section report + JSON, commit/timestamp/safety-state,
+  writes /app/vps_cert (VPS: ./vps_cert_out). In-pod dry-run = 0 PASS (all
+  NOT_CONFIGURED/BLOCKED) — honest fail-closed.
+- deployment/compose/docker-compose.certification.yml — isolated project
+  `arbicore-cert` (own containers/net/volume, one-shot runner, safety OFF), does
+  NOT touch production stack. deployment/cert/{cert.env.example, RUNBOOK}. cert.env
+  + vps_cert_out git-ignored.
+- H08 for 84532 stays BLOCKED (no supported_providers declared) — registry edits
+  alone won't flip it; on-chain verify + explicit provider declaration required.
+  No new receiver deployed (needs separate approval).
+
+Tests: test_vps_harness.py 14/14 (incl. VPS-unavailable-never-PASS); combined
+P0+P1+cert regression 76 passed. testing_agent N/A (CLI harness, no live endpoints).
+
+Next: operator runs the runbook on the VPS staging container and returns the real
+12-section report; then await approval before Opportunity Race / Limited Live.
