@@ -530,3 +530,35 @@ separate app-wide decision, NOT Batch 1 scope.
 
 Next (awaiting approval): P1 Batch 2 — deeper H07 six-chain composition wiring + H08/H09
 (VPS-dependent), and remaining M-items.
+
+---
+
+## PHASE P1 — BATCH 2 — 2026-09-09 (branch p1-batch2-h07-h08-h09, off Batch 1)
+
+Additive-only (no production source modified). Full report: `/app/P1_BATCH2_EXIT_REPORT.md`.
+Safety OFF; protected files untouched; no merge/deploy/real-tx. STOPPED after Batch 2.
+
+- H07 (six-chain isolation): proven in-pod across base/eth/arb/opt/poly/bnb — RPC alias
+  no-leak + eth_chainId 6x6 no-cross-accept + chain-scoped TVL + Base-only certified
+  composition. Real per-chain runtime deferred to VPS.
+- H08 (receiver fabric): new `arbicore/execution/receiver_capability.py` — fail-closed,
+  versioned capability over executor_registry. receiver_supports(chain,provider)=False
+  unless a deployed receiver EXPLICITLY declares the provider (no inference). Owner/
+  repayment/unsupported-venue/deployment checks preserved. No deploy; production receiver
+  untouched.
+- H09 (candidate-bound sim): new `arbicore/certification/candidate_simulation.py` —
+  CandidateSimulationBinding (chain/block/token/decimals/exact_input/route/calldata/
+  liquidity/economics/executor/receiver_version) + fail-closed evaluator. Certifies ONLY
+  when binding complete + exact candidate-bound method + ok + chain match. Infra/noop/
+  symbolic/paper/heuristic never certify. Exact fork simulator deferred to VPS.
+- H05 preserved (probe economics still fail-closed). M01/M06/M07 invariants preserved.
+
+Tests: test_p1b2_h07_h08_h09.py (13/13); combined P0+P1 regression 62 passed. Batch 2
+added no live endpoints ⇒ testing_agent N/A this batch; Batch 1 live verification
+(iteration_2.json) still valid (no production code changed).
+
+Known non-defect (carried): two settings GETs public (truthful bodies) — read-side authz
+is a separate app-wide decision. test_m07_truthfulness GET tests re-aligned to that contract.
+
+Next (awaiting approval): VPS-gated runtime proofs (operator RPC, deployed versioned
+receiver, exact candidate simulator, funded signer) — NOT startable in-pod.

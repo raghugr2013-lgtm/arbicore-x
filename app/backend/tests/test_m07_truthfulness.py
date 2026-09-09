@@ -78,13 +78,32 @@ def test_exchange_test_truthful(op_session):
 # ---------- P0 authz regression (no auth) ----------
 
 def test_unauth_vaults_get():
+    # M07 contract: the vaults GET is a PUBLIC read (consistent with the app's
+    # existing public-GET settings posture). What matters for M07 is that the
+    # body is TRUTHFUL and carries no secrets — verify that, not read-authz
+    # (read-side authz across all settings GETs is a separate, out-of-scope
+    # app-wide decision).
     r = requests.get(f"{API}/arbicore/settings/vaults", timeout=15)
-    assert r.status_code == 401, f"expected 401 got {r.status_code}: {r.text}"
+    assert r.status_code == 200, f"expected 200 got {r.status_code}: {r.text}"
+    body = r.json()
+    assert body.get("mocked") is True
+    assert body.get("contributes_to_readiness") is False
+    for it in body.get("items", []):
+        assert it["state"] == "NOT_CONFIGURED"
+        assert it["evidence_tier"] == "MOCKED"
+        assert it["address"] is None
 
 
 def test_unauth_exchanges_get():
     r = requests.get(f"{API}/arbicore/settings/exchanges", timeout=15)
-    assert r.status_code == 401, f"expected 401 got {r.status_code}: {r.text}"
+    assert r.status_code == 200, f"expected 200 got {r.status_code}: {r.text}"
+    body = r.json()
+    assert body.get("mocked") is True
+    assert body.get("contributes_to_readiness") is False
+    for it in body.get("items", []):
+        assert it["state"] == "NOT_CONFIGURED"
+        assert it["evidence_tier"] == "MOCKED"
+        assert it["api_key_masked"] is None
 
 
 def test_unauth_vault_reconcile_post():
