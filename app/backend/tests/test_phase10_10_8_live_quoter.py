@@ -68,6 +68,12 @@ class _RpcStub:
         rid = req.get("id")
         if method == "eth_blockNumber":
             return {"jsonrpc": "2.0", "id": rid, "result": hex(self.block_number)}
+        if method == "eth_chainId":
+            # A realistic node identifies its chain. These route tests quote on
+            # Base (8453 = 0x2105); answer so the H06 chain-identity guard treats
+            # the stub as a valid Base endpoint instead of rejecting it.
+            return {"jsonrpc": "2.0", "id": rid,
+                    "result": hex(getattr(self, "chain_id", 8453))}
         if method == "eth_call":
             call = params[0]
             to = (call.get("to") or "").lower()

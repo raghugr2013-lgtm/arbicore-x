@@ -229,6 +229,86 @@ _RPC_LAST_TS: Dict[str, float] = {}
 # (block_number) then comes from a separate best-effort eth_blockNumber.
 _HOST_BATCH_OK: Dict[str, bool] = {}
 
+# ── H06 (P1 defense-in-depth): endpoint chain-identity verification ──────────
+# Every RPC endpoint used for a chain must prove, via ``eth_chainId``, that it
+# actually serves the INTENDED chain. Wrong / ambiguous / unreadable identity
+# fails CLOSED (the endpoint is skipped; a chain with no verifiable endpoint
+# quotes nothing rather than silently using another chain's node). This applies
+# to endpoint selection AND failover, not just diagnostics.
+_EXPECTED_CHAIN_IDS: Dict[str, int] = {"base": 8453}
+try:  # non-Base ids from the canonical registry (single source of truth)
+    from ..chains.registries import CHAIN_REGISTRIES as _CR
+    for _cn, _cv in _CR.items():
+        _cid = _cv.get("chain_id")
+        if isinstance(_cid, int):
+            _EXPECTED_CHAIN_IDS[_cn.lower()] = _cid
+except Exception:  # noqa: BLE001 — never let import shape break quoting
+    pass
+
+# host → verified observed chain id (only successful, trustworthy reads cached).
+_HOST_CHAIN_ID: Dict[str, int] = {}
+
+
+def _expected_chain_id(chain: Optional[str]) -> Optional[int]:
+    return _EXPECTED_CHAIN_IDS.get((chain or "").lower())
+
+
+async def _read_chain_id(rpc_url: str, *, timeout: float = 8.0) -> Optional[int]:
+    """READ-ONLY ``eth_chainId``. Returns the int chain id or None (fail-closed)
+    on any error / malformed answer. Never raises, never fabricates."""
+    try:
+        r = await _post_json(
+            rpc_url, {"jsonrpc": "2.0", "id": 1, "method": "eth_chainId",
+                      "params": []}, timeout)
+        body = r.json()
+        if isinstance(body, list):
+            body = body[0] if body else {}
+        res = body.get("result") if isinstance(body, dict) else None
+        if isinstance(res, str) and res.startswith("0x"):
+            return int(res, 16)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+async def _endpoint_serves_chain(rpc_url: str, chain: Optional[str]) -> bool:
+    """True only if ``rpc_url`` provably serves ``chain`` (eth_chainId matches
+    the expected id). Fail-closed: unknown expected id, unreadable endpoint, or
+    a mismatch all return False. Observed ids are cached per host (successful
+    reads only, so a transient failure can be re-probed)."""
+    expected = _expected_chain_id(chain)
+    if expected is None:
+        return False  # unknown/ambiguous target chain → fail closed
+    host = _host_key(rpc_url)
+    cached = _HOST_CHAIN_ID.get(host)
+    if cached is not None:
+        return cached == expected
+    scope = _throttle_scope(rpc_url)
+    await _throttle(scope)
+    observed = await _read_chain_id(rpc_url)
+    if observed is None:
+        return False  # unreadable → fail closed (no cache; allow re-probe)
+    _HOST_CHAIN_ID[host] = observed
+    return observed == expected
+
+
+async def _verified_chain_endpoints(
+    candidates: List[str], chain: Optional[str],
+) -> List[str]:
+    """Filter RPC candidates to those that prove they serve ``chain``. Preserves
+    order. Empty result ⇒ the caller fails closed (no fabricated quote)."""
+    out: List[str] = []
+    for cand in candidates:
+        if await _endpoint_serves_chain(cand, chain):
+            out.append(cand)
+        else:
+            logger.warning(
+                "quoter: endpoint %s rejected for chain=%s "
+                "(eth_chainId mismatch/unreadable) — fail-closed skip",
+                _redact_host(cand), chain)
+    return out
+
+
 
 def _host_key(url: str) -> str:
     try:
@@ -869,6 +949,7 @@ class QuoterRegistry:
         backends: Optional[List[QuoterBackend]] = None,
         cache_ttl_s: float = 5.0,
         rpc_url_env: str = "ARBICORE_RPC_URL",
+        verify_chain_identity: Optional[bool] = None,
     ):
         default_backends: List[QuoterBackend] = [
             UniV3QuoterV2(),
@@ -886,6 +967,15 @@ class QuoterRegistry:
         self._cache_ttl = float(cache_ttl_s)
         self._cache: Dict[Tuple, Tuple[float, HopQuote]] = {}
         self._rpc_url_env = rpc_url_env
+        # H06: verify each endpoint's chain identity (eth_chainId) before use.
+        # ON by default for production (which always uses the DEFAULT network
+        # backends). When a caller injects custom ``backends`` (unit tests that
+        # stub the quoting transport), there is no real remote endpoint to
+        # verify, so the registry-level chain-id probe is skipped unless the
+        # caller explicitly forces it via ``verify_chain_identity=True``.
+        self._verify_chain_identity = (
+            (backends is None) if verify_chain_identity is None
+            else bool(verify_chain_identity))
 
     # ---- introspection --------------------------------------------------
 
@@ -991,6 +1081,10 @@ class QuoterRegistry:
         * ``fallback:break_even`` — the route could not be quoted at all
         """
         rpc_candidates = [rpc_url] if rpc_url else self._rpc_url_candidates(chain)
+        # H06: only endpoints that PROVE (eth_chainId) they serve `chain` may be
+        # used — for an explicit rpc_url too. Fail-closed: none verified ⇒ empty.
+        if rpc_candidates and self._verify_chain_identity:
+            rpc_candidates = await _verified_chain_endpoints(rpc_candidates, chain)
         results: List[HopQuote] = []
         if not rpc_candidates:
             for i, h in enumerate(hops):
@@ -999,7 +1093,8 @@ class QuoterRegistry:
                     h.get("token_out") or h.get("tokenOut") or "",
                     int(h.get("amount_in_wei") or h.get("amountIn") or 0),
                     "n/a", "unknown", "fallback:rpc_error",
-                    "ARBICORE_RPC_URL not configured",
+                    "no usable RPC endpoint for chain "
+                    "(ARBICORE_RPC_URL unset or chain-identity unverified)",
                 ))
             return RouteQuote(
                 chain=chain, hops=results,

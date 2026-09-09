@@ -88,7 +88,7 @@ def _meta(**over):
 
 def _provider(quoter, *, eth_call=None, tvl=None):
     return make_live_quote_provider(
-        quoter, tvl_provider=tvl,
+        quoter, tvl_provider=tvl, tvl_provider_chain=CHAIN,
         eth_call_for_chain=(lambda c: eth_call) if eth_call else None)
 
 

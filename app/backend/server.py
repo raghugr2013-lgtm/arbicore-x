@@ -3069,18 +3069,38 @@ async def v2_settings_account_update(patch: Dict[str, Any]) -> Dict[str, Any]:
 
 @api_router.get("/arbicore/settings/vaults")
 async def v2_settings_vaults() -> Dict[str, Any]:
-    items = [
-        {"vault": "cold_wallet", "kind": "COLD", "custody": "self", "address": "bc1q…7fx3", "signers_required": 2, "signers_total": 3, "reconciled_at": _iso_now(), "state": "READY"},
-        {"vault": "hot_wallet", "kind": "HOT", "custody": "self", "address": "0xA1…9F", "signers_required": 1, "signers_total": 1, "reconciled_at": _iso_now(), "state": "READY"},
-        {"vault": "safe_multisig", "kind": "MULTISIG", "custody": "self", "address": "0x8C…C2", "signers_required": 3, "signers_total": 5, "reconciled_at": _iso_now(), "state": "READY"},
-        {"vault": "cex_pool", "kind": "EXCHANGE", "custody": "venue", "address": "-", "signers_required": 0, "signers_total": 0, "reconciled_at": _iso_now(), "state": "READY"},
+    # M07 (P1): vault custody is NOT integrated in this build. Do NOT fabricate
+    # READY custody rows or a "reconciled_at" timestamp — that would be false
+    # financial readiness. Report the intended vault slots as NOT_CONFIGURED /
+    # MOCKED so an operator can never mistake canned data for real custody.
+    slots = [
+        {"vault": "cold_wallet", "kind": "COLD", "custody": "self"},
+        {"vault": "hot_wallet", "kind": "HOT", "custody": "self"},
+        {"vault": "safe_multisig", "kind": "MULTISIG", "custody": "self"},
+        {"vault": "cex_pool", "kind": "EXCHANGE", "custody": "venue"},
     ]
-    return {"items": items, "generated_at": _iso_now()}
+    items = [{**s, "address": None, "signers_required": None,
+              "signers_total": None, "reconciled_at": None,
+              "state": "NOT_CONFIGURED", "evidence_tier": "MOCKED",
+              "mocked": True,
+              "note": "vault custody not integrated — no real custody evidence"}
+             for s in slots]
+    return {"items": items, "mocked": True, "evidence_tier": "MOCKED",
+            "contributes_to_readiness": False,
+            "note": "MOCKED/NOT_CONFIGURED — excluded from live-readiness",
+            "generated_at": _iso_now()}
 
 
 @api_router.post("/arbicore/settings/vaults/{vault}/reconcile", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_vault_reconcile(vault: str) -> Dict[str, Any]:
-    return {"ok": True, "vault": vault, "reconciled_at": _iso_now(), "generated_at": _iso_now()}
+    # M07: reconcile performs NO verifiable custody operation in this build.
+    # Never echo a fake ok=True — report it as unavailable/mocked.
+    return {"ok": False, "vault": vault, "state": "NOT_CONFIGURED",
+            "mocked": True, "evidence_tier": "MOCKED",
+            "reason": "vault_reconcile_unavailable_not_configured",
+            "reconciled_at": None,
+            "note": "no custody reconciliation is performed — not real evidence",
+            "generated_at": _iso_now()}
 
 
 @api_router.get("/arbicore/settings/execution")
@@ -3092,7 +3112,7 @@ async def v2_settings_execution() -> Dict[str, Any]:
 @api_router.patch("/arbicore/settings/execution", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_execution_update(patch: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        updated = await _EXECUTION_SETTINGS.patch(patch or {}, actor="operator")
+        updated = await _EXECUTION_SETTINGS.patch(patch or {}, actor=_audit_actor())
         return {"ok": True, "config": updated, "generated_at": _iso_now()}
     except ValueError as exc:
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
@@ -3100,23 +3120,38 @@ async def v2_settings_execution_update(patch: Dict[str, Any]) -> Dict[str, Any]:
 
 @api_router.get("/arbicore/settings/exchanges")
 async def v2_settings_exchanges() -> Dict[str, Any]:
-    items = [
-        {"key": "binance", "label": "Binance", "kind": "CEX", "role": "primary", "api_key_masked": "AKb••••••••u3q", "state": "CONNECTED", "read_only": False, "last_tested_at": _iso_now()},
-        {"key": "kucoin", "label": "KuCoin", "kind": "CEX", "role": "primary", "api_key_masked": "AKk••••••••j4p", "state": "CONNECTED", "read_only": False, "last_tested_at": _iso_now()},
-        {"key": "okx", "label": "OKX", "kind": "CEX", "role": "primary", "api_key_masked": "AKo••••••••x9m", "state": "CONNECTED", "read_only": False, "last_tested_at": _iso_now()},
-        {"key": "bybit", "label": "Bybit", "kind": "CEX", "role": "primary", "api_key_masked": "AKy••••••••t2v", "state": "CONNECTED", "read_only": False, "last_tested_at": _iso_now()},
-        {"key": "hyperliquid", "label": "Hyperliquid", "kind": "PERP", "role": "primary", "api_key_masked": "AKh••••••••q6w", "state": "CONNECTED", "read_only": False, "last_tested_at": _iso_now()},
-        {"key": "gate-io", "label": "Gate.io", "kind": "CEX", "role": "excluded", "api_key_masked": "AKg••••••••e1z", "state": "DISCONNECTED", "read_only": True, "last_tested_at": _iso_now()},
-        {"key": "coinbase", "label": "Coinbase", "kind": "CEX", "role": "secondary", "api_key_masked": "AKc••••••••p8b", "state": "CONNECTED", "read_only": True, "last_tested_at": _iso_now()},
+    # M07 (P1): exchange connectivity is NOT integrated in this build. Do NOT
+    # fabricate CONNECTED rows, masked keys or a last_tested_at — that would be
+    # false financial readiness. Report the intended venue slots as
+    # NOT_CONFIGURED / MOCKED, excluded from readiness.
+    slots = [
+        {"key": "binance", "label": "Binance", "kind": "CEX", "role": "primary"},
+        {"key": "kucoin", "label": "KuCoin", "kind": "CEX", "role": "primary"},
+        {"key": "okx", "label": "OKX", "kind": "CEX", "role": "primary"},
+        {"key": "bybit", "label": "Bybit", "kind": "CEX", "role": "primary"},
+        {"key": "hyperliquid", "label": "Hyperliquid", "kind": "PERP", "role": "primary"},
+        {"key": "coinbase", "label": "Coinbase", "kind": "CEX", "role": "secondary"},
     ]
-    return {"items": items, "generated_at": _iso_now()}
+    items = [{**s, "api_key_masked": None, "state": "NOT_CONFIGURED",
+              "read_only": None, "last_tested_at": None,
+              "evidence_tier": "MOCKED", "mocked": True,
+              "note": "exchange connectivity not integrated — no real credentials/connection"}
+             for s in slots]
+    return {"items": items, "mocked": True, "evidence_tier": "MOCKED",
+            "contributes_to_readiness": False,
+            "note": "MOCKED/NOT_CONFIGURED — excluded from live-readiness",
+            "generated_at": _iso_now()}
 
 
 @api_router.post("/arbicore/settings/exchanges/{key}/test", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_exchange_test(key: str) -> Dict[str, Any]:
-    ok = key != "gate-io"
-    return {"ok": ok, "key": key, "state": "CONNECTED" if ok else "DISCONNECTED",
-            "latency_ms": 62 if ok else None, "tested_at": _iso_now()}
+    # M07: performs NO real exchange API call / credential validation. Never
+    # return a synthetic success + fixed latency — report unavailable/mocked.
+    return {"ok": False, "key": key, "state": "NOT_CONFIGURED",
+            "latency_ms": None, "mocked": True, "evidence_tier": "MOCKED",
+            "reason": "exchange_connectivity_test_unavailable_not_configured",
+            "tested_at": None,
+            "note": "no exchange API call is made — not real connectivity evidence"}
 
 
 @api_router.get("/arbicore/settings/notifications")

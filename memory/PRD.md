@@ -493,3 +493,40 @@ docker-compose.yml, deployment/cert/.env.example) untouched; no commit/merge/dep
 - P1: M01 evidence tiers, M02 real capability matrix, M03 actual economic inputs,
   M04 true net-optimal size, M05 deadline/freshness/blockhash, M06 one readiness
   model, M07 remove false financial readiness; H07/H08/H09.
+
+---
+
+## PHASE P1 — BATCH 1 — 2026-09-09 (branch p1-batch1-m01-m06-m07-h06, off P0 baseline)
+
+Approved scope 1a/2a/3a. Full report: `/app/P1_BATCH1_EXIT_REPORT.md`. Safety OFF;
+protected files untouched; no merge/deploy/real-tx. STOPPED after Batch 1.
+
+- M01 (evidence tiers): new `arbicore/certification/evidence_tiers.py` — one ordered
+  EvidenceTier ladder + non-certifying vs certifying sim-method sets. noop/symbolic/
+  paper/heuristic/infra (even ok=True) never reach SIMULATION_CERTIFIED+.
+- M06 (single authoritative readiness): kept ShadowCertificationEngine/ExecutionCertifier
+  as the sole surface (no parallel framework). Certifier simulation stage rebound: exact
+  candidate-bound method required for PASS; heuristic sim → INFO + WARNING ⇒ verdict capped
+  at WAIT. Component READY ≠ candidate ≠ sim PASS ≠ runtime ≠ limited-live.
+- M07 (financial truthfulness): server.py vaults/exchanges GET+reconcile+test now return
+  MOCKED/NOT_CONFIGURED, mocked:true, contributes_to_readiness:false, null secrets/timestamps.
+- H06 (chain-id guard): quoter verifies eth_chainId per endpoint before use AND failover
+  (six chains), per-host cache, fail-closed on wrong/ambiguous/unreadable; ON for default
+  backends, off for injected-backend unit stubs.
+- H07 (safe in-pod): live_quote_provider TVL is `tvl_provider_chain`-scoped (default base) —
+  no cross-chain TVL leakage; non-base fails closed. Full six-chain runtime deferred to VPS.
+- H08/H09: deferred (VPS/operator) — receiver deployment + genuine candidate-bound exact
+  simulator not provable in-pod. H05 exact-size sizer still needs operator price feed.
+
+Tests: test_m01_evidence_tiers.py (6/6), test_h06_h07_chain_isolation.py (6/6),
+test_m07_truthfulness.py (10/12; 2 = read-side authz on 2 settings GETs, out of scope),
+P0 suites still green. No new regressions (delta vs P1-stashed baseline identical;
+2 fixtures updated to new chain-scoped contract; test_unsupported_chain pre-existing).
+testing_agent: /app/test_reports/iteration_2.json.
+
+Known non-defects: two settings GETs (vaults/exchanges) return 200 unauth — consistent with
+app's existing public-GET posture, truthful bodies, no secrets; read-side authz is a
+separate app-wide decision, NOT Batch 1 scope.
+
+Next (awaiting approval): P1 Batch 2 — deeper H07 six-chain composition wiring + H08/H09
+(VPS-dependent), and remaining M-items.

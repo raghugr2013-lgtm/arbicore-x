@@ -233,13 +233,41 @@ class ExecutionCertifier:
         if plan_dict is not None:
             try:
                 sim = await self._simulators.simulate(plan_dict, simulator=simulator)
-                status = "PASS" if sim.ok else "BLOCKED"
+                # M01/M06 (P1): a simulation PASS requires an EXACT,
+                # candidate-bound method. A NoopSimulator / symbolic / paper /
+                # heuristic / infra-only result (method in the non-certifying
+                # set) is telemetry ONLY — it can never be SIMULATION_CERTIFIED
+                # and must not read as a live-eligible PASS. It is surfaced as
+                # INFO with an explicit, non-ambiguous note.
+                from arbicore.certification.evidence_tiers import (
+                    is_certifying_sim_method, sim_evidence_tier)
+                certifying = is_certifying_sim_method(getattr(sim, "method", None))
+                tier = sim_evidence_tier(getattr(sim, "method", None), sim.ok)
                 if not sim.ok:
+                    status = "BLOCKED"
                     blockers.append("simulation reported failure")
+                elif certifying:
+                    status = "PASS"
+                else:
+                    # ok but heuristic/infra-only → NOT a certification signal.
+                    status = "INFO"
+                    # M06: heuristic/mocked simulation must not let the overall
+                    # verdict reach PASS (which implies live-eligibility). Cap
+                    # it at WAIT until an exact candidate-bound sim runs.
+                    warnings.append(
+                        "simulation is heuristic/mocked (not candidate-bound "
+                        "exact) — not simulation-certified")
                 stages.append(StageResult(
                     stage="simulation", status=status,
-                    detail=f"simulator={sim.simulator} method={sim.method}",
-                    payload=sim.to_dict(),
+                    detail=(f"simulator={sim.simulator} method={sim.method} "
+                            f"evidence_tier={tier.name} "
+                            f"certifying={certifying}"),
+                    payload={**sim.to_dict(),
+                             "evidence_tier": tier.name,
+                             "simulation_certified": bool(certifying and sim.ok),
+                             "note": ("exact candidate-bound simulation"
+                                      if certifying else
+                                      "HEURISTIC/MOCKED — not simulation-certified")},
                 ))
             except Exception as exc:  # noqa: BLE001
                 stages.append(StageResult(

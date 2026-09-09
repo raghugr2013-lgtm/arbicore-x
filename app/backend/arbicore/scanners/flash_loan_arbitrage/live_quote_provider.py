@@ -180,16 +180,21 @@ def make_live_quote_provider(
     quoter_registry,
     *,
     tvl_provider=None,
+    tvl_provider_chain: str = "base",
     eth_call_for_chain: Optional[Callable[[str], Optional[Any]]] = None,
     borrow_sizer: Optional[Callable[[str, str, float], Optional[int]]] = None,
 ) -> Callable[[Dict[str, Any], float], Awaitable[Optional[Dict[str, Any]]]]:
     """Return an async ``QuoteProvider`` bound to a live ``QuoterRegistry``.
 
     ``tvl_provider`` (M2.2, optional) supplies REAL measured on-chain pool depth
-    for Gate 8 (fail-closed when absent). ``eth_call_for_chain(chain)`` supplies
-    an async ``eth_call`` for NON-Base chains' on-chain pool validation; when it
-    is ``None`` (or returns ``None`` for a chain), non-Base routes fail closed.
-    Base is unaffected and uses the canonical registry.
+    for Gate 8 (fail-closed when absent). It is CHAIN-SCOPED: ``tvl_provider_chain``
+    names the single chain it is valid for (default ``"base"``). H07: a route on
+    any OTHER chain must NOT consume this provider's depth — doing so would let
+    Base TVL leak into non-Base economics. For a mismatched chain the depth is
+    left absent, so Gate 8 fails closed rather than trusting foreign data.
+    ``eth_call_for_chain(chain)`` supplies an async ``eth_call`` for NON-Base
+    chains' on-chain pool validation; when it is ``None`` (or returns ``None``
+    for a chain), non-Base routes fail closed. Base uses the canonical registry.
 
     ``borrow_sizer(chain, borrow_token, borrow_amount_usd) -> Optional[int]``
     (H05, optional) converts the requested borrow *dollar* notional into the
@@ -201,7 +206,7 @@ def make_live_quote_provider(
     verifier then fails closed (``DENIED_SIZE_NOT_QUOTED``) rather than
     extrapolate a probe ratio onto a different dollar notional.
     """
-
+    _tvl_chain = str(tvl_provider_chain or "").lower()
     async def _provider(cycle_metadata: Dict[str, Any],
                         borrow_amount_usd: float) -> Optional[Dict[str, Any]]:
         hm = cycle_metadata or {}
@@ -271,7 +276,15 @@ def make_live_quote_provider(
         # REAL measured on-chain depth (M2.2), keyed per hop via the plan.
         tvl_keys = [p.tvl_key for p in plans]
         pool_tvls: Dict[str, float] = {}
-        if tvl_provider is not None:
+        # H07: only consult the TVL provider for the chain it is scoped to.
+        # A route on any other chain must not inherit this provider's depth.
+        tvl_usable = tvl_provider is not None and chain == _tvl_chain
+        if tvl_provider is not None and not tvl_usable:
+            _LOG.warning(
+                "live_quote_provider: TVL provider is chain-scoped to %r but "
+                "route chain is %r — skipping depth (Gate 8 fails closed) to "
+                "avoid cross-chain TVL leakage (H07)", _tvl_chain, chain)
+        if tvl_usable:
             for p in plans:
                 if not p.tvl_addr:
                     continue
