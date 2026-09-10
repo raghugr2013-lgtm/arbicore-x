@@ -41,6 +41,17 @@ class ProviderStatus(str, enum.Enum):
 # Balancer V2 Vault — identical address on every EVM deployment (not on BNB).
 BALANCER_V2_VAULT = "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
 
+# Balancer V2 is NOT deployed on BNB; the singleton Vault exists on the other
+# EVM chains. Keep this in lock-step with economics.FLASH_LOAN_PROVIDERS.
+BALANCER_V2_CHAINS = frozenset(
+    {"ethereum", "arbitrum", "base", "optimism", "polygon"})
+
+# Flash-loan heads with a GENUINE runtime liquidity probe implemented below
+# (chain-generic, fail-closed). Providers absent from this set are NOT
+# runtime-verifiable — e.g. Morpho Blue is in the economics catalog but has no
+# runtime liquidity reader, so it fails closed here (never silently allowed).
+RUNTIME_PROBE_PROVIDERS = frozenset({"balancer_v2", "aave_v3"})
+
 # Aave V3 Pool per chain (public, verifiable).
 AAVE_V3_POOL: Dict[str, str] = {
     "ethereum": "0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2",
@@ -232,10 +243,72 @@ def _finalise(r: ProviderLiquidity, borrow_amount_usd: Optional[float]) -> None:
         r.reason = "confirmed"
 
 
+async def runtime_flashloan_available(
+    eth_call, *, provider: str, chain: str,
+    token_address: str, token_decimals: int,
+    token_price_usd: Optional[float], borrow_amount_usd: Optional[float],
+    balancer_vault: Optional[str] = None,
+) -> Optional[bool]:
+    """Chain-generic runtime flash-loan availability for the broadcast-time
+    fresh-revalidation path, driven by a bare async ``eth_call(to, data)``
+    callable (the runtime seam) rather than an ``EthJsonRpcProvider``.
+
+    Returns a STRICT tri-state (fail-closed):
+      * ``True``   provider genuinely holds ≥ the requested borrow of the token
+      * ``False``  definitive: provider unsupported on this chain, reserve not
+                   listed, or confirmed liquidity < requested borrow
+      * ``None``   UNKNOWN: any on-chain read failed / token unpriceable ⇒ DENY
+
+    Only the two providers with a real runtime liquidity reader
+    (``RUNTIME_PROBE_PROVIDERS``) are ever verifiable here; every other
+    provider (e.g. ``morpho_blue``) returns ``False`` — registry/catalog
+    presence is NEVER treated as runtime capability. Never signs/broadcasts.
+    """
+    prov = (provider or "").lower()
+    chain_n = (chain or "").lower()
+    if prov not in RUNTIME_PROBE_PROVIDERS:
+        return False
+    if token_price_usd is None or token_price_usd <= 0:
+        return None
+    if borrow_amount_usd is None:
+        return None
+    needed_tokens = float(borrow_amount_usd) / float(token_price_usd)
+
+    if prov == "balancer_v2":
+        if chain_n not in BALANCER_V2_CHAINS:
+            return False
+        holder = balancer_vault or BALANCER_V2_VAULT
+    else:  # aave_v3 — resolve the reserve's aToken as the liquidity holder
+        pool = AAVE_V3_POOL.get(chain_n)
+        if not pool:
+            return False
+        try:
+            reserve_raw = await eth_call(
+                pool, SEL_GET_RESERVE_DATA + _addr_arg(token_address))
+        except Exception:  # noqa: BLE001 — never fabricate availability
+            return None
+        atoken = decode_atoken_from_reserve_data(reserve_raw or "")
+        if not atoken:
+            return False  # reserve not listed on Aave for this chain (definitive)
+        holder = atoken
+
+    try:
+        raw = await eth_call(token_address, SEL_BALANCE_OF + _addr_arg(holder))
+    except Exception:  # noqa: BLE001
+        return None
+    bal = _to_int(raw)
+    if bal is None:
+        return None
+    liquidity_tokens = bal / (10 ** int(token_decimals))
+    return liquidity_tokens >= needed_tokens
+
+
 __all__ = [
     "ProviderStatus", "ProviderLiquidity",
-    "BALANCER_V2_VAULT", "AAVE_V3_POOL",
+    "BALANCER_V2_VAULT", "BALANCER_V2_CHAINS", "AAVE_V3_POOL",
+    "RUNTIME_PROBE_PROVIDERS",
     "read_balancer_liquidity", "read_aave_liquidity",
+    "runtime_flashloan_available",
     "decode_atoken_from_reserve_data",
     "SEL_BALANCE_OF", "SEL_GET_RESERVE_DATA",
 ]

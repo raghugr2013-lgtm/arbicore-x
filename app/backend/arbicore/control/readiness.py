@@ -166,9 +166,38 @@ class ExecutionReadinessEngine:
             return _check("SIZE_OPTIMIZER", RED, score=0, blockers=["size optimizer missing"])
 
     def _flash(self) -> Dict[str, Any]:
-        return _check("FLASH_LOAN_ENGINE", GREEN, score=90,
-                      passed=["Aave V3 executable", "Balancer V2 executable"],
-                      warnings=["dynamic size optimizer not yet implemented"])
+        # Evidence-driven (no static "executable" claim). Report ONLY what is
+        # genuinely wired: (a) the chain-generic runtime liquidity probe that
+        # actually exists, and (b) EXECUTION capability, which stays UNPROVEN
+        # until a deployed receiver EXPLICITLY supports a flash head (never
+        # inferred from a catalog/registry entry — fail-closed).
+        try:
+            from ..scanners.flash_loan_arbitrage.provider_liquidity import (  # noqa: F401
+                runtime_flashloan_available, RUNTIME_PROBE_PROVIDERS)
+        except Exception:  # noqa: BLE001
+            return _check("FLASH_LOAN_ENGINE", RED, score=0,
+                          blockers=["flash-loan runtime liquidity probe not importable"])
+        passed = ["runtime liquidity probe implemented (fail-closed) for: "
+                  + ", ".join(sorted(RUNTIME_PROBE_PROVIDERS))]
+        warnings: List[str] = []
+        exec_heads: List[str] = []
+        try:
+            from ..execution.receiver_capability import receiver_capability
+            cap = receiver_capability("base")
+            if cap.deployed:
+                exec_heads = [p for p in sorted(RUNTIME_PROBE_PROVIDERS)
+                              if cap.supports(p)]
+        except Exception:  # noqa: BLE001
+            exec_heads = []
+        if exec_heads:
+            passed.append("deployed Base receiver EXECUTES: " + ", ".join(exec_heads))
+        else:
+            warnings.append("execution capability UNPROVEN — no deployed Base "
+                            "receiver explicitly supports a flash head "
+                            "(fail-closed; NOT reported as 'executable')")
+        warnings.append("dynamic size optimizer not yet implemented")
+        return _check("FLASH_LOAN_ENGINE", GREEN, score=80,
+                      passed=passed, warnings=warnings)
 
     async def _wallet(self) -> Dict[str, Any]:
         # Gas wallet evidence: a registered gas-role wallet OR the env-configured

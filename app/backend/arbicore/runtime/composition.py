@@ -527,31 +527,36 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
              or "0xBA12222222228d8Ba445958a75a0704d566BF2C8")
 
     async def _flashloan_available(provider, borrow_token, borrow_amount_usd):
-        """Real-time genuine check: Balancer V2 Vault must actually hold at
-        least the borrow amount of the borrow token. Any read failure → None.
+        """Real-time genuine flash-loan liquidity check for the deployed
+        FlashLoanReceiver's flash heads — Balancer V2 (singleton Vault) AND
+        Aave V3 (reserve aToken balance). Chain-generic runtime probe lives in
+        ``provider_liquidity.runtime_flashloan_available`` (single source of
+        truth); this Base-scoped wrapper resolves the borrow token/price from
+        the canonical registry + price feed and delegates.
 
-        Instrumented: every None/False path logs the exact reason so the VPS
-        harness shows whether the balanceOf read, price read, or provider/token
-        mapping is the blocker. Return semantics are UNCHANGED (fail-closed)."""
-        meta = FLASH_LOAN_PROVIDERS.get((provider or "").lower())
+        Tri-state, fail-closed (UNCHANGED semantics): True = liquidity ≥ borrow,
+        False = definitive unavailable (unsupported provider/chain, reserve not
+        listed, or insufficient liquidity), None = on-chain read failed /
+        token unpriceable ⇒ DENY. Every non-True path logs the exact reason."""
+        from ..scanners.flash_loan_arbitrage.provider_liquidity import (
+            runtime_flashloan_available, RUNTIME_PROBE_PROVIDERS)
+        prov = (provider or "").lower()
+        meta = FLASH_LOAN_PROVIDERS.get(prov)
         if not meta or "base" not in meta.get("supports_chains", ()):
             _M3_LOG.warning(
                 "flashloan_available=False stage=provider_meta provider=%r "
                 "(unknown provider or not supported on base)", provider)
             return False
         # The deployed FlashLoanReceiver's flash heads are Balancer V2 AND Aave
-        # V3 (contracts/.../FlashLoanReceiver.sol). This Base-M3 runtime
-        # availability path, however, only implements a real-time Balancer V2
-        # Vault liquidity probe; an Aave V3 runtime liquidity verification is
-        # not yet wired. Until it is, refuse non-Balancer providers here
-        # (fail-closed) rather than checking the wrong vault or allowing an
-        # unverified route through M3. Runtime behaviour is UNCHANGED.
-        if (provider or "").lower() != "balancer_v2":
+        # V3 (contracts/.../FlashLoanReceiver.sol). Both now have a genuine
+        # runtime liquidity probe. Any other catalog provider (e.g. morpho_blue)
+        # has NO runtime reader ⇒ fail closed here (registry presence is never
+        # runtime capability).
+        if prov not in RUNTIME_PROBE_PROVIDERS:
             _M3_LOG.warning(
-                "flashloan_available=False stage=executor_capability provider=%r "
-                "(receiver supports balancer_v2+aave_v3; runtime Aave V3 "
-                "liquidity probe not yet wired — Balancer V2 only at runtime)",
-                provider)
+                "flashloan_available=False stage=runtime_provider provider=%r "
+                "(runtime liquidity probe implemented only for %s)",
+                provider, sorted(RUNTIME_PROBE_PROVIDERS))
             return False
         cp = None
         for p in _reg.get_canonical_pools():
@@ -567,40 +572,28 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
             taddr, tdec = cp.token0_address, cp.token0_decimals
         else:
             taddr, tdec = cp.token1_address, cp.token1_decimals
-        data = "0x70a08231" + vault.lower().replace("0x", "").rjust(64, "0")
-        try:
-            raw = await eth_call(taddr, data)
-        except Exception as exc:  # noqa: BLE001
-            _M3_LOG.warning(
-                "flashloan_available=None stage=balanceOf_eth_call vault=%s "
-                "token=%s(%s) error=%s: %s", vault, borrow_token, taddr,
-                type(exc).__name__, exc)
-            return None
-        if not raw:
-            _M3_LOG.warning(
-                "flashloan_available=None stage=balanceOf_empty vault=%s "
-                "token=%s(%s) (eth_call returned empty)", vault, borrow_token, taddr)
-            return None
-        try:
-            bal = int(raw, 16) / (10 ** int(tdec))
-        except (ValueError, TypeError) as exc:
-            _M3_LOG.warning(
-                "flashloan_available=None stage=balanceOf_decode raw=%r error=%s: %s",
-                raw, type(exc).__name__, exc)
-            return None
         px = await price_feed.price_source(borrow_token)
         if px is None or px <= 0:
             _M3_LOG.warning(
                 "flashloan_available=None stage=borrow_token_price token=%r price=%r "
                 "(price feed could not price the borrow token)", borrow_token, px)
             return None
-        ok = bal >= (float(borrow_amount_usd) / px)
-        if not ok:
+        avail = await runtime_flashloan_available(
+            eth_call, provider=prov, chain="base",
+            token_address=taddr, token_decimals=tdec,
+            token_price_usd=px, borrow_amount_usd=borrow_amount_usd,
+            balancer_vault=vault)
+        if avail is None:
             _M3_LOG.warning(
-                "flashloan_available=False stage=insufficient_vault_liquidity "
-                "vault_bal=%s needed=%s token=%s px=%s", bal,
-                float(borrow_amount_usd) / px, borrow_token, px)
-        return ok
+                "flashloan_available=None stage=runtime_read provider=%r "
+                "token=%s(%s) (on-chain read failed — fail-closed)",
+                provider, borrow_token, taddr)
+        elif avail is False:
+            _M3_LOG.warning(
+                "flashloan_available=False stage=insufficient_or_unlisted "
+                "provider=%r token=%s(%s) needed=%s px=%s", provider,
+                borrow_token, taddr, float(borrow_amount_usd) / px, px)
+        return avail
 
     async def fresh_fn(plan):
         """FRESH re-check at broadcast time. Any missing input → None (deny).
