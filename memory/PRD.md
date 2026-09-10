@@ -609,3 +609,44 @@ isolation). Verified by testing_agent (/app/test_reports/iteration_3.json): exit
 no ModuleNotFoundError, report written, status_counts zero PASS (fail-closed), 18/18
 tests pass. No production/protected/gate/receiver changes. Docker unavailable in pod
 ⇒ verified via code-root bash reproduction; real image rebuild runs on the VPS.
+
+---
+
+## TRACK 4/8/2 — Aave V3 runtime liquidity probe + evidence-driven flash readiness — 2026-06 (branch vps-cert-p1b3-buildinfo-gitsha-fix, HEAD f3f8aa3)
+
+GOAL (Msg 168): expand genuine runtime opportunity surface beyond Base/UniV3/Balancer
+without fabricating activations. Safety locks intact (signing/broadcast/auto-exec OFF,
+LIMITED_LIVE RED, protected files untouched, no deploy).
+
+IMPLEMENTED + VERIFIED (pytest, deterministic offline):
+- provider_liquidity.runtime_flashloan_available — NEW chain-generic, fail-closed
+  tri-state flash-loan liquidity probe over a bare async eth_call(to,data):
+  True (liq>=borrow) / False (definitive: unsupported provider|chain, reserve unlisted,
+  insufficient) / None (read failure|unpriceable => DENY). Real Aave V3 read
+  (getReserveData -> aToken -> balanceOf) + Balancer V2 vault. RUNTIME_PROBE_PROVIDERS =
+  {balancer_v2, aave_v3}; every other catalog provider (morpho_blue, ...) => False
+  (registry presence != runtime capability). BALANCER_V2_CHAINS excludes BNB.
+- composition._flashloan_available (Base broadcaster fresh_fn): was hardcoded
+  balancer_v2-only; now delegates to the single source of truth => Aave V3 genuinely
+  gated at runtime. Semantics unchanged (fail-closed).
+- readiness._flash: dropped static "Aave V3 executable / Balancer V2 executable" claim.
+  Evidence-driven: reports the real runtime probe; execution capability UNPROVEN until a
+  deployed receiver EXPLICITLY supports a flash head (receiver_capability fail-closed).
+  LIMITED_LIVE stays RED / non-activatable.
+
+TESTS: test_track4_aave_runtime_probe.py (12) + test_track8_readiness_flash_evidence.py (4).
+Touched-module suites all green in isolation (control_readiness 10, flashloan_live_probes 28,
+h05 21, provenance 8, flash_provider_optimizer 8, v2117_aave_calldata 15, phase2_liquidity 13).
+NOTE: full `pytest tests/` shows mass env failures (no MONGO_URL/RPC, HTTP-endpoint tests,
+xdist event-loop pollution) — pre-existing/environmental, NOT from this batch (reproduced
+without the new files). Container needed `pip install pytest-asyncio` to run async tests.
+
+CAPABILITY DELTA (this batch): Base x UniV3 x flash-arb x **Aave V3** moved from
+runtime-REFUSED -> runtime-WIRED liquidity gate (fail-closed). Aave V3 probe now
+chain-generic for eth/arb/op/polygon/base/bnb given operator RPC (no Base-RPC leakage).
+EXECUTION-CAPABLE and LIMITED-LIVE-ELIGIBLE cells remain 0 (no deployed receiver evidence,
+no operator RPC in this env, LIMITED_LIVE hard-gated). Morpho: catalog-only, deliberately
+NOT runtime-wired (no genuine reader) — fails closed.
+
+BLOCKERS unchanged: GitHub push blocked from shell (local commits only, by user decision);
+non-Base execution needs deployed+verified receiver (separate approval) + operator RPC.
