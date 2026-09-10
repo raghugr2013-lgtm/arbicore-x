@@ -46,7 +46,9 @@ def _base_kwargs(**over):
 
     def eth_call_factory(chain):
         calls.append(chain)
-        return (lambda to, data: None)   # a real (fake) chain-scoped eth_call
+        async def _eth_call(to, data):   # a real (fake) chain-scoped eth_call
+            return None
+        return _eth_call
 
     kw = dict(
         eth_call_factory=eth_call_factory,
@@ -223,3 +225,117 @@ async def test_unknown_chain_is_blocked():
     assert res["expected_chain_id"] is None
     assert res["stages"]["CHAIN_VERIFICATION"]["status"] == BLOCKED
     assert res["stages"]["CHAIN_VERIFICATION"]["reason"] == "unknown_chain"
+
+
+# ---------------------------------------------------------------------------
+# LIVE chain-verification + liquidity (operator-RPC boundary) — reusable
+# ---------------------------------------------------------------------------
+def _live_probe(balances):
+    async def _p(chain, eth_call):
+        return {p: {"liquidity_tokens": v, "borrow_token": "USDC",
+                    "token_address": "0x" + "cc" * 20}
+                for p, v in balances.items()}
+    return _p
+
+
+@pytest.mark.asyncio
+async def test_live_chain_verification_pass_on_matching_chainid():
+    kw, _ = _base_kwargs(chain_id_reader=_reader_returning(ARB_ID))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    cv = res["stages"]["CHAIN_VERIFICATION"]
+    assert cv["status"] == PASS
+    assert cv["reason"] == "rpc_confirmed_on_expected_chain"
+    assert cv["evidence"]["chain_id"] == ARB_ID
+
+
+@pytest.mark.asyncio
+async def test_live_liquidity_proven_onchain_advances_stage():
+    kw, _ = _base_kwargs(
+        liquidity_probe_fn=_live_probe({"aave_v3": 12_500_000.0,
+                                        "balancer_v2": 3_000_000.0}))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    lp = res["stages"]["LIQUIDITY_PROVIDER"]
+    assert lp["status"] == PASS
+    assert lp["reason"] == "runtime_liquidity_proven_onchain"
+    assert lp["evidence"]["proven_providers"] == ["aave_v3", "balancer_v2"]
+    assert lp["evidence"]["liquidity"]["aave_v3"]["liquidity_tokens"] == 12_500_000.0
+
+
+@pytest.mark.asyncio
+async def test_live_liquidity_reusable_across_all_five_evm_chains():
+    # SAME code path, different chain scope — no Arbitrum special-case.
+    for chain in ("ethereum", "optimism", "polygon", "arbitrum", "bnb"):
+        heads_balances = {"aave_v3": 1_000_000.0}
+        kw, _ = _base_kwargs(
+            chain_id_reader=None,   # exercise default live reader (fail-closed None ok)
+            liquidity_probe_fn=_live_probe(heads_balances))
+        res = await evaluate_chain_execution_readiness(chain, **kw)
+        assert res["stages"]["LIQUIDITY_PROVIDER"]["status"] == PASS
+
+
+@pytest.mark.asyncio
+async def test_live_liquidity_fails_closed_without_rpc():
+    kw, _ = _base_kwargs(eth_call_factory=lambda c: None,
+                         liquidity_probe_fn=_live_probe({"aave_v3": 9e9}))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    lp = res["stages"]["LIQUIDITY_PROVIDER"]
+    assert lp["status"] == UNKNOWN
+    assert lp["reason"] == "liquidity_unverified_no_operator_rpc"
+
+
+@pytest.mark.asyncio
+async def test_live_liquidity_fails_closed_on_empty_read():
+    kw, _ = _base_kwargs(liquidity_probe_fn=_live_probe({}))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    lp = res["stages"]["LIQUIDITY_PROVIDER"]
+    assert lp["status"] == UNKNOWN
+    assert lp["reason"] == "liquidity_read_returned_no_provider_balance"
+
+
+@pytest.mark.asyncio
+async def test_live_liquidity_probe_receives_requested_chain_only():
+    seen = []
+
+    async def spy_probe(chain, eth_call):
+        seen.append(chain)
+        return {"aave_v3": {"liquidity_tokens": 5.0}}
+
+    kw, _ = _base_kwargs(liquidity_probe_fn=spy_probe)
+    await evaluate_chain_execution_readiness(ARB, **kw)
+    assert seen == [ARB]      # probe scoped to arbitrum, never base
+
+
+@pytest.mark.asyncio
+async def test_default_liquidity_probe_end_to_end_arbitrum():
+    """Exercise the REAL default probe (registry USDC + provider_liquidity
+    selectors) against a realistic chain-scoped eth_call — proving the genuine
+    read chain, not an injected shortcut."""
+    from arbicore.scanners.flash_loan_arbitrage.provider_liquidity import (
+        AAVE_V3_POOL, SEL_BALANCE_OF, SEL_GET_RESERVE_DATA)
+    atoken = "0x724dc807b04555b71ed48a6896b6F41593b8C637"  # arbitrum aUSDC-like
+
+    def _word(a):
+        return a.lower().replace("0x", "").rjust(64, "0")
+
+    async def eth_call(to, data):
+        sel = data[:10]
+        if sel == SEL_GET_RESERVE_DATA:
+            return "0x" + "".join(["0" * 64] * 8 + [_word(atoken)] + ["0" * 64] * 6)
+        if sel == SEL_BALANCE_OF:
+            return hex(9_000_000 * 10 ** 6)   # 9M units for whichever holder
+        raise AssertionError("unexpected selector")
+
+    # Confirm the probe targets the ARBITRUM Aave pool (never Base's).
+    assert AAVE_V3_POOL["arbitrum"] != AAVE_V3_POOL["base"]
+
+    kw, _ = _base_kwargs(
+        eth_call_factory=lambda c: eth_call,     # chain-scoped operator RPC seam
+        chain_id_reader=_reader_returning(ARB_ID))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    lp = res["stages"]["LIQUIDITY_PROVIDER"]
+    assert lp["status"] == PASS
+    assert lp["reason"] == "runtime_liquidity_proven_onchain"
+    # Both Arbitrum runtime heads (aave_v3 + balancer_v2) proven from real reads.
+    assert set(lp["evidence"]["proven_providers"]) == {"aave_v3", "balancer_v2"}
+    assert lp["evidence"]["liquidity"]["aave_v3"]["liquidity_tokens"] == 9_000_000.0
+    assert res["stages"]["CHAIN_VERIFICATION"]["status"] == PASS

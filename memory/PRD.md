@@ -691,3 +691,41 @@ economics/execution only by absent operator RPC + no deployed receiver. No cell 
 execution-capable or Limited-Live eligible (fail-closed). Infrastructure + genuine
 chain-scoped wiring; RUNTIME-PROVEN still needs operator RPC; execution needs a
 deployed+declared receiver (separate approval).
+
+---
+
+## TRACK 2 (LIVE) — Arbitrum first live-data validation of the chain-scoped evaluator — 2026-06
+
+Wired the LIVE chain-verification + liquidity path via the operator-RPC boundary,
+generalised for all six chains (no Arbitrum special-case). Arbitrum = FIRST live
+validation, not a narrowing.
+
+- provider_liquidity.runtime_flash_liquidity_tokens (NEW): genuine on-chain
+  flash-loanable liquidity in TOKEN units (no USD price fabricated) via bare
+  eth_call; shared _resolve_flash_holder (Balancer vault / Aave aToken). None on
+  unsupported provider/chain or read failure (fail-closed).
+- chain_execution_readiness: default chain_id_reader now LIVE
+  (make_registry_chain_id_reader — chain-scoped eth_chainId, fail-closed None
+  without RPC; BLOCKS on mismatch). LIQUIDITY_PROVIDER stage now performs a REAL
+  per-provider on-chain read via _default_liquidity_probe (registry USDC/WETH +
+  runtime_flash_liquidity_tokens); PASS = runtime_liquidity_proven_onchain only
+  when a genuine balance is read; no RPC / empty read => fail-closed UNKNOWN.
+  _borrow_token_for_chain resolves verified tokens per chain (base=base_venues,
+  others=chains.registries). price_feed_factory kept as reserved kwarg.
+
+REUSABILITY: identical code path advances ethereum/optimism/polygon/bnb/base the
+moment their operator RPC is supplied (proven by test across all five EVM chains).
+
+LIVE ADVANCE (with operator RPC): CHAIN_VERIFICATION -> PASS (chainId match),
+LIQUIDITY_PROVIDER -> PASS/RUNTIME-PROVEN (both aave_v3+balancer_v2 on Arbitrum;
+aave_v3 only on BNB). Still fail-closed downstream: QUOTE/ECONOMICS/SIMULATION/
+EXECUTION_CAPABILITY (no live quote proof, no PROVIDER_RPC_URL[S], no receiver).
+
+TESTS: test_track2 (20 total; +7 live: matching-chainid PASS, liquidity proven,
+reusable across 5 EVM chains, fail-closed no-RPC/empty-read, chain-scoped probe,
+end-to-end default probe on Arbitrum) + test_track4 (16; +4 token-unit reader).
+All touched-module suites green in isolation. Offline six-chain report: 0
+execution-capable, LL off, every chain fail-closed at RPC.
+
+SAFETY: signing/broadcast/auto-exec OFF, Limited Live RED, no deploy, protected
+files untouched. Commits local only (no push).

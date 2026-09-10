@@ -303,12 +303,66 @@ async def runtime_flashloan_available(
     return liquidity_tokens >= needed_tokens
 
 
+async def _resolve_flash_holder(
+    eth_call, *, provider: str, chain: str, token_address: str,
+    balancer_vault: Optional[str] = None,
+) -> Optional[str]:
+    """Resolve the on-chain address that HOLDS the flash-loanable liquidity for
+    ``provider`` on ``chain`` — the Balancer V2 Vault, or the Aave V3 reserve's
+    aToken (read from Pool.getReserveData). None on unsupported provider/chain or
+    any read failure (fail-closed). Uses a bare async ``eth_call(to, data)``."""
+    prov = (provider or "").lower()
+    chain_n = (chain or "").lower()
+    if prov == "balancer_v2":
+        if chain_n not in BALANCER_V2_CHAINS:
+            return None
+        return balancer_vault or BALANCER_V2_VAULT
+    if prov == "aave_v3":
+        pool = AAVE_V3_POOL.get(chain_n)
+        if not pool:
+            return None
+        try:
+            reserve_raw = await eth_call(
+                pool, SEL_GET_RESERVE_DATA + _addr_arg(token_address))
+        except Exception:  # noqa: BLE001
+            return None
+        return decode_atoken_from_reserve_data(reserve_raw or "")
+    return None
+
+
+async def runtime_flash_liquidity_tokens(
+    eth_call, *, provider: str, chain: str,
+    token_address: str, token_decimals: int,
+    balancer_vault: Optional[str] = None,
+) -> Optional[float]:
+    """GENUINE on-chain flash-loanable liquidity in TOKEN units (no USD price
+    required) for the broadcast-time runtime seam. Returns the provider holder's
+    real ERC20 balance of ``token_address`` in whole-token units, or None on any
+    unsupported provider/chain or read failure (fail-closed). This proves a
+    reserve read WITHOUT asserting USD feasibility (that needs a price feed)."""
+    if (provider or "").lower() not in RUNTIME_PROBE_PROVIDERS:
+        return None
+    holder = await _resolve_flash_holder(
+        eth_call, provider=provider, chain=chain,
+        token_address=token_address, balancer_vault=balancer_vault)
+    if not holder:
+        return None
+    try:
+        raw = await eth_call(token_address, SEL_BALANCE_OF + _addr_arg(holder))
+    except Exception:  # noqa: BLE001
+        return None
+    bal = _to_int(raw)
+    if bal is None:
+        return None
+    return bal / (10 ** int(token_decimals))
+
+
 __all__ = [
     "ProviderStatus", "ProviderLiquidity",
     "BALANCER_V2_VAULT", "BALANCER_V2_CHAINS", "AAVE_V3_POOL",
     "RUNTIME_PROBE_PROVIDERS",
     "read_balancer_liquidity", "read_aave_liquidity",
-    "runtime_flashloan_available",
+    "runtime_flashloan_available", "runtime_flash_liquidity_tokens",
     "decode_atoken_from_reserve_data",
     "SEL_BALANCE_OF", "SEL_GET_RESERVE_DATA",
 ]

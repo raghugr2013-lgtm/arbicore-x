@@ -103,6 +103,60 @@ def _runtime_flash_heads_for_chain(chain: str) -> List[str]:
     return sorted(out)
 
 
+def _borrow_token_for_chain(chain: str) -> Optional[Dict[str, Any]]:
+    """A canonical, verified borrow token (address + decimals) for a chain's
+    live liquidity probe. Prefers USDC (listed on Aave + widely held), then
+    WETH. Base uses its dedicated ``base_venues`` token table; every other chain
+    uses the verified public ``chains.registries``. None if unavailable
+    (fail-closed — never fabricated)."""
+    c = (chain or "").lower()
+    try:
+        if c == "base":
+            from ..discovery.base_venues import TOKENS
+            for sym in ("USDC", "USDbC", "WETH"):
+                t = TOKENS.get(sym)
+                if t and t.get("address"):
+                    return {"symbol": sym, "address": t["address"],
+                            "decimals": int(t.get("decimals", 18))}
+            return None
+        from ..chains import registries
+        toks = (registries.registry_for(c) or {}).get("tokens") or {}
+        for sym in ("USDC", "USDC.e", "USDT", "WETH"):
+            t = toks.get(sym)
+            if t and t.get("address"):
+                return {"symbol": sym, "address": t["address"],
+                        "decimals": int(t.get("decimals", 18))}
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+async def _default_liquidity_probe(chain: str, eth_call: Any) -> Dict[str, Any]:
+    """GENUINE, chain-scoped live liquidity probe (fail-closed). For every
+    runtime flash head on ``chain``, read the REAL on-chain flash-loanable
+    balance (token units) of a verified borrow token via the chain-bound
+    ``eth_call``. NEVER fabricates: a missing token / failed read is simply
+    absent from the result. No USD price is used or invented here."""
+    from ..scanners.flash_loan_arbitrage.provider_liquidity import (
+        runtime_flash_liquidity_tokens)
+    heads = _runtime_flash_heads_for_chain(chain)
+    token = _borrow_token_for_chain(chain)
+    out: Dict[str, Any] = {}
+    if not heads or token is None or eth_call is None:
+        return out
+    for provider in heads:
+        tokens = await runtime_flash_liquidity_tokens(
+            eth_call, provider=provider, chain=chain,
+            token_address=token["address"], token_decimals=token["decimals"])
+        if tokens is not None:
+            out[provider] = {
+                "liquidity_tokens": tokens,
+                "borrow_token": token["symbol"],
+                "token_address": token["address"],
+            }
+    return out
+
+
 async def evaluate_chain_execution_readiness(
     chain: str,
     *,
@@ -117,16 +171,22 @@ async def evaluate_chain_execution_readiness(
     receiver_capability_fn: Optional[Callable[[str], Any]] = None,
     executor_address_fn: Optional[Callable[[str], Optional[str]]] = None,
     price_feed_factory: Optional[Callable[[str], Any]] = None,
+    liquidity_probe_fn: Optional[Callable[[str, Any], Awaitable[Dict[str, Any]]]] = None,
 ) -> Dict[str, Any]:
-    """Walk the chain-scoped execution ladder. Pure/offline by default (no live
-    round-trips unless a real ``chain_id_reader`` is supplied); every live
-    dimension stays UNKNOWN (fail-closed) until proven on the VPS."""
+    """Walk the chain-scoped execution ladder. Live chain-verification and
+    liquidity reads run ONLY when an operator RPC is configured for the chain
+    (else fail-closed); every other live dimension (quote/economics/sim) stays
+    fail-closed until proven on the VPS. NEVER Base-first, no Base fallback."""
     c = (chain or "").lower()
 
     # Resolve default seams lazily (avoid import cycles / import-time cost).
     if eth_call_factory is None:
         from ..searcher.runtime import make_eth_call_for_chain_from_env
         eth_call_factory = make_eth_call_for_chain_from_env
+    if chain_id_reader is None:
+        # LIVE by default: a chain-scoped eth_chainId read (fail-closed None
+        # without an operator RPC). Never falls back to Base.
+        chain_id_reader = make_registry_chain_id_reader()
     if pool_graph_fn is None:
         pool_graph_fn = _default_pool_graph
     if gas_model_fn is None:
@@ -141,6 +201,8 @@ async def evaluate_chain_execution_readiness(
         from ..scanners.flash_loan_arbitrage.live_readiness_probes import (
             resolve_executor_address)
         executor_address_fn = resolve_executor_address
+    if liquidity_probe_fn is None:
+        liquidity_probe_fn = _default_liquidity_probe
 
     stages: Dict[str, Dict[str, Any]] = {}
 
@@ -211,27 +273,37 @@ async def evaluate_chain_execution_readiness(
                 executor_supported_venues=supported_venues)
 
     # 4) LIQUIDITY_PROVIDER — flash heads with a genuine runtime probe on this
-    #    chain. Actual liquidity is UNKNOWN until a live read (needs RPC + a
-    #    chain-scoped price feed); we NEVER fabricate it.
+    #    chain. With an operator RPC we perform a REAL on-chain read of the
+    #    provider's flash-loanable balance (token units — RUNTIME-PROVEN, no
+    #    USD price fabricated). Without RPC / on read failure → fail closed.
     heads = _runtime_flash_heads_for_chain(c)
     if not heads:
         stages["LIQUIDITY_PROVIDER"] = _stage(
             BLOCKED, "no_runtime_flash_provider_on_chain")
+    elif eth_call is None:
+        stages["LIQUIDITY_PROVIDER"] = _stage(
+            UNKNOWN, "liquidity_unverified_no_operator_rpc",
+            runtime_flash_heads=heads)
     else:
-        chain_price_feed = None
-        if price_feed_factory is not None:
-            try:
-                chain_price_feed = price_feed_factory(c)
-            except Exception:  # noqa: BLE001
-                chain_price_feed = None
-        if eth_call is None or chain_price_feed is None:
+        try:
+            probed = await liquidity_probe_fn(c, eth_call) or {}
+        except Exception as exc:  # noqa: BLE001 — never fabricate liquidity
+            probed = {}
             stages["LIQUIDITY_PROVIDER"] = _stage(
-                UNKNOWN, "liquidity_unverified_needs_rpc_and_chain_price_feed",
+                UNKNOWN, f"liquidity_probe_error:{type(exc).__name__}",
                 runtime_flash_heads=heads)
-        else:
-            stages["LIQUIDITY_PROVIDER"] = _stage(
-                UNKNOWN, "liquidity_probe_wired_pending_live_read",
-                runtime_flash_heads=heads)
+        if "LIQUIDITY_PROVIDER" not in stages:
+            proven = {p: v for p, v in probed.items()
+                      if isinstance(v, dict) and v.get("liquidity_tokens") is not None}
+            if proven:
+                stages["LIQUIDITY_PROVIDER"] = _stage(
+                    PASS, "runtime_liquidity_proven_onchain",
+                    runtime_flash_heads=heads, proven_providers=sorted(proven),
+                    liquidity=proven)
+            else:
+                stages["LIQUIDITY_PROVIDER"] = _stage(
+                    UNKNOWN, "liquidity_read_returned_no_provider_balance",
+                    runtime_flash_heads=heads)
 
     # 5) QUOTE — a live per-chain quote proof is required; not performed here.
     stages["QUOTE"] = _stage(

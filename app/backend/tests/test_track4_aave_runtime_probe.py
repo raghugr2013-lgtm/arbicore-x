@@ -220,3 +220,55 @@ async def test_balancer_v2_reads_vault_holder():
     assert avail is True
     assert any(c[1].startswith(SEL_BALANCE_OF)
                and BALANCER_V2_VAULT.lower()[2:] in c[1] for c in fake.calls)
+
+
+# ---------------------------------------------------------------------------
+# Token-unit liquidity read (RUNTIME-PROVEN reserve; no USD price needed)
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_flash_liquidity_tokens_aave_reads_real_balance():
+    from arbicore.scanners.flash_loan_arbitrage.provider_liquidity import (
+        runtime_flash_liquidity_tokens)
+    fake = _FakeEthCall(
+        reserve_atoken=ATOKEN,
+        balance_by_holder={ATOKEN.lower(): _balance_hex(12_345, 6)})
+    tokens = await runtime_flash_liquidity_tokens(
+        fake, provider="aave_v3", chain="arbitrum",
+        token_address=TOKEN, token_decimals=6)
+    assert tokens == 12_345.0
+    assert AAVE_V3_POOL["arbitrum"].lower() in {c[0] for c in fake.calls}
+
+
+@pytest.mark.asyncio
+async def test_flash_liquidity_tokens_balancer_reads_vault():
+    from arbicore.scanners.flash_loan_arbitrage.provider_liquidity import (
+        runtime_flash_liquidity_tokens)
+    fake = _FakeEthCall(
+        balance_by_holder={BALANCER_V2_VAULT.lower(): _balance_hex(777, 6)})
+    tokens = await runtime_flash_liquidity_tokens(
+        fake, provider="balancer_v2", chain="arbitrum",
+        token_address=TOKEN, token_decimals=6)
+    assert tokens == 777.0
+
+
+@pytest.mark.asyncio
+async def test_flash_liquidity_tokens_fail_closed_on_read_error():
+    from arbicore.scanners.flash_loan_arbitrage.provider_liquidity import (
+        runtime_flash_liquidity_tokens)
+    fake = _FakeEthCall(reserve_atoken=ATOKEN, raise_on={SEL_BALANCE_OF})
+    tokens = await runtime_flash_liquidity_tokens(
+        fake, provider="aave_v3", chain="arbitrum",
+        token_address=TOKEN, token_decimals=6)
+    assert tokens is None
+
+
+@pytest.mark.asyncio
+async def test_flash_liquidity_tokens_unsupported_provider_is_none():
+    from arbicore.scanners.flash_loan_arbitrage.provider_liquidity import (
+        runtime_flash_liquidity_tokens)
+    fake = _FakeEthCall()
+    tokens = await runtime_flash_liquidity_tokens(
+        fake, provider="morpho_blue", chain="arbitrum",
+        token_address=TOKEN, token_decimals=6)
+    assert tokens is None
+    assert fake.calls == []
