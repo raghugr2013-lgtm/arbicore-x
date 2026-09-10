@@ -19,8 +19,9 @@
 # Operator secrets (six RPC URLs, executor address, etc.) come ONLY from the
 # git-ignored env_file `deployment/cert/cert.env` on the VPS — never committed.
 #
-# Run:
-#   docker compose -p arbicore-cert \
+# Run (GITSHA MUST be the exact 40-hex commit SHA — strict provenance; the build
+# fails loudly rather than ever embedding a placeholder "unknown" identity):
+#   GITSHA=$(git rev-parse HEAD) docker compose -p arbicore-cert \
 #     -f deployment/compose/docker-compose.certification.yml \
 #     --env-file deployment/cert/cert.env up --build --abort-on-container-exit
 # Report lands in ./vps_cert_out on the host.
@@ -58,8 +59,17 @@ services:
       context: ../..
       dockerfile: deployment/docker/backend/Dockerfile
       args:
-        GITSHA: ${GITSHA:-unknown}
+        # Strict provenance handoff. The EXACT 40-hex commit SHA must be supplied;
+        # `:?` makes compose FAIL LOUDLY when GITSHA is unset/empty instead of
+        # silently substituting the "unknown" placeholder (the prior blocker).
+        # This threads: compose GITSHA -> Dockerfile ARG GITSHA ->
+        # ENV ARBICORE_GIT_SHA -> scripts.gen_build_info. With GIT_STRICT=1 below,
+        # any non-40-hex id fails the image build (no placeholder identity).
+        GITSHA: "${GITSHA:?must be the exact 40-hex commit SHA (git rev-parse HEAD) for strict certification provenance}"
         SCHEMA: v1
+        # Certification/isolated builds run gen_build_info in STRICT mode so a
+        # missing/malformed source SHA fails the build (production default is 0).
+        GIT_STRICT: "1"
     image: arbicore-cert-backend:${GITSHA:-local}
     container_name: arbicore-cert-runner
     restart: "no"
