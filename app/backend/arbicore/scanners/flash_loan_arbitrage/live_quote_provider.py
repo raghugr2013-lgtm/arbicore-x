@@ -25,6 +25,7 @@ Honesty guarantees (unchanged):
 """
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
@@ -235,6 +236,11 @@ def make_live_quote_provider(
         if borrow_sizer is not None:
             try:
                 sized = borrow_sizer(chain, borrow_token, float(borrow_amount_usd))
+                # H05: the sizer may be async (it prices the borrow token via a
+                # real on-chain feed). Await it so the EXACT size is resolved
+                # before quoting. A sync sizer still works unchanged.
+                if inspect.isawaitable(sized):
+                    sized = await sized
             except Exception:  # noqa: BLE001 — sizer never fabricates
                 sized = None
             if sized is not None and int(sized) > 0:

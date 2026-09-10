@@ -262,6 +262,16 @@ class OnChainUsdPriceFeed:
                 return self._record(pp)
         return self._record(pp)
 
+    # ---- verified token decimals (H05 exact-size sizing) --------------------
+    def decimals_for(self, token: str) -> Optional[int]:
+        """Registry-verified decimals for ``token`` (uppercased symbol), or None.
+
+        The decimals originate from the canonical pool registry (token0/1
+        decimals), the SAME trustworthy source used for pricing — never guessed.
+        Absent ⇒ None so the H05 sizer fails closed rather than assume 18."""
+        d = self._dec.get(str(token).upper())
+        return int(d) if d is not None else None
+
     # ---- provenance for the evidence bundle ----------------------------------
     def provenance_for(self, tokens: List[str]) -> List[Dict[str, Any]]:
         out: List[Dict[str, Any]] = []
@@ -350,4 +360,57 @@ def build_base_price_feed_from_env(quoter_registry=None):
 
 
 __all__ = ["OnChainUsdPriceFeed", "PricePoint",
-           "build_base_price_feed_from_env", "m2_5_enabled"]
+           "build_base_price_feed_from_env", "build_borrow_sizer",
+           "m2_5_enabled"]
+
+
+# ── H05 exact-size borrow sizer ─────────────────────────────────────────────
+def build_borrow_sizer(price_feed, *, chain_scope: str = CHAIN):
+    """H05: build the exact USD-notional → borrow-token-wei sizer, or None.
+
+    The returned async sizer converts a requested USD borrow notional into the
+    EXACT integer borrow-token wei amount to quote, using ``price_feed``:
+      USD → real on-chain ``price_source`` (never a fallback/fabricated price)
+          → registry-verified ``decimals_for``
+          → exact integer wei ``int(usd / price_usd * 10**decimals)``
+
+    FAIL-CLOSED (returns ``None``, leaving the route PROBE-sized so the verifier
+    denies with ``DENIED_SIZE_NOT_QUOTED``) on ANY of: no price_feed; a chain
+    other than ``chain_scope`` (this Base feed must NEVER size a foreign chain —
+    H06/H07 isolation); empty/unknown borrow token; unknown decimals;
+    non-positive notional; a missing/zero/negative on-chain price; or any error.
+    It never extrapolates and never assumes 18 decimals.
+
+    Signature matches ``make_live_quote_provider(borrow_sizer=...)``:
+    ``sizer(chain, borrow_token, borrow_amount_usd) -> Optional[int]`` (async).
+    """
+    if price_feed is None:
+        return None
+    scope = str(chain_scope or "").lower()
+
+    async def _sizer(chain: str, borrow_token: str,
+                     borrow_amount_usd: float) -> Optional[int]:
+        if str(chain or "").lower() != scope:
+            return None                      # chain-scoped: no foreign sizing
+        sym = str(borrow_token or "").upper()
+        if not sym:
+            return None
+        try:
+            usd = float(borrow_amount_usd)
+        except (TypeError, ValueError):
+            return None
+        if usd <= 0.0:
+            return None
+        dec = price_feed.decimals_for(sym)
+        if dec is None:
+            return None                      # unknown decimals ⇒ fail closed
+        try:
+            px = await price_feed.price_source(sym)
+        except Exception:  # noqa: BLE001 — never fabricate on error
+            return None
+        if px is None or float(px) <= 0.0:
+            return None                      # no real price ⇒ fail closed
+        wei = int(usd / float(px) * (10 ** int(dec)))
+        return wei if wei > 0 else None
+
+    return _sizer

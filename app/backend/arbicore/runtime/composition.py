@@ -490,7 +490,7 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
     from ..searcher.runtime import (
         make_base_eth_call_from_env, build_base_tvl_provider,
         make_base_congestion_source_from_env)
-    from ..searcher.price_feed import build_base_price_feed_from_env
+    from ..searcher.price_feed import build_base_price_feed_from_env, build_borrow_sizer
     from ..scanners.flash_loan_arbitrage.live_quote_provider import (
         make_live_quote_provider)
     from ..scanners.flash_loan_arbitrage.economics import (
@@ -506,8 +506,13 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
     if price_feed is None:
         return None, None
     tvl_provider = build_base_tvl_provider(eth_call, price_feed.price_source)
+    # H05: EXACT USD→wei sizer bound to the SAME real price feed (Base-scoped;
+    # fail-closed ⇒ non-Base or unpriceable tokens stay PROBE-sized and the
+    # verifier denies with DENIED_SIZE_NOT_QUOTED). Never extrapolates.
+    borrow_sizer = build_borrow_sizer(price_feed, chain_scope="base")
     quote_provider = make_live_quote_provider(quoter_registry,
-                                              tvl_provider=tvl_provider)
+                                              tvl_provider=tvl_provider,
+                                              borrow_sizer=borrow_sizer)
     econ = FlashLoanEconomicsAssessor(
         roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05))
     mev = MevRiskScorer()
@@ -1311,7 +1316,7 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
         make_base_eth_call_from_env, make_base_price_source_from_env,
         build_base_tvl_provider, make_eth_call_for_chain_from_env,
     )
-    from ..searcher.price_feed import build_base_price_feed_from_env
+    from ..searcher.price_feed import build_base_price_feed_from_env, build_borrow_sizer
     scanner = get_flash_loan_arb_scanner()
     # M2.2 — build the REAL, fail-closed Gate-8 TVL provider from the operator
     # environment (Base RPC eth_call + genuine USD price source). Absent either
@@ -1375,6 +1380,11 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
     scanner.set_quote_provider(
         make_live_quote_provider(
             quoter_registry, tvl_provider=tvl_provider,
+            # H05: exact USD→wei sizer bound to the SAME Base price feed when it
+            # is configured; None otherwise ⇒ routes stay PROBE-sized and the
+            # verifier fails closed (DENIED_SIZE_NOT_QUOTED). Base-scoped, so a
+            # non-Base route is never sized from Base data (H06/H07 isolation).
+            borrow_sizer=build_borrow_sizer(price_feed, chain_scope="base"),
             # Chain/venue-aware seam for NON-Base routes: a real per-chain
             # eth_call ONLY when that chain has an operator-configured RPC,
             # else None → the route stays DISCOVERABLE and fails closed with

@@ -140,21 +140,119 @@ def check_chain_scoped_isolation(chain: str) -> Dict[str, Any]:
 # A3 — H05 exact-size sizer prerequisites
 # ---------------------------------------------------------------------------
 
-def check_h05_sizer() -> Dict[str, Any]:
+def _h05_fact_is_exact(fact: Optional[Dict[str, Any]]) -> bool:
+    """True ONLY for a REAL exact-size quote fact produced by the live provider:
+    size_basis=='exact', exact_size True, a positive bound quote_notional_usd,
+    a positive quoted_amount_in_wei, and a named borrow token. Anything else
+    (probe, missing, malformed) is NOT exact."""
+    if not isinstance(fact, dict):
+        return False
+    try:
+        return (
+            str(fact.get("size_basis") or "").lower() == "exact"
+            and bool(fact.get("exact_size"))
+            and float(fact.get("quote_notional_usd") or 0.0) > 0.0
+            and int(fact.get("quoted_amount_in_wei") or 0) > 0
+            and bool(str(fact.get("borrow_token") or "").strip())
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def classify_h05(exact_quote_fact: Optional[Dict[str, Any]], *,
+                 price_feed_enabled: bool,
+                 borrow_sizer_enabled: bool) -> str:
+    """Pure H05 certification decision. Environment flags can NEVER produce PASS.
+
+    PASS requires a genuine exact-size quote FACT (see ``_h05_fact_is_exact``).
+    With the flags set but no exact fact captured ⇒ BLOCKED (configured, but no
+    live exact-size evidence). Without the flags ⇒ NOT_CONFIGURED (the required
+    fail-closed state: quotes stay PROBE-sized and economics deny)."""
+    if _h05_fact_is_exact(exact_quote_fact):
+        return PASS
+    if price_feed_enabled and borrow_sizer_enabled:
+        return BLOCKED
+    return NOT_CONFIGURED
+
+
+def check_h05_sizer(exact_quote_fact: Optional[Dict[str, Any]] = None
+                    ) -> Dict[str, Any]:
+    """H05 exact-size certification — EVIDENCE-based, never flag-based.
+
+    ``exact_quote_fact`` is the facts dict from a REAL live exact-size quote
+    (captured by the VPS runner via the wired ``borrow_sizer``). Environment
+    flags may only gate whether the runner ATTEMPTS the live quote — they can
+    never by themselves certify H05."""
     enabled = os.environ.get("ARBICORE_PRICE_FEED_ENABLED", "").lower() == "true"
     sizer = os.environ.get("ARBICORE_BORROW_SIZER_ENABLED", "").lower() == "true"
-    if not (enabled and sizer):
-        return _result(
-            "h05:exact_size_sizer", NOT_CONFIGURED,
-            "operator price feed / borrow_sizer not enabled ⇒ quotes remain "
-            "PROBE-sized and economics fail closed (DENIED_SIZE_NOT_QUOTED). "
-            "This is the required fail-closed state without a sizer.",
-            {"price_feed_enabled": enabled, "borrow_sizer_enabled": sizer})
-    return _result(
-        "h05:exact_size_sizer", PASS,
-        "price feed + borrow_sizer enabled — exact-size economics can bind "
-        "quote_notional_usd (verify a live exact-size quote separately)",
-        {"price_feed_enabled": enabled, "borrow_sizer_enabled": sizer})
+    status = classify_h05(exact_quote_fact,
+                          price_feed_enabled=enabled,
+                          borrow_sizer_enabled=sizer)
+    ev: Dict[str, Any] = {"price_feed_enabled": enabled,
+                          "borrow_sizer_enabled": sizer,
+                          "exact_quote_captured": _h05_fact_is_exact(exact_quote_fact)}
+    if isinstance(exact_quote_fact, dict):
+        ev["fact"] = {k: exact_quote_fact.get(k) for k in
+                      ("size_basis", "exact_size", "quote_notional_usd",
+                       "quoted_amount_in_wei", "borrow_token", "chain",
+                       "quote_block")}
+    if status == PASS:
+        detail = ("exact-size quote CERTIFIED: a live quote bound "
+                  "quote_notional_usd to an exact quoted_amount_in_wei "
+                  "(real price + verified decimals) — not extrapolated")
+    elif status == BLOCKED:
+        detail = ("price feed + borrow_sizer enabled but NO live exact-size "
+                  "quote evidence was captured — flags alone are NOT a PASS "
+                  "(fail-closed). Provide a real exact-size quote fact.")
+    else:
+        detail = ("operator price feed / borrow_sizer not enabled ⇒ quotes "
+                  "remain PROBE-sized and economics fail closed "
+                  "(DENIED_SIZE_NOT_QUOTED). This is the required fail-closed "
+                  "state without a sizer.")
+    return _result("h05:exact_size_sizer", status, detail, ev)
+
+
+def extract_exact_quote_fact(obj: Any, _depth: int = 0
+                             ) -> Optional[Dict[str, Any]]:
+    """Recursively find an EXACT-size quote fact inside a persisted evidence
+    bundle (from ``db.evidence_bundles``). Returns the first dict satisfying
+    ``_h05_fact_is_exact`` (real scanner output — never fabricated), else None.
+    Bounded depth; pure/side-effect free (unit-testable without Mongo)."""
+    if _depth > 8 or obj is None:
+        return None
+    if isinstance(obj, dict):
+        if _h05_fact_is_exact(obj):
+            return obj
+        for v in obj.values():
+            found = extract_exact_quote_fact(v, _depth + 1)
+            if found is not None:
+                return found
+    elif isinstance(obj, (list, tuple)):
+        for v in obj:
+            found = extract_exact_quote_fact(v, _depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+async def latest_exact_quote_fact(repo: Any = None,
+                                  limit: int = 50) -> Optional[Dict[str, Any]]:
+    """Read the most recent REAL exact-size quote fact from the scanner's
+    persisted evidence bundles (Mongo). Fail-closed: returns None on any error,
+    no Mongo, or when no exact-size candidate has been recorded — so H05 can
+    never PASS without genuine live exact-size evidence."""
+    try:
+        if repo is None:
+            from ..runtime.composition import get_evidence_bundles_repo
+            repo = get_evidence_bundles_repo()
+        bundles = await repo.list_recent(None, limit)
+        for bundle in bundles or []:
+            fact = extract_exact_quote_fact(bundle)
+            if fact is not None:
+                return fact
+    except Exception:  # noqa: BLE001 — evidence read never fabricates/raises
+        return None
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +361,7 @@ def check_h09_simulation_prereqs() -> Dict[str, Any]:
 __all__ = [
     "SIX_CHAINS", "PASS", "FAIL", "BLOCKED", "UNKNOWN", "NOT_CONFIGURED",
     "check_rpc_and_chainid", "check_chain_scoped_isolation", "check_h05_sizer",
+    "classify_h05", "extract_exact_quote_fact", "latest_exact_quote_fact",
     "check_h07_composition", "check_h08_receiver",
     "check_receiver_bytecode_immutables", "check_h09_simulation_prereqs",
 ]

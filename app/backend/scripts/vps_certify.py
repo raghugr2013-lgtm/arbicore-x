@@ -55,8 +55,9 @@ async def run() -> dict:
     rpc = [await H.check_rpc_and_chainid(c) for c in H.SIX_CHAINS]
     # isolation (TVL/pricing chain scoping)
     iso = [H.check_chain_scoped_isolation(c) for c in H.SIX_CHAINS]
-    # 3: H05 sizer
-    h05 = H.check_h05_sizer()
+    # 3: H05 sizer — EVIDENCE-based (flags alone can never PASS): certifies only
+    # against a REAL exact-size quote fact captured from scan evidence.
+    h05 = H.check_h05_sizer(exact_quote_fact=await H.latest_exact_quote_fact())
     # 4: H07 composition
     h07 = [H.check_h07_composition(c) for c in H.SIX_CHAINS]
     # 5: H08 receiver capability (Phase-B target: base sepolia 84532)
