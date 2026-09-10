@@ -96,15 +96,20 @@ CostEstimator = Callable[..., Awaitable[Optional[Dict[str, float]]]]
 
 
 def base_rpc_explicitly_configured() -> bool:
-    """True iff the operator EXPLICITLY configured a Base RPC endpoint via
-    ``PROVIDER_RPC_URLS_BASE`` or ``PROVIDER_RPC_URL_BASE``.
+    """True iff the operator EXPLICITLY configured a Base RPC endpoint the
+    provider registry consumes (``PROVIDER_RPC_URLS_BASE`` /
+    ``PROVIDER_RPC_URL_BASE``). The canonical cert.env input
+    ``ARBICORE_RPC_URL_BASE`` (and the base-only ``ARBICORE_RPC_URL`` alias) is
+    deterministically SYNCED into ``PROVIDER_RPC_URL_BASE`` first (secret-safe),
+    so one operator Base endpoint satisfies this gate too.
 
     A hardcoded public default (``DEFAULT_RPC_URLS['base']``) does NOT count:
     the safety-critical all-in-cost gate must fail closed rather than price a
     controlled-live trade against an implicit public endpoint the operator
-    never sanctioned. Mirrors exactly the env contract the provider bootstrap
-    (`providers/bootstrap.py::_rpc_urls`) treats as an operator override.
+    never sanctioned.
     """
+    from ..config.persistent import sync_provider_registry_rpc_from_env
+    sync_provider_registry_rpc_from_env()
     return bool(
         (os.environ.get("PROVIDER_RPC_URLS_BASE") or "").strip()
         or (os.environ.get("PROVIDER_RPC_URL_BASE") or "").strip()

@@ -13,12 +13,16 @@ SAFETY PRECONDITIONS (verify before starting):
 
 ## 0. Inputs the operator must supply per chain (fail-closed without them)
 Per chain C in {ETHEREUM, ARBITRUM, OPTIMISM, POLYGON, BNB, BASE}:
-- Discovery/quote RPC:   PROVIDER_RPC_URLS_<C>  (registry-backing; also satisfies
-  the economic all-in-cost gate) — REQUIRED for QUOTE + ECONOMICS.
+- Operator RPC:   ARBICORE_RPC_URL_<C>  (the SINGLE canonical cert.env input).
+  It is auto-synced into PROVIDER_RPC_URL_<C> at init, so it satisfies BOTH the
+  chain-scoped RPC/quote seam AND the economic all-in-cost gate — no separate
+  PROVIDER_RPC_URL[S]_<C> is needed (if you set one explicitly, it WINS).
+  Strict per-chain: non-Base chains NEVER inherit Base's endpoint.
 - (Base only) ARBICORE_EXECUTOR_ADDRESS_BASE for the executor address; other
   chains resolve the executor ONLY from the read-only deploy registry.
 - Native/ETH USD price source used by the chain gas model (per existing env).
-No RPC ⇒ that chain stays BLOCKED at RPC (never a Base fallback).
+No RPC ⇒ that chain stays BLOCKED at RPC (never a Base fallback), and its
+economic gate stays fail-closed.
 
 ## 1. Per-chain ladder verification (read-only)
 Run the reusable evaluator per chain (do NOT special-case Arbitrum/Base):

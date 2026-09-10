@@ -55,11 +55,15 @@ def rpc_explicitly_configured(chain: str) -> bool:
 
 
 def provider_registry_rpc_configured(chain: str) -> bool:
-    """ECONOMIC gate: only the endpoints the provider registry actually consumes
+    """ECONOMIC gate: the endpoints the provider registry actually consumes
     (``PROVIDER_RPC_URLS_<CHAIN>`` / ``PROVIDER_RPC_URL_<CHAIN>``) back the
-    all-in-cost estimator. ``ARBICORE_RPC_URL_*`` is NOT sufficient here (it is
-    not synced into the registry), matching
-    ``base_all_in_cost.base_rpc_explicitly_configured`` exactly for Base."""
+    all-in-cost estimator. The canonical cert.env input
+    ``ARBICORE_RPC_URL_<CHAIN>`` is deterministically SYNCED into
+    ``PROVIDER_RPC_URL_<CHAIN>`` first (secret-safe, per-chain, no Base leakage),
+    so ONE operator endpoint per chain satisfies this gate too. Fail-closed when
+    no operator input exists; matches ``base_all_in_cost`` for Base."""
+    from ..config.persistent import sync_provider_registry_rpc_from_env
+    sync_provider_registry_rpc_from_env()
     c = (chain or "").upper()
     return bool((os.environ.get(f"PROVIDER_RPC_URLS_{c}") or "").strip()
                 or (os.environ.get(f"PROVIDER_RPC_URL_{c}") or "").strip())

@@ -56,10 +56,16 @@ def _stage(status: str, reason: str, **evidence: Any) -> Dict[str, Any]:
 
 
 def _economic_rpc_configured(chain: str) -> bool:
-    """ECONOMIC gate: only the endpoints the provider registry actually consumes
+    """ECONOMIC gate: the endpoints the provider registry consumes
     (``PROVIDER_RPC_URLS_<CHAIN>`` / ``PROVIDER_RPC_URL_<CHAIN>``) back the
-    all-in-cost estimator. Mirrors ``runtime.multichain_readiness`` without
-    importing that (Mongo-coupled) package."""
+    all-in-cost estimator. The canonical cert.env ``ARBICORE_RPC_URL_<CHAIN>``
+    is deterministically SYNCED into ``PROVIDER_RPC_URL_<CHAIN>`` first
+    (secret-safe, per-chain, no Base leakage), so one operator endpoint per
+    chain satisfies this gate. Fail-closed. Mirrors
+    ``runtime.multichain_readiness`` (imported here from the Mongo-free
+    ``config.persistent`` to keep this evaluator offline-safe)."""
+    from ..config.persistent import sync_provider_registry_rpc_from_env
+    sync_provider_registry_rpc_from_env()
     c = (chain or "").upper()
     return bool((os.environ.get(f"PROVIDER_RPC_URLS_{c}") or "").strip()
                 or (os.environ.get(f"PROVIDER_RPC_URL_{c}") or "").strip())

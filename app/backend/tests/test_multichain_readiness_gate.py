@@ -7,7 +7,30 @@ P0-3 and the gas-model seam.
 """
 from __future__ import annotations
 
+import os
+
+import pytest
+
 from arbicore.runtime import multichain_readiness as mr
+
+# Env hygiene: the cert→provider RPC sync mutates os.environ directly (so the
+# provider registry actually consumes the endpoint). Clean every RPC-related key
+# + the sync sentinel before AND after each test so a synced value cannot leak.
+_SYNC_KEYS = ["ARBICORE_RPC_URL", "ARBICORE_PROVIDER_RPC_SYNCED"]
+for _c in ("BASE", "ETHEREUM", "ARBITRUM", "OPTIMISM", "POLYGON", "BNB"):
+    _SYNC_KEYS += [f"ARBICORE_RPC_URL_{_c}", f"PROVIDER_RPC_URL_{_c}",
+                   f"PROVIDER_RPC_URLS_{_c}", f"{_c}_RPC_URL"]
+
+
+@pytest.fixture(autouse=True)
+def _clean_rpc_env():
+    saved = {k: os.environ.pop(k, None) for k in _SYNC_KEYS}
+    yield
+    for k in _SYNC_KEYS:
+        os.environ.pop(k, None)
+    for k, v in saved.items():
+        if v is not None:
+            os.environ[k] = v
 
 _RPC_ENV_KEYS_BASE = ("PROVIDER_RPC_URLS_BASE", "PROVIDER_RPC_URL_BASE",
                       "ARBICORE_RPC_URL_BASE")
@@ -60,22 +83,35 @@ def test_unconfigured_rpc_blocks_with_exact_reason(monkeypatch):
     assert base["economic_eligibility"]["status"] == "blocked"
 
 
-def test_arbicore_rpc_url_base_alone_does_not_open_economic_gate(monkeypatch):
-    # ARBICORE_RPC_URL_BASE is a discovery-level operator key but is NOT synced
-    # into the provider registry the all-in-cost gate uses. The report must be
-    # HONEST: rpc_configured True, but economic gate blocked with the exact
-    # reason — consistent with base_all_in_cost.base_rpc_explicitly_configured.
+def test_arbicore_rpc_url_base_alone_opens_economic_gate_via_sync(monkeypatch):
+    # CORRECTED CONTRACT: ARBICORE_RPC_URL_<CHAIN> is the single canonical cert
+    # input; it is deterministically SYNCED into PROVIDER_RPC_URL_<CHAIN>, so one
+    # operator endpoint satisfies BOTH the discovery seam AND the economic gate.
     for k in ("PROVIDER_RPC_URLS_BASE", "PROVIDER_RPC_URL_BASE"):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("ARBICORE_RPC_URL_BASE", "https://base.example.operator")
     from arbicore.searcher.base_all_in_cost import base_rpc_explicitly_configured
-    assert base_rpc_explicitly_configured() is False       # economic gate closed
+    assert base_rpc_explicitly_configured() is True        # economic gate OPEN via sync
     base = mr.build_multichain_readiness_report()["networks"]["base"]
     assert base["rpc_configured"] is True                  # discovery-level yes
-    assert base["economic_rpc_configured"] is False
-    assert base["economic_eligibility"]["status"] == "blocked"
-    assert base["blocker"] == "economic_gate_rpc_not_configured"
-    assert base["limited_live_eligible"] is False
+    assert base["economic_rpc_configured"] is True         # synced ⇒ economic yes
+    assert base["economic_eligibility"]["status"] == "eligible_pending_runtime"
+    assert base["blocker"] == "requires_vps_runtime_proof_and_admin_approval"
+    assert base["limited_live_eligible"] is False          # still never auto-eligible
+
+
+def test_arbicore_rpc_url_base_does_not_leak_to_non_base(monkeypatch):
+    # The base-only endpoint must NOT open the economic gate for any other chain.
+    for c in ("BASE", "ETHEREUM", "ARBITRUM", "OPTIMISM", "POLYGON", "BNB"):
+        for k in (f"PROVIDER_RPC_URLS_{c}", f"PROVIDER_RPC_URL_{c}",
+                  f"ARBICORE_RPC_URL_{c}", f"{c}_RPC_URL"):
+            monkeypatch.delenv(k, raising=False)
+    monkeypatch.delenv("ARBICORE_RPC_URL", raising=False)
+    monkeypatch.setenv("ARBICORE_RPC_URL_BASE", "https://base.example.operator")
+    rep = mr.build_multichain_readiness_report()["networks"]
+    assert rep["base"]["economic_rpc_configured"] is True
+    for chain in ("ethereum", "arbitrum", "optimism", "polygon", "bnb"):
+        assert rep[chain]["economic_rpc_configured"] is False   # no Base leakage
 
 
 def test_configured_rpc_advances_blocker_to_runtime_proof(monkeypatch):

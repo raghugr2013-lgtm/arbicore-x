@@ -814,3 +814,47 @@ SAFETY: signing/broadcast/auto-exec OFF, Limited Live RED, Full Live OFF, no
 deploy, production/main/protected files untouched. Local commits only.
 NEXT: VPS certification per deployment/cert/VPS_CERTIFICATION_PROCEDURE.md. No more
 open-ended local development.
+
+---
+
+## BUGFIX: certification RPC env contract — one operator endpoint per chain — 2026-06
+
+INCONSISTENCY (reported + reproduced): cert.env.example / runbook told operators to
+set ARBICORE_RPC_URL_<CHAIN>, and config/persistent + vps_harness resolve those for
+chain-scoped RPC — BUT runtime/multichain_readiness.provider_registry_rpc_configured()
+and searcher/base_all_in_cost.base_rpc_explicitly_configured() required
+PROVIDER_RPC_URLS_<CHAIN>/PROVIDER_RPC_URL_<CHAIN> and explicitly rejected
+ARBICORE_RPC_URL_*, so the economic all-in-cost gate stayed BLOCKED even with a
+configured cert RPC.
+
+FIX (sync approach, per operator preference):
+- config/persistent.sync_provider_registry_rpc_from_env() (NEW): idempotent,
+  secret-safe (returns per-chain STATUS only, never URLs). For each of the six
+  chains, if no explicit PROVIDER_RPC_URL[S]_<C> is set, mirror the canonical
+  ARBICORE_RPC_URL_<C> (base-only ARBICORE_RPC_URL alias for BASE ONLY; first
+  endpoint of a comma-list) into PROVIDER_RPC_URL_<C>. Explicit PROVIDER value
+  ALWAYS wins. Strict per-chain isolation via the same precedence as
+  resolve_rpc_url_from_env → non-Base NEVER inherits Base. Fail-closed
+  (not_configured) when no operator input. No public/default endpoint injected.
+- Wired the sync (idempotent) into: multichain_readiness.provider_registry_rpc_configured,
+  base_all_in_cost.base_rpc_explicitly_configured (+ make_..._estimator_from_env
+  reads the synced key), control.chain_execution_readiness._economic_rpc_configured,
+  and certification.vps_harness.check_rpc_and_chainid (cert init point).
+- Docs updated to match code: cert.env.example, VPS_CERTIFICATION_RUNBOOK.md,
+  VPS_CERTIFICATION_PROCEDURE.md; created canonical deployment/cert/.env.example
+  (both key families; ARBICORE canonical, PROVIDER optional override) — also
+  fixed a pre-existing missing-file failure in test_six_chain_rpc_seam.
+
+TESTS: test_cert_rpc_env_contract.py (NEW, 10): ARBICORE per chain satisfies both
+seams; non-Base never inherits Base; base-only alias applies to Base only; missing
+RPC stays NOT_CONFIGURED (fail-closed); explicit PROVIDER_RPC_URL[S] still wins;
+comma-list → first endpoint; no default/public endpoint as evidence; idempotent +
+secret-safe; base_all_in_cost gate satisfied by cert alias. Updated
+test_multichain_readiness_gate old-contract test → corrected contract + added a
+no-Base-leakage economic test. All economic/rpc/readiness/harness suites green in
+isolation. testing_agent N/A (headless sub-repo; verified via pytest).
+PRE-EXISTING (out of scope, unchanged): 3 test_m3_all_in_wiring_probe_iter6 gas
+ceiling + 1 test_vps_harness::test_h05_pass_when_enabled (fail at baseline).
+
+SAFETY: no signing/broadcast/auto-exec/Limited Live/deploy; production/main/protected
+files untouched. Local commit only.

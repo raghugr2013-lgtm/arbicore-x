@@ -25,8 +25,13 @@ git rev-parse HEAD                          # record this commit in the report
 ```bash
 cp deployment/cert/cert.env.example deployment/cert/cert.env
 # edit deployment/cert/cert.env and fill the six ARBICORE_RPC_URL_<CHAIN> values
-# (+ ARBICORE_EXECUTOR_ADDRESS_BASE). Leave price-feed/sizer/sim flags false unless
-# a real operator price feed / exact simulator is wired. NEVER commit this file.
+# (+ ARBICORE_EXECUTOR_ADDRESS_BASE). Each ARBICORE_RPC_URL_<CHAIN> is the single
+# canonical input per chain: it is auto-synced into PROVIDER_RPC_URL_<CHAIN> at
+# init so it satisfies BOTH the chain-scoped RPC/quote seam AND the economic
+# all-in-cost gate (no separate PROVIDER_RPC_URL[S]_<CHAIN> needed; if set, it
+# wins). Strict per-chain — non-Base chains never inherit Base. Blank ⇒ that
+# chain fails closed. Leave price-feed/sizer/sim flags false unless a real
+# operator price feed / exact simulator is wired. NEVER commit this file.
 ```
 
 ## 3. Run the isolated, read-only certification stack

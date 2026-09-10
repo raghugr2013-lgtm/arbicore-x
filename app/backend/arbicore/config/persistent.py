@@ -421,6 +421,59 @@ def resolve_rpc_url_from_env(chain: str = "base") -> Optional[str]:
     return first_rpc_endpoint(raw or None)
 
 
+# Provider-registry economic RPC keys are populated (once, idempotently) from the
+# canonical cert.env inputs so ONE operator endpoint per chain satisfies BOTH the
+# chain-scoped RPC/quote seam AND the provider-registry all-in-cost estimator.
+_PROVIDER_SYNC_SENTINEL = "ARBICORE_PROVIDER_RPC_SYNCED"
+
+
+def sync_provider_registry_rpc_from_env(environ: Optional[Dict[str, str]] = None
+                                        ) -> Dict[str, str]:
+    """Deterministically mirror the canonical per-chain ``ARBICORE_RPC_URL_<CHAIN>``
+    cert.env inputs into the provider-registry's expected
+    ``PROVIDER_RPC_URL_<CHAIN>`` keys, so a single operator endpoint per chain
+    satisfies BOTH the chain-scoped RPC/quote seam AND the economic all-in-cost
+    gate. Idempotent, secret-safe (returns per-chain STATUS only, never URLs).
+
+    Invariants:
+      * Explicit ``PROVIDER_RPC_URL[S]_<CHAIN>`` ALWAYS wins — never overwritten.
+      * Strict per-chain isolation via ``resolve_rpc_url_from_env`` — the
+        base-only ``ARBICORE_RPC_URL`` alias is applied to BASE ONLY; non-Base
+        chains NEVER inherit Base's endpoint.
+      * Fail-closed: a chain with no operator input stays ``not_configured``.
+      * No public/default endpoint is ever injected as operator evidence.
+    """
+    env = environ if environ is not None else os.environ
+    report: Dict[str, str] = {}
+    for chain in SUPPORTED_CHAINS:
+        c = chain.upper()
+        if (env.get(f"PROVIDER_RPC_URLS_{c}") or "").strip() \
+                or (env.get(f"PROVIDER_RPC_URL_{c}") or "").strip():
+            report[chain] = "already_configured"
+            continue
+        endpoint = _resolve_rpc_url_from_mapping(chain, env)
+        if not endpoint:
+            report[chain] = "not_configured"          # fail-closed
+            continue
+        env[f"PROVIDER_RPC_URL_{c}"] = endpoint
+        report[chain] = "synced_from_cert_env"
+    env[_PROVIDER_SYNC_SENTINEL] = "1"
+    return report
+
+
+def _resolve_rpc_url_from_mapping(chain: str, env: Dict[str, str]) -> Optional[str]:
+    """Per-chain, base-only-alias, first-endpoint resolver operating on an
+    explicit mapping (so it is testable without mutating ``os.environ``).
+    Mirrors ``resolve_rpc_url_from_env`` precedence EXACTLY — no Base leakage."""
+    c = chain.upper()
+    raw = env.get(f"ARBICORE_RPC_URL_{c}")
+    if not raw and chain.lower() == "base":
+        raw = env.get("ARBICORE_RPC_URL")             # base-only global alias
+    if not raw:
+        raw = env.get(f"{c}_RPC_URL")
+    return first_rpc_endpoint(raw or None)
+
+
 async def resolve_rpc_url(*, network_repo: NetworkConfigRepo,
                            chain: str = "base") -> Optional[str]:
     """Return the primary RPC URL for ``chain`` (Mongo first, env fallback)."""

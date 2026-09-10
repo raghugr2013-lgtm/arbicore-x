@@ -62,6 +62,12 @@ def _result(name: str, status: str, detail: str,
 # ---------------------------------------------------------------------------
 
 async def check_rpc_and_chainid(chain: str) -> Dict[str, Any]:
+    # Certification init: mirror the canonical ARBICORE_RPC_URL_<CHAIN> cert.env
+    # inputs into the provider-registry keys ONCE (idempotent, secret-safe,
+    # per-chain, no Base leakage) so one operator endpoint per chain satisfies
+    # BOTH the chain-scoped RPC seam AND the economic all-in-cost gate.
+    from ..config.persistent import sync_provider_registry_rpc_from_env
+    sync_provider_registry_rpc_from_env()
     reg = _q.QuoterRegistry()
     cands = reg._rpc_url_candidates(chain)
     expected = _q._expected_chain_id(chain)
