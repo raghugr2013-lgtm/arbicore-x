@@ -650,3 +650,44 @@ NOT runtime-wired (no genuine reader) — fails closed.
 
 BLOCKERS unchanged: GitHub push blocked from shell (local commits only, by user decision);
 non-Base execution needs deployed+verified receiver (separate approval) + operator RPC.
+
+---
+
+## TRACK 2 — reusable chain-scoped execution-readiness evaluator — 2026-06 (branch vps-cert-p1b3-buildinfo-gitsha-fix, HEAD 49bba06)
+
+GOAL: expand genuine NON-Base opportunity surface by generalising the Base-only
+pre-broadcast execution gate into a reusable, chain-scoped ladder for all six
+networks. Selected Arbitrum first (strongest genuine support: 8 tokens, UniV3 +
+SushiV3, 112-route universe, Aave V3 + Balancer V2). Safety intact.
+
+NEW: arbicore/control/chain_execution_readiness.py
+- Ladder: RPC -> CHAIN_VERIFICATION -> MARKET_COMPOSITION -> LIQUIDITY_PROVIDER
+  -> QUOTE -> ECONOMICS -> ROUTE -> SIMULATION -> EXECUTION_CAPABILITY.
+- Status PASS/BLOCKED/UNKNOWN; each stage fails closed on its own missing
+  evidence; execution_capable True only when ALL stages PASS.
+- Chain-scoped seams (never Base fallback): make_eth_call_for_chain_from_env,
+  base=canonical graph / others=multichain_venues, get_chain_gas_model(chain),
+  receiver_capability(chain), resolve_executor_address(chain), runtime flash
+  heads per chain. CHAIN_VERIFICATION reads eth_chainId and BLOCKS on mismatch
+  (guard against RPC bound to wrong/Base chain).
+- signed/broadcast always False; limited_live_eligible always False. Placed under
+  control (not runtime) to dodge Mongo-coupled runtime import; economic-RPC check
+  inlined; all arbicore imports lazy + read-only. Receiver capability generalized
+  per-chain (no fabricated deployment).
+- Helpers: make_registry_chain_id_reader (VPS live chain-id read),
+  build_chain_execution_readiness_report (offline six-chain report).
+
+TESTS: test_track2_chain_execution_readiness.py (13) — chain-scoped selection,
+no Base leakage, wrong-chain RPC BLOCKED, missing rpc/receiver/executor/sim fail
+closed, no signing/broadcast, Limited-Live RED, six-chain offline report all
+fail-closed. All 29 track (2+4+8) tests green together; each touched file green
+in isolation (control_readiness cross-file event-loop pollution is a pre-existing
+xdist/pytest-asyncio quirk, not this batch).
+
+COVERAGE DELTA: execution-readiness now assessable per chain for all six networks
+(previously only Base had any execution path). Arbitrum/BNB/ETH/OP/Polygon reach
+MARKET_COMPOSITION + ROUTE = PASS with genuine UniV3 universes; blocked at RPC/
+economics/execution only by absent operator RPC + no deployed receiver. No cell is
+execution-capable or Limited-Live eligible (fail-closed). Infrastructure + genuine
+chain-scoped wiring; RUNTIME-PROVEN still needs operator RPC; execution needs a
+deployed+declared receiver (separate approval).
