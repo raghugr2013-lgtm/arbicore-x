@@ -339,3 +339,162 @@ async def test_default_liquidity_probe_end_to_end_arbitrum():
     assert set(lp["evidence"]["proven_providers"]) == {"aave_v3", "balancer_v2"}
     assert lp["evidence"]["liquidity"]["aave_v3"]["liquidity_tokens"] == 9_000_000.0
     assert res["stages"]["CHAIN_VERIFICATION"]["status"] == PASS
+
+
+# ---------------------------------------------------------------------------
+# LIVE QUOTE + EXACT ECONOMICS
+# ---------------------------------------------------------------------------
+def _facts(**over):
+    f = {"route_quote_status": "ok", "chain": ARB, "size_basis": "exact",
+         "quote_notional_usd": 25_000.0, "quoted_amount_in_wei": 25_000_000000,
+         "gross_profit_pct": 0.42, "quote_block": 191234567,
+         "verified_at_ts": 1_000.0, "tx_gas_units": 320_000, "borrow_token": "USDC"}
+    f.update(over)
+    return f
+
+
+def _quote_probe(facts):
+    seen = []
+
+    async def _p(chain, eth_call, candidate):
+        seen.append(chain)
+        return None if facts is None else dict(facts)
+    _p.seen = seen
+    return _p
+
+
+def _CAND(**over):
+    c = {"borrow_amount_usd": 25_000.0,
+         "cycle_metadata": {"route_hops": [{}], "cycle_token_path": ["USDC", "WETH", "USDC"]}}
+    c.update(over)
+    return c
+
+
+@pytest.mark.asyncio
+async def test_live_quote_pass_exact_and_block_provenance():
+    probe = _quote_probe(_facts())
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=probe)
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    q = res["stages"]["QUOTE"]
+    assert q["status"] == PASS and q["reason"] == "live_exact_quote_proven"
+    assert q["evidence"]["exact_size"] is True
+    assert q["evidence"]["quote_block"] == 191234567           # block provenance kept
+    assert q["evidence"]["quote_notional_usd"] == 25_000.0     # exact amount bound
+    assert probe.seen == [ARB]                                  # chain-scoped selection
+
+
+@pytest.mark.asyncio
+async def test_quote_refused_when_chain_unverified():
+    probe = _quote_probe(_facts())
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=probe,
+                         chain_id_reader=_reader_returning(BASE_ID))  # mismatch
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["QUOTE"]["status"] == BLOCKED
+    assert res["stages"]["QUOTE"]["reason"] == "quote_refused_chain_unverified"
+    assert probe.seen == []          # never quoted until identity verified
+
+
+@pytest.mark.asyncio
+async def test_quote_probe_size_extrapolation_refused():
+    kw, _ = _base_kwargs(candidate=_CAND(),
+                         quote_probe_fn=_quote_probe(_facts(size_basis="probe",
+                                                            quote_notional_usd=None)))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["QUOTE"]["status"] == BLOCKED
+    assert res["stages"]["QUOTE"]["reason"] == "quote_not_exact_size_probe_refused"
+
+
+@pytest.mark.asyncio
+async def test_quote_notional_mismatch_fails_closed():
+    kw, _ = _base_kwargs(candidate=_CAND(borrow_amount_usd=50_000.0),
+                         quote_probe_fn=_quote_probe(_facts()))  # facts quotes 25k
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["QUOTE"]["status"] == BLOCKED
+    assert res["stages"]["QUOTE"]["reason"] == "quote_notional_mismatch"
+
+
+@pytest.mark.asyncio
+async def test_quote_cross_chain_contamination_fails_closed():
+    kw, _ = _base_kwargs(candidate=_CAND(),
+                         quote_probe_fn=_quote_probe(_facts(chain="base")))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["QUOTE"]["status"] == BLOCKED
+    assert res["stages"]["QUOTE"]["reason"] == "cross_chain_quote_contamination"
+
+
+@pytest.mark.asyncio
+async def test_quote_stale_fails_closed():
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         now_ts=1_100.0, quote_max_age_s=12.0)   # 100s old
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["QUOTE"]["status"] == BLOCKED
+    assert res["stages"]["QUOTE"]["reason"] == "quote_stale"
+
+
+@pytest.mark.asyncio
+async def test_quote_failed_read_fails_closed():
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(None))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["QUOTE"]["status"] == BLOCKED
+    assert res["stages"]["QUOTE"]["reason"] == "quote_unavailable_or_incomplete_route"
+
+
+@pytest.mark.asyncio
+async def test_quote_missing_block_fails_closed():
+    kw, _ = _base_kwargs(candidate=_CAND(),
+                         quote_probe_fn=_quote_probe(_facts(quote_block=None)))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["QUOTE"]["status"] == BLOCKED
+    assert res["stages"]["QUOTE"]["reason"] == "quote_block_missing"
+
+
+def _econ_probe(result):
+    seen = []
+
+    async def _p(chain, facts):
+        seen.append((chain, facts.get("quote_notional_usd")))
+        return result
+    _p.seen = seen
+    return _p
+
+
+@pytest.mark.asyncio
+async def test_economics_pass_uses_exact_quoted_amount():
+    econ = _econ_probe({"net_profit_usd": 41.5, "all_in_cost_usd": 63.5,
+                        "provenance": "chain_gas_model_all_in"})
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         economics_probe_fn=econ)
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    e = res["stages"]["ECONOMICS"]
+    assert e["status"] == PASS and e["reason"] == "economically_evaluated_all_in"
+    assert e["evidence"]["net_profit_usd"] == 41.5
+    assert econ.seen == [(ARB, 25_000.0)]      # economics bound to exact quote
+
+
+@pytest.mark.asyncio
+async def test_economics_fails_closed_without_cost_evidence():
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         economics_probe_fn=_econ_probe(None))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["ECONOMICS"]["status"] == BLOCKED
+    assert res["stages"]["ECONOMICS"]["reason"] == "all_in_cost_evidence_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_economics_fails_closed_without_economic_rpc():
+    econ = _econ_probe({"net_profit_usd": 100.0, "all_in_cost_usd": 5.0})
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         economics_probe_fn=econ, economic_rpc_fn=lambda c: False)
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["ECONOMICS"]["status"] == BLOCKED
+    assert res["stages"]["ECONOMICS"]["reason"] == "economic_gate_rpc_not_configured"
+    assert econ.seen == []      # never computes economics without the economic RPC
+
+
+@pytest.mark.asyncio
+async def test_economics_requires_verified_quote():
+    # Candidate present but quote fails (probe returns None) ⇒ economics blocked.
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(None))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["ECONOMICS"]["status"] == BLOCKED
+    assert res["stages"]["ECONOMICS"]["reason"] == "economics_requires_verified_exact_quote"

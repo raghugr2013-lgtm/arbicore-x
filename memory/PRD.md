@@ -729,3 +729,47 @@ execution-capable, LL off, every chain fail-closed at RPC.
 
 SAFETY: signing/broadcast/auto-exec OFF, Limited Live RED, no deploy, protected
 files untouched. Commits local only (no push).
+
+---
+
+## TRACK: LIVE QUOTE + EXACT ECONOMICS (chain-scoped, six-chain) — 2026-06
+
+Wired stages 5 (QUOTE) and 6 (ECONOMICS) of the chain-scoped evaluator to genuine
+infra, reusable across all six chains (no Base/Arbitrum special-case).
+
+QUOTE (chain_execution_readiness):
+- New `candidate` input + `quote_probe_fn` seam; default `_default_quote_probe`
+  wires the existing `make_live_quote_provider` (real quoter/venue infra), bound
+  to the candidate's EXACT borrow via `borrow_sizer`, chain-scoped eth_call.
+- FAIL-CLOSED gates: no candidate -> UNKNOWN; no RPC -> BLOCKED; chain unverified
+  -> BLOCKED (quote refused before identity proven); route incomplete/unreadable
+  -> BLOCKED; status!=ok -> BLOCKED; facts.chain != requested -> BLOCKED
+  (cross_chain_quote_contamination); size_basis!=exact -> BLOCKED (probe
+  extrapolation refused); quote_notional != candidate USD -> BLOCKED; missing
+  quote_block -> BLOCKED; stale (now_ts-verified_at_ts > max_age) -> BLOCKED.
+  PASS = live_exact_quote_proven (gross_pct, quote_block, notional, wei).
+
+ECONOMICS:
+- New `economics_probe_fn` seam; default `_default_economics_probe` computes
+  all-in cost on the QUOTED notional via the chain's own gas model
+  (`get_chain_gas_model` -> all_in_cost L1/L2+flash+slippage). Requires gas model
+  + registry-backing economic RPC (PROVIDER_RPC_URL[S]_<CHAIN>) + a verified
+  EXACT quote. Returns None (fail-closed) if any genuine cost input (gas model,
+  ETH/native USD price, gas units) is missing — never substitutes defaults.
+  PASS = economically_evaluated_all_in only with genuine net_profit + all_in_cost.
+  No profitability threshold weakened.
+
+TESTS: test_track2 now 32 (+12: exact quote PASS + block provenance, chain-scoped
+selection, chain-unverified refusal, probe-size refusal, notional mismatch,
+cross-chain contamination, stale, failed read, missing block, economics PASS on
+exact amount, economics fail-closed no cost-evidence / no economic-RPC / no
+verified quote). test_track4 16. All touched suites green in isolation.
+
+OFFLINE (no operator RPC in workspace): QUOTE/ECONOMICS fail closed for every
+chain (report: QUOTE UNKNOWN no_candidate, ECON BLOCKED economic_gate_rpc). The
+reusable path is proven by injected deterministic tests; live runtime evidence
+stays UNKNOWN/BLOCKED until operator RPC + PROVIDER_RPC_URL[S]_<CHAIN> supplied.
+
+SAFETY: signing/broadcast/auto-exec OFF, Limited Live RED, no deploy, protected
+files untouched. Local commits only. NOTE: testing_agent N/A (backend sub-repo
+bot; no running FastAPI/endpoints/Mongo in workspace — verification via pytest).

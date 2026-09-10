@@ -157,6 +157,65 @@ async def _default_liquidity_probe(chain: str, eth_call: Any) -> Dict[str, Any]:
     return out
 
 
+async def _default_quote_probe(chain: str, eth_call: Any,
+                               candidate: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """GENUINE, chain-scoped live quote via the existing quoter/venue infra
+    (``make_live_quote_provider``), bound to the candidate's EXACT borrow via the
+    supplied ``borrow_sizer``. Fail-closed (None) on missing RPC, unsupported
+    venue, incomplete route, or any read failure — never fabricates a quote."""
+    try:
+        from ..execution.quoter import QuoterRegistry
+        from ..scanners.flash_loan_arbitrage.live_quote_provider import (
+            make_live_quote_provider)
+        qr = candidate.get("quoter_registry") or QuoterRegistry()
+        provider = make_live_quote_provider(
+            qr,
+            eth_call_for_chain=(lambda c: eth_call if c == chain else None),
+            borrow_sizer=candidate.get("borrow_sizer"))
+        hm = dict(candidate.get("cycle_metadata") or {})
+        hm.setdefault("chain", chain)
+        return await provider(hm, float(candidate.get("borrow_amount_usd") or 0.0))
+    except Exception:  # noqa: BLE001 — never fabricate a quote
+        return None
+
+
+async def _default_economics_probe(chain: str, facts: Dict[str, Any],
+                                   *, eth_usd_source=None) -> Optional[Dict[str, Any]]:
+    """EXACT all-in economics on the QUOTED notional using the chain's own gas
+    model (L1/L2 + flash + slippage). Returns None (fail-closed) whenever any
+    genuine cost input (gas model, ETH/native USD price, gas units) is missing —
+    NEVER substitutes a default/estimated value to manufacture profitability."""
+    from ..chains.gas_model import get_chain_gas_model
+    gm = get_chain_gas_model(chain)
+    if gm is None:
+        return None
+    notional = float(facts.get("quote_notional_usd") or 0.0)
+    if notional <= 0.0 or str(facts.get("size_basis") or "").lower() != "exact":
+        return None                       # exact-size binding required
+    gross_usd = notional * float(facts.get("gross_profit_pct") or 0.0) / 100.0
+    eth_usd = None
+    if eth_usd_source is not None:
+        try:
+            eth_usd = await eth_usd_source(chain)
+        except Exception:  # noqa: BLE001
+            eth_usd = None
+    res = await gm.all_in_cost(
+        gross_profit_usd=gross_usd, borrow_amount_usd=notional,
+        notional_usd=notional, gas_units=facts.get("tx_gas_units"),
+        eth_usd=eth_usd)
+    if not res or res.get("net_profit_all_in_usd") is None \
+            or res.get("all_in_cost_usd") is None:
+        return None
+    return {
+        "net_profit_usd": res["net_profit_all_in_usd"],
+        "all_in_cost_usd": res["all_in_cost_usd"],
+        "gross_profit_usd": gross_usd,
+        "quote_notional_usd": notional,
+        "provenance": "chain_gas_model_all_in",
+        "breakdown": res,
+    }
+
+
 async def evaluate_chain_execution_readiness(
     chain: str,
     *,
@@ -172,6 +231,11 @@ async def evaluate_chain_execution_readiness(
     executor_address_fn: Optional[Callable[[str], Optional[str]]] = None,
     price_feed_factory: Optional[Callable[[str], Any]] = None,
     liquidity_probe_fn: Optional[Callable[[str, Any], Awaitable[Dict[str, Any]]]] = None,
+    candidate: Optional[Dict[str, Any]] = None,
+    quote_probe_fn: Optional[Callable[..., Awaitable[Optional[Dict[str, Any]]]]] = None,
+    economics_probe_fn: Optional[Callable[..., Awaitable[Optional[Dict[str, Any]]]]] = None,
+    now_ts: Optional[float] = None,
+    quote_max_age_s: float = 12.0,
 ) -> Dict[str, Any]:
     """Walk the chain-scoped execution ladder. Live chain-verification and
     liquidity reads run ONLY when an operator RPC is configured for the chain
@@ -203,6 +267,10 @@ async def evaluate_chain_execution_readiness(
         executor_address_fn = resolve_executor_address
     if liquidity_probe_fn is None:
         liquidity_probe_fn = _default_liquidity_probe
+    if quote_probe_fn is None:
+        quote_probe_fn = _default_quote_probe
+    if economics_probe_fn is None:
+        economics_probe_fn = _default_economics_probe
 
     stages: Dict[str, Dict[str, Any]] = {}
 
@@ -305,12 +373,67 @@ async def evaluate_chain_execution_readiness(
                     UNKNOWN, "liquidity_read_returned_no_provider_balance",
                     runtime_flash_heads=heads)
 
-    # 5) QUOTE — a live per-chain quote proof is required; not performed here.
-    stages["QUOTE"] = _stage(
-        UNKNOWN, ("quote_unverified_no_live_quote_proof" if eth_call is not None
-                  else "quote_blocked_no_rpc"))
+    # 5) QUOTE — genuine chain-scoped live quote bound to the EXACT candidate
+    #    amount. Refuses any quote until chain identity is verified, and fails
+    #    closed on probe-size / notional-mismatch / stale / cross-chain / no-RPC.
+    quote_facts: Optional[Dict[str, Any]] = None
+    if candidate is None:
+        stages["QUOTE"] = _stage(UNKNOWN, "no_candidate_supplied")
+    elif eth_call is None:
+        stages["QUOTE"] = _stage(BLOCKED, "quote_blocked_no_rpc")
+    elif stages["CHAIN_VERIFICATION"]["status"] != PASS:
+        stages["QUOTE"] = _stage(
+            BLOCKED, "quote_refused_chain_unverified",
+            chain_verification=stages["CHAIN_VERIFICATION"]["reason"])
+    else:
+        try:
+            facts = await quote_probe_fn(c, eth_call, candidate)
+        except Exception as exc:  # noqa: BLE001 — never fabricate a quote
+            facts = None
+            stages["QUOTE"] = _stage(BLOCKED, f"quote_probe_error:{type(exc).__name__}")
+        if "QUOTE" not in stages:
+            req_usd = candidate.get("borrow_amount_usd")
+            if not facts:
+                stages["QUOTE"] = _stage(BLOCKED, "quote_unavailable_or_incomplete_route")
+            elif facts.get("route_quote_status") != "ok":
+                stages["QUOTE"] = _stage(BLOCKED, "quote_status_not_ok",
+                                         route_quote_status=facts.get("route_quote_status"))
+            elif str(facts.get("chain") or "").lower() != c:
+                stages["QUOTE"] = _stage(
+                    BLOCKED, "cross_chain_quote_contamination",
+                    quote_chain=facts.get("chain"), requested_chain=c)
+            elif str(facts.get("size_basis") or "").lower() != "exact":
+                stages["QUOTE"] = _stage(
+                    BLOCKED, "quote_not_exact_size_probe_refused",
+                    size_basis=facts.get("size_basis"))
+            elif (req_usd is not None
+                  and facts.get("quote_notional_usd") is not None
+                  and abs(float(facts["quote_notional_usd"]) - float(req_usd)) > 1e-9):
+                stages["QUOTE"] = _stage(
+                    BLOCKED, "quote_notional_mismatch",
+                    requested_usd=float(req_usd),
+                    quoted_usd=float(facts["quote_notional_usd"]))
+            elif facts.get("quote_block") is None:
+                stages["QUOTE"] = _stage(BLOCKED, "quote_block_missing")
+            elif (now_ts is not None and facts.get("verified_at_ts") is not None
+                  and (float(now_ts) - float(facts["verified_at_ts"])) > quote_max_age_s):
+                stages["QUOTE"] = _stage(
+                    BLOCKED, "quote_stale",
+                    quote_age_s=round(float(now_ts) - float(facts["verified_at_ts"]), 3),
+                    max_age_s=quote_max_age_s)
+            else:
+                quote_facts = facts
+                stages["QUOTE"] = _stage(
+                    PASS, "live_exact_quote_proven",
+                    gross_profit_pct=facts.get("gross_profit_pct"),
+                    quote_block=facts.get("quote_block"),
+                    quote_notional_usd=facts.get("quote_notional_usd"),
+                    quoted_amount_in_wei=facts.get("quoted_amount_in_wei"),
+                    exact_size=True)
 
-    # 6) ECONOMICS — gas model object + registry-backing RPC for all-in cost.
+    # 6) ECONOMICS — EXACT all-in cost on the QUOTED notional (chain gas model +
+    #    flash/venue fees). Requires a verified exact quote + gas model + the
+    #    registry-backing economic RPC. Fail-closed on any missing cost input.
     try:
         gas_model = gas_model_fn(c)
     except Exception:  # noqa: BLE001
@@ -325,10 +448,25 @@ async def evaluate_chain_execution_readiness(
         stages["ECONOMICS"] = _stage(
             BLOCKED, "economic_gate_rpc_not_configured",
             gas_model=type(gas_model).__name__)
+    elif stages["QUOTE"]["status"] != PASS or quote_facts is None:
+        stages["ECONOMICS"] = _stage(BLOCKED, "economics_requires_verified_exact_quote")
     else:
-        stages["ECONOMICS"] = _stage(
-            UNKNOWN, "economics_ready_pending_live_inputs",
-            gas_model=type(gas_model).__name__)
+        try:
+            ec = await economics_probe_fn(c, quote_facts)
+        except Exception as exc:  # noqa: BLE001 — never manufacture profit
+            ec = None
+            stages["ECONOMICS"] = _stage(BLOCKED, f"economics_probe_error:{type(exc).__name__}")
+        if "ECONOMICS" not in stages:
+            if not ec or ec.get("net_profit_usd") is None \
+                    or ec.get("all_in_cost_usd") is None:
+                stages["ECONOMICS"] = _stage(
+                    BLOCKED, "all_in_cost_evidence_unavailable")
+            else:
+                stages["ECONOMICS"] = _stage(
+                    PASS, "economically_evaluated_all_in",
+                    net_profit_usd=ec["net_profit_usd"],
+                    all_in_cost_usd=ec["all_in_cost_usd"],
+                    provenance=ec.get("provenance"))
 
     # 7) ROUTE — route construction is pure/deterministic once an
     #    executor-supported venue universe exists.
