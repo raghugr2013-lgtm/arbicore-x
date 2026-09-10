@@ -216,6 +216,81 @@ async def _default_economics_probe(chain: str, facts: Dict[str, Any],
     }
 
 
+# The EXACT, gate-preserving evidence a deployed receiver MUST provide (via the
+# read-only executor deployment registry consumed by ``receiver_capability``)
+# for the EXECUTION_CAPABILITY stage to turn green. Recording this evidence is
+# how a genuinely deployed+verified receiver activates the stage WITHOUT
+# bypassing any gate — it is never inferred, and this module never deploys.
+EXECUTION_CAPABILITY_EVIDENCE_CONTRACT: Dict[str, str] = {
+    "deploy_status": "must be 'success' with a valid 0x address (deployed_address)",
+    "supported_providers": "must EXPLICITLY list the runtime flash head(s) "
+                           "(e.g. 'aave_v3'/'balancer_v2') — absent ⇒ all rejected",
+    "receiver_version": "non-empty ⇒ version_verified True (unversioned ⇒ blocked)",
+    "basescan_verified": "bytecode verification flag (surfaced, not gating)",
+    "executor_address": "resolvable per-chain (env for Base, registry otherwise)",
+}
+
+
+def execution_capability_requirements(chain: str) -> Dict[str, Any]:
+    """READ-ONLY: report the exact evidence gap for ``chain``'s receiver so an
+    operator knows precisely what a genuinely deployed+verified receiver must
+    record to turn EXECUTION_CAPABILITY green. Never deploys / never bypasses."""
+    from ..execution.receiver_capability import receiver_capability
+    from ..scanners.flash_loan_arbitrage.live_readiness_probes import (
+        resolve_executor_address)
+    c = (chain or "").lower()
+    cap = receiver_capability(c)
+    heads = _runtime_flash_heads_for_chain(c)
+    executor = resolve_executor_address(c)
+    missing = []
+    if not cap.deployed:
+        missing.append("deployed_receiver(deploy_status=success + valid address)")
+    if not [h for h in heads if cap.supports(h)]:
+        missing.append("supported_providers listing a runtime flash head")
+    if not cap.version_verified:
+        missing.append("receiver_version (currently unversioned)")
+    if not executor:
+        missing.append("resolvable executor_address")
+    return {
+        "chain": c,
+        "contract": EXECUTION_CAPABILITY_EVIDENCE_CONTRACT,
+        "runtime_flash_heads_on_chain": heads,
+        "currently_execution_capable": not missing,
+        "missing_evidence": missing,
+        "signed": False, "broadcast": False, "deploys_anything": False,
+    }
+
+
+async def _default_simulation_probe(
+    chain: str, *, eth_call: Any, candidate: Dict[str, Any],
+    quote_facts: Dict[str, Any], executor_address: Optional[str],
+    receiver_capability: Any) -> Optional[Dict[str, Any]]:
+    """GENUINE candidate-bound atomic simulation (H09) via the read-only
+    ``probe_atomic_simulation`` (AtomicExecutorSimulator eth_call + state
+    override). Consumes the EXACT verified quote's calldata; NEVER signs or
+    broadcasts. Returns None (fail-closed) when RPC/executor/calldata are absent
+    or the executor reverts. No symbolic/paper/heuristic result is produced
+    here — only a real on-chain eth_call simulation can pass."""
+    try:
+        from ..scanners.flash_loan_arbitrage.live_readiness_probes import (
+            probe_atomic_simulation)
+        bundle = candidate.get("evidence_bundle") or {
+            "execution_plan": candidate.get("execution_plan") or {},
+            "executor_entry_calldata": candidate.get("executor_entry_calldata"),
+        }
+        rpc_url = candidate.get("rpc_url")   # AtomicExecutorSimulator needs a URL
+        res = await probe_atomic_simulation(
+            bundle=bundle, executor_address=executor_address, rpc_url=rpc_url,
+            signer_present=bool(candidate.get("signer_present")))
+        if isinstance(res, dict):
+            res.setdefault("simulation_kind", "onchain_eth_call")
+            res.setdefault("quote_block", quote_facts.get("quote_block"))
+            res.setdefault("chain", chain)
+        return res
+    except Exception:  # noqa: BLE001 — never fabricate a simulation pass
+        return None
+
+
 async def evaluate_chain_execution_readiness(
     chain: str,
     *,
@@ -236,6 +311,7 @@ async def evaluate_chain_execution_readiness(
     economics_probe_fn: Optional[Callable[..., Awaitable[Optional[Dict[str, Any]]]]] = None,
     now_ts: Optional[float] = None,
     quote_max_age_s: float = 12.0,
+    simulation_probe_fn: Optional[Callable[..., Awaitable[Optional[Dict[str, Any]]]]] = None,
 ) -> Dict[str, Any]:
     """Walk the chain-scoped execution ladder. Live chain-verification and
     liquidity reads run ONLY when an operator RPC is configured for the chain
@@ -271,6 +347,8 @@ async def evaluate_chain_execution_readiness(
         quote_probe_fn = _default_quote_probe
     if economics_probe_fn is None:
         economics_probe_fn = _default_economics_probe
+    if simulation_probe_fn is None:
+        simulation_probe_fn = _default_simulation_probe
 
     stages: Dict[str, Dict[str, Any]] = {}
 
@@ -479,26 +557,65 @@ async def evaluate_chain_execution_readiness(
         stages["ROUTE"] = _stage(
             BLOCKED, "route_blocked_no_executor_supported_universe")
 
-    # 8) SIMULATION — needs chain-scoped RPC AND a resolvable executor address;
-    #    the exact candidate-bound atomic sim is only provable on the VPS.
-    try:
-        executor_addr = executor_address_fn(c)
-    except Exception:  # noqa: BLE001
-        executor_addr = None
-    if eth_call is None:
-        stages["SIMULATION"] = _stage(BLOCKED, "no_rpc_for_simulation")
-    elif not executor_addr:
-        stages["SIMULATION"] = _stage(BLOCKED, "no_executor_address")
-    else:
-        stages["SIMULATION"] = _stage(
-            UNKNOWN, "simulation_requires_candidate_bound_calldata")
-
-    # 9) EXECUTION_CAPABILITY — deployed receiver that EXPLICITLY supports a
-    #    runtime flash head + a resolvable executor address. Fail-closed.
+    # Receiver capability (chain-scoped, fail-closed) — consumed by both the
+    # candidate-bound simulation (H09) and the execution-capability stage.
     try:
         cap = receiver_capability_fn(c)
     except Exception:  # noqa: BLE001
         cap = None
+    try:
+        executor_addr = executor_address_fn(c)
+    except Exception:  # noqa: BLE001
+        executor_addr = None
+
+    # 8) SIMULATION — H09 chain-generic, candidate-bound atomic simulation. It
+    #    consumes the EXACT verified quote/candidate + chain + block + executor +
+    #    receiver evidence and runs a REAL read-only on-chain eth_call sim. Only
+    #    a genuine on-chain sim can PASS — never symbolic/paper/heuristic.
+    if eth_call is None:
+        stages["SIMULATION"] = _stage(BLOCKED, "no_rpc_for_simulation")
+    elif not executor_addr:
+        stages["SIMULATION"] = _stage(BLOCKED, "no_executor_address")
+    elif stages["QUOTE"]["status"] != PASS or quote_facts is None:
+        stages["SIMULATION"] = _stage(BLOCKED, "simulation_requires_verified_exact_quote")
+    elif candidate is None:
+        stages["SIMULATION"] = _stage(BLOCKED, "simulation_requires_candidate")
+    else:
+        try:
+            sim = await simulation_probe_fn(
+                c, eth_call=eth_call, candidate=candidate, quote_facts=quote_facts,
+                executor_address=executor_addr, receiver_capability=cap)
+        except Exception as exc:  # noqa: BLE001 — never fabricate a sim pass
+            sim = None
+            stages["SIMULATION"] = _stage(BLOCKED, f"simulation_probe_error:{type(exc).__name__}")
+        if "SIMULATION" not in stages:
+            if not sim:
+                stages["SIMULATION"] = _stage(BLOCKED, "simulation_unavailable")
+            elif sim.get("signed") or sim.get("broadcast"):
+                # Safety tripwire — a readiness sim must NEVER sign/broadcast.
+                stages["SIMULATION"] = _stage(BLOCKED, "simulation_side_effect_detected")
+            elif str(sim.get("simulation_kind") or "") != "onchain_eth_call":
+                stages["SIMULATION"] = _stage(
+                    BLOCKED, "simulation_not_onchain_certifiable",
+                    kind=sim.get("simulation_kind"))
+            elif sim.get("passed") is not True:
+                stages["SIMULATION"] = _stage(
+                    BLOCKED, "simulation_reverted_or_incomplete",
+                    sim_status=sim.get("status"), sim_reason=sim.get("reason"))
+            elif sim.get("quote_block") != quote_facts.get("quote_block"):
+                stages["SIMULATION"] = _stage(
+                    BLOCKED, "simulation_not_bound_to_quote_block")
+            else:
+                stages["SIMULATION"] = _stage(
+                    PASS, "candidate_bound_atomic_sim_passed",
+                    quote_block=sim.get("quote_block"),
+                    simulation_kind="onchain_eth_call",
+                    signed=False, broadcast=False)
+
+    # 9) EXECUTION_CAPABILITY — deployed receiver that EXPLICITLY supports a
+    #    runtime flash head + a resolvable executor address. Fail-closed. This
+    #    stage NEVER bypasses a gate: a receiver only turns it green by providing
+    #    the evidence in EXECUTION_CAPABILITY_EVIDENCE_CONTRACT.
     if cap is None or not getattr(cap, "deployed", False):
         stages["EXECUTION_CAPABILITY"] = _stage(BLOCKED, "no_deployed_receiver")
     else:
@@ -508,10 +625,15 @@ async def evaluate_chain_execution_readiness(
                 BLOCKED, "receiver_declares_no_supported_runtime_flash_head")
         elif not executor_addr:
             stages["EXECUTION_CAPABILITY"] = _stage(BLOCKED, "no_executor_address")
+        elif not getattr(cap, "version_verified", False):
+            stages["EXECUTION_CAPABILITY"] = _stage(
+                BLOCKED, "receiver_unversioned_unverified")
         else:
             stages["EXECUTION_CAPABILITY"] = _stage(
                 PASS, "receiver_and_executor_present",
-                executable_flash_heads=exec_heads, executor_address=executor_addr)
+                executable_flash_heads=exec_heads, executor_address=executor_addr,
+                receiver_version=getattr(cap, "receiver_version", None),
+                bytecode_verified=getattr(cap, "bytecode_verified", None))
 
     reached = None
     terminal_blocker = None
@@ -575,7 +697,9 @@ async def build_chain_execution_readiness_report(
 
 __all__ = [
     "PASS", "BLOCKED", "UNKNOWN", "STAGE_ORDER", "EXPECTED_CHAIN_IDS",
+    "EXECUTION_CAPABILITY_EVIDENCE_CONTRACT",
     "evaluate_chain_execution_readiness",
     "build_chain_execution_readiness_report",
+    "execution_capability_requirements",
     "make_registry_chain_id_reader",
 ]

@@ -25,9 +25,13 @@ BASE_ID = 8453
 
 
 class _FakeReceiver:
-    def __init__(self, deployed, supported):
+    def __init__(self, deployed, supported, version_verified=True,
+                 bytecode_verified=True, receiver_version="v1"):
         self.deployed = deployed
         self._supported = set(supported)
+        self.version_verified = version_verified
+        self.bytecode_verified = bytecode_verified
+        self.receiver_version = receiver_version
 
     def supports(self, provider):
         return self.deployed and str(provider).lower() in self._supported
@@ -145,12 +149,12 @@ async def test_missing_executor_fails_closed():
 
 @pytest.mark.asyncio
 async def test_missing_simulation_evidence_is_not_pass():
-    # Even with RPC + executor, the exact candidate-bound sim is unproven here.
+    # No candidate + no verified quote ⇒ simulation cannot certify (fail-closed).
     kw, _ = _base_kwargs()
     res = await evaluate_chain_execution_readiness(ARB, **kw)
-    assert res["stages"]["SIMULATION"]["status"] == UNKNOWN
-    assert res["stages"]["SIMULATION"]["reason"] == \
-        "simulation_requires_candidate_bound_calldata"
+    assert res["stages"]["SIMULATION"]["status"] == BLOCKED
+    assert res["stages"]["SIMULATION"]["reason"] in (
+        "simulation_requires_verified_exact_quote", "simulation_requires_candidate")
     assert res["execution_capable"] is False
 
 
@@ -498,3 +502,109 @@ async def test_economics_requires_verified_quote():
     res = await evaluate_chain_execution_readiness(ARB, **kw)
     assert res["stages"]["ECONOMICS"]["status"] == BLOCKED
     assert res["stages"]["ECONOMICS"]["reason"] == "economics_requires_verified_exact_quote"
+
+
+# ---------------------------------------------------------------------------
+# H09 — candidate-bound atomic simulation (chain-generic, fail-closed)
+# ---------------------------------------------------------------------------
+def _sim_probe(result):
+    async def _p(chain, *, eth_call, candidate, quote_facts, executor_address,
+                 receiver_capability):
+        return result
+    return _p
+
+
+def _good_sim(block=191234567):
+    return {"passed": True, "status": "ok", "simulation_kind": "onchain_eth_call",
+            "quote_block": block, "signed": False, "broadcast": False}
+
+
+@pytest.mark.asyncio
+async def test_h09_simulation_pass_candidate_bound():
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         simulation_probe_fn=_sim_probe(_good_sim()))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    s = res["stages"]["SIMULATION"]
+    assert s["status"] == PASS and s["reason"] == "candidate_bound_atomic_sim_passed"
+    assert s["evidence"]["quote_block"] == 191234567
+    assert s["evidence"]["signed"] is False and s["evidence"]["broadcast"] is False
+
+
+@pytest.mark.asyncio
+async def test_h09_simulation_rejects_heuristic_kind():
+    bad = _good_sim(); bad["simulation_kind"] = "heuristic"
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         simulation_probe_fn=_sim_probe(bad))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["SIMULATION"]["status"] == BLOCKED
+    assert res["stages"]["SIMULATION"]["reason"] == "simulation_not_onchain_certifiable"
+
+
+@pytest.mark.asyncio
+async def test_h09_simulation_reverted_fails_closed():
+    bad = _good_sim(); bad["passed"] = False; bad["status"] = "revert"
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         simulation_probe_fn=_sim_probe(bad))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["SIMULATION"]["status"] == BLOCKED
+    assert res["stages"]["SIMULATION"]["reason"] == "simulation_reverted_or_incomplete"
+
+
+@pytest.mark.asyncio
+async def test_h09_simulation_block_mismatch_fails_closed():
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         simulation_probe_fn=_sim_probe(_good_sim(block=999)))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["SIMULATION"]["status"] == BLOCKED
+    assert res["stages"]["SIMULATION"]["reason"] == "simulation_not_bound_to_quote_block"
+
+
+@pytest.mark.asyncio
+async def test_h09_simulation_side_effect_tripwire():
+    bad = _good_sim(); bad["broadcast"] = True
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(_facts()),
+                         simulation_probe_fn=_sim_probe(bad))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["SIMULATION"]["status"] == BLOCKED
+    assert res["stages"]["SIMULATION"]["reason"] == "simulation_side_effect_detected"
+
+
+@pytest.mark.asyncio
+async def test_h09_simulation_requires_verified_quote():
+    kw, _ = _base_kwargs(candidate=_CAND(), quote_probe_fn=_quote_probe(None),
+                         simulation_probe_fn=_sim_probe(_good_sim()))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["SIMULATION"]["status"] == BLOCKED
+    assert res["stages"]["SIMULATION"]["reason"] == "simulation_requires_verified_exact_quote"
+
+
+# ---------------------------------------------------------------------------
+# Execution-capability evidence contract + gate preservation
+# ---------------------------------------------------------------------------
+def test_execution_capability_evidence_contract_offline():
+    from arbicore.control.chain_execution_readiness import (
+        execution_capability_requirements, EXECUTION_CAPABILITY_EVIDENCE_CONTRACT)
+    req = execution_capability_requirements("arbitrum")
+    assert req["currently_execution_capable"] is False
+    assert "deployed_receiver(deploy_status=success + valid address)" in req["missing_evidence"]
+    assert req["signed"] is False and req["deploys_anything"] is False
+    assert "supported_providers" in EXECUTION_CAPABILITY_EVIDENCE_CONTRACT
+
+
+@pytest.mark.asyncio
+async def test_execution_capability_unversioned_receiver_blocked():
+    kw, _ = _base_kwargs(
+        receiver_capability_fn=lambda c: _FakeReceiver(
+            True, {"aave_v3"}, version_verified=False))
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    assert res["stages"]["EXECUTION_CAPABILITY"]["status"] == BLOCKED
+    assert res["stages"]["EXECUTION_CAPABILITY"]["reason"] == "receiver_unversioned_unverified"
+
+
+@pytest.mark.asyncio
+async def test_execution_capability_pass_with_full_receiver_evidence():
+    kw, _ = _base_kwargs()   # deployed + supports + version_verified default True
+    res = await evaluate_chain_execution_readiness(ARB, **kw)
+    ec = res["stages"]["EXECUTION_CAPABILITY"]
+    assert ec["status"] == PASS
+    assert set(ec["evidence"]["executable_flash_heads"]) == {"aave_v3", "balancer_v2"}

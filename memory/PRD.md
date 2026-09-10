@@ -773,3 +773,44 @@ stays UNKNOWN/BLOCKED until operator RPC + PROVIDER_RPC_URL[S]_<CHAIN> supplied.
 SAFETY: signing/broadcast/auto-exec OFF, Limited Live RED, no deploy, protected
 files untouched. Local commits only. NOTE: testing_agent N/A (backend sub-repo
 bot; no running FastAPI/endpoints/Mongo in workspace — verification via pytest).
+
+---
+
+## TRACK: H09 SIMULATION + OPPORTUNITY RACE + EXEC-CAPABILITY INTERFACE — 2026-06 (local complete, pre-VPS)
+
+Final local batch before VPS runtime validation. Chain-generic, fail-closed, no
+Arbitrum narrowing. STOP local implementation after this.
+
+- SIMULATION (H09) in chain_execution_readiness: candidate-bound atomic sim via
+  simulation_probe_fn (default reuses probe_atomic_simulation → AtomicExecutorSimulator
+  eth_call+state-override, read-only). Consumes exact verified quote + chain +
+  block + executor + receiver evidence. PASS=candidate_bound_atomic_sim_passed ONLY
+  when a REAL onchain_eth_call sim passes AND is bound to the quote_block AND
+  signed/broadcast are both False. Fail-closed: no rpc/executor/quote/candidate,
+  non-onchain kind (symbolic/paper/heuristic rejected), revert, block mismatch,
+  side-effect tripwire.
+- EXECUTION_CAPABILITY now also requires version_verified receiver (unversioned ⇒
+  blocked). New EXECUTION_CAPABILITY_EVIDENCE_CONTRACT + execution_capability_requirements(chain)
+  read-only helper — the gate-preserving way a deployed+verified receiver turns
+  the stage green (no deploy, no bypass).
+- opportunity_race.py (NEW, arbicore/control): run_opportunity_race selects the
+  FIRST submitted candidate reaching ECONOMICS PASS that clears the UNCHANGED
+  Gate-7 $25 floor. No chain preference (Base/Arbitrum not ranked ahead). Never
+  signs/broadcasts/executes.
+- deployment/cert/VPS_CERTIFICATION_PROCEDURE.md (NEW): exact ordered read-only
+  VPS procedure (inputs per chain, ladder verification, race, exec-capability
+  activation contract, evidence capture, mandatory STOP before Limited Live).
+
+TESTS: test_track2 41 (+H09 6, exec-capability 3), test_opportunity_race 4 (NEW),
+test_track4 16, test_track8 4. All touched suites green in isolation. Offline
+six-chain report: SIMULATION BLOCKED no_rpc, EXECUTION_CAPABILITY BLOCKED,
+exec_capable_count 0 (fail-closed, honest).
+
+VENUE/PROVIDER scope preserved: UniV3 = only executor-supported venue;
+Aerodrome/Slipstream/Curve/etc. remain NON-execution-capable. Aave V3 + Balancer V2
+runtime-probed; Morpho Blue catalog-only (fails closed).
+
+SAFETY: signing/broadcast/auto-exec OFF, Limited Live RED, Full Live OFF, no
+deploy, production/main/protected files untouched. Local commits only.
+NEXT: VPS certification per deployment/cert/VPS_CERTIFICATION_PROCEDURE.md. No more
+open-ended local development.
