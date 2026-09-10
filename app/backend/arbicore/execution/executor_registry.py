@@ -27,9 +27,30 @@ _CHAIN_ALIASES: Dict[str, int] = {
 }
 
 
+def _resolve_registry_path(module_file: Path) -> Path:
+    """Locate ``deploy/executor_deployments.json`` robustly for ANY code layout
+    (repo checkout OR a container where ``/app`` is the code root).
+
+    Walks upward from this module and returns the first existing
+    ``<ancestor>/deploy/executor_deployments.json``. If none exists anywhere,
+    returns a deterministic code-root-relative path that does NOT exist — so
+    ``load_registry`` fail-closes to an EMPTY registry. A missing file is NEVER
+    treated as a valid deployment (H10 stays UNKNOWN/BLOCKED). Never raises
+    IndexError regardless of how shallow the path is."""
+    here = module_file.resolve()
+    for base in here.parents:
+        cand = base / "deploy" / "executor_deployments.json"
+        if cand.is_file():
+            return cand
+    # Not found: derive the code root (parent of the top-level ``arbicore``
+    # package: …/arbicore/execution/executor_registry.py) defensively.
+    parents = here.parents
+    code_root = parents[2] if len(parents) > 2 else parents[-1]
+    return code_root / "deploy" / "executor_deployments.json"
+
+
 def _default_registry_path() -> Path:
-    # app/backend/arbicore/execution/executor_registry.py -> repo root is parents[4]
-    return Path(__file__).resolve().parents[4] / "deploy" / "executor_deployments.json"
+    return _resolve_registry_path(Path(__file__))
 
 
 def registry_path() -> Path:

@@ -73,6 +73,11 @@ services:
       MONGO_URL: "mongodb://cert-mongo:27017"
       DB_NAME: "arbicore_cert"
       ARBICORE_CERT_OUT_DIR: "/out"
+      # Explicit registry path (arch-supported override) so H08/B on-chain
+      # verification can read the committed deployment registry inside the
+      # container regardless of code-root layout. Mounted read-only below;
+      # the production image is unchanged. A missing file still fail-closes.
+      ARBICORE_EXECUTOR_REGISTRY_PATH: "/app/deploy/executor_deployments.json"
       # Hard safety OFF (certification/staging only).
       ARBICORE_SIGNING_ENABLED: "false"
       ARBICORE_BROADCAST_ENABLED: "false"
@@ -86,6 +91,9 @@ services:
     command: ["python3", "-m", "scripts.vps_certify"]
     volumes:
       - ./vps_cert_out:/out          # human + machine report land here (no secrets)
+      # committed deployment registry (public addresses only, no secrets),
+      # mounted read-only for H08/B on-chain verification.
+      - ../../deploy/executor_deployments.json:/app/deploy/executor_deployments.json:ro
     networks:
       - arbicore-cert-net
     logging: *log-defaults
