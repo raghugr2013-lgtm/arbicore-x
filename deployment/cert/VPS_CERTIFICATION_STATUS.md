@@ -172,3 +172,72 @@ certification regressions. Run them on the VPS against the live backend to exerc
   violations, receipt+repayment verified each time.
 - Explicit operator approval; one-step LIMITED_LIVE→FULL_LIVE promotion.
 - Certification PASS is necessary but NOT sufficient — live authority remains operator-gated.
+
+---
+
+## NON-LIVE E2E CERTIFICATION RESULTS (harness: `tests/test_nonlive_e2e_certification.py`)
+Run offline (no RPC/fork, no MONGO_URL). Uses the **real** production components with only
+in-memory persistence stubs. **21 passed.** Label on every artifact: CERTIFICATION · NON-LIVE ·
+SYNTHETIC/CONTROLLED · not a real/economically-valid opportunity.
+
+### Pipeline stage-by-stage (headless detect→validate→execute, no UI)
+| Stage | Result | Component (real) |
+|---|---|---|
+| detect/quote (route resolve) | **VERIFIED (logic)** | `pipeline._extract_quote` (heuristic quote stage is non-blocking by design) |
+| validate/liquidity | **VERIFIED (logic)** | `pipeline` + `paper.check_liquidity` |
+| gas | **VERIFIED (logic)** | `pipeline._extract_gas` |
+| economic evaluation | **VERIFIED** | `economics.net_profit.compute_net_profit` — full cost decomposition + $25 floor honoured |
+| policy (kill/mode/capital) | **VERIFIED** | real kill-switch/mode/capital gates |
+| certification | **VERIFIED (logic)** | certifier stage |
+| route construction + calldata | **VERIFIED** | `calldata.build_user_data_from_hops` + `encode_executor_execute` (selector `0x64ba4bc1`) + `encode_balancer_v2_flash_loan` |
+| atomic simulation (candidate-bound) | **GATE VERIFIED, result BLOCKED** | `certification.candidate_simulation` fail-closed; real eth_call sim needs RPC (absent) |
+| flash-loan borrow / swap / repayment / receipt / P&L reconciliation | **BLOCKED** | require live fork/RPC **and** a deployed+verified receiver — neither present here |
+| execution decision (SHADOW vs broadcast) | **VERIFIED** | SHADOW→shadow_recorded; LIMITED_LIVE→reaches broadcast gate |
+| evidence generation | **VERIFIED** | immutable EvidenceBundle written once |
+
+### Flash-loan provider results (economic vs execution)
+| Provider | Economic processing | Receiver EXECUTION-CERTIFIED |
+|---|---|---|
+| Balancer V2 | VERIFIED | **BLOCKED** (no mainnet receiver / no declared providers) |
+| Uniswap V3 (swap head) | VERIFIED | **BLOCKED** |
+| Aave V3 | VERIFIED | **BLOCKED** (also needs receiver upgrade + re-audit) |
+| Morpho Blue | VERIFIED | **BLOCKED** (also needs receiver upgrade + re-audit) |
+Proven-path distinction preserved: only **Balancer V2 borrow + UniV3 swaps** is the known receiver
+path; it is still BLOCKED here purely because no verified receiver is deployed.
+
+### DEX execution-adapter results
+UniV3 / Sushi V2·V3 / Pancake V3 / Camelot V3 / QuickSwap V3 / Aerodrome Slipstream / Morpho Blue:
+**IMPLEMENTED**, **BLOCKED** for EXECUTION-CERTIFIED (fail-closed via `receiver_capability` — no
+deployed receiver declares any provider on any of the six chains). None are FORK-TESTED here (no RPC).
+
+### Latency baseline (offline heuristic — NOT the real hot path)
+Per-stage `duration_ms` ~0.01–0.03; **total pipeline evaluate ≈ 1.2 ms** offline. Real detection→
+decision latency for the 1–5 s hot path must be measured on the VPS with live quotes/RPC.
+
+### Safety / fail-closed refusal matrix (all VERIFIED refusing)
+economic-gate fail → reject · kill-switch engaged → deny · capital limit → deny · certification fail →
+reject · invalid route → calldata encoder raises (fail-closed) · unsupported provider →
+`receiver_supports=False` · atomic-sim signer unavailable → `available=false` · broadcaster unwired
+under LIMITED_LIVE → BROADCAST_FAILED (never a faked send) · SHADOW mode → never broadcasts ·
+14-control eligibility → DENY when any control missing.
+
+### Capability vocabulary — post-harness truth
+- IMPLEMENTED: full six-chain multi-venue multi-strategy stack ✓
+- CONFIGURED: six-chain operator RPC ✓
+- VERIFIED: RPC/state 6/6; economic engine; route+calldata; all safety gates; headless pipeline ✓
+- SIMULATED (candidate-bound on-chain): **BLOCKED** (no RPC/fork here)
+- EXECUTION-CAPABLE: **BLOCKED** (no deployed receiver)
+- EXECUTION-CERTIFIED: **FALSE** (all chains/providers)
+- ECONOMICALLY-VALID: **0** real (unchanged; not fabricated)
+- LIMITED-LIVE-ELIGIBLE: **NO** (gates correct; blocked on receiver + a real edge)
+- FULL-LIVE-ELIGIBLE: **NO**
+
+### What remains blocked by the missing mainnet receiver
+On-chain atomic sim, borrow, swap, repayment, receipt, P&L reconciliation, and EXECUTION-CERTIFIED
+for every provider/chain. Unblocks only when a deployed+on-chain-verified receiver with an explicit
+`supported_providers` is recorded (out of band, separate approval).
+
+### What remains blocked by absence of a real positive-net opportunity
+ECONOMICALLY-VALID and therefore LIMITED-LIVE-ELIGIBLE for a *real* candidate. The engine is proven
+to compute/gate correctly; there is simply no real edge now. **Not fabricated; floor unchanged.**
+
