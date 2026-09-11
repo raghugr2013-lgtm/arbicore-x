@@ -287,4 +287,27 @@ hot-path (operator VPS + dedicated RPC) must be measured separately.
 2. A real ECONOMICALLY-VALID opportunity (unchanged; not fabricated).
 3. Production hot-path latency measurement on the VPS with a dedicated RPC.
 
+---
+
+## BASE MAINNET RECEIVER — PREPARATION (artifact prepared, NOT deployed)
+Full artifact: `deployment/cert/BASE_MAINNET_RECEIVER_PREPARATION.md`. Status ladder:
+**SOURCE REVIEWED ✅ · SECURITY-REVIEWED ✅ (static) · BUILT ❌ · TESTED ⚠️(offline consistency only)
+· MAINNET-READY ❌ · DEPLOYED/EXECUTION-CERTIFIED/LIMITED-LIVE/FULL-LIVE ❌.**
+- Mainnet immutables (chainid 8453), verified consistent across `Deploy.s.sol` + registry
+  `constructor_args_expected` + `calldata.AAVE_V3_POOL_BY_CHAIN`: Balancer Vault
+  `0xBA12…2C8`, Aave V3 Pool `0xA238…d1c5`, UniV3 Router `0x2626…e481` (NOT the Sepolia set).
+- Implemented flash providers = **balancer_v2 + aave_v3** (ABI-confirmed); **Morpho absent** (never
+  declarable). First-deploy `supported_providers=["balancer_v2"]`; add `aave_v3` only after its own
+  fork proof.
+- Security (static): owner-immutable + onlyOwner entries; `_authorized`/`_pendingProvider` re-entry &
+  provider gate; caller bound to Vault/Pool; exact repayment + `InsufficientBalance` revert; per-hop
+  `amountOutMinimum` slippage guard; no low-level/delegatecall (fixed UniV3 SwapRouter02); owner-only
+  `rescue`. External audit still recommended before real capital.
+- **BUILD BLOCKER (§13 STOP):** no `forge`/`solc 0.8.24`/`py-solc-x`/`~/.svm` in this pod. Bytecode
+  was **NOT** produced and **NOT** fabricated. Build requires foundry with `via_ir=true`,
+  `evm_version=paris`, optimizer 200, `bytecode_hash=none` + `contracts/lib/forge-std`.
+- Offline guard: `tests/test_base_mainnet_receiver_prep.py` (6 passed) locks immutable/provider
+  consistency + `receiver_capability` fail-closed.
+
+
 
