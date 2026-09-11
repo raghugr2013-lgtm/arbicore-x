@@ -241,3 +241,50 @@ for every provider/chain. Unblocks only when a deployed+on-chain-verified receiv
 ECONOMICALLY-VALID and therefore LIMITED-LIVE-ELIGIBLE for a *real* candidate. The engine is proven
 to compute/gate correctly; there is simply no real edge now. **Not fabricated; floor unchanged.**
 
+---
+
+## FORK-EQUIVALENT EXECUTION PROOF (live Base mainnet state, read-only)
+Runner: `app/backend/scripts/nonlive_fork_cert.py` · opt-in test: `tests/test_nonlive_fork_cert.py`
+(`ARBICORE_RUN_FORK_CERT=1`). Executed via read-only `eth_call` against **live Base mainnet**
+(`mainnet.base.org`), **pinned block 51163181**, in the Emergent pod (NOT the operator VPS). No
+Anvil needed — live-state eth_call is the fork-equivalent. No signing / broadcast / deployment /
+mainnet tx. CERTIFICATION · NON-LIVE · SYNTHETIC candidate.
+
+| Stage | State | Live result |
+|---|---|---|
+| A. fork config / block | pinned | `mainnet.base.org`, block 51163181, chainId 8453 |
+| chain verification | **FORK-TESTED** | eth_chainId == 8453 PASS |
+| state-override capability | **FORK-TESTED** | `code`-injection eth_call honoured (returns 0x…2a) |
+| D. DEX route — live UniV3 quote | **FORK-TESTED** | WETH→USDC 1e18 → **2,477,206,189** (≈ $2477/ETH), status=ok, real pool state |
+| E/F/G. route→swap→repayment | **FORK-TESTED (machinery)** | `SettlementSimulator` ran on live Aerodrome state; WETH→USDC→WETH round-trip final_out 9.94e15 < 1e16 ⇒ **"route does not repay principal"** → correctly **fail-closed** (no fabricated profit) |
+| economic gate + $25 floor | **VERIFIED** | real engine; synthetic net $1.625 does NOT clear $25 floor (honest) |
+| B/C. receiver + provider (Balancer V2 borrow + UniV3 swap atomic) | **BLOCKED** | no MAINNET-immutable receiver runtime bytecode; repo has only Sepolia creation bytecode (wrong aavePool/uniRouter immutables for mainnet) + no foundry to compile → injecting would be invalid. Not faked. |
+| H. receipt/result handling | **BLOCKED** | depends on the atomic executor path above |
+| I. balance/P&L reconciliation | **BLOCKED** | depends on the atomic executor path above |
+| J. evidence artifact | written | gitignored `vps_cert_out/fork_cert_evidence.json` |
+
+### Fail-closed (live)
+`receiver_supports("base","balancer_v2") == False` (no deployed receiver) · atomic sim with
+signer absent → `available=false` · round-trip route that cannot repay principal → rejected.
+
+### Latency (LIVE fork/public-RPC round-trips — NOT production network latency)
+chain_verification ≈ 297 ms · state_override ≈ 122 ms · live UniV3 quote ≈ 140 ms ·
+settlement route+repayment ≈ 121 ms · economics ≈ 0.05 ms · atomic-path ≈ 0.01 ms ·
+fail-closed ≈ 0.4 ms. These are public-RPC latencies from the Emergent pod; the real production
+hot-path (operator VPS + dedicated RPC) must be measured separately.
+
+### Capability status changes from this checkpoint (ONLY these upgrade)
+- chain verification, state-override capability, live UniV3 quote, route/swap/repayment **machinery**:
+  **BLOCKED → FORK-TESTED** (live Base state).
+- **Unchanged (correctly NOT upgraded):** SIMULATED (candidate-bound atomic) stays BLOCKED;
+  EXECUTION-CAPABLE / EXECUTION-CERTIFIED stay **FALSE**; ECONOMICALLY-VALID stays **0**;
+  LIMITED-LIVE-ELIGIBLE / FULL-LIVE-ELIGIBLE stay **NO**.
+
+### Remaining blockers after the fork checkpoint
+1. A **mainnet-immutable FlashLoanReceiver** (deployed, or its runtime bytecode compiled with mainnet
+   immutables for state-override injection) — required to fork-test the full atomic
+   Balancer-borrow+UniV3-swap→repayment→receipt→reconciliation path. Out of band; separate approval.
+2. A real ECONOMICALLY-VALID opportunity (unchanged; not fabricated).
+3. Production hot-path latency measurement on the VPS with a dedicated RPC.
+
+
