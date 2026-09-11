@@ -17,6 +17,7 @@ Offline, deterministic, no RPC / signing / broadcast / real Mongo.
 from __future__ import annotations
 
 import asyncio
+import os
 
 import pytest
 
@@ -92,14 +93,25 @@ def test_provider_rpc_urls_consumed_per_chain(monkeypatch):
         monkeypatch.delenv(f"PROVIDER_RPC_URLS_{c.upper()}")
 
 
-def test_arbicore_rpc_url_consumed_for_discovery_only(monkeypatch):
+def test_arbicore_rpc_url_satisfies_seam_and_economic_gate_via_sync(monkeypatch):
+    # CORRECTED CONTRACT (commit a7f9634): the canonical cert.env input
+    # ``ARBICORE_RPC_URL_<CHAIN>`` is deterministically SYNCED into
+    # ``PROVIDER_RPC_URL_<CHAIN>`` (secret-safe, per-chain, no Base leakage), so a
+    # SINGLE operator endpoint per chain satisfies BOTH the discovery/quote seam
+    # AND the all-in-cost economic gate. Superseded the earlier discovery-only
+    # assertion; still fail-closed and never auto-eligible.
     for c in SIX_CHAINS:
         for k in (f"PROVIDER_RPC_URLS_{c.upper()}", f"PROVIDER_RPC_URL_{c.upper()}"):
             monkeypatch.delenv(k, raising=False)
         monkeypatch.setenv(f"ARBICORE_RPC_URL_{c.upper()}", "https://rpc.example/" + c)
         assert MR.rpc_explicitly_configured(c) is True          # discovery seam
-        assert MR.provider_registry_rpc_configured(c) is False  # NOT economic gate
-        monkeypatch.delenv(f"ARBICORE_RPC_URL_{c.upper()}")
+        assert MR.provider_registry_rpc_configured(c) is True   # economic gate via sync
+        # Hygiene: the sync mutates os.environ directly (not via monkeypatch), so
+        # clear both the canonical input and the synced registry key to prevent
+        # cross-test env leakage.
+        monkeypatch.delenv(f"ARBICORE_RPC_URL_{c.upper()}", raising=False)
+        os.environ.pop(f"PROVIDER_RPC_URL_{c.upper()}", None)
+    os.environ.pop("ARBICORE_PROVIDER_RPC_SYNCED", None)
 
 
 # ─────────────── (3) Executor-capability classification honesty ─────────────
