@@ -384,6 +384,47 @@ class TestLiveSigner:
         r = _run(s.sign_plan(self._base_plan(), wallet_balance_usd=1000.0, gas_cost_usd=5.0))
         assert r.gate_ladder["secret_resolution"] == "DENIED"
 
+    def test_secret_resolution_exception_denies_and_does_not_leak(self):
+        class _ThrowingSecrets:
+            async def resolve(self, handle_id):
+                raise RuntimeError("secret backend failure: PRIVATE_KEY_SHOULD_NOT_LEAK")
+
+        from arbicore.execution.live_signer import LiveSigner
+
+        db = _FakeDb()
+        ks = KillSwitchRepo(db)
+        _run(ks.ensure_default())
+        cap_repo = CapitalPolicyRepo(db)
+        _run(cap_repo.ensure_defaults(["flash_loan_arbitrage"]))
+        alloc = CapitalAllocator(cap_repo)
+
+        s = LiveSigner(
+            kill_switch=ks,
+            mode_repo=_FakeMode("LIMITED_LIVE"),
+            wallet_registry=_FakeWalletRepo({
+                "execution_role": "gas",
+                "secret_handle_id": "h1",
+            }),
+            secret_registry=_ThrowingSecrets(),
+            capital_allocator=alloc,
+        )
+
+        r = _run(s.sign_plan(
+            self._base_plan(),
+            wallet_balance_usd=1000.0,
+            gas_cost_usd=5.0,
+        ))
+
+        assert r.gate_ladder["secret_resolution"] == "DENIED"
+        assert r.signed is False
+        assert r.would_broadcast is False
+        assert any("RuntimeError" in x for x in r.denied_reasons)
+
+        raw = str(r.to_dict())
+        assert "PRIVATE_KEY_SHOULD_NOT_LEAK" not in raw
+        assert "signed_bytes" not in raw
+        assert "private_key" not in raw
+
     def test_all_gates_pass_still_holds_at_wave6d_barrier(self):
         s = self._signer(mode="LIMITED_LIVE",
                           wallet={"execution_role": "gas",

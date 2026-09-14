@@ -150,7 +150,10 @@ async def _probe_fresh_stages(plan, quoter):
     only eth_call reads. Mirrors composition.fresh_fn exactly."""
     from arbicore.searcher.runtime import (make_base_eth_call_from_env,
                                             build_base_tvl_provider)
-    from arbicore.searcher.price_feed import build_base_price_feed_from_env
+    from arbicore.searcher.price_feed import (
+        build_base_price_feed_from_env,
+        build_borrow_sizer,
+    )
     from arbicore.scanners.flash_loan_arbitrage.live_quote_provider import (
         make_live_quote_provider)
     from arbicore.scanners.flash_loan_arbitrage.economics import (
@@ -165,9 +168,23 @@ async def _probe_fresh_stages(plan, quoter):
 
     eth_call = make_base_eth_call_from_env()
     price_feed = build_base_price_feed_from_env(quoter)
-    tvl_provider = (build_base_tvl_provider(eth_call, price_feed.price_source)
-                    if (eth_call and price_feed) else None)
-    quote_prov = make_live_quote_provider(quoter, tvl_provider=tvl_provider)
+
+    borrow_sizer = (
+        build_borrow_sizer(price_feed, chain_scope="base")
+        if price_feed is not None
+        else None
+    )
+
+    tvl_provider = (
+        build_base_tvl_provider(eth_call, price_feed.price_source)
+        if (eth_call and price_feed) else None
+    )
+
+    quote_prov = make_live_quote_provider(
+        quoter,
+        tvl_provider=tvl_provider,
+        borrow_sizer=borrow_sizer,
+    )
     _, specs = build_pool_graph()
 
     route_pools = list(plan.get("route_pools") or [])
@@ -527,7 +544,10 @@ async def main() -> None:
     from arbicore.execution.pre_broadcast import PreBroadcastValidator, CircuitBreaker
     from arbicore.searcher.runtime import (make_base_eth_call_from_env,
                                            build_base_tvl_provider)
-    from arbicore.searcher.price_feed import build_base_price_feed_from_env
+    from arbicore.searcher.price_feed import (
+        build_base_price_feed_from_env,
+        build_borrow_sizer,
+    )
     from arbicore.scanners.flash_loan_arbitrage.live_quote_provider import (
         make_live_quote_provider)
     from arbicore.scanners.flash_loan_arbitrage.economics import FlashLoanEconomicsAssessor
@@ -548,9 +568,23 @@ async def main() -> None:
     # 2) prove each real dependency is constructed (mirrors build_controlled_live_safety)
     eth_call = make_base_eth_call_from_env()
     price_feed = build_base_price_feed_from_env(quoter)
-    tvl_provider = (build_base_tvl_provider(eth_call, price_feed.price_source)
-                    if (eth_call and price_feed) else None)
-    quote_prov = make_live_quote_provider(quoter, tvl_provider=tvl_provider)
+
+    borrow_sizer = (
+        build_borrow_sizer(price_feed, chain_scope="base")
+        if price_feed is not None
+        else None
+    )
+
+    tvl_provider = (
+        build_base_tvl_provider(eth_call, price_feed.price_source)
+        if (eth_call and price_feed) else None
+    )
+
+    quote_prov = make_live_quote_provider(
+        quoter,
+        tvl_provider=tvl_provider,
+        borrow_sizer=borrow_sizer,
+    )
     econ = FlashLoanEconomicsAssessor.__name__
     audit["constructions"] = {
         "QuoterRegistry_M2_1": type(quoter).__name__,

@@ -52,23 +52,38 @@ def _csv(name: str, default: str) -> List[str]:
 def _rpc_urls(chain: str) -> List[str]:
     """Return configured RPC endpoints for a chain.
 
-    Preferred:
+    Precedence:
         PROVIDER_RPC_URLS_<CHAIN>  (comma-separated)
-
-    Backward compatible:
         PROVIDER_RPC_URL_<CHAIN>   (single endpoint)
+        ARBICORE_RPC_URL_<CHAIN>   (canonical per-chain endpoint)
+        ARBICORE_RPC_URL            (canonical global endpoint)
 
-    If neither is configured, use the existing public default.
+    When a canonical ARBICORE endpoint is configured, retain the existing
+    public default as a fallback unless it is already present. Explicit
+    PROVIDER_* configuration remains authoritative and is not augmented.
     """
-    urls = _csv(f"PROVIDER_RPC_URLS_{chain.upper()}", "")
+    chain_upper = chain.upper()
+
+    urls = _csv(f"PROVIDER_RPC_URLS_{chain_upper}", "")
     if urls:
         return urls
 
-    single = os.environ.get(f"PROVIDER_RPC_URL_{chain.upper()}")
+    single = os.environ.get(f"PROVIDER_RPC_URL_{chain_upper}")
     if single:
         return [single.strip()]
 
+    canonical = (
+        os.environ.get(f"ARBICORE_RPC_URL_{chain_upper}")
+        or os.environ.get("ARBICORE_RPC_URL")
+    )
     default = DEFAULT_RPC_URLS.get(chain)
+
+    if canonical:
+        result = [canonical.strip()]
+        if default and default != result[0]:
+            result.append(default)
+        return result
+
     return [default] if default else []
 
 

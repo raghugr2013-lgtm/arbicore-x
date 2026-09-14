@@ -62,9 +62,30 @@ def _real_pool_ids():
 
 
 def _facts():
-    legs = [{"venue_id": "uniswap_v3:base", "source_id": "uniswap_v3_quoter_base",
-             "fee_bps": 5, "depth_usd": 500_000.0, "dex_protocol": "uniswap_v3"}
-            for _ in range(2)]
+    legs = [
+        {
+            "venue_id": "uniswap_v3:base",
+            "source_id": "uniswap_v3_quoter_base",
+            "fee_bps": 5,
+            "depth_usd": 500_000.0,
+            "dex_protocol": "uniswap_v3",
+            "token_in": "0x" + "11" * 20,
+            "token_out": "0x" + "22" * 20,
+            "amount_in_wei": 10**18,
+            "amount_out_wei": 995_000_000_000_000_000,
+        },
+        {
+            "venue_id": "uniswap_v3:base",
+            "source_id": "uniswap_v3_quoter_base",
+            "fee_bps": 5,
+            "depth_usd": 500_000.0,
+            "dex_protocol": "uniswap_v3",
+            "token_in": "0x" + "22" * 20,
+            "token_out": "0x" + "11" * 20,
+            "amount_in_wei": 995_000_000_000_000_000,
+            "amount_out_wei": 1_010_000_000_000_000_000,
+        },
+    ]
     return {"hop_legs": legs, "gross_profit_pct": 3.0, "tx_gas_units": 250_000,
             "min_pool_tvl_usd_in_route": 500_000.0,
             "tvl_provenance": "onchain_reserves", "route_quote_status": "ok",
@@ -133,8 +154,15 @@ def test_pipeline_opp_projection_uses_only_verified_values():
           "flash_loan_provider": "balancer_v2",
           "economics": {"atomic_profit_usd": 142.0},
           "liquidity": {"min_pool_tvl_usd_in_route": 500_000.0},
-          "quotes": {"hop_legs": [{"dex_protocol": "uniswap_v3", "fee_bps": 5,
-                                   "depth_usd": 500_000.0}]},
+          "quotes": {"hop_legs": [{
+              "dex_protocol": "uniswap_v3",
+              "fee_bps": 5,
+              "depth_usd": 500_000.0,
+              "token_in": "0x" + "11" * 20,
+              "token_out": "0x" + "22" * 20,
+              "amount_in_wei": 10**18,
+              "amount_out_wei": 995_000_000_000_000_000,
+          }]},
           "bundle_id": "flarb:cand:123"}
     opp = canonical_to_pipeline_opp(_C(), ev)
     assert opp["opportunity_type"] == "FLASH_LOAN_ARBITRAGE"

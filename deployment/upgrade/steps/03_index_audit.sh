@@ -14,9 +14,7 @@ JS_FILE="${ROOT_DIR}/mongo/01_index_audit.js"
 [ -f "$JS_FILE" ] || die "missing $JS_FILE"
 
 log "Running read-only index audit (target DB: $DB_NAME) ..."
-SHELL_BIN="$(mongo_shell "$MONGO_CONTAINER")"
-# Pipe the JS into the in-container shell. No file mount needed.
-docker exec -i "$MONGO_CONTAINER" "$SHELL_BIN" --quiet "$DB_NAME" < "$JS_FILE" \
+mongo_eval "$MONGO_CONTAINER" "$DB_NAME" "$(cat "$JS_FILE")" \
   | tee "$OUT"
 
 if grep -q "REVIEW" "$OUT"; then

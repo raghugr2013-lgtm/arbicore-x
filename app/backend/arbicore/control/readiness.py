@@ -209,10 +209,12 @@ class ExecutionReadinessEngine:
             except Exception:  # noqa: BLE001
                 gas_wallets = []
         env_gas = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
+        env_signer = os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS")
         gas_present = bool(gas_wallets or env_gas)
 
         # Signer evidence: an evm_sign handle in the encrypted vault whose derived
-        # public address matches the gas wallet (verified WITHOUT decrypting).
+        # public address matches the configured executor signer identity
+        # (verified WITHOUT decrypting). Gas wallet remains a separate gas/capital role.
         signer_present = False
         signer_addr: Optional[str] = None
         if self._db is not None:
@@ -225,11 +227,11 @@ class ExecutionReadinessEngine:
             except Exception:  # noqa: BLE001
                 pass
         signer_matches: Optional[bool] = None
-        if signer_present and signer_addr and env_gas:
+        if signer_present and signer_addr and env_signer:
             try:
                 from eth_utils import to_checksum_address
                 signer_matches = (to_checksum_address(signer_addr)
-                                  == to_checksum_address(env_gas))
+                                  == to_checksum_address(env_signer))
             except Exception:  # noqa: BLE001
                 signer_matches = None
 
@@ -243,17 +245,17 @@ class ExecutionReadinessEngine:
             reqs.append("register a 'gas' role wallet")
 
         if signer_present and signer_matches is not False:
-            passed.append("execution signer present in encrypted vault (address matches gas wallet)"
+            passed.append("execution signer present in encrypted vault (address matches executor signer)"
                           if signer_matches else "execution signer present in encrypted vault")
         elif signer_present and signer_matches is False:
-            warnings.append("execution signer address does NOT match the gas wallet")
-            reqs.append("re-ingest the signer whose derived address matches the gas wallet")
+            warnings.append("execution signer address does NOT match ARBICORE_EXECUTOR_SIGNER_ADDRESS")
+            reqs.append("re-ingest the signer whose derived address matches ARBICORE_EXECUTOR_SIGNER_ADDRESS")
         else:
             warnings.append("execution signer not yet ingested into the encrypted vault")
             reqs.append("POST /api/arbicore/engine/settings/signer to store the signer (VAULT_KEY ready)")
 
         green = bool(gas_present and signer_present
-                     and ((not env_gas) or signer_matches is True))
+                     and ((not env_signer) or signer_matches is True))
         return _check("WALLET_SIGNER", GREEN if green else YELLOW,
                       score=90 if green else 50,
                       passed=passed, warnings=warnings, requirements=reqs)

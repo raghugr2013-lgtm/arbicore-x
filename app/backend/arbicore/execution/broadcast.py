@@ -229,6 +229,7 @@ class LimitedLiveBroadcaster:
                  capital_allocator,
                  evidence_signer=None,
                  balance_reader=None,
+                 signer_status_provider=None,
                  pre_broadcast_validator=None,
                  circuit_breaker=None,
                  require_revalidation: bool = False,
@@ -240,6 +241,10 @@ class LimitedLiveBroadcaster:
         self._secrets = secret_registry
         self._alloc = capital_allocator
         self._evidence = evidence_signer
+        # Isolated execution signer: resolved from the encrypted evm_sign
+        # vault. This is deliberately separate from signer_wallet_id, which
+        # remains the gas/capital wallet used by Gate 3.
+        self._signer_status_provider = signer_status_provider
         # S5 · read-only authoritative wallet balance source used to bind
         # capital sizing to the real gas-wallet state (not a hardcoded ref).
         self._balance_reader = balance_reader
@@ -510,23 +515,30 @@ class LimitedLiveBroadcaster:
             gate_ladder["capital_policy"] = "DENIED"
             denied.append(f"capital_policy: {alloc.binding_constraint}")
 
-        # ----------------- Gate 4: secret resolution ---------------------
+        # ----------------- Gate 4: isolated signer resolution -------------
+        # signer_wallet_id remains the gas/capital wallet reference. The
+        # transaction-authorizing key is independently resolved from the
+        # encrypted evm_sign vault and must match the configured executor
+        # signer address. The private key is never obtained from the gas
+        # wallet document.
         wallet_doc = None
         priv_hex: Optional[str] = None
         signer_address: Optional[str] = None
         try:
-            if not signer_wallet_id:
-                raise BroadcastError("plan has no signer_wallet_id")
-            wallet_doc = await self._wallets.get(signer_wallet_id)
-            if not wallet_doc:
-                raise BroadcastError(f"wallet '{signer_wallet_id}' not registered")
-            if wallet_doc.get("execution_role") != "gas":
-                raise BroadcastError(
-                    f"wallet role '{wallet_doc.get('execution_role')}' — must be 'gas'"
-                )
-            handle = wallet_doc.get("secret_handle_id")
+            if not self._signer_status_provider:
+                raise BroadcastError("isolated signer status provider unavailable")
+
+            signer_status = await self._signer_status_provider()
+            if not signer_status.get("present"):
+                raise BroadcastError("isolated execution signer not present in vault")
+
+            if signer_status.get("matches_expected") is False:
+                raise BroadcastError("isolated execution signer does not match configured executor signer")
+
+            handle = signer_status.get("handle_id")
             if not handle:
-                raise BroadcastError("wallet has no secret_handle_id")
+                raise BroadcastError("isolated execution signer has no vault handle")
+
             material = await self._secrets.resolve(handle)
             if not material:
                 raise BroadcastError("secret_handle_id did not resolve")
@@ -542,12 +554,9 @@ class LimitedLiveBroadcaster:
                 priv_hex = "0x" + priv_hex
             from eth_account import Account
             signer_address = Account.from_key(priv_hex).address
-            wallet_addr = wallet_doc.get("address")
-            if wallet_addr and wallet_addr.lower() != signer_address.lower():
-                raise BroadcastError(
-                    f"resolved secret produces address {signer_address} "
-                    f"but wallet is registered as {wallet_addr}"
-                )
+            expected_signer = signer_status.get("derived_address")
+            if expected_signer and signer_address.lower() != expected_signer.lower():
+                raise BroadcastError("resolved vault secret does not match vault-derived signer address")
             gate_ladder["secret_resolution"] = "PASS"
         except Exception as exc:  # noqa: BLE001
             gate_ladder["secret_resolution"] = "DENIED"
@@ -598,7 +607,10 @@ class LimitedLiveBroadcaster:
             )
 
         # Short-circuit if any of the first four gates + calldata fail.
+        # Preflight was not reached, therefore it is explicitly DENIED rather
+        # than omitted; receipts/tests must preserve the complete gate ladder.
         if denied:
+            gate_ladder["preflight"] = "DENIED"
             return BroadcastReceipt(
                 receipt_id=receipt_id, plan_id=plan_id, strategy=strategy,
                 mode=mode, chain=chain,
@@ -658,16 +670,23 @@ class LimitedLiveBroadcaster:
                 "value": hex(encoded.value_wei),
             }
             await self._rpc("eth_call", [call_obj, "latest"])
-            # eth_estimateGas — a second sanity check
+            # eth_estimateGas — a second sanity check.
+            # Gas estimation is required for a live-capable preflight:
+            # if the node cannot establish a gas requirement, fail closed.
             try:
                 eg_hex = await self._rpc("eth_estimateGas", [call_obj])
                 estimated = int(eg_hex, 16) if isinstance(eg_hex, str) else int(eg_hex or 0)
-                if estimated > 0:
-                    gas_limit = int(estimated * 1.2)  # 20% headroom
-            except Exception:  # noqa: BLE001
-                pass
-            preflight_ok = True
-            gate_ladder["preflight"] = "PASS"
+                if estimated <= 0:
+                    raise BroadcastError("eth_estimateGas returned a non-positive estimate")
+                gas_limit = int(estimated * 1.2)  # 20% headroom
+            except Exception as exc:  # noqa: BLE001
+                preflight_ok = False
+                gate_ladder["preflight"] = "DENIED"
+                preflight_error = f"{type(exc).__name__}: gas estimation failed"
+                denied.append("preflight: eth_estimateGas failed; refusing broadcast")
+            else:
+                preflight_ok = True
+                gate_ladder["preflight"] = "PASS"
         except Exception as exc:  # noqa: BLE001
             preflight_error = f"{type(exc).__name__}: {exc}"
             # Extract revert selector bytes if the RPC returned them.

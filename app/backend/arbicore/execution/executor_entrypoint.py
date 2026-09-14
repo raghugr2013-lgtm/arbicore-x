@@ -14,11 +14,14 @@ from typing import Any, Dict, List, Optional
 from eth_abi import encode as abi_encode
 from eth_utils import keccak, to_checksum_address
 
-# Default executor entrypoint (configurable). Plug-and-play: override via
-# ARBICORE_EXECUTOR_ENTRYPOINT_SIG once the deployed ABI is confirmed.
+from .calldata import encode_executor_execute, encode_executor_execute_aave
+
+# Canonical deployed executor entrypoint.
+# The deployed FlashLoanReceiver exposes execute(address[],uint256[],bytes).
+# The legacy executeArbitrage(...) path is NOT a canonical default.
 _DEFAULT_ENTRY_SIG = os.environ.get(
     "ARBICORE_EXECUTOR_ENTRYPOINT_SIG",
-    "executeArbitrage(address,uint256,address,bytes)")
+    "execute(address[],uint256[],bytes)")
 
 
 def _selector(sig: str) -> bytes:
@@ -31,7 +34,10 @@ _KNOWN_SELECTORS: Dict[str, str] = {
     "f04f2707": "receiveFlashLoan(address[],uint256[],uint256[],bytes)",  # Balancer callback
     "5c38449e": "flashLoan(address,address[],uint256[],bytes)",   # internal call TO Balancer Vault
     "04e45aaf": "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",  # UniV3
-    "32fe7b26": "ROUTER()", "411557d1": "VAULT()", "8da5cb5b": "owner()",
+    "158274a5": "balancerVault()",
+    "a03e4bc3": "aavePool()",
+    "a0e47bf6": "uniRouter()",
+    "8da5cb5b": "owner()",
     "62c06767": "sweep(address,address,uint256)",
     "095ea7b3": "approve(address,uint256)", "70a08231": "balanceOf(address)",
     "a9059cbb": "transfer(address,uint256)",
@@ -52,9 +58,10 @@ def _extract_selectors(bytecode_hex: str) -> List[str]:
 
 
 async def inspect_executor(rpc_url: str, executor: str) -> Dict[str, Any]:
-    """READ-ONLY on-chain inspection of the deployed executor: extract its
-    function selectors from bytecode and read its owner()/ROUTER()/VAULT()
-    getters. Determines the real entrypoint signature instead of guessing.
+    """READ-ONLY on-chain inspection of the deployed executor.
+
+    Extract selectors from bytecode and read the canonical
+    owner()/balancerVault()/aavePool()/uniRouter() getters.
 
     Never signs/broadcasts — only eth_getCode + eth_call getters."""
     import asyncio
@@ -93,8 +100,9 @@ async def inspect_executor(rpc_url: str, executor: str) -> Dict[str, Any]:
         return to_checksum_address("0x" + res[-40:]) if (res and len(res) >= 42) else None
 
     owner = await _getter("owner()")
-    router = await _getter("ROUTER()")
-    vault = await _getter("VAULT()")
+    router = await _getter("uniRouter()")
+    vault = await _getter("balancerVault()")
+    aave_pool = await _getter("aavePool()")
 
     entry_present = "64ba4bc1" in sels   # execute(address[],uint256[],bytes)
     return {
@@ -109,8 +117,12 @@ async def inspect_executor(rpc_url: str, executor: str) -> Dict[str, Any]:
                            "where SwapHop=(address tokenIn,address tokenOut,uint24 feePpm,"
                            "uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96)",
         "flash_provider": "balancer_v2" if "f04f2707" in sels else None,
+        "flash_provider_aave": "aave_v3" if "1b11d0ff" in sels else None,
         "swap_venue": "uniswap_v3" if "04e45aaf" in sels else None,
-        "owner": owner, "router": router, "vault": vault,
+        "owner": owner,
+        "router": router,
+        "vault": vault,
+        "aave_pool": aave_pool,
         "userdata_schema_recoverable": True,  # recovered from contract source
         "source": "contracts/contracts/core/FlashLoanReceiver.sol",
         "signed": False, "broadcast": False,
@@ -118,27 +130,73 @@ async def inspect_executor(rpc_url: str, executor: str) -> Dict[str, Any]:
 
 
 def build_executor_entrypoint_calldata(
-    *, borrow_token: str, borrow_amount_wei: int, settlement_target: str,
-    settlement_calldata_hex: str, entry_sig: str = _DEFAULT_ENTRY_SIG,
+    *,
+    borrow_token: str,
+    borrow_amount_wei: int,
+    settlement_target: str,
+    settlement_calldata_hex: str,
+    entry_sig: str = _DEFAULT_ENTRY_SIG,
 ) -> Dict[str, Any]:
-    """Encode the executor entrypoint that triggers:
-    flash borrow → (settlement swaps via settlement_calldata) → repay.
+    """Compatibility wrapper for canonical executor entrypoints.
 
-    Signature default: executeArbitrage(borrowToken, borrowAmount,
-    settlementTarget, settlementCalldata). Never signed/broadcast."""
-    settlement_bytes = bytes.fromhex(settlement_calldata_hex[2:]
-                                     if settlement_calldata_hex.startswith("0x")
-                                     else settlement_calldata_hex)
-    args = abi_encode(
-        ["address", "uint256", "address", "bytes"],
-        [to_checksum_address(borrow_token), int(borrow_amount_wei),
-         to_checksum_address(settlement_target), settlement_bytes])
-    data = "0x" + (_selector(entry_sig) + args).hex()
-    return {"entry_signature": entry_sig, "selector": "0x" + _selector(entry_sig).hex(),
-            "calldata": data, "borrow_token": to_checksum_address(borrow_token),
-            "borrow_amount_wei": int(borrow_amount_wei),
-            "settlement_target": to_checksum_address(settlement_target),
-            "signed": False, "broadcast": False}
+    The deployed executor exposes:
+
+      * Balancer V2: execute(address[],uint256[],bytes)
+      * Aave V3:     executeAave(address,uint256,bytes)
+
+    This legacy-shaped wrapper does not receive the complete canonical
+    ``tokens[]`` / ``amounts[]`` arrays required by Balancer ``execute()``.
+    Therefore it MUST NOT invent an array layout from its old arguments.
+
+    Callers that have a genuine candidate/plan must use the canonical
+    ``encode_plan_head_call()`` / calldata builders directly.
+
+    No signing or broadcasting is performed.
+    """
+    del settlement_target
+
+    sig = (entry_sig or "").strip()
+    user_data_hex = settlement_calldata_hex or "0x"
+
+    if sig == "execute(address[],uint256[],bytes)":
+        raise ValueError(
+            "canonical execute() requires explicit tokens[] and amounts[]; "
+            "use encode_plan_head_call()/encode_executor_execute() with the "
+            "complete candidate plan"
+        )
+
+    if sig == "executeAave(address,uint256,bytes)":
+        # For Aave the legacy argument shape is sufficient.
+        # borrow_token is the asset; executor address comes from the
+        # canonical environment at the actual plan-building layer.
+        executor_address = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
+        if not executor_address:
+            raise ValueError(
+                "ARBICORE_EXECUTOR_ADDRESS_BASE is required for "
+                "executeAave() compatibility encoding"
+            )
+
+        encoded = encode_executor_execute_aave(
+            executor_address=executor_address,
+            asset=borrow_token,
+            amount_wei=int(borrow_amount_wei),
+            user_data_hex=user_data_hex,
+        )
+    else:
+        raise ValueError(
+            f"unsupported/non-canonical executor entrypoint: {sig!r}"
+        )
+
+    return {
+        "entry_signature": encoded.function_signature,
+        "selector": encoded.selector_hex,
+        "calldata": encoded.calldata_hex,
+        "borrow_token": to_checksum_address(borrow_token),
+        "borrow_amount_wei": int(borrow_amount_wei),
+        "settlement_target": None,
+        "signed": False,
+        "broadcast": False,
+    }
 
 
 class AnvilForkHarness:

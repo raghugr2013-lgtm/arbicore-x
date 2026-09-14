@@ -212,8 +212,10 @@ class LiveSigner:
                             secret_ok = True
             except Exception as exc:  # noqa: BLE001
                 gate_ladder["secret_resolution"] = "DENIED"
+                # Never include exception text here: secret backends may
+                # accidentally place sensitive material in exception messages.
                 denied.append(
-                    f"secret_resolution: unexpected error {type(exc).__name__}: {exc}"
+                    f"secret_resolution: unexpected error {type(exc).__name__}"
                 )
 
         signed = False

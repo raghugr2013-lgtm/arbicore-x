@@ -88,7 +88,7 @@ async def ingest_signer(registry, db, *, private_key: str,
     norm = ""  # drop plaintext reference
 
     # Annotate the vault doc with the PUBLIC derived address so readiness can
-    # match it against the gas wallet WITHOUT decrypting the key each time.
+    # match it against the configured executor signer WITHOUT decrypting the key each time.
     await db[_SECRETS_COLLECTION].update_one(
         {"handle_id": handle.handle_id},
         {"$set": {"derived_address": address, "execution_role": "signer"}})

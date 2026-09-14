@@ -36,8 +36,7 @@ JS_FILE="${ROOT_DIR}/mongo/02_precutover_cleanup.js"
 [ -f "$JS_FILE" ] || die "missing $JS_FILE"
 
 log "Running CONFIRMED controlled cleanup (target: arbicore_discovery_candidates only) ..."
-SHELL_BIN="$(mongo_shell "$MONGO_CONTAINER")"
-docker exec -i "$MONGO_CONTAINER" "$SHELL_BIN" --quiet "$DB_NAME" < "$JS_FILE" \
+mongo_eval "$MONGO_CONTAINER" "$DB_NAME" "$(cat "$JS_FILE")" \
   | tee "$OUT"
 
 ok "cleanup log: $OUT"

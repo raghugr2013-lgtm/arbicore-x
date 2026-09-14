@@ -15,8 +15,7 @@ mkdir -p "$BACKUP_DIR"
 
 log "mongodump $DB_NAME from $MONGO_CONTAINER -> $ARCHIVE ..."
 # stream archive out of the container to host (avoids 'docker cp' double-copy)
-docker exec "$MONGO_CONTAINER" sh -c \
-  "mongodump --db='$DB_NAME' --archive --gzip" > "$ARCHIVE"
+  mongo_dump "$MONGO_CONTAINER" "$DB_NAME" > "$ARCHIVE"
 
 SIZE="$(stat -c%s "$ARCHIVE" 2>/dev/null || stat -f%z "$ARCHIVE")"
 log "archive size = ${SIZE} bytes"

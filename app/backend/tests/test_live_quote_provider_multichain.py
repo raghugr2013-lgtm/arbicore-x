@@ -55,9 +55,23 @@ class _FakeQuoter:
 
     async def quote_route(self, *, chain, hops, rpc_url=None):
         self.last_chain, self.last_hops = chain, hops
-        hop_objs = [SimpleNamespace(dex=h["dex"], status=self.hop_status,
-                                    block_number=100 + i)
-                    for i, h in enumerate(hops)]
+        hop_objs = []
+        amount_in = None
+        for i, h in enumerate(hops):
+            if i == 0:
+                amount_in = int(h["amount_in_wei"])
+            # Deterministic fake output: preserve the canonical HopQuote shape.
+            amount_out = amount_in
+            hop_objs.append(SimpleNamespace(
+                dex=h["dex"],
+                token_in=h["token_in"],
+                token_out=h["token_out"],
+                amount_in_wei=amount_in,
+                amount_out_wei=amount_out,
+                status=self.hop_status,
+                block_number=100 + i,
+            ))
+            amount_in = amount_out
         return SimpleNamespace(status=self.status, hops=hop_objs,
                                final_amount_out_wei=self.final,
                                aggregate_gas_estimate_units=210_000)

@@ -151,8 +151,8 @@ def make_calldata_tx_builder(
             fork sim decides profitability, never this builder).
         executor_address: deployed ``FlashLoanReceiver`` address. Falls back to
             ``ARBICORE_EXECUTOR_ADDRESS_BASE`` when ``chain == "base"``.
-        from_address: eth_call ``from`` (the executor owner / gas wallet). Falls
-            back to ``ARBICORE_GAS_WALLET_ADDRESS``.
+        from_address: eth_call ``from`` (the executor authorization signer). Falls
+            back to ``ARBICORE_EXECUTOR_SIGNER_ADDRESS``.
         profit_recipient: residual-balance recipient encoded into userData.
             Falls back to ``from_address``.
         token_addresses: maps the cache token symbol (``Edge.token_in`` /
@@ -173,7 +173,7 @@ def make_calldata_tx_builder(
     executor = executor_address or (
         os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE") if chain == "base" else None
     )
-    frm = from_address or os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
+    frm = from_address or os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS")
     recipient = profit_recipient or frm
 
     def _addr_for(symbol: str) -> str:
@@ -192,7 +192,7 @@ def make_calldata_tx_builder(
         if not recipient:
             raise ValueError(
                 "tx_builder: profit_recipient/from address unresolved "
-                "(pass from_address or set ARBICORE_GAS_WALLET_ADDRESS)")
+                "(pass from_address or set ARBICORE_EXECUTOR_SIGNER_ADDRESS)")
 
         borrow_symbol = cycle[0].token_in
         borrow_addr = _addr_for(borrow_symbol)

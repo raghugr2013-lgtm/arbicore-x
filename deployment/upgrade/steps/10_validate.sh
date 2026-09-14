@@ -13,8 +13,7 @@ RED=0
 
 log "Mongo-side acceptance checks ..."
 JS_FILE="${ROOT_DIR}/mongo/04_validate.js"
-SHELL_BIN="$(mongo_shell "$MONGO_CONTAINER")"
-docker exec -i "$MONGO_CONTAINER" "$SHELL_BIN" --quiet "$DB_NAME" < "$JS_FILE" | tee "$OUT"
+mongo_eval "$MONGO_CONTAINER" "$DB_NAME" "$(cat "$JS_FILE")" | tee "$OUT"
 grep -q "FAIL" "$OUT" && { c_red "  one or more Mongo checks FAILED — see $OUT"; RED=1; } || ok "Mongo checks PASS"
 
 log "HTTP healthcheck (liveness + arbicore API surface) ..."

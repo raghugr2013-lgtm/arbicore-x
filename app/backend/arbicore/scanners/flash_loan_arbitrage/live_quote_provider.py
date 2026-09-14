@@ -304,6 +304,15 @@ def make_live_quote_provider(
         hop_legs: List[Dict[str, Any]] = []
         for idx, h in enumerate(rq.hops):
             p = plans[idx] if idx < len(plans) else None
+            quoted_in = int(getattr(h, "amount_in_wei", 0) or 0)
+            quoted_out = int(getattr(h, "amount_out_wei", 0) or 0)
+
+            # Exact quote execution provenance. These values originate directly
+            # from the live HopQuote and must never be reconstructed from USD
+            # ratios or probe sizes.
+            if quoted_in <= 0 or quoted_out <= 0:
+                return None
+
             hop_legs.append({
                 "venue_id": f"{getattr(h, 'dex', 'dex')}:{chain}",
                 "source_id": _dex_source_id(getattr(h, "dex", ""), chain),
@@ -313,6 +322,13 @@ def make_live_quote_provider(
                 "dex_protocol": getattr(h, "dex", None),
                 "status": getattr(h, "status", None),
                 "block_number": getattr(h, "block_number", None),
+
+                # B7 exact execution handoff: preserve the authoritative
+                # per-hop quote inputs/outputs.
+                "token_in": str(getattr(h, "token_in", "") or ""),
+                "token_out": str(getattr(h, "token_out", "") or ""),
+                "amount_in_wei": quoted_in,
+                "amount_out_wei": quoted_out,
             })
 
         min_tvl = _route_min_tvl(pool_tvls, tvl_keys)
@@ -337,6 +353,8 @@ def make_live_quote_provider(
             "quoted_amount_in_wei": int(amount_in_wei),
             "quote_notional_usd": quote_notional_usd,
             "borrow_token": borrow_token,
+            # B7 exact route-output provenance.
+            "final_amount_out_wei": int(final_out),
         }
 
     return _provider

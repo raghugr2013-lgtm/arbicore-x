@@ -1,3 +1,80 @@
+# ArbiCore X v2 — CURRENT CERTIFICATION ADDENDUM
+
+**Authoritative update:** 2026-09-13
+**Current HEAD:** `99059c0ec19ed4aa00b909d16cb26e2c3c65efdc`
+**Current branch:** `vps-cert-rpc-contract-a7f9634`
+**Current posture:** **SHADOW / detection-only / fail-closed / read-only**
+**Signing:** false · **Broadcast:** false · **Auto-execution:** false · **Full live:** false · **Withdrawals:** false
+
+> This addendum supersedes stale historical statements below where they conflict with the certified state recorded here. Historical sections are retained unchanged for audit continuity.
+
+## Current Milestone Status
+
+- **Milestone A — Production Upgrade:** CERTIFIED
+- **Milestone B1 — RPC / Provider Reliability:** CERTIFIED
+- **Milestone B2 — Chain Identity / Token / Pool Correctness:** CERTIFIED
+- **Milestone B3 — DEX / Pool / Quote Readiness:** CERTIFIED
+- **Milestone B4 — Gas Correctness:** CERTIFIED
+- **Milestone B5 — Economic / Exact-Size Readiness:** CERTIFIED
+- **Milestone B6 — Simulation:** CERTIFIED
+- **Milestone B7 — Flash-Loan Route Certification:** CERTIFIED
+- **B7.2 — Canonical Calldata / Source Audit:** CERTIFIED
+- **B7.3 — Deployed Execution-Capability Certification:** CERTIFIED
+- **B7.3.68 — Genuine Profitable Fork Execution Proof:** CERTIFIED — NON-LIVE / CONTROLLED FORK
+- **Milestone B8 — EXECUTION_READY Contract:** **CERTIFIED — NON-LIVE**
+
+## B8 Current Contract State
+
+Production authenticated readiness evidence confirms:
+
+- Configuration / RPC: GREEN
+- Gas wallet: GREEN
+- Execution signer: GREEN
+- Signer matches executor owner: GREEN
+- Executor contract: GREEN
+- Flash providers: GREEN
+- Quote / settlement adapters: GREEN
+- Discovery / route engine: GREEN
+- Live quotes: GREEN
+- Profitability / confidence / EV / sizing: GREEN
+- Liquidity depth: GREEN
+- Scanner: GREEN
+- Simulation gate: GREEN
+- Settlement simulation: GREEN
+- RPC state override: GREEN
+- Atomic executor simulation capability: GREEN
+- Fork validation: GREEN
+- Historical replay: GREEN
+- Decision history: GREEN
+
+`SIMULATION_ONCHAIN` remains **YELLOW** because the current live-RPC representative candidate reverted without revert data. This is candidate-bound evidence and is intentionally fail-closed.
+
+The B7.3.68 controlled-fork proof independently demonstrated the real Balancer → executor → Uniswap V3 → repayment → profit path without signing, broadcasting, prefunding, or modifying mainnet state.
+
+## Live Authorization State
+
+B8 **does not authorize live execution**.
+
+Current control state:
+
+- SHADOW: GREEN
+- PAPER: GREEN
+- PROFIT_ENGINE: GREEN
+- LIMITED_LIVE: **RED / LOCKED**
+- FULL_AUTOMATION: **RED / LOCKED**
+
+Remaining authorization gates are outside B8 and belong to **Milestone C — Controlled Execution**, including sustained SHADOW/PAPER evidence and operator-confirmed controlled-execution certification.
+
+## Canonical B8 Artifact
+
+`deployment/cert/B8_EXECUTION_READY_CERTIFICATION.md`
+
+## Historical Record
+
+The remainder of this document is retained as historical certification evidence. Where its earlier receiver-deployment descriptions conflict with the current certified registry/deployment state, this addendum is authoritative.
+
+---
+
 # ArbiCore X v2 — Certification Status & Shortest Safe Path to Full Live
 
 Branch: `vps-cert-rpc-contract-a7f9634` · HEAD `44b9f46` · Posture: **SHADOW / detection-only /

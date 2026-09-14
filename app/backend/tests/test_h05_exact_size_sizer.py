@@ -110,10 +110,35 @@ class _FakeRegistry:
 
     async def quote_route(self, chain, hops):
         from types import SimpleNamespace as NS
-        return NS(status="ok",
-                  hops=[NS(status="ok", dex="uniswap_v3", block_number=100)],
-                  final_amount_out_wei=self._out,
-                  aggregate_gas_estimate_units=150000)
+
+        first_in = int(hops[0].get("amount_in_wei") or 0)
+
+        hop0 = NS(
+            status="ok",
+            dex="uniswap_v3",
+            block_number=100,
+            amount_in_wei=first_in,
+            amount_out_wei=100,
+            token_in=hops[0].get("token_in"),
+            token_out=hops[0].get("token_out"),
+        )
+
+        hop1 = NS(
+            status="ok",
+            dex="uniswap_v3",
+            block_number=100,
+            amount_in_wei=100,
+            amount_out_wei=int(self._out),
+            token_in=hops[0].get("token_out"),
+            token_out=hops[-1].get("token_out"),
+        )
+
+        return NS(
+            status="ok",
+            hops=[hop0, hop1],
+            final_amount_out_wei=int(self._out),
+            aggregate_gas_estimate_units=150000,
+        )
 
 
 def test_provider_awaits_async_sizer_and_binds_exact_notional(monkeypatch):

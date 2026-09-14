@@ -64,8 +64,41 @@ mongo_shell(){
   if docker exec "$cnt" sh -c 'command -v mongosh' >/dev/null 2>&1; then echo "mongosh"; else echo "mongo"; fi
 }
 mongo_eval(){ # mongo_eval <container> <db> <js>
-  local cnt="$1" db="$2" js="$3" sh; sh="$(mongo_shell "$cnt")"
-  docker exec "$cnt" "$sh" --quiet "$db" --eval "$js"
+  local cnt="$1" db="$2" js="$3" sh mongo_url
+  sh="$(mongo_shell "$cnt")"
+
+  # Mongo authentication is owned by the live backend's generated BACKEND_ENV.
+  # Never duplicate credentials into deploy.env or command-line arguments.
+  [ -f "$BACKEND_ENV" ] || die "mongo_eval: backend env not found: $BACKEND_ENV"
+
+  mongo_url="$(
+    awk -F= '$1=="MONGO_URL" {sub(/^[^=]*=/,""); print; exit}' "$BACKEND_ENV"
+  )"
+
+  [ -n "$mongo_url" ] || die "mongo_eval: MONGO_URL missing from $BACKEND_ENV"
+
+  # Authenticate using the exact backend connection URI, then switch to the
+  # requested database. The URI itself is never printed.
+  docker exec "$cnt" "$sh" --quiet "$mongo_url"     --eval "db=db.getSiblingDB(${db@Q}); ${js}"
+}
+
+# ---- authenticated Mongo dump ----
+mongo_dump(){ # mongo_dump <container> <db>
+  local cnt="$1" db="$2" mongo_url
+
+  [ -f "$BACKEND_ENV" ] || die "mongo_dump: backend env not found: $BACKEND_ENV"
+
+  mongo_url="$(
+    awk -F= '$1=="MONGO_URL" {sub(/^[^=]*=/,""); print; exit}' "$BACKEND_ENV"
+  )"
+
+  [ -n "$mongo_url" ] || die "mongo_dump: MONGO_URL missing from $BACKEND_ENV"
+
+  printf '%s\n' "$mongo_url" |
+    docker exec -i "$cnt" sh -c '
+      IFS= read -r mongo_url
+      mongodump --uri="$mongo_url" --db="$1" --archive --gzip
+    ' sh "$db"
 }
 
 # ---- load generated env ----

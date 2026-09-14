@@ -52,20 +52,42 @@ def _run(coro):
 # --------------------------------------------------------------------------
 
 def _meta():
-    return {"borrow_token": "WETH", "route_pools": ["p1", "p2"],
+    route_pools = _real_pool_ids()
+    return {"borrow_token": "WETH", "route_pools": route_pools,
             "cycle_token_path": ["WETH", "USDC", "WETH"]}
-
 
 class _FakeRegistry:
     async def quote_route(self, *, chain, hops):
-        hop = SimpleNamespace(dex="uniswap_v3", status="ok", block_number=7)
-        # record the first-hop amount so we can assert exact sizing
-        self.first_hop_amount = int(hops[0].get("amount_in_wei") or 0)
-        return SimpleNamespace(status="ok",
-                               final_amount_out_wei=int(1.05e16),
-                               aggregate_gas_estimate_units=300_000,
-                               hops=[hop, hop])
+        # The provider requires every quoted hop to carry positive
+        # authoritative input/output amounts.
+        first_in = int(hops[0].get("amount_in_wei") or 0)
+        self.first_hop_amount = first_in
 
+        hop0 = SimpleNamespace(
+            dex="uniswap_v3",
+            status="ok",
+            block_number=7,
+            amount_in_wei=first_in,
+            amount_out_wei=10**16,
+            token_in=hops[0].get("token_in"),
+            token_out=hops[0].get("token_out"),
+        )
+        hop1 = SimpleNamespace(
+            dex="uniswap_v3",
+            status="ok",
+            block_number=7,
+            amount_in_wei=10**16,
+            amount_out_wei=int(1.05e16),
+            token_in=hops[1].get("token_in"),
+            token_out=hops[1].get("token_out"),
+        )
+
+        return SimpleNamespace(
+            status="ok",
+            final_amount_out_wei=int(1.05e16),
+            aggregate_gas_estimate_units=300_000,
+            hops=[hop0, hop1],
+        )
 
 def test_provider_marks_probe_when_no_sizer():
     reg_ = _FakeRegistry()
@@ -124,6 +146,9 @@ def _facts(*, size_basis=None, quote_notional_usd=None, gross_pct=3.0):
              "gross_profit_pct": gross_pct}
     if size_basis is not None:
         facts["size_basis"] = size_basis
+        facts["exact_size"] = size_basis == "exact"
+        if size_basis == "exact":
+            facts["quoted_amount_in_wei"] = 5 * 10 ** 18
     if quote_notional_usd is not None:
         facts["quote_notional_usd"] = quote_notional_usd
     return facts
@@ -185,6 +210,11 @@ def test_verifier_binds_notional_to_exact_quote():
     assert bundle["economics"]["borrow_amount_usd"] == 250.0
     assert outcome != VerifiedOutcome.CONFIRMED_PREFIX  # tiny size → gate_7 deny
 
+    # H05: exact-size quote provenance must survive into the evidence bundle.
+    assert bundle["quotes"]["size_basis"] == "exact"
+    assert bundle["quotes"]["exact_size"] is True
+    assert bundle["quotes"]["quote_notional_usd"] == 250.0
+    assert bundle["quotes"]["quoted_amount_in_wei"] is not None
 
 def test_verifier_backward_compatible_when_size_basis_absent():
     # Legacy/injected facts with no size_basis are unchanged (fixture owns its

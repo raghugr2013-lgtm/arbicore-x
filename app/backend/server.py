@@ -252,6 +252,22 @@ def _controlled_live_safety_or_none():
         return (None, None)
 
 
+def _limited_live_signer_status():
+    """M3.0 · read-only isolated execution-signer status provider.
+
+    The gas/capital wallet remains separate. This provider exposes only
+    signer-vault metadata to the broadcaster; plaintext key material is
+    resolved only after the signer gate has passed.
+    """
+    async def _provider():
+        from arbicore.execution.signer_vault import signer_status
+        return await signer_status(
+            db,
+            expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"),
+        )
+    return _provider
+
+
 _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     kill_switch=_KILL_SWITCH_REPO,
     mode_repo=_EXECUTION_MODE_REPO,
@@ -260,6 +276,7 @@ _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     capital_allocator=_CAPITAL_ALLOCATOR,
     evidence_signer=_EVIDENCE_SIGNER,
     balance_reader=_WALLET_BALANCE_READER,
+    signer_status_provider=_limited_live_signer_status(),
     # M3.0 · controlled-live safety wiring. The pre-broadcast validator
     # (fresh M2.1 quote + M2.5 price + M2.6 TVL + economics + flash-loan
     # liquidity) and circuit breaker are built from the operator env; when the
@@ -384,7 +401,7 @@ async def _atomic_sim_runner(*, route, univ3_hops, borrow_token, amount_wei):
     if not univ3_hops:
         return {"available": False, "passed": False,
                 "reason": "route not representable as Uniswap V3 SwapHop[] (executor supports UniV3 only)"}
-    st = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+    st = await signer_status(db, expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"))
     if not st.get("present"):
         return {"available": False, "passed": False,
                 "reason": "execution signer not present in vault"}
@@ -4883,8 +4900,18 @@ async def v2_engine_onboarding() -> Dict[str, Any]:
     archive_set = bool(os.environ.get("ARBICORE_ARCHIVE_RPC_URL")
                        or os.environ.get("ARBICORE_FORK_RPC_URL"))
     executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
-    signer_set = bool(os.environ.get("ARBICORE_VALIDATION_SIGNER_KEY")
-                      or os.environ.get("ARBICORE_SIGNER_KEY"))
+    from arbicore.execution.signer_vault import signer_status as _onboarding_signer_status
+    try:
+        _signer = await _onboarding_signer_status(
+            db,
+            expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"),
+        )
+    except Exception:  # noqa: BLE001
+        _signer = {"present": False, "matches_expected": None, "derived_address": None}
+    signer_set = bool(
+        _signer.get("present")
+        and _signer.get("matches_expected") is True
+    )
     try:
         gas_wallets = await _WALLET_REGISTRY.list_all(execution_role="gas")
     except Exception:  # noqa: BLE001
@@ -4900,7 +4927,7 @@ async def v2_engine_onboarding() -> Dict[str, Any]:
         item("gas_wallet", "Funded Base gas wallet", bool(gas_wallets),
              "Register a gas/execution wallet via the operator wizard; fund it with a small ETH reserve. Address only — no private key stored here.", True),
         item("signer", "Isolated execution signer", signer_set,
-             "Provision a dedicated signer held in the secure secret store / KMS. The key is NEVER pasted into the app or committed.", True),
+             "Provision the execution signer in the encrypted evm_sign vault; its derived address must match ARBICORE_EXECUTOR_SIGNER_ADDRESS. The key is NEVER pasted into source or committed.", True),
         item("executor", "Executor contract deployed & allowlisted", executor_set,
              "Deploy FlashLoanReceiver on Base, allowlist it, then set ARBICORE_EXECUTOR_ADDRESS_BASE (address only).", True),
         item("archive_rpc", "Fork/archive RPC for validation", archive_set,
@@ -4972,7 +4999,7 @@ async def v2_engine_atomic_sim_status(refresh: bool = False) -> Dict[str, Any]:
             _ATOMIC_SELFTEST["error"] = str(exc)
     rd = _ATOMIC_SIM.readiness()
     from arbicore.execution.signer_vault import signer_status
-    sig = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+    sig = await signer_status(db, expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"))
     signer_ok = bool(sig.get("present") and sig.get("matches_expected") is not False)
     # The executor is DEPLOYED on-chain, so its bytecode is live — the atomic
     # sim runs against the real contract via eth_call (local bytecode override
@@ -5040,7 +5067,7 @@ async def v2_engine_build_executor_calldata(body: Dict[str, Any]) -> Dict[str, A
 
 # ---------------------------------------------------------------------------
 # Execution signer — secure one-time ingestion into the encrypted vault.
-# Derives the address (eth_account), verifies against the gas wallet, stores
+# Derives the address (eth_account), verifies against the configured executor signer, stores
 # ONLY the Fernet ciphertext + handle. The raw key is never logged/echoed/
 # persisted outside the vault. No signing/broadcast anywhere here.
 # ---------------------------------------------------------------------------
@@ -5050,8 +5077,8 @@ async def v2_engine_signer_status() -> Dict[str, Any]:
     from arbicore.execution.signer_vault import signer_status, ensure_signer_address
     # Self-heal a missing derived-address annotation (never exposes the key).
     await ensure_signer_address(_SECRET_REGISTRY, db,
-                                expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
-    st = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+                                expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"))
+    st = await signer_status(db, expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"))
     return {**st, "vault_available": _SECRET_BACKEND.is_available(),
             "generated_at": _iso_now()}
 
@@ -5063,7 +5090,7 @@ async def v2_engine_signer_ingest(body: Dict[str, Any]) -> Dict[str, Any]:
 
     Body: {"private_key": "<64-hex or 0x…>", "label": "optional"}. Response
     returns ONLY the handle + derived checksummed address + mask — never the
-    key. Verifies the derived address matches ARBICORE_GAS_WALLET_ADDRESS."""
+    key. Verifies the derived address matches ARBICORE_EXECUTOR_SIGNER_ADDRESS."""
     from arbicore.execution.signer_vault import ingest_signer
     if not _SECRET_BACKEND.is_available():
         raise HTTPException(status_code=503, detail="vault unavailable (VAULT_KEY missing)")
@@ -5073,7 +5100,7 @@ async def v2_engine_signer_ingest(body: Dict[str, Any]) -> Dict[str, Any]:
     try:
         out = await ingest_signer(
             _SECRET_REGISTRY, db, private_key=pk,
-            expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"),
+            expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"),
             label=(body.get("label") or "execution-signer"))
     except ValueError as exc:
         # Message is key-free by construction in signer_vault.
@@ -5137,7 +5164,7 @@ async def _run_live_atomic_sim(*, block_number: Optional[int] = None,
     slot = _ATOMIC_DIAG_RUN if diagnostic else _ATOMIC_LIVE_RUN
 
     executor = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
-    st = await signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+    st = await signer_status(db, expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"))
     if not (st.get("present") and executor):
         res = {"available": False, "passed": False,
                "reason": "signer not in vault or executor not configured"}
@@ -5708,17 +5735,17 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
     rpc_set = bool(os.environ.get("ARBICORE_RPC_URL"))
     executor_set = bool(os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE"))
     # Execution signer must live in the encrypted vault (scope=evm_sign), NOT
-    # env — and its derived address must match the gas/execution wallet.
+    # env — and its derived address must match the configured executor signer identity.
     from arbicore.execution.signer_vault import signer_status as _signer_status
     try:
-        _signer = await _signer_status(db, expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+        _signer = await _signer_status(db, expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"))
     except Exception:  # noqa: BLE001
         _signer = {"present": False, "matches_expected": None, "derived_address": None}
-    _gas_env_for_signer = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
-    # GREEN only when present AND (no gas wallet to match OR address matches).
+    _signer_env_for_signer = os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS")
+    # GREEN only when present AND (no executor signer identity configured OR address matches).
     signer_set = bool(_signer.get("present") and (
-        (not _gas_env_for_signer) or _signer.get("matches_expected") is True))
-    signer_mismatch = bool(_signer.get("present") and _gas_env_for_signer
+        (not _signer_env_for_signer) or _signer.get("matches_expected") is True))
+    signer_mismatch = bool(_signer.get("present") and _signer_env_for_signer
                            and _signer.get("matches_expected") is False)
     gas_env_addr = os.environ.get("ARBICORE_GAS_WALLET_ADDRESS")
 
@@ -5755,10 +5782,10 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
             "" if gas_wallets else "USER"),
         row("SIGNER", G if signer_set else Y,
             ("" if signer_set else
-             ("Signer address does not match gas wallet (ARBICORE_GAS_WALLET_ADDRESS)"
+             ("Signer address does not match executor signer (ARBICORE_EXECUTOR_SIGNER_ADDRESS)"
               if signer_mismatch else "No execution signer in encrypted vault (0 handles)")),
-            "Execution signer handle present in vault; derived address matches gas wallet" if signer_set
-            else ("Re-ingest the signer whose address matches the gas wallet" if signer_mismatch
+            "Execution signer handle present in vault; derived address matches executor signer" if signer_set
+            else ("Re-ingest the signer whose address matches the executor signer" if signer_mismatch
                   else "Inject signer key via POST /api/arbicore/engine/settings/signer (encrypted vault; VAULT_KEY ready)"),
             "" if signer_set else "USER"),
         row("EXECUTOR_CONTRACT", G if executor_set else Y,
@@ -5817,7 +5844,7 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
              ("On-chain atomic sim EXECUTED against the deployed executor via its REAL entrypoint "
               "execute(address[],uint256[],bytes) + verified userData (SwapHop[],profitRecipient); "
               "reverted with no revert data on the public RPC. Calldata/ABI is CORRECT; most likely "
-              "economics (no live arbitrage → round-trip cannot repay the flash loan). Not auth (owner==signer)."
+              "economics (no live arbitrage → round-trip cannot repay the flash loan). Executor authorization is not established by this failed simulation; inspect the recorded atomic-simulation reason."
               if _atomic_ran else
               ("Executor deployed + signer in vault; run POST /engine/run-atomic-sim"
                if (executor_set and signer_set)
@@ -6524,9 +6551,9 @@ async def _ensure_signer_address_backfill():
         from arbicore.execution.signer_vault import ensure_signer_address
         out = await ensure_signer_address(
             _SECRET_REGISTRY, db,
-            expected_address=os.environ.get("ARBICORE_GAS_WALLET_ADDRESS"))
+            expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"))
         if out.get("backfilled"):
-            logger.info("signer_vault: backfilled derived address (matches_gas=%s)",
+            logger.info("signer_vault: backfilled derived address (matches_executor_signer=%s)",
                         out.get("matches_expected"))
     except Exception as exc:  # noqa: BLE001
         logger.warning("signer_vault: address backfill skipped: %s", exc)
@@ -7168,41 +7195,150 @@ async def _scanners_activate_startup():
 
 _CANONICAL_FL_SCANNER = None          # real FlashLoanArbitrageScanner (canonical)
 _CANONICAL_FL_ACTIVATION: Dict[str, Any] = {}
+_CANONICAL_FL_INIT_TASK = None        # retained background initialization task
 
 
-@app.on_event("startup")
-async def _canonical_flash_loan_scanner_startup():
-    """STAGE 1 — activate the REAL canonical FlashLoanArbitrageScanner
-    (discovery over the real Base pool universe + live QuoterRegistry). This
-    supersedes the dormant wave1b ShadowScannerAdapter for flash-loan discovery.
-    Detection-only / SHADOW: emission is gated by the verifier's economic +
-    atomic-profit + liquidity + MEV gates, and execution by the mode ladder +
-    AutoExecutor. Never signs or broadcasts."""
+async def _canonical_flash_loan_background_activation():
+    """Complete canonical flash-loan wiring outside the FastAPI boot budget.
+
+    Slow RPC-backed substrate initialization runs in a retained background
+    task rather than inside the global 8-second startup-handler budget.
+
+    Safety contract:
+      * initialization is explicitly stateful: INITIALIZING -> READY/FAILED;
+      * the existing wiring remains fail-closed and is not modified here;
+      * the scanner is only started by activate_canonical_flash_loan_scanner()
+        after the live quote provider has been wired;
+      * no signing, broadcasting, capital movement, or execution-mode promotion.
+    """
     global _CANONICAL_FL_SCANNER, _CANONICAL_FL_ACTIVATION
+
     try:
         from arbicore.runtime import composition as _composition
-        _CANONICAL_FL_ACTIVATION = await _composition.activate_canonical_flash_loan_scanner(
-            _QUOTER_REGISTRY)
-        _CANONICAL_FL_SCANNER = _composition.get_flash_loan_arb_scanner()
-        # T0-1: surface an explicit readiness verdict so a canonical scanner
-        # in an analysis mode on the default noop quote provider is visible
-        # (never a silent synthetic production quote path).
+
+        logger.info(
+            "scanners: canonical FlashLoanArbitrageScanner background "
+            "initialization started"
+        )
+
+        activation = await _composition.activate_canonical_flash_loan_scanner(
+            _QUOTER_REGISTRY
+        )
+        scanner = _composition.get_flash_loan_arb_scanner()
+
         try:
             _fl_row = await _EXECUTION_MODE_REPO.get("flash_loan_arbitrage")
             _fl_mode = (_fl_row or {}).get("mode") or "OBSERVE"
             _readiness = _composition.flash_loan_quote_readiness(
-                quote_provider_is_default=_CANONICAL_FL_SCANNER.quote_provider_is_default,
-                mode=_fl_mode)
-            _CANONICAL_FL_ACTIVATION = {**_CANONICAL_FL_ACTIVATION,
-                                        "mode": _fl_mode,
-                                        "readiness": _readiness}
+                quote_provider_is_default=scanner.quote_provider_is_default,
+                mode=_fl_mode,
+            )
+            activation = {
+                **activation,
+                "mode": _fl_mode,
+                "readiness": _readiness,
+            }
         except Exception as _re:  # noqa: BLE001
-            logger.warning("flash-loan readiness snapshot failed: %s", _re)
-        logger.info("scanners: canonical FlashLoanArbitrageScanner ACTIVE — %s",
-                    _CANONICAL_FL_ACTIVATION)
+            logger.warning(
+                "flash-loan readiness snapshot failed: %s", _re
+            )
+
+        _CANONICAL_FL_SCANNER = scanner
+        _CANONICAL_FL_ACTIVATION = {
+            **activation,
+            "initialization_state": "READY",
+        }
+
+        logger.info(
+            "scanners: canonical FlashLoanArbitrageScanner READY — %s",
+            _CANONICAL_FL_ACTIVATION,
+        )
+
+    except asyncio.CancelledError:
+        _CANONICAL_FL_ACTIVATION = {
+            **_CANONICAL_FL_ACTIVATION,
+            "initialization_state": "CANCELLED",
+            "error": "canonical flash-loan background initialization cancelled",
+        }
+        logger.warning(
+            "scanners: canonical flash-loan background initialization cancelled"
+        )
+        raise
+
     except Exception as exc:  # noqa: BLE001
-        _CANONICAL_FL_ACTIVATION = {"instantiated": False, "error": f"{type(exc).__name__}: {exc}"}
-        logger.exception("scanners: canonical flash-loan activation failed: %s", exc)
+        _CANONICAL_FL_ACTIVATION = {
+            **_CANONICAL_FL_ACTIVATION,
+            "initialization_state": "FAILED",
+            "instantiated": False,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        logger.exception(
+            "scanners: canonical flash-loan background initialization failed: %s",
+            exc,
+        )
+
+
+@app.on_event("startup")
+async def _canonical_flash_loan_scanner_startup():
+    """STAGE 1 — schedule canonical FlashLoanArbitrageScanner initialization.
+
+    Slow RPC-backed substrate wiring runs in a retained background task rather
+    than inside the global 8-second startup-handler budget.
+
+    Detection-only / SHADOW: emission is gated by the verifier's economic +
+    atomic-profit + liquidity + MEV gates, and execution by the mode ladder +
+    AutoExecutor. Never signs or broadcasts.
+    """
+    global _CANONICAL_FL_SCANNER, _CANONICAL_FL_ACTIVATION
+    global _CANONICAL_FL_INIT_TASK
+
+    try:
+        from arbicore.runtime import composition as _composition
+
+        _CANONICAL_FL_SCANNER = _composition.get_flash_loan_arb_scanner()
+
+        _CANONICAL_FL_ACTIVATION = {
+            "instantiated": True,
+            "class": "FlashLoanArbitrageScanner",
+            "scanner_id": _CANONICAL_FL_SCANNER.scanner_id,
+            "initialization_state": "INITIALIZING",
+            "quote_provider": (
+                "noop"
+                if _CANONICAL_FL_SCANNER.quote_provider_is_default
+                else "operator-provided"
+            ),
+            "enabled": _CANONICAL_FL_SCANNER.is_enabled(),
+            "detection_only": True,
+        }
+
+        if (
+            _CANONICAL_FL_INIT_TASK is None
+            or _CANONICAL_FL_INIT_TASK.done()
+        ):
+            _CANONICAL_FL_INIT_TASK = asyncio.create_task(
+                _canonical_flash_loan_background_activation(),
+                name="arbicore-canonical-flashloan-init",
+            )
+            logger.info(
+                "scanners: canonical FlashLoanArbitrageScanner "
+                "initialization scheduled (background)"
+            )
+        else:
+            logger.info(
+                "scanners: canonical FlashLoanArbitrageScanner "
+                "initialization already running"
+            )
+
+    except Exception as exc:  # noqa: BLE001
+        _CANONICAL_FL_ACTIVATION = {
+            "instantiated": False,
+            "initialization_state": "FAILED",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+        logger.exception(
+            "scanners: canonical flash-loan initialization scheduling failed: %s",
+            exc,
+        )
 
     # T2 · flag-gated Base searcher runtime (SHADOW, construction-only; never
     # broadcasts, never promotes). Default OFF → zero runtime impact.

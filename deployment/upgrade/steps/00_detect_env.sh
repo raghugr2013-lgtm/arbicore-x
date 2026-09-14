@@ -178,8 +178,10 @@ ok "MONGO_URL: $(printf '%s' "$MONGO_URL" | sed -E 's#//[^@]*@#//***@#')   DB_NA
   || die "internal: MONGO_URL host does not match selected container '$MONGO_CONTAINER'"
 
 # Provenance / image tag
-GITSHA="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "$(date +%Y%m%d)")"
-GITTAG="$(git -C "$ROOT_DIR" describe --tags --always --dirty 2>/dev/null || echo "$GITSHA")"
+GIT_SHA_FULL="$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || true)"
+GIT_SHA_SHORT="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || true)"
+GITSHA="${GIT_SHA_FULL:-$(date +%Y%m%d)}"
+GITTAG="$(git -C "$ROOT_DIR" describe --tags --always --dirty 2>/dev/null || echo "${GIT_SHA_SHORT:-$GITSHA}")"
 BUILD_TIME="$(date -u +%FT%TZ)"
 APP_VERSION="$GITTAG"
 # Unambiguous image identity: <repo-semver>-<short-sha> (no static 0.1.0-realign
@@ -188,7 +190,7 @@ APP_VERSION="$GITTAG"
 # 0.0.0 only if the repo VERSION file is genuinely absent (never hardcoded).
 APP_SEMVER="$(tr -d '[:space:]' < "$REPO_ROOT/VERSION" 2>/dev/null || true)"
 [ -n "$APP_SEMVER" ] || APP_SEMVER="0.0.0"
-IMAGE_TAG="arbicore-x-backend:${APP_SEMVER}-${GITSHA}"
+IMAGE_TAG="arbicore-x-backend:${APP_SEMVER}-${GIT_SHA_SHORT:-$GITSHA}"
 BACKEND_NEW="arbicore-x-backend"
 [ "$BACKEND_NEW" = "$BACKEND_OLD" ] && BACKEND_NEW="arbicore-x-backend-new"  # avoid name collision
 
@@ -294,6 +296,35 @@ fi
 if ! grep -q '^ARBICORE_RPC_WSS_BASE=' "$BACKEND_ENV" && [ -n "${ARBICORE_RPC_WSS_BASE:-}" ]; then
   echo "ARBICORE_RPC_WSS_BASE=${ARBICORE_RPC_WSS_BASE}" >> "$BACKEND_ENV"
 fi
+
+# Deployment-owned provenance must never inherit stale runtime metadata from OLD.
+# The image build receives the authoritative source identity from compose/.env;
+# keep the runtime env consistent with that same identity.
+set_backend_env_key() {
+  local key="$1"
+  local value="$2"
+  local tmp
+  tmp="$(mktemp "${BACKEND_ENV}.XXXXXX")"
+  awk -v k="$key" -v v="$value" '
+    index($0, k "=") == 1 {
+      if (!seen) {
+        print k "=" v
+        seen=1
+      }
+      next
+    }
+    { print }
+    END {
+      if (!seen) print k "=" v
+    }
+  ' "$BACKEND_ENV" > "$tmp"
+  mv "$tmp" "$BACKEND_ENV"
+}
+
+set_backend_env_key "ARBICORE_GIT_SHA" "$GITSHA"
+set_backend_env_key "ARBICORE_GIT_TAG" "$GITTAG"
+set_backend_env_key "ARBICORE_BUILD_TIME" "$BUILD_TIME"
+set_backend_env_key "ARBICORE_VERSION" "$APP_VERSION"
 
 # Build NEW key set from the file we just wrote and emit the parity report.
 grep -E '^[A-Za-z_][A-Za-z0-9_]*=' "$BACKEND_ENV" | cut -d= -f1 | sort -u > "$NEW_APP_KEYS"

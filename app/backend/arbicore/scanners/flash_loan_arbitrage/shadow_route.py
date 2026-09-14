@@ -20,10 +20,52 @@ def canonical_to_pipeline_opp(canonical: Any,
     econ = evidence.get("economics") or {}
     liq = evidence.get("liquidity") or {}
     hop_legs = list((evidence.get("quotes") or {}).get("hop_legs") or [])
-    swap_hops = [{"dex": h.get("dex_protocol"),
-                  "fee_bps": h.get("fee_bps"),
-                  "pool_liquidity_usd": h.get("depth_usd")}
-                 for h in hop_legs]
+
+    # B7 exact execution handoff.
+    #
+    # The verifier's hop_legs are derived from the live HopQuote. The
+    # execution planner requires the exact token path and wei amounts for
+    # every hop. Never reconstruct these from USD economics, gross spread,
+    # or probe-size ratios.
+    #
+    # The existing canonical quote policy is 30 bps minimum-output
+    # protection. Apply it to each authoritative quoted hop output.
+    B7_MIN_OUT_SLIPPAGE_BPS = 30
+
+    swap_hops = []
+    for i, h in enumerate(hop_legs):
+        token_in = str(h.get("token_in") or "")
+        token_out = str(h.get("token_out") or "")
+        amount_in_wei = int(h.get("amount_in_wei") or 0)
+        amount_out_wei = int(h.get("amount_out_wei") or 0)
+
+        if not token_in or not token_out:
+            raise ValueError(
+                f"B7 exact execution handoff missing token path at hop {i}"
+            )
+        if amount_in_wei <= 0 or amount_out_wei <= 0:
+            raise ValueError(
+                f"B7 exact execution handoff missing quote amount at hop {i}"
+            )
+
+        min_amount_out_wei = (
+            amount_out_wei * (10_000 - B7_MIN_OUT_SLIPPAGE_BPS)
+        ) // 10_000
+
+        if min_amount_out_wei <= 0 or min_amount_out_wei > amount_out_wei:
+            raise ValueError(
+                f"B7 invalid min output at hop {i}"
+            )
+
+        swap_hops.append({
+            "dex": h.get("dex_protocol"),
+            "token_in": token_in,
+            "token_out": token_out,
+            "amount_in_wei": amount_in_wei,
+            "min_amount_out_wei": min_amount_out_wei,
+            "fee_tier_bps": h.get("fee_bps"),
+            "pool_liquidity_usd": h.get("depth_usd"),
+        })
     net = econ.get("atomic_profit_usd")
     if net is None:
         net = getattr(canonical, "expected_profit_usd", None)

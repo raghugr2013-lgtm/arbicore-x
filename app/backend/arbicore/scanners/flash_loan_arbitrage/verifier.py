@@ -12,6 +12,14 @@ import math
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
+import os
+
+from ...execution.calldata import (
+    build_user_data_from_hops,
+    encode_executor_execute,
+)
+from ...execution.receiver_capability import receiver_capability
+
 from ...intelligence.roi_probability import ROIProbabilityEngine
 from ...models.canonical import CanonicalOpportunity
 from ...models.discovery import DiscoveryCandidate, VerifiedOutcome
@@ -43,6 +51,147 @@ async def noop_quote_provider(cycle_metadata: Dict[str, Any],
                                  ) -> Optional[Dict[str, Any]]:
     """Cold-start provider — verifier ends as ``denied:venue_unreadable``."""
     return None
+
+
+def _build_b7_execution_handoff(
+    *,
+    ev: Dict[str, Any],
+    hm: Dict[str, Any],
+    facts: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build the exact unsigned executor calldata bound to one verified quote.
+
+    Fail-closed:
+      * only Base mainnet is currently execution-capable;
+      * executor address must be operator-configured;
+      * receiver capability must explicitly support the flash provider;
+      * every quoted hop must carry exact token/amount data;
+      * calldata is derived only from the authoritative live quote;
+      * this helper never signs or broadcasts.
+    """
+    chain = str(ev.get("chain") or "").strip().lower()
+    provider = str(ev.get("provider") or "").strip().lower()
+    executor_address = os.environ.get("ARBICORE_EXECUTOR_ADDRESS_BASE")
+
+    if chain not in ("base", "8453", "base-mainnet", "basemainnet"):
+        return {
+            "status": "BLOCKED",
+            "reason": "b7_execution_handoff_non_base_not_supported",
+        }
+
+    if not executor_address:
+        return {
+            "status": "BLOCKED",
+            "reason": "b7_execution_handoff_executor_address_missing",
+        }
+
+    cap = receiver_capability("base")
+    if not cap.deployed or not cap.address:
+        return {
+            "status": "BLOCKED",
+            "reason": "b7_execution_handoff_receiver_not_deployed",
+        }
+    if provider not in cap.supported_providers:
+        return {
+            "status": "BLOCKED",
+            "reason": f"b7_execution_handoff_provider_unsupported:{provider}",
+        }
+
+    hop_legs = list(facts.get("hop_legs") or [])
+    if not hop_legs:
+        return {
+            "status": "BLOCKED",
+            "reason": "b7_execution_handoff_no_hop_legs",
+        }
+
+    exact_input_wei = int(facts.get("quoted_amount_in_wei") or 0)
+    if exact_input_wei <= 0 or not facts.get("exact_size"):
+        return {
+            "status": "BLOCKED",
+            "reason": "b7_execution_handoff_exact_quote_missing",
+        }
+
+    signer = os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS")
+    if not signer:
+        return {
+            "status": "BLOCKED",
+            "reason": "b7_execution_handoff_profit_recipient_missing",
+        }
+
+    hops = []
+    for i, leg in enumerate(hop_legs):
+        token_in = str(leg.get("token_in") or "")
+        token_out = str(leg.get("token_out") or "")
+        amount_in = int(leg.get("amount_in_wei") or 0)
+        amount_out = int(leg.get("amount_out_wei") or 0)
+        fee_bps = int(leg.get("fee_bps") or 0)
+
+        if not token_in or not token_out:
+            return {
+                "status": "BLOCKED",
+                "reason": f"b7_execution_handoff_token_missing:{i}",
+            }
+        if amount_in <= 0 or amount_out <= 0:
+            return {
+                "status": "BLOCKED",
+                "reason": f"b7_execution_handoff_amount_missing:{i}",
+            }
+        if fee_bps <= 0:
+            return {
+                "status": "BLOCKED",
+                "reason": f"b7_execution_handoff_fee_missing:{i}",
+            }
+
+        amount_out_min = (amount_out * 9970) // 10000
+        if amount_out_min <= 0 or amount_out_min > amount_out:
+            return {
+                "status": "BLOCKED",
+                "reason": f"b7_execution_handoff_min_output_invalid:{i}",
+            }
+
+        hops.append({
+            "token_in": token_in,
+            "token_out": token_out,
+            "fee_tier_bps": fee_bps,
+            "amount_in_wei": amount_in if i == 0 else 0,
+            "amount_out_min_wei": amount_out_min,
+            "sqrt_price_limit_x96": int(
+                leg.get("sqrt_price_limit_x96") or 0),
+        })
+
+    # The first hop must consume the exact flash-loan amount.
+    if int(hops[0]["amount_in_wei"]) != exact_input_wei:
+        return {
+            "status": "BLOCKED",
+            "reason": "b7_execution_handoff_input_amount_mismatch",
+        }
+
+    user_data = build_user_data_from_hops(
+        hops=hops,
+        profit_recipient=signer,
+    )
+    encoded = encode_executor_execute(
+        executor_address=executor_address,
+        tokens=[hops[0]["token_in"]],
+        amounts=[exact_input_wei],
+        user_data_hex=user_data,
+    )
+
+    return {
+        "status": "READY",
+        "executor_address": executor_address,
+        "receiver_version": cap.receiver_version,
+        "flash_loan_provider": provider,
+        "token": hops[0]["token_in"],
+        "exact_input_wei": exact_input_wei,
+        "route": hops,
+        "calldata": encoded.calldata_hex,
+        "selector": encoded.selector_hex,
+        "value_wei": encoded.value_wei,
+        "gas_limit_hint": encoded.gas_limit_hint,
+        "profit_recipient": signer,
+        "quote_block": facts.get("quote_block"),
+    }
 
 
 class FlashLoanOpportunityVerifier(OpportunityVerifier):
@@ -425,6 +574,15 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
                 "gross_profit_pct": facts.get("gross_profit_pct"),
                 "route_quote_status": facts.get("route_quote_status"),
                 "hop_legs": list(facts.get("hop_legs") or []),
+
+                # H05 exact-size binding provenance.
+                "size_basis": facts.get("size_basis"),
+                "exact_size": facts.get("exact_size"),
+                "quoted_amount_in_wei": facts.get("quoted_amount_in_wei"),
+                "quote_notional_usd": facts.get("quote_notional_usd"),
+                "borrow_token": facts.get("borrow_token") or ev.get("borrow_token"),
+                "chain": facts.get("chain") or ev.get("chain"),
+                "quote_block": facts.get("quote_block"),
             },
             "liquidity": {
                 "min_pool_tvl_usd_in_route": ev.get("min_tvl", 0.0),
@@ -448,6 +606,36 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
             # Diagnostic provenance (observability only; never a verdict input).
             "diagnostics": self._diagnostics(candidate),
         }
+
+        # B7 → H09: persist the exact unsigned executor call bound to the
+        # authoritative live quote. This is evidence only; it never signs or
+        # broadcasts and never changes the verifier verdict.
+        try:
+            b7 = _build_b7_execution_handoff(
+                ev=ev, hm=hm, facts=facts)
+        except Exception as exc:  # fail closed; audit remains best-effort
+            b7 = {
+                "status": "BLOCKED",
+                "reason": f"b7_execution_handoff_exception:{type(exc).__name__}",
+            }
+
+        bundle["execution_plan"] = {
+            "status": b7.get("status"),
+            "reason": b7.get("reason"),
+            "executor_address": b7.get("executor_address"),
+            "receiver_version": b7.get("receiver_version"),
+            "flash_loan_provider": b7.get("flash_loan_provider"),
+            "profit_recipient": b7.get("profit_recipient"),
+            "executor_entry_calldata": b7.get("calldata"),
+            "selector": b7.get("selector"),
+            "value_wei": b7.get("value_wei"),
+            "gas_limit_hint": b7.get("gas_limit_hint"),
+            "token": b7.get("token"),
+            "exact_input_wei": b7.get("exact_input_wei"),
+            "route": b7.get("route"),
+            "quote_block": b7.get("quote_block"),
+        }
+
         if econ is not None:
             bundle["fees"] = {
                 "flash_loan_fee_bps": int(

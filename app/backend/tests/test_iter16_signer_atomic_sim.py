@@ -1,7 +1,7 @@
 """Iteration 16 — SIGNER end-to-end + ATOMIC_EXECUTOR_SIM + Anvil fork validation + readiness.
 
 Backend-only. Uses operator cookie auth. Assumes signer vault is populated
-(derived address = ARBICORE_GAS_WALLET_ADDRESS = 0x998d6efF2b28b72c44f7a334c42678eb4cCaad25).
+(derived address = ARBICORE_EXECUTOR_SIGNER_ADDRESS).
 """
 import os
 import re
@@ -10,7 +10,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://arbicore-audit-1.preview.emergentagent.com").rstrip("/")
-EXPECTED_ADDR = "0x998d6efF2b28b72c44f7a334c42678eb4cCaad25"
+EXPECTED_ADDR = os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS", "")
 HEX64_RE = re.compile(r"(?<![0-9a-fA-Fx])[0-9a-fA-F]{64}(?![0-9a-fA-F])")
 LEAK_TOKENS = ["private_key", "signed_tx", "raw_tx", "eth_sendTransaction",
                "eth_sendRawTransaction", "personal_sign"]
@@ -84,8 +84,8 @@ class TestReadiness:
         assert wsig is not None, list(comps.keys())
         assert wsig.get("status") == "GREEN", wsig
         passed_join = " ".join(wsig.get("passed", []) or []).lower()
-        # passed[] should mention signer address matches gas wallet
-        assert ("match" in passed_join and ("gas" in passed_join or "wallet" in passed_join)) or EXPECTED_ADDR.lower() in json.dumps(wsig).lower(), wsig
+        # passed[] should mention signer address matches the configured executor signer
+        assert ("match" in passed_join and ("signer" in passed_join or "executor" in passed_join)) or (EXPECTED_ADDR and EXPECTED_ADDR.lower() in json.dumps(wsig).lower()), wsig
         modes = data.get("modes", {})
         assert modes.get("LIMITED_LIVE", {}).get("can_activate") is False, modes.get("LIMITED_LIVE")
         assert (data.get("current_mode") or "").upper() == "SHADOW", data.get("current_mode")
