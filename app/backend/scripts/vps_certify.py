@@ -21,15 +21,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from arbicore.certification import vps_harness as H
+from scripts.arbicore_certify import _build_identity
 
 _OUT = Path(os.environ.get("ARBICORE_CERT_OUT_DIR", "/app/vps_cert"))
 
 
 def _git_commit() -> str:
     try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd="/app",
-            stderr=subprocess.DEVNULL).decode().strip()
+        identity = _build_identity()
+        return identity.get("git_sha") or "unknown"
     except Exception:  # noqa: BLE001
         return "unknown"
 
