@@ -57,6 +57,25 @@ def _result(name: str, status: str, detail: str,
             "evidence": evidence or {}}
 
 
+# Certification receiver-target chains arrive as a numeric chain-id STRING (e.g.
+# ARBICORE_CERT_RECEIVER_CHAIN=84532). QuoterRegistry resolves RPC endpoints and
+# expected chain-ids by canonical chain NAME (…_RPC_URL / ARBICORE_RPC_URL_<CHAIN>
+# / _expected_chain_id), so a bare numeric id would look for a non-existent
+# "84532_RPC_URL" and miss the operator's BASE_SEPOLIA_RPC_URL. Map the numeric id
+# to the canonical name used across the codebase (mirrors executor_registry chain
+# aliases + paper.simulator's BASE_SEPOLIA_RPC_URL convention). Named chains and
+# unknown ids pass through unchanged (fail-closed: an unknown chain yields no
+# candidates and no expected id).
+_RECEIVER_CHAIN_ID_TO_NAME: Dict[str, str] = {"8453": "base", "84532": "base_sepolia"}
+
+
+def _rpc_chain_name(chain: Any) -> str:
+    """Canonical chain NAME for QuoterRegistry env/id resolution. Numeric ids map
+    to their canonical name; already-named chains pass through (lower-cased)."""
+    s = str(chain).strip().lower()
+    return _RECEIVER_CHAIN_ID_TO_NAME.get(s, s)
+
+
 # ---------------------------------------------------------------------------
 # A1 — six-chain read-only RPC + eth_chainId
 # ---------------------------------------------------------------------------
@@ -306,8 +325,15 @@ async def check_h08_receiver(chain: Any) -> Dict[str, Any]:
 async def check_receiver_bytecode_immutables(chain: Any) -> Dict[str, Any]:
     addr = resolve_executor_address(chain)
     reg = _q.QuoterRegistry()
-    cands = reg._rpc_url_candidates(chain)
-    rpc = cands[0] if cands else None
+    # Resolve the RPC by canonical chain NAME (the cert receiver target arrives as
+    # a numeric id like "84532"; map it -> "base_sepolia" so the operator's
+    # BASE_SEPOLIA_RPC_URL is found), then STRICTLY verify each endpoint actually
+    # serves that chain id (H06 anti-leakage: never inspect a Base-Sepolia receiver
+    # through a Base-mainnet endpoint, or vice-versa).
+    rpc_chain = _rpc_chain_name(chain)
+    cands = reg._rpc_url_candidates(rpc_chain)
+    verified = await _q._verified_chain_endpoints(cands, rpc_chain) if cands else []
+    rpc = verified[0] if verified else None
     rec = get_deployment(chain) or {}
     ctor = rec.get("constructor_args") or rec.get("constructor_args_expected") or {}
     expected = {"vault": ctor.get("balancerVault") or ctor.get("aavePool"),
@@ -317,10 +343,17 @@ async def check_receiver_bytecode_immutables(chain: Any) -> Dict[str, Any]:
                        "no executor/receiver address for chain — fail closed",
                        {"chain": str(chain), "address": None})
     if not rpc:
-        return _result("b:bytecode_immutables", BLOCKED,
-                       "no operator RPC to inspect bytecode/immutables",
+        # Distinguish "nothing configured" from "configured but unreachable /
+        # wrong chain id" — both fail closed, but the reason must be truthful.
+        reason = ("no operator RPC to inspect bytecode/immutables"
+                  if not cands else
+                  f"configured RPC did not verify as chain "
+                  f"{_q._expected_chain_id(rpc_chain)} (unreachable or wrong "
+                  f"chain id) — fail closed")
+        return _result("b:bytecode_immutables", BLOCKED, reason,
                        {"chain": str(chain), "address": addr,
-                        "rpc_configured": False})
+                        "rpc_configured": bool(cands),
+                        "expected_chain_id": _q._expected_chain_id(rpc_chain)})
     probe = await probe_executor_identity(
         executor_address=addr, rpc_url=rpc, chain=chain, expected=expected)
     # map probe status to harness status (fail-closed)

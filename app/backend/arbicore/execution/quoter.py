@@ -235,7 +235,16 @@ _HOST_BATCH_OK: Dict[str, bool] = {}
 # fails CLOSED (the endpoint is skipped; a chain with no verifiable endpoint
 # quotes nothing rather than silently using another chain's node). This applies
 # to endpoint selection AND failover, not just diagnostics.
-_EXPECTED_CHAIN_IDS: Dict[str, int] = {"base": 8453}
+_EXPECTED_CHAIN_IDS: Dict[str, int] = {
+    "base": 8453,
+    # Base Sepolia testnet — the CERTIFICATION receiver target chain. It is NOT
+    # part of the mainnet CHAIN_REGISTRIES (production six-chain only), so it is
+    # declared explicitly here. ADDITIVE ONLY: mainnet six-chain resolution is
+    # unchanged. Both hyphen/underscore name forms map to 84532 so Base-Sepolia
+    # chain-identity verification stays STRICT (endpoint must prove chainId 84532).
+    "base-sepolia": 84532,
+    "base_sepolia": 84532,
+}
 try:  # non-Base ids from the canonical registry (single source of truth)
     from ..chains.registries import CHAIN_REGISTRIES as _CR
     for _cn, _cv in _CR.items():
