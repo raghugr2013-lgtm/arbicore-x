@@ -45,6 +45,7 @@ def _cfg_i(name: str, default: int) -> int:
 async def probe_atomic_simulation(
     *, bundle: Dict[str, Any], executor_address: Optional[str],
     rpc_url: Optional[str], signer_present: bool = False,
+    from_address: Optional[str] = None, block_tag: str = "latest",
     sim_factory: Optional[Callable[..., Any]] = None,
 ) -> Dict[str, Any]:
     """Run the exact-tx atomic simulation via ``AtomicExecutorSimulator``.
@@ -87,7 +88,7 @@ async def probe_atomic_simulation(
 
     res = dict(await sim.simulate_atomic(
         entry_calldata=entry_calldata, signer_present=signer_present,
-        block_tag="latest"))
+        from_address=from_address, block_tag=block_tag))
     res.setdefault("readiness", readiness)
     res["capability_self_test"] = cap
     res["signed"] = False

@@ -270,7 +270,8 @@ def execution_capability_requirements(chain: str) -> Dict[str, Any]:
 async def _default_simulation_probe(
     chain: str, *, eth_call: Any, candidate: Dict[str, Any],
     quote_facts: Dict[str, Any], executor_address: Optional[str],
-    receiver_capability: Any) -> Optional[Dict[str, Any]]:
+    receiver_capability: Any,
+    signer_evidence: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """GENUINE candidate-bound atomic simulation (H09) via the read-only
     ``probe_atomic_simulation`` (AtomicExecutorSimulator eth_call + state
     override). Consumes the EXACT verified quote's calldata; NEVER signs or
@@ -285,13 +286,35 @@ async def _default_simulation_probe(
             "executor_entry_calldata": candidate.get("executor_entry_calldata"),
         }
         rpc_url = candidate.get("rpc_url")   # AtomicExecutorSimulator needs a URL
+        # AUTHORITATIVE signer evidence ONLY (P0/P1-a): the vault must report a
+        # present signer whose derived address matches the configured executor
+        # signer. A candidate-provided flag can NEVER satisfy this.
+        sig_ok = bool(signer_evidence
+                      and signer_evidence.get("present")
+                      and signer_evidence.get("matches_expected") is True
+                      and signer_evidence.get("derived_address"))
+        from_address = signer_evidence.get("derived_address") if sig_ok else None
+        # BLOCK/quote binding (P1-b): pin the read-only eth_call to the EXACT
+        # quoted block (archive read); fail closed if the block is unknown.
+        qb = quote_facts.get("quote_block")
+        if qb is None:
+            return None
         res = await probe_atomic_simulation(
             bundle=bundle, executor_address=executor_address, rpc_url=rpc_url,
-            signer_present=bool(candidate.get("signer_present")))
+            signer_present=sig_ok, from_address=from_address,
+            block_tag=hex(int(qb)))
         if isinstance(res, dict):
             res.setdefault("simulation_kind", "onchain_eth_call")
-            res.setdefault("quote_block", quote_facts.get("quote_block"))
             res.setdefault("chain", chain)
+            # Bind the reported block to the block the eth_call was ACTUALLY
+            # pinned to (never a copy of quote_facts) so the outer gate's
+            # comparison against the quoted block is genuine.
+            tag = res.get("block_tag")
+            try:
+                res["quote_block"] = (int(tag, 16) if isinstance(tag, str)
+                                      and tag.startswith("0x") else None)
+            except (TypeError, ValueError):
+                res["quote_block"] = None
         return res
     except Exception:  # noqa: BLE001 — never fabricate a simulation pass
         return None
@@ -318,6 +341,7 @@ async def evaluate_chain_execution_readiness(
     now_ts: Optional[float] = None,
     quote_max_age_s: float = 12.0,
     simulation_probe_fn: Optional[Callable[..., Awaitable[Optional[Dict[str, Any]]]]] = None,
+    signer_evidence_fn: Optional[Callable[[], Awaitable[Optional[Dict[str, Any]]]]] = None,
 ) -> Dict[str, Any]:
     """Walk the chain-scoped execution ladder. Live chain-verification and
     liquidity reads run ONLY when an operator RPC is configured for the chain
@@ -574,10 +598,27 @@ async def evaluate_chain_execution_readiness(
     except Exception:  # noqa: BLE001
         executor_addr = None
 
+    # Authoritative signer evidence (P0/P1-a): resolved ONLY from the injected
+    # vault-backed provider (make_vault_signer_evidence). Absent provider => None
+    # => fail-closed. A candidate-supplied signer_present boolean is NEVER trusted.
+    signer_ev: Optional[Dict[str, Any]] = None
+    if signer_evidence_fn is not None:
+        try:
+            signer_ev = await signer_evidence_fn()
+        except Exception:  # noqa: BLE001 — fail closed
+            signer_ev = None
+
     # 8) SIMULATION — H09 chain-generic, candidate-bound atomic simulation. It
     #    consumes the EXACT verified quote/candidate + chain + block + executor +
     #    receiver evidence and runs a REAL read-only on-chain eth_call sim. Only
     #    a genuine on-chain sim can PASS — never symbolic/paper/heuristic.
+    def _has_calldata(cand: Dict[str, Any]) -> bool:
+        b = cand.get("evidence_bundle") or {}
+        p = b.get("execution_plan") or cand.get("execution_plan") or {}
+        return bool(cand.get("executor_entry_calldata")
+                    or b.get("executor_entry_calldata")
+                    or p.get("executor_entry_calldata"))
+
     if eth_call is None:
         stages["SIMULATION"] = _stage(BLOCKED, "no_rpc_for_simulation")
     elif not executor_addr:
@@ -586,11 +627,27 @@ async def evaluate_chain_execution_readiness(
         stages["SIMULATION"] = _stage(BLOCKED, "simulation_requires_verified_exact_quote")
     elif candidate is None:
         stages["SIMULATION"] = _stage(BLOCKED, "simulation_requires_candidate")
+    elif quote_facts.get("quote_block") is None:
+        stages["SIMULATION"] = _stage(BLOCKED, "simulation_requires_quote_block_binding")
+    elif not _has_calldata(candidate):
+        stages["SIMULATION"] = _stage(BLOCKED, "simulation_requires_candidate_calldata")
+    elif cap is None or not getattr(cap, "version_verified", False):
+        stages["SIMULATION"] = _stage(BLOCKED, "simulation_requires_verified_receiver_version")
+    elif not (signer_ev and signer_ev.get("present")
+              and signer_ev.get("matches_expected") is True
+              and signer_ev.get("derived_address")):
+        # P0/P1-a: authoritative vault signer required; a candidate boolean can
+        # NEVER satisfy this. Requires present + matches_expected(True) + address.
+        stages["SIMULATION"] = _stage(
+            BLOCKED, "simulation_requires_authoritative_vault_signer",
+            signer_present=bool(signer_ev and signer_ev.get("present")),
+            signer_matches_expected=(signer_ev or {}).get("matches_expected"))
     else:
         try:
             sim = await simulation_probe_fn(
                 c, eth_call=eth_call, candidate=candidate, quote_facts=quote_facts,
-                executor_address=executor_addr, receiver_capability=cap)
+                executor_address=executor_addr, receiver_capability=cap,
+                signer_evidence=signer_ev)
         except Exception as exc:  # noqa: BLE001 — never fabricate a sim pass
             sim = None
             stages["SIMULATION"] = _stage(BLOCKED, f"simulation_probe_error:{type(exc).__name__}")
@@ -663,6 +720,22 @@ async def evaluate_chain_execution_readiness(
     }
 
 
+def make_vault_signer_evidence(db: Any) -> Callable[[], Awaitable[Optional[Dict[str, Any]]]]:
+    """VPS-usable AUTHORITATIVE signer-evidence provider (read-only, no key).
+    Wraps the encrypted ``evm_sign`` vault ``signer_status`` and matches the
+    vault's derived address against the configured
+    ``ARBICORE_EXECUTOR_SIGNER_ADDRESS``. Returns None (fail-closed) if the vault
+    module / db is unavailable. Never reads/prints/stores a private key."""
+    async def _provider() -> Optional[Dict[str, Any]]:
+        try:
+            from ..execution.signer_vault import signer_status
+            return await signer_status(
+                db, expected_address=os.environ.get("ARBICORE_EXECUTOR_SIGNER_ADDRESS"))
+        except Exception:  # noqa: BLE001 — fail closed
+            return None
+    return _provider
+
+
 def make_registry_chain_id_reader() -> Callable[[str], Awaitable[Optional[int]]]:
     """VPS-usable, chain-scoped ``eth_chainId`` reader (read-only). Returns None
     when the chain has no operator RPC / the read fails (fail-closed). Bound to
@@ -708,4 +781,5 @@ __all__ = [
     "build_chain_execution_readiness_report",
     "execution_capability_requirements",
     "make_registry_chain_id_reader",
+    "make_vault_signer_evidence",
 ]
