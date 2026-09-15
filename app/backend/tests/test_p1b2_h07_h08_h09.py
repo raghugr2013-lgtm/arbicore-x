@@ -69,25 +69,28 @@ def test_global_base_alias_never_leaks_to_other_chains():
 # ------------------------- H08 receiver capability --------------------------
 
 def test_undeployed_chains_are_execution_incapable():
-    # only base_sepolia (84532) is deployed in the committed registry; the six
-    # production chains have no successful deployment → all fail closed.
+    # Base mainnet (8453) is a known deployed receiver. Every other
+    # production chain remains undeployed and must fail closed.
     for c in SIX_CHAINS:
         cap = receiver_capability(c)
+        if c == "base":
+            assert cap.deployed is True
+            continue
         assert cap.deployed is False
         assert cap.supported_providers == []
         for prov in ("balancer_v2", "aave_v3", "uniswap_v3", "aerodrome"):
             assert receiver_supports(c, prov) is False
 
 
-def test_deployed_receiver_without_declared_providers_rejects_all_venues():
+def test_base_sepolia_receiver_declares_aave_provider():
     cap = receiver_capability(84532)          # base_sepolia, deploy success
     assert cap.deployed is True
-    # no supported_providers declared → every venue rejected (no inference)
-    assert cap.supported_providers == []
+    assert cap.supported_providers == ["aave_v3"]
+    assert receiver_supports(84532, "aave_v3") is True
+    # Provider support is explicit; do not infer unsupported venues.
     assert receiver_supports(84532, "balancer_v2") is False
-    # version missing in record → reported unversioned/unverified
-    assert cap.version_verified is False
-    assert cap.receiver_version == "unversioned"
+    assert cap.receiver_version == "v1"
+    assert cap.abi_version == "v1"
 
 
 def test_unknown_chain_is_incapable():
