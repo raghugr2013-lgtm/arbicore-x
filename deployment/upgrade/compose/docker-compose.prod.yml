@@ -36,6 +36,7 @@ services:
       - ../logs:/var/log/arbicore-x
     networks:
       - existing_mongo_net
+      - vqb-network
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8001/api/"]
       interval: 30s
@@ -50,3 +51,9 @@ networks:
   existing_mongo_net:
     external: true
     name: ${NETWORK_NAME}
+
+  # Production reverse proxy network. Caddy and the canonical
+  # ArbiCore production services are attached here.
+  vqb-network:
+    external: true
+    name: vqb-network
