@@ -35,8 +35,10 @@ services:
       - ../../../app/backend/arbicore/intel/launch/labels.json:/app/arbicore/intel/launch/labels.json:ro
       - ../logs:/var/log/arbicore-x
     networks:
-      - existing_mongo_net
-      - vqb-network
+      existing_mongo_net:
+      vqb-network:
+        aliases:
+          - arbicore-x-backend
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8001/api/"]
       interval: 30s
