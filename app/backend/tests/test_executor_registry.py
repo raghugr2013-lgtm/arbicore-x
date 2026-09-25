@@ -43,12 +43,29 @@ def test_deployed_address_for_sepolia_by_id_and_alias():
     assert reg.is_deployed("base_sepolia") is True
 
 
-def test_mainnet_not_deployed_fails_closed():
-    assert reg.deployed_address(8453) is None
-    assert reg.deployed_address("base") is None
-    assert reg.is_deployed("base_mainnet") is False
+def test_mainnet_deployed_matches_registry_and_broadcast():
+    """Mainnet (8453) IS now genuinely deployed (verified on-chain: bytecode +
+    immutables match the committed broadcast artifact). Update the previously-
+    stale not_deployed expectation to current reality while preserving the
+    fail-closed contract: only deploy_status=="success" with a valid address
+    returns an address."""
+    addr = "0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f"
+    assert reg.deployed_address(8453) == addr
+    assert reg.deployed_address("base") == addr
+    assert reg.is_deployed("base_mainnet") is True
     rec = reg.get_deployment(8453)
-    assert rec is not None and rec["deploy_status"] == "not_deployed"
+    assert rec is not None and rec["deploy_status"] == "success"
+    assert rec["receiver_version"] == "v1"
+    # Preserve fail-closed intent: unknown + not_deployed chains still return None.
+    assert reg.deployed_address("ethereum") is None
+    assert reg.is_deployed("ethereum") is False
+
+
+def test_fail_closed_contract_preserved_for_undeployed_and_invalid():
+    # not_deployed-style / malformed records must NOT yield an address.
+    assert reg.deployed_address(1) is None          # ethereum unregistered
+    assert reg.deployed_address("polygon") is None
+    assert reg.is_deployed(137) is False
 
 
 def test_unknown_chain_fails_closed():

@@ -191,12 +191,22 @@ def test_base_mainnet_canonical_document_all_fields():
     assert doc["swap_hops"] and doc["dex_path"] == ["uniswap_v3", "uniswap_v3"]
 
 
-def test_base_mainnet_requires_deployed_executor_not_config():
+def test_undeployed_chain_requires_deployed_executor_not_config():
     from arbicore.execution import executor_registry
-    # Base mainnet is NOT deployed in the registry → config/presence must NOT
-    # be treated as execution readiness.
-    assert executor_registry.is_deployed("base") is False
-    r = build_execution_document(_dex_dex("base"))          # executor_deployed=None
+    # Preserve the original intent — config/presence must NOT be treated as
+    # execution readiness — against a genuinely UNDEPLOYED chain (ethereum).
+    # Base mainnet is now genuinely deployed, so the registry truth changed.
+    assert executor_registry.is_deployed("ethereum") is False
+    r = build_execution_document(_dex_dex("ethereum"))      # executor_deployed=None
     assert r["ok"] is False and r["execution_document"] is None
     assert r["verdict"] == "REJECTED"
     assert "executor_deployed" in r["reason"]
+
+
+def test_base_mainnet_deployed_v1_produces_document_for_univ3_route():
+    # Positive counterpart: on the deployed V1 receiver, a canonical UniV3 route
+    # now yields an execution document (deployment is registry truth).
+    from arbicore.execution import executor_registry
+    assert executor_registry.is_deployed("base") is True
+    r = build_execution_document(_dex_dex("base"))          # executor_deployed=None ⇒ registry
+    assert r["ok"] is True and r["execution_document"] is not None

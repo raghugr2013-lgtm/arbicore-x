@@ -16,15 +16,45 @@ def _run(c):
     return asyncio.get_event_loop().run_until_complete(c)
 
 
-def test_build_entrypoint_calldata():
-    out = build_executor_entrypoint_calldata(
-        borrow_token=WETH, borrow_amount_wei=10**16,
-        settlement_target=ROUTER, settlement_calldata_hex="0xabcdef")
-    sig = "executeArbitrage(address,uint256,address,bytes)"
-    assert out["selector"] == "0x" + keccak(text=sig)[:4].hex()
-    assert out["calldata"].startswith(out["selector"])
-    assert out["signed"] is False and out["broadcast"] is False
-    assert out["settlement_target"].lower() == ROUTER.lower()
+def test_legacy_arbitrary_calldata_path_is_fail_closed():
+    """DEPRECATED_PATH replaced: the legacy ``build_executor_entrypoint_calldata``
+    used to encode an arbitrary ``target + calldata`` settlement call
+    (``executeArbitrage(address,uint256,address,bytes)``). That arbitrary-call
+    surface is intentionally removed (Freeze security boundary). The wrapper must
+    now FAIL CLOSED for the canonical Balancer shape instead of inventing a
+    tokens[]/amounts[] layout. This asserts the guard is active — not green by
+    removal."""
+    import pytest
+    with pytest.raises(ValueError):
+        build_executor_entrypoint_calldata(
+            borrow_token=WETH, borrow_amount_wei=10**16,
+            settlement_target=ROUTER, settlement_calldata_hex="0xabcdef")
+
+
+def test_canonical_v2_entrypoint_calldata_deterministic():
+    """Current canonical behaviour: typed V2 userData + Balancer execute() head
+    (selector 0x64ba4bc1, preserved from V1), deterministic, never signed and
+    never broadcast. This is real coverage of the canonical path — the legacy
+    arbitrary surface stays disabled above."""
+    from arbicore.execution import calldata_v2 as C2
+
+    FAR = 2 ** 40
+    hop = {"venue": "uniswap_v3", "router": ROUTER, "token_in": USDC,
+           "token_out": WETH, "fee_or_tick_spacing": 500,
+           "amount_in_wei": 1000, "amount_out_min_wei": 0, "deadline": FAR}
+    ud1 = C2.build_user_data_v2(hops=[hop], profit_recipient=WETH,
+                                min_profit_wei=0, deadline=FAR)
+    ud2 = C2.build_user_data_v2(hops=[hop], profit_recipient=WETH,
+                                min_profit_wei=0, deadline=FAR)
+    assert ud1 == ud2  # deterministic
+
+    call1 = C2.encode_execute_balancer_v2(tokens=[USDC], amounts=[1000], user_data_hex=ud1)
+    call2 = C2.encode_execute_balancer_v2(tokens=[USDC], amounts=[1000], user_data_hex=ud1)
+    assert call1.calldata_hex == call2.calldata_hex
+    assert call1.selector_hex == "0x64ba4bc1"
+    assert call1.calldata_hex.startswith("0x64ba4bc1")
+    # Encoders are pure calldata builders — no signing/broadcast side effects.
+    assert getattr(call1, "value_wei", 0) == 0
 
 
 def test_fork_harness_readiness_no_fake_green():

@@ -17,10 +17,11 @@ def _ev(chain, **kw):
                                swap_venues=["uniswap_v3"], chain=chain, **kw)
 
 
-# ── Registry truth: only Base Sepolia has a genuinely deployed executor ──────
-def test_registry_only_base_sepolia_deployed():
+# ── Registry truth: Base Sepolia + Base mainnet have deployed V1 executors ───
+def test_registry_base_sepolia_and_base_mainnet_deployed():
     assert executor_registry.is_deployed("base_sepolia") is True
-    assert executor_registry.is_deployed("base") is False   # 8453 = not_deployed
+    # Base mainnet (8453) is now genuinely deployed (v1, on-chain verified).
+    assert executor_registry.is_deployed("base") is True
     for chain in ("ethereum", "arbitrum", "optimism", "polygon", "bnb"):
         assert executor_registry.is_deployed(chain) is False, chain
 
@@ -31,14 +32,29 @@ def test_executor_deployed_true_executable():
     assert d.executable is True and d.verdict is Verdict.EXECUTABLE
 
 
-# ── Default (registry) fail-closed: no mainnet/base deployment recorded ──────
-def test_base_default_registry_fail_closed():
-    assert executor_registry.is_deployed("base") is False
-    d = _ev("base")                       # executor_deployed=None ⇒ registry
+# ── Default (registry) fail-closed: undeployed chain is rejected ─────────────
+# Base mainnet is now genuinely deployed, so the fail-closed default-registry
+# intent is preserved against a genuinely UNDEPLOYED chain (ethereum) instead.
+def test_undeployed_chain_default_registry_fail_closed():
+    assert executor_registry.is_deployed("ethereum") is False
+    d = _ev("ethereum")                   # executor_deployed=None ⇒ registry
     assert d.executable is False
     assert d.verdict is Verdict.REJECTED
     assert d.first_blocker == "executor_deployed"
-    assert d.reason == "no_deployed_executor_on_chain:base"
+    assert d.reason == "no_deployed_executor_on_chain:ethereum"
+
+
+# ── Deployed V1 receiver: UniV3 route executable; non-UniV3 still fail-closed ─
+def test_base_mainnet_v1_univ3_executable_and_aerodrome_requires_new_receiver():
+    # balancer_v2 flash + uniswap_v3 swap on the deployed V1 receiver.
+    ok = _ev("base")
+    assert ok.verdict is Verdict.EXECUTABLE and ok.executable is True
+    # Aerodrome is NOT native to the V1 receiver ⇒ REQUIRES_NEW_RECEIVER, never
+    # silently executable. Deployment does NOT widen capability.
+    ne = evaluate_settlement(flash_provider="balancer_v2",
+                             swap_venues=["aerodrome"], chain="base")
+    assert ne.verdict is Verdict.REQUIRES_NEW_RECEIVER
+    assert ne.first_blocker == "receiver_schema_compatible"
 
 
 # ── Every non-Base chain is fail-closed (never executable) ───────────────────
