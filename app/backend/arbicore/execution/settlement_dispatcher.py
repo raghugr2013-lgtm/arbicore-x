@@ -123,8 +123,11 @@ def evaluate_settlement(
     executor_address: Optional[str] = None,
     executor_deployed: Optional[bool] = None,
     registry: Optional[AdapterRegistry] = None,
+    receiver_flash_heads: Optional[frozenset] = None,
+    receiver_native_venues: Optional[frozenset] = None,
+    calldata_encodable_flash: Optional[frozenset] = None,
 ) -> SettlementDecision:
-    """Classify whether a concrete route is executable through the deployed V1
+    """Classify whether a concrete route is executable through the deployed
     receiver. Pure + deterministic: identical inputs → identical decision.
 
     Args:
@@ -138,7 +141,16 @@ def evaluate_settlement(
             this chain?" When ``None`` the canonical ``executor_registry`` is
             consulted (deploy_status=="success"). Fail-closed when unknown.
         registry: optional AdapterRegistry (defaults to the canonical one).
+        receiver_flash_heads / receiver_native_venues / calldata_encodable_flash:
+            OPTIONAL capability sets of the CURRENTLY DEPLOYED receiver. Default
+            to the V1 constants (Balancer+Aave flash, UniV3-only swap) so every
+            existing caller keeps identical behaviour. A V2 caller passes the
+            reconciled sets from ``receiver_capability`` (bound to a verified V2
+            deployment) — capability is NEVER widened from a mere catalog entry.
     """
+    flash_heads = receiver_flash_heads if receiver_flash_heads is not None else RECEIVER_FLASH_HEADS
+    native_venues = receiver_native_venues if receiver_native_venues is not None else RECEIVER_NATIVE_SWAP_VENUES
+    encodable_flash = calldata_encodable_flash if calldata_encodable_flash is not None else CALLDATA_ENCODABLE_FLASH
     reg = registry or AdapterRegistry()
     catalog = reg.catalog()
     dex_adapter_keys = {_norm(d["dex"]) for d in catalog["dex_providers"]}
@@ -172,11 +184,11 @@ def evaluate_settlement(
                                 f"{len(venues_norm)} hop(s), provider={provider}"))
 
     # ── Cell 2: FLASH_PROVIDER_SUPPORTED (receiver flash head) ─────────────
-    if provider not in RECEIVER_FLASH_HEADS:
+    if provider not in flash_heads:
         cells.append(CapabilityCell(
             "flash_provider_supported", CellStatus.FAIL,
             f"'{provider}' is not a deployed receiver flash head "
-            f"{sorted(RECEIVER_FLASH_HEADS)}"))
+            f"{sorted(flash_heads)}"))
         return _decide(Verdict.REJECTED, "flash_provider_supported",
                        f"unsupported_flash_provider:{provider}")
     cells.append(CapabilityCell("flash_provider_supported", CellStatus.PASS,
@@ -223,7 +235,7 @@ def evaluate_settlement(
     # immutable SwapRouter02 and carries no per-hop router/venue field. Any
     # non-native venue (incl. UniV3 *forks* that need a different router) is
     # route-constructable but NOT settleable by this receiver → new receiver.
-    non_native = sorted({v for v in venues_norm if v not in RECEIVER_NATIVE_SWAP_VENUES})
+    non_native = sorted({v for v in venues_norm if v not in native_venues})
     if non_native:
         cells.append(CapabilityCell(
             "receiver_schema_compatible", CellStatus.FAIL,
@@ -236,7 +248,7 @@ def evaluate_settlement(
                                 "all hops settle via the V1 Uniswap V3 SwapHop schema"))
 
     # ── Cell 7: CALLDATA_CONSTRUCTABLE (executor-relayed encoder exists) ───
-    if provider not in CALLDATA_ENCODABLE_FLASH:
+    if provider not in encodable_flash:
         cells.append(CapabilityCell(
             "calldata_constructable", CellStatus.FAIL,
             f"no executor-relayed calldata encoder for flash provider '{provider}'"))
