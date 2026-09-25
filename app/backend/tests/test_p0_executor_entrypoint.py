@@ -13,7 +13,14 @@ ROUTER = "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43"
 
 
 def _run(c):
-    return asyncio.get_event_loop().run_until_complete(c)
+    """Isolated event loop per call — deterministic regardless of pytest's
+    asyncio test ordering. ``asyncio.get_event_loop()`` can return a loop that a
+    prior test already closed; a fresh loop makes these tests order-independent."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(c)
+    finally:
+        loop.close()
 
 
 def test_legacy_arbitrary_calldata_path_is_fail_closed():
