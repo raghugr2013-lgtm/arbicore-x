@@ -48,9 +48,13 @@ BALANCER_V2_CHAINS = frozenset(
 
 # Flash-loan heads with a GENUINE runtime liquidity probe implemented below
 # (chain-generic, fail-closed). Providers absent from this set are NOT
-# runtime-verifiable — e.g. Morpho Blue is in the economics catalog but has no
-# runtime liquidity reader, so it fails closed here (never silently allowed).
-RUNTIME_PROBE_PROVIDERS = frozenset({"balancer_v2", "aave_v3"})
+# runtime-verifiable. Morpho Blue is runtime-verifiable on its supported
+# chains through the explicit singleton bytecode + balance probe below.
+RUNTIME_PROBE_PROVIDERS = frozenset({
+    "balancer_v2",
+    "aave_v3",
+    "morpho_blue",
+})
 
 # Aave V3 Pool per chain (public, verifiable).
 AAVE_V3_POOL: Dict[str, str] = {
@@ -61,6 +65,24 @@ AAVE_V3_POOL: Dict[str, str] = {
     "base": "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
     "bnb": "0x6807dc923806fE8Fd134338EABCA509979a7e0cB",
 }
+
+# Morpho Blue singleton resolution is canonicalized in the existing
+# execution adapter. Do NOT duplicate protocol addresses here.
+MORPHO_BLUE_CHAINS = frozenset({"ethereum", "base"})
+
+
+def _morpho_singleton(chain: str) -> Optional[str]:
+    """Resolve Morpho Blue through the canonical execution adapter.
+
+    Environment overrides and canonical defaults therefore remain centralized
+    in one place. Runtime callers still verify bytecode before capability.
+    """
+    try:
+        from arbicore.execution.adapters import MorphoBlueFlashLoanAdapter
+        return MorphoBlueFlashLoanAdapter()._singleton((chain or "").lower())
+    except Exception:  # noqa: BLE001
+        return None
+
 
 
 def _sel(sig: str) -> str:
@@ -248,6 +270,7 @@ async def runtime_flashloan_available(
     token_address: str, token_decimals: int,
     token_price_usd: Optional[float], borrow_amount_usd: Optional[float],
     balancer_vault: Optional[str] = None,
+    eth_get_code=None,
 ) -> Optional[bool]:
     """Chain-generic runtime flash-loan availability for the broadcast-time
     fresh-revalidation path, driven by a bare async ``eth_call(to, data)``
@@ -278,7 +301,8 @@ async def runtime_flashloan_available(
         if chain_n not in BALANCER_V2_CHAINS:
             return False
         holder = balancer_vault or BALANCER_V2_VAULT
-    else:  # aave_v3 — resolve the reserve's aToken as the liquidity holder
+
+    elif prov == "aave_v3":
         pool = AAVE_V3_POOL.get(chain_n)
         if not pool:
             return False
@@ -291,6 +315,39 @@ async def runtime_flashloan_available(
         if not atoken:
             return False  # reserve not listed on Aave for this chain (definitive)
         holder = atoken
+
+    elif prov == "morpho_blue":
+        if chain_n not in MORPHO_BLUE_CHAINS:
+            return False
+
+        holder = _morpho_singleton(chain_n)
+        if not holder:
+            return None
+
+        # Morpho is a direct singleton holder. It MUST be proven deployed
+        # before its ERC20 balance can be treated as runtime liquidity.
+        if eth_get_code is None:
+            return None
+
+        try:
+            code = await eth_get_code(holder)
+        except Exception:  # noqa: BLE001 — fail closed
+            return None
+
+        if code is None:
+            return None
+
+        if not isinstance(code, str):
+            return None
+
+        if not code.startswith("0x"):
+            return None
+
+        if len(code[2:]) == 0:
+            return False
+
+    else:
+        return False
 
     try:
         raw = await eth_call(token_address, SEL_BALANCE_OF + _addr_arg(holder))
@@ -327,6 +384,12 @@ async def _resolve_flash_holder(
         except Exception:  # noqa: BLE001
             return None
         return decode_atoken_from_reserve_data(reserve_raw or "")
+
+    if prov == "morpho_blue":
+        if chain_n not in MORPHO_BLUE_CHAINS:
+            return None
+        return _morpho_singleton(chain_n)
+
     return None
 
 
@@ -360,7 +423,7 @@ async def runtime_flash_liquidity_tokens(
 __all__ = [
     "ProviderStatus", "ProviderLiquidity",
     "BALANCER_V2_VAULT", "BALANCER_V2_CHAINS", "AAVE_V3_POOL",
-    "RUNTIME_PROBE_PROVIDERS",
+    "MORPHO_BLUE_CHAINS", "RUNTIME_PROBE_PROVIDERS",
     "read_balancer_liquidity", "read_aave_liquidity",
     "runtime_flashloan_available", "runtime_flash_liquidity_tokens",
     "decode_atoken_from_reserve_data",

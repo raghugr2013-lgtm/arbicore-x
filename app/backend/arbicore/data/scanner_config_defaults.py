@@ -428,6 +428,9 @@ DEFAULT_FLASH_LOAN_ARB_CONFIG: Dict[str, Any] = {
         "polygon":  {"enabled": False, "chain_id": 137,
                       "rpc_env_var": "POLYGON_RPC_URL",
                       "gas_token": "MATIC", "tx_gas_units": 1_000_000},
+        "bnb":      {"enabled": False, "chain_id": 56,
+                      "rpc_env_var": "BNB_RPC_URL",
+                      "gas_token": "BNB", "tx_gas_units": 1_000_000},
     },
     "route_search": {
         "max_hops": 4,

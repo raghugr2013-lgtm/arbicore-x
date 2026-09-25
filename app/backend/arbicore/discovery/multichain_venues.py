@@ -38,12 +38,20 @@ def _venue_id(dex: str, a: str, b: str, param: Any) -> str:
 def build_pool_graph(chain: str) -> List[PoolNode]:
     """Venue universe for ``chain`` (fail-closed empty if unsupported).
 
-    Emits venues whose family has a REAL on-chain resolver seam:
+    Emits venues whose family has a REAL on-chain resolver seam AND a live
+    QuoterRegistry adapter:
       * univ3 — Uniswap V3 + DIRECT forks (Sushi V3, Pancake V3): fee-tiered.
       * univ2 — Uniswap V2 + DIRECT forks (Sushi V2): fixed 30 bps.
-    ABI families with no generic resolver yet (algebra/solidly/curve) are NOT
-    fabricated into the probe graph; they remain registered capabilities and are
-    reported (with an explicit blocker) by the opportunity matrix instead.
+      * algebra — Camelot V3 / QuickSwap V3 (V-2): dynamic-fee, single pool per
+        pair via factory ``poolByPair`` (``discovery/algebra_pool_resolver``) and
+        the live ``CamelotV3Quoter`` / ``QuickSwapV3Quoter`` adapters. Fee is
+        resolved on-chain per quote (dynamic) so the venue carries fee_bps=0 as a
+        telemetry placeholder; the quote-inclusive economics path never deducts
+        this a second time.
+    ABI families with no live quoter adapter yet (solidly/velodrome, curve) are
+    NOT fabricated into the probe graph; they remain registered capabilities and
+    are reported (with an explicit CODE blocker + exact missing dependency) by the
+    consolidated readiness system instead — see certification.production_readiness.
     """
     chain = (chain or "").lower()
     reg = registries.registry_for(chain)
@@ -56,7 +64,9 @@ def build_pool_graph(chain: str) -> List[PoolNode]:
     dexes = registries.dexes_for(chain)
     v3_dexes = [d["dex"] for d in dexes if d.get("abi") == "univ3"]
     v2_dexes = [d["dex"] for d in dexes if d.get("abi") == "univ2"]
-    if not v3_dexes and not v2_dexes:
+    # V-2: Algebra family (Camelot/QuickSwap) — resolver + live quoter exist.
+    algebra_dexes = [d["dex"] for d in dexes if d.get("abi") == "algebra"]
+    if not v3_dexes and not v2_dexes and not algebra_dexes:
         return []
 
     pools: List[PoolNode] = []
@@ -80,6 +90,11 @@ def build_pool_graph(chain: str) -> List[PoolNode]:
             for dex in v2_dexes:
                 # UniswapV2 forks use a fixed 0.30% swap fee.
                 _add(dex, a, b, "v2", 30)
+            for dex in algebra_dexes:
+                # Algebra Integral: ONE pool per pair (no static fee tier); fee is
+                # dynamic and resolved on-chain by the quoter. fee_bps=0 is a
+                # telemetry placeholder (quote-inclusive path never deducts it).
+                _add(dex, a, b, "algebra", 0)
     return pools
 
 

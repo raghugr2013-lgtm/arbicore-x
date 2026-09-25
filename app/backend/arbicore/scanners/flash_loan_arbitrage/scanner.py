@@ -8,6 +8,7 @@ Boot posture: DORMANT.
 from __future__ import annotations
 
 import asyncio
+import json as _json
 import logging
 import time
 import uuid
@@ -216,6 +217,52 @@ class FlashLoanArbitrageScanner:
 
     # -- lifecycle --------------------------------------------------------
 
+    def _route_sig(self, cfg: Dict[str, Any]) -> str:
+        """Signature of the route/gate config that defines the engine build.
+        C-1: persisted config is authoritative; a changed signature triggers a
+        route-engine rebuild so persisted edits actually reach the running scan."""
+        return _json.dumps(
+            {"rs": cfg.get("route_search") or {},
+             "gt": cfg.get("gate_thresholds") or {},
+             "notional": cfg.get("default_notional_usd")},
+            sort_keys=True, default=str)
+
+    def _maybe_rebuild_route_engine(self) -> None:
+        """Rebuild the route engine + gates iff route_search/gate_thresholds
+        changed. No-op when unchanged (zero behavioural drift). This is the C-1
+        fix for the persisted-Mongo → runtime scanner mismatch: the engine is no
+        longer frozen at construction — it tracks the authoritative config."""
+        cfg = self._cfg() or {}
+        sig = self._route_sig(cfg)
+        if sig == getattr(self, "_route_cfg_sig", None):
+            return
+        rs_cfg = cfg.get("route_search") or {}
+        gate_cfg = dict((cfg.get("gate_thresholds") or {}).get("default", {}))
+        self._route_engine = RouteSearchEngine(
+            pool_loader=self._route_engine._pool_loader,
+            max_hops=int(rs_cfg.get("max_hops", 4)),
+            wall_clock_cap_s=float(rs_cfg.get("wall_clock_cap_s", 5.0)),
+            candidate_cap=int(rs_cfg.get("candidate_cap", 64)),
+            min_pool_tvl_usd=float(rs_cfg.get("min_pool_tvl_usd", 100_000)),
+        )
+        self._sources = build_all_flash_loan_sources(
+            route_engine=self._route_engine, config_loader=self._cfg)
+        self._source_registry = DiscoverySourceRegistry()
+        for s in self._sources:
+            self._source_registry.register(s)
+        self._gate_7 = FlashLoanGate7AtomicProfit(thresholds=gate_cfg)
+        self._gate_8 = FlashLoanGate8LiquidityDepth(thresholds=gate_cfg)
+        self._gate_9 = FlashLoanGate9FlashLoanMev(thresholds=gate_cfg)
+        self._verifier.gate_7 = self._gate_7
+        self._verifier.gate_8 = self._gate_8
+        self._verifier.gate_9 = self._gate_9
+        self._route_cfg_sig = sig
+        logger.info(
+            "flash_loan route engine rebuilt from authoritative config: "
+            "max_hops=%s min_pool_tvl_usd=%s candidate_cap=%s",
+            self._route_engine.max_hops, self._route_engine.min_pool_tvl_usd,
+            self._route_engine.candidate_cap)
+
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
             return
@@ -267,6 +314,14 @@ class FlashLoanArbitrageScanner:
         self._stats["iterations"] += 1
         self._tick_id += 1
         self._stats["last_run_at"] = time.time()
+
+        # ---- 0. Honour authoritative persisted config (C-1) --------------
+        # Rebuild the route engine/gates if route_search/gate_thresholds changed
+        # in the persisted scanner config. No-op when unchanged.
+        try:
+            self._maybe_rebuild_route_engine()
+        except Exception as exc:  # noqa: BLE001 — never let a rebuild abort a tick
+            self._stats["last_error"] = f"route_rebuild: {exc!r}"
 
         # ---- 1. Discover --------------------------------------------------
         all_candidates: List[DiscoveryCandidate] = []

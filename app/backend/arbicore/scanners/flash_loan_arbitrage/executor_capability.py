@@ -27,7 +27,13 @@ class ExecutorCapabilityStatus(str, enum.Enum):
     UNVERIFIABLE = "UNVERIFIABLE"
 
 
-# The deployed executor can only encode Uniswap V3 swap hops today.
+# The deployed executor can only encode Uniswap V3 swap hops today (v1).
+# NOTE: this module-level constant is the CANONICAL v1 (currently-deployed)
+# capability and is intentionally unchanged — the live execution path must never
+# admit a venue the deployed receiver cannot settle (that would broadcast a
+# known-reverting trade). Version-aware profiles (v2, ready for Executor V2) live
+# in RECEIVER_CAPABILITY_PROFILES and are consumed ONLY when a receiver of that
+# version is deployed + on-chain-verified.
 SUPPORTED_DEXES = frozenset({"uniswap_v3"})
 
 # The deployed FlashLoanReceiver's flash-loan heads, reconciled to the on-chain
@@ -36,6 +42,51 @@ SUPPORTED_DEXES = frozenset({"uniswap_v3"})
 # truth consumed by the Executor V2 settlement dispatcher and the offline
 # capability audit — keep the two in lock-step (asserted by tests).
 SUPPORTED_FLASH_PROVIDERS = frozenset({"balancer_v2", "aave_v3"})
+
+
+# ---------------------------------------------------------------------------
+# V-3 · Version-aware receiver capability registry (backward-compatible).
+#
+# Each deployed FlashLoanReceiver version declares EXACTLY which swap venues and
+# flash-loan heads it can settle on-chain. The gate consults the profile of the
+# receiver version that is actually deployed + verified — so when the operator
+# deploys Executor V2 (INFRA), the routable/executable venue set expands with NO
+# further code change. Until then, "v1" is authoritative and identical to the
+# historical UniV3-only behaviour. Widening a profile does NOT widen execution
+# unless a receiver of that version is genuinely on-chain.
+# ---------------------------------------------------------------------------
+RECEIVER_CAPABILITY_PROFILES: Dict[str, Dict[str, frozenset]] = {
+    # Currently deployed. Do NOT change — mirrors the on-chain FlashLoanReceiver.
+    "v1": {
+        "dexes": frozenset({"uniswap_v3"}),
+        "flash_providers": frozenset({"balancer_v2", "aave_v3"}),
+    },
+    # Executor V2 target (Solidity + encoders delivered for audit+deploy). Becomes
+    # effective ONLY when a v2 receiver is deployed and version-verified on-chain.
+    # Every venue here has a live QuoterRegistry adapter at HEAD (uniswap_v3,
+    # aerodrome, aerodrome_slipstream, camelot_v3/quickswap_v3=algebra). Solidly &
+    # Curve are deliberately excluded until their quoter adapters exist (CODE).
+    "v2": {
+        "dexes": frozenset({
+            "uniswap_v3", "sushiswap_v3", "pancakeswap_v3",
+            "aerodrome", "aerodrome_slipstream",
+            "camelot_v3", "quickswap_v3",
+        }),
+        "flash_providers": frozenset({"balancer_v2", "aave_v3", "morpho_blue"}),
+    },
+}
+
+# Fail-closed default when a receiver version is unknown/unverifiable.
+DEFAULT_RECEIVER_VERSION = "v1"
+
+
+def capability_profile_for(version: Optional[str]) -> Dict[str, frozenset]:
+    """Return the capability profile for a deployed receiver version.
+
+    Unknown/None version ⇒ v1 (fail-closed to the narrowest live capability).
+    """
+    return RECEIVER_CAPABILITY_PROFILES.get(
+        (version or DEFAULT_RECEIVER_VERSION), RECEIVER_CAPABILITY_PROFILES["v1"])
 
 
 @dataclass
@@ -68,6 +119,8 @@ def evaluate_executor_capability(
     route_pools: List[str],
     pool_specs: Dict[str, Dict[str, Any]],
     executor_address: Optional[str] = None,
+    receiver_version: Optional[str] = None,
+    supported_dexes: Optional[frozenset] = None,
 ) -> ExecutorCapability:
     """Classify a route's executor compatibility from its pool venues.
 
@@ -75,7 +128,19 @@ def evaluate_executor_capability(
     absent from ``pool_specs`` or with an empty/unknown ``dex`` is UNVERIFIABLE
     (fail closed). Any explicitly-unsupported venue ⇒ UNSUPPORTED. Only when
     EVERY pool is an explicitly supported venue ⇒ SUPPORTED.
+
+    V-3 (backward-compatible): the supported-venue set is resolved from, in order,
+    an explicit ``supported_dexes`` override, else the ``receiver_version`` profile
+    (``RECEIVER_CAPABILITY_PROFILES``), else the module default ``SUPPORTED_DEXES``
+    (= v1, ``{uniswap_v3}``). Callers that pass neither get the historical
+    UniV3-only behaviour EXACTLY — the live path is unchanged until a higher
+    receiver version is deployed + verified and threaded through here.
     """
+    if supported_dexes is None:
+        if receiver_version is not None:
+            supported_dexes = capability_profile_for(receiver_version)["dexes"]
+        else:
+            supported_dexes = SUPPORTED_DEXES
     supported: List[str] = []
     unsupported: List[str] = []
     unverifiable: List[str] = []
@@ -94,7 +159,7 @@ def evaluate_executor_capability(
         norm = dex.strip().lower() if isinstance(dex, str) else dex
         if spec is None or norm in (None, ""):
             unverifiable.append(pid)
-        elif norm in SUPPORTED_DEXES:
+        elif norm in supported_dexes:
             supported.append(pid)
         else:
             unsupported.append(pid)
@@ -117,4 +182,5 @@ def evaluate_executor_capability(
 
 __all__ = ["ExecutorCapabilityStatus", "ExecutorCapability",
            "evaluate_executor_capability", "SUPPORTED_DEXES",
-           "SUPPORTED_FLASH_PROVIDERS"]
+           "SUPPORTED_FLASH_PROVIDERS", "RECEIVER_CAPABILITY_PROFILES",
+           "DEFAULT_RECEIVER_VERSION", "capability_profile_for"]

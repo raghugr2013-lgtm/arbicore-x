@@ -214,7 +214,7 @@ def test_algebra_quoter_uses_dynamic_fee_abi(monkeypatch):
         # Algebra returns (uint256 amountOut, uint16 fee) — NOT the UniV3 tuple
         return ("0x" + _enc(["uint256", "uint16"], [4_444_444, 300]).hex()), 55, None
     monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
-    reg = Q.QuoterRegistry()
+    reg = Q.QuoterRegistry(verify_chain_identity=False)
     rq = _run(reg.quote_route(
         chain="arbitrum", rpc_url="http://rpc.test",
         hops=[{"dex": "camelot_v3", "token_in": "0x" + "11" * 20,
@@ -233,7 +233,7 @@ def test_algebra_multihop_route_chains_with_provenance_and_fails_closed(monkeypa
     async def fake_eth_call(rpc_url, *, to, data, **kw):
         return ("0x" + _enc(["uint256", "uint16"], [5 * 10**17, 300]).hex()), 42, None
     monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
-    reg = Q.QuoterRegistry()
+    reg = Q.QuoterRegistry(verify_chain_identity=False)
     a, b, c = "0x" + "11" * 20, "0x" + "22" * 20, "0x" + "33" * 20
     ok, rq = _run(reg.quote_route_strict(
         chain="arbitrum", rpc_url="http://rpc.test",
@@ -252,7 +252,7 @@ def test_algebra_multihop_route_chains_with_provenance_and_fails_closed(monkeypa
 
 def test_algebra_quoter_fails_closed_off_map():
     from arbicore.execution import quoter as Q
-    reg = Q.QuoterRegistry()
+    reg = Q.QuoterRegistry(verify_chain_identity=False)
     # camelot_v3 has no ethereum quoter ⇒ fail closed (no fabrication)
     rq = _run(reg.quote_route(
         chain="ethereum", rpc_url="http://rpc.test",
@@ -279,7 +279,7 @@ def test_sushi_v3_live_quote_routes_to_sushi_quoter(monkeypatch):
         return ("0x" + _enc(["uint256", "uint160", "uint32", "uint256"],
                             [2_222_222, 1, 1, 90000]).hex()), 77, None
     monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
-    reg = Q.QuoterRegistry()
+    reg = Q.QuoterRegistry(verify_chain_identity=False)
     rq = _run(reg.quote_route(
         chain="arbitrum", rpc_url="http://rpc.test",
         hops=[{"dex": "sushiswap_v3", "token_in": "0x" + "11" * 20,
@@ -296,7 +296,7 @@ def test_sushi_v2_router_getamountsout_quote(monkeypatch):
         seen["to"] = to
         return ("0x" + _enc(["uint256[]"], [[10**18, 3_500_000]]).hex()), 88, None
     monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
-    reg = Q.QuoterRegistry()
+    reg = Q.QuoterRegistry(verify_chain_identity=False)
     rq = _run(reg.quote_route(
         chain="ethereum", rpc_url="http://rpc.test",
         hops=[{"dex": "sushiswap_v2", "token_in": "0x" + "11" * 20,
@@ -307,7 +307,7 @@ def test_sushi_v2_router_getamountsout_quote(monkeypatch):
 
 def test_fork_quoter_fails_closed_off_map():
     from arbicore.execution import quoter as Q
-    reg = Q.QuoterRegistry()
+    reg = Q.QuoterRegistry(verify_chain_identity=False)
     # sushiswap_v3 has no ethereum quoter address ⇒ fail closed (no fabrication)
     rq = _run(reg.quote_route(
         chain="ethereum", rpc_url="http://rpc.test",
@@ -398,16 +398,21 @@ def test_parallel_discovery_routes_univ2_family():
     assert res[0]["pool"]["dex"] == "sushiswap_v2"
 
 
-def test_multichain_universe_includes_v2_and_excludes_algebra():
+def test_multichain_universe_includes_v2_and_algebra():
     # ethereum now includes sushiswap_v2 (univ2) nodes.
     eth_nodes = {p.dex_protocol for p in __import__(
         "arbicore.discovery.multichain_venues", fromlist=["build_pool_graph"]
     ).build_pool_graph("ethereum")}
     assert "sushiswap_v2" in eth_nodes
     assert "uniswap_v3" in eth_nodes
-    # arbitrum probe graph must NOT fabricate Algebra (camelot_v3) as a UniV3 node
-    arb_nodes = {p.dex_protocol for p in __import__(
+    # V-2: Algebra (camelot_v3) is now routed as an ALGEBRA node — the live
+    # CamelotV3Quoter + algebra_pool_resolver make it genuinely quotable. It is
+    # emitted with the single-pool-per-pair 'algebra' param (NOT fabricated as a
+    # UniV3 fee-tiered node).
+    arb_pools = __import__(
         "arbicore.discovery.multichain_venues", fromlist=["build_pool_graph"]
-    ).build_pool_graph("arbitrum")}
-    assert "camelot_v3" not in arb_nodes
+    ).build_pool_graph("arbitrum")
+    arb_nodes = {p.dex_protocol for p in arb_pools}
+    assert "camelot_v3" in arb_nodes
+    assert all(p.fee_bps == 0 for p in arb_pools if p.dex_protocol == "camelot_v3")
     assert "sushiswap_v3" in arb_nodes and "uniswap_v3" in arb_nodes

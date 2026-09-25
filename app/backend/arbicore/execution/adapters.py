@@ -443,18 +443,32 @@ class SlipstreamSwapAdapter:
 
 class MorphoBlueFlashLoanAdapter:
     """Morpho Blue singleton ``flashLoan(address,uint256,bytes)`` — 0-fee flash.
-    Singleton address is operator-configured via env (fail-closed None)."""
+
+    Canonical singleton addresses are sourced from Morpho's published deployment
+    registry, with operator environment overrides preserved.  Runtime callers
+    must still verify bytecode before treating the address as available.
+    """
     provider = "morpho_blue"
     version = "morpho_blue_flashloan@1"
     fee_bps_default = 0
     supports_chains = ("ethereum", "base")
 
+    # Morpho Blue singleton is intentionally the same canonical address on
+    # Ethereum and Base. Environment variables remain authoritative overrides.
+    CANONICAL_SINGLETONS = {
+        "ethereum": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+        "base": "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+    }
+
     def supports(self, chain: str) -> bool:
         return chain in self.supports_chains
 
     def _singleton(self, chain: str) -> Optional[str]:
-        val = os.environ.get(f"{chain}_MORPHO_BLUE".upper())
-        return val.strip() if isinstance(val, str) and val.strip() else None
+        chain_n = (chain or "").lower()
+        val = os.environ.get(f"{chain_n}_MORPHO_BLUE".upper())
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+        return self.CANONICAL_SINGLETONS.get(chain_n)
 
     def borrow_step(self, *, chain: str, asset: str, amount_wei: int,
                     step_index: int, callback_receiver: str,

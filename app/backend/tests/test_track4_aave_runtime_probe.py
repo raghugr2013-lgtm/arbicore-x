@@ -4,8 +4,8 @@ Deterministic, offline (fake ``eth_call``) proofs that the chain-generic runtime
 flash-loan liquidity probe:
   * genuinely reads Aave V3 liquidity (getReserveData → aToken.balanceOf),
   * fails closed on any read failure / unpriceable token,
-  * refuses providers with no runtime reader (e.g. morpho_blue) — registry
-    presence is NEVER runtime capability,
+  * refuses providers with no runtime reader — registry presence is NEVER
+    runtime capability,
   * is chain-generic without Base-RPC leakage (an aave read on a non-Base chain
     hits that chain's Pool address, never Base's),
   * and that readiness reflects ACTUAL capability (no static "executable" claim;
@@ -143,18 +143,13 @@ async def test_unpriceable_token_is_none():
 
 
 # ---------------------------------------------------------------------------
-# Unsupported / no-runtime-reader providers fail closed (Morpho evidence-first)
+# Morpho Blue has a runtime reader; detailed Morpho coverage lives in Track A.2.
+# This legacy suite only verifies that the provider is now admitted to the
+# runtime-probe set. Unsupported chains remain fail-closed below.
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
-async def test_morpho_blue_has_no_runtime_reader_fails_closed():
-    assert "morpho_blue" not in RUNTIME_PROBE_PROVIDERS
-    fake = _FakeEthCall()
-    avail = await runtime_flashloan_available(
-        fake, provider="morpho_blue", chain="base",
-        token_address=TOKEN, token_decimals=6,
-        token_price_usd=1.0, borrow_amount_usd=10_000.0)
-    assert avail is False
-    assert fake.calls == []   # NEVER issues a read for an unverifiable provider
+async def test_morpho_blue_is_registered_for_runtime_probe():
+    assert "morpho_blue" in RUNTIME_PROBE_PROVIDERS
 
 
 @pytest.mark.asyncio

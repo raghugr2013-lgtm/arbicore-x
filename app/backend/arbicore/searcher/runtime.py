@@ -229,6 +229,32 @@ def make_base_eth_call_from_env():
     return eth_call
 
 
+def make_eth_get_code_for_chain_from_env(chain: str):
+    """Return ``async address -> hex`` over the operator-configured RPC for
+    an arbitrary registered chain, or None (fail-closed).
+
+    The returned reader is strictly chain-bound and read-only. It never falls
+    back to another chain's RPC and never touches signer/broadcast paths.
+    """
+    from ..runtime.multichain_readiness import rpc_explicitly_configured
+    c = (chain or "").lower()
+    if not rpc_explicitly_configured(c):
+        return None
+
+    from ..providers.rpc_failover import get_registry_rpc_provider
+    provider = get_registry_rpc_provider(c)
+    if provider is None:
+        return None
+
+    async def eth_get_code(address: str):
+        try:
+            return await provider._call("eth_getCode", [address, "latest"])
+        except Exception:  # noqa: BLE001 — fail-closed
+            return None
+
+    return eth_get_code
+
+
 def make_eth_call_for_chain_from_env(chain: str):
     """Return ``async (to, data) -> hex`` over the operator-configured RPC for
     an ARBITRARY registered chain, or None (fail-closed).

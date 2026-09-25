@@ -489,7 +489,8 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
         PreBroadcastValidator, CircuitBreaker, RevalidationInputs)
     from ..searcher.runtime import (
         make_base_eth_call_from_env, build_base_tvl_provider,
-        make_base_congestion_source_from_env)
+        make_base_congestion_source_from_env,
+        make_eth_get_code_for_chain_from_env)
     from ..searcher.price_feed import build_base_price_feed_from_env, build_borrow_sizer
     from ..scanners.flash_loan_arbitrage.live_quote_provider import (
         make_live_quote_provider)
@@ -582,7 +583,8 @@ def build_controlled_live_safety(quoter_registry, *, kill_switch=None):
             eth_call, provider=prov, chain="base",
             token_address=taddr, token_decimals=tdec,
             token_price_usd=px, borrow_amount_usd=borrow_amount_usd,
-            balancer_vault=vault)
+            balancer_vault=vault,
+            eth_get_code=make_eth_get_code_for_chain_from_env("base"))
         if avail is None:
             _M3_LOG.warning(
                 "flashloan_available=None stage=runtime_read provider=%r "
@@ -1202,6 +1204,20 @@ async def _refresh_base_v3_eligibility(eth_call, *, max_concurrency: int = 8,
     }
 
 
+def _deep_merge_cfg(base: dict, over: dict) -> dict:
+    """Recursive dict merge (C-1). ``over`` (persisted authoritative config) wins;
+    nested dicts merge key-wise so a partial persisted sub-dict never drops
+    sibling defaults. Non-dict values are replaced. Pure/deterministic."""
+    out = dict(base or {})
+    for k, v in (over or {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k] = _deep_merge_cfg(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+
 def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
     """Phase D D-6.1 Flash-Loan Arbitrage scanner factory.
 
@@ -1220,13 +1236,21 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
         # Canonical activation: detection ENABLED by default (SHADOW/detection
         # only — emission is still fully gated by the economic/atomic/MEV gates
         # in the verifier, and execution by the mode ladder + AutoExecutor).
-        cache = {"cfg": {"interval_s": 60.0,
-                          "chains": {"base": {"enabled": True}},
-                          "providers": {"balancer_v2": {"enabled": True}},
-                          "route_search": {"max_hops": 3, "wall_clock_cap_s": 3.0,
-                                            "candidate_cap": 48, "min_pool_tvl_usd": 0.0},
-                          "gate_thresholds": {"default": {}}},
-                 "state": {"enabled": True}}
+        #
+        # C-1: this is only the FAIL-CLOSED BOOT DEFAULT. The persisted Mongo
+        # scanner.flash_loan_arb config is AUTHORITATIVE and is DEEP-merged over
+        # this baseline on every refresh; the scanner rebuilds its route engine
+        # when route_search/gate_thresholds change (see scanner._maybe_rebuild_
+        # route_engine), so persisted edits genuinely reach the running scan.
+        _BOOT_CFG = {"interval_s": 60.0,
+                     "chains": {},
+                     "providers": {},
+                     "route_search": {"max_hops": 4, "wall_clock_cap_s": 5.0,
+                                       "candidate_cap": 64,
+                                       "min_pool_tvl_usd": 100_000.0},
+                     "gate_thresholds": {"default": {}}}
+        cache = {"cfg": _deep_merge_cfg({}, _BOOT_CFG),
+                 "state": {"enabled": False}}
 
         def _load_cfg():
             return cache["cfg"] or {}
@@ -1235,14 +1259,13 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             return cache["state"] or {}
 
         async def _refresh_caches_once():
-            # Merge operator overrides from the repos WITHOUT disabling the
-            # canonical detection plane (repo default ships enabled=False; a
-            # canonical activation keeps detection on unless an operator has
-            # explicitly written enabled=False).
+            # C-1: persisted config is authoritative — DEEP-merge it over the
+            # fail-closed boot baseline (was a shallow {**cache, **rc} that both
+            # dropped sibling keys AND could never change the frozen route engine).
             try:
                 rc = await cfg_repo.get("flash_loan_arb")
                 if rc:
-                    cache["cfg"] = {**cache["cfg"], **rc}
+                    cache["cfg"] = _deep_merge_cfg(_BOOT_CFG, rc)
                 rs = await state_repo.get("flash_loan_arb")
                 if isinstance(rs, dict) and rs.get("enabled") is False and rs.get("_operator_set"):
                     cache["state"] = {"enabled": False}

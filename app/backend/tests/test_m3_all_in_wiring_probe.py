@@ -9,6 +9,13 @@ network) and asserts:
   * the all-in wiring never relaxes another gate (quote/price/mev preserved).
 """
 from unittest.mock import patch
+import os
+
+# composition.py imports services.db, which reads MONGO_URL at import time.
+# Use an offline localhost default exactly as the existing T0 tests do.
+# The Motor client is lazy; this test does not connect to Mongo.
+os.environ.setdefault("MONGO_URL", "mongodb://localhost:27017")
+os.environ.setdefault("DB_NAME", "arbicore_test")
 
 import pytest
 
@@ -18,6 +25,7 @@ import arbicore.searcher.price_feed as pf
 import arbicore.searcher.aero_resolver as aero
 import arbicore.searcher.base_all_in_cost as aic
 import arbicore.scanners.flash_loan_arbitrage.live_quote_provider as lqp
+import arbicore.scanners.flash_loan_arbitrage.provider_liquidity as pliq
 
 
 class _FakePriceFeed:
@@ -66,7 +74,12 @@ def _build(estimator, *, facts=FACTS):
     async def _aero(*_a, **_k):
         return None
 
+    async def _eth_get_code(_address):
+        return "0x60006000"
+
     with patch.object(srt, "make_base_eth_call_from_env", lambda: _eth_call), \
+         patch.object(srt, "make_eth_get_code_for_chain_from_env",
+                      lambda chain: _eth_get_code if chain == "base" else None), \
          patch.object(srt, "build_base_tvl_provider", lambda *a, **k: None), \
          patch.object(srt, "make_base_congestion_source_from_env",
                       lambda: _congestion), \
@@ -146,3 +159,86 @@ async def test_estimator_exception_denies():
         raise RuntimeError("rpc down")
     validator, _ = _build(_est)
     assert await validator._fresh(PLAN) is None
+
+
+@pytest.mark.asyncio
+async def test_controlled_live_wiring_passes_base_eth_get_code_seam():
+    """A.2.13.3 — controlled-live flash-loan availability receives the
+    chain-scoped Base eth_getCode dependency."""
+    captured = {}
+
+    async def _eth_get_code(address):
+        captured["code_address"] = address
+        return "0x60006000"
+
+    async def _fake_runtime_flashloan_available(
+        eth_call, *, provider, chain, token_address, token_decimals,
+        token_price_usd, borrow_amount_usd, balancer_vault,
+        eth_get_code=None, **_kwargs
+    ):
+        captured["eth_call"] = eth_call
+        captured["provider"] = provider
+        captured["chain"] = chain
+        captured["token_address"] = token_address
+        captured["token_decimals"] = token_decimals
+        captured["token_price_usd"] = token_price_usd
+        captured["borrow_amount_usd"] = borrow_amount_usd
+        captured["balancer_vault"] = balancer_vault
+        captured["eth_get_code"] = eth_get_code
+        return True
+
+    async def _eth_call(*_a, **_k):
+        return "0x"
+
+    async def _qp(hm, borrow):
+        return dict(FACTS)
+
+    async def _congestion():
+        return 0.4
+
+    async def _aero(*_a, **_k):
+        return None
+
+    with patch.object(srt, "make_base_eth_call_from_env",
+                      lambda: _eth_call), \
+         patch.object(
+             srt,
+             "make_eth_get_code_for_chain_from_env",
+             lambda chain: _eth_get_code if chain == "base" else None,
+         ), \
+         patch.object(srt, "build_base_tvl_provider",
+                      lambda *a, **k: None), \
+         patch.object(srt, "make_base_congestion_source_from_env",
+                      lambda: _congestion), \
+         patch.object(pf, "build_base_price_feed_from_env",
+                      lambda *a, **k: _FakePriceFeed()), \
+         patch.object(lqp, "make_live_quote_provider",
+                      lambda *a, **k: _qp), \
+         patch.object(aic, "make_base_all_in_cost_estimator_from_env",
+                      lambda: _good_estimator(45.0)), \
+         patch.object(aero, "resolve_and_propagate", _aero), \
+         patch.object(
+             pliq,
+             "runtime_flashloan_available",
+             _fake_runtime_flashloan_available,
+         ):
+
+        validator, _ = comp.build_controlled_live_safety(object())
+
+        assert validator is not None
+
+        # Force the FRESH path while all dependency patches remain active.
+        # This reaches the locally defined _flashloan_available() and verifies
+        # the chain-scoped eth_getCode dependency passed to the runtime probe.
+        await validator._fresh(PLAN)
+
+    # The composition layer must inject the chain-scoped reader.
+    assert captured["chain"] == "base"
+    assert captured["provider"] == "balancer_v2"
+    assert captured["eth_get_code"] is _eth_get_code
+    assert callable(captured["eth_get_code"])
+
+    # Verify the injected seam itself is usable.
+    assert await captured["eth_get_code"](
+        "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb"
+    ) == "0x60006000"

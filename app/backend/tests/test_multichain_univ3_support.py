@@ -131,7 +131,24 @@ def _uni_result(amount_out, sqrt=1, ticks=1, gas=90000):
                        [int(amount_out), int(sqrt), int(ticks), int(gas)]).hex()
 
 
+def _mock_chain_identity(monkeypatch, chain):
+    chain_ids = {
+        "base": 8453,
+        "arbitrum": 42161,
+        "optimism": 10,
+        "polygon": 137,
+    }
+
+    async def fake_read_chain_id(rpc_url, *, timeout=8.0):
+        return chain_ids[chain]
+
+    monkeypatch.setattr(Q, "_read_chain_id", fake_read_chain_id)
+    Q._HOST_CHAIN_ID.clear()
+
+
 def test_successful_live_quote_multichain(monkeypatch):
+    _mock_chain_identity(monkeypatch, "arbitrum")
+
     async def fake_eth_call(rpc_url, *, to, data, **kw):
         return _uni_result(2_000_000), 123, None
     monkeypatch.setattr(Q, "_eth_call", fake_eth_call)
@@ -148,6 +165,8 @@ def test_successful_live_quote_multichain(monkeypatch):
 
 
 def test_quote_rpc_failure_fails_closed(monkeypatch):
+    _mock_chain_identity(monkeypatch, "polygon")
+
     async def boom(rpc_url, *, to, data, **kw):
         return None, None, {"code": -32000, "message": "execution reverted"}
     monkeypatch.setattr(Q, "_eth_call", boom)
@@ -163,6 +182,8 @@ def test_quote_rpc_failure_fails_closed(monkeypatch):
 
 
 def test_multihop_quote_chaining(monkeypatch):
+    _mock_chain_identity(monkeypatch, "optimism")
+
     seen = []
 
     async def fake_eth_call(rpc_url, *, to, data, **kw):
@@ -198,6 +219,8 @@ def test_base_quoter_address_unchanged():
 
 
 def test_base_live_quote_still_works(monkeypatch):
+    _mock_chain_identity(monkeypatch, "base")
+
     async def fake_eth_call(rpc_url, *, to, data, **kw):
         assert to == Q.BASE_UNIV3_QUOTER_V2       # base still routes to its quoter
         return _uni_result(1_234_567), 55, None

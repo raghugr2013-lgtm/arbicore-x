@@ -21,6 +21,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from arbicore.certification import vps_harness as H
+from arbicore.certification.h09_real_bridge import simulate_candidate_binding
+from arbicore.data.mongo.evidence_bundles_repo import EvidenceBundlesRepo
+from arbicore.runtime.composition import (
+    get_db,
+    run_single_canonical_flash_loan_audit_tick,
+)
+from arbicore.execution.quoter import QuoterRegistry
 from scripts.arbicore_certify import _build_identity
 
 _OUT = Path(os.environ.get("ARBICORE_CERT_OUT_DIR", "/app/vps_cert"))
@@ -65,8 +72,12 @@ async def run() -> dict:
     h08 = await H.check_h08_receiver(target_chain)
     # 7: bytecode / immutables
     bytecode = await H.check_receiver_bytecode_immutables(target_chain)
-    # 6: H09 simulation prereqs
-    h09 = H.check_h09_simulation_prereqs()
+    # 6: H09 — exact candidate-bound simulation.
+    #
+    # Run exactly one canonical diagnostic tick, then resolve candidates ONLY
+    # from the evidence bundles stamped by that exact audit_run_id/tick_id.
+    # No timestamp/latest fallback and no synthetic candidate construction.
+    h09 = await _run_h09_candidate_simulation()
 
     checks = rpc + iso + [h05] + h07 + [h08, bytecode, h09]
 
@@ -115,6 +126,173 @@ def _fmt(v) -> str:
             f"  - **{x['check']}** → `{x['status']}` — {x.get('detail','')}"
             for x in v)
     return f"  - **{v['check']}** → `{v['status']}` — {v.get('detail','')}"
+
+
+async def _run_h09_candidate_simulation() -> dict:
+    """Run H09 against one real candidate from one canonical audit tick.
+
+    Fail closed:
+      - no exact tick identity -> UNKNOWN
+      - no exact evidence -> UNKNOWN
+      - no CONFIRMED candidate -> UNKNOWN
+      - incomplete binding -> UNKNOWN
+      - simulation failure -> UNKNOWN/FAIL as returned by bridge
+    Never signs, broadcasts, or enables live execution.
+    """
+    try:
+        rpc_url = os.environ.get("ARBICORE_RPC_URL_BASE", "").strip()
+        if not rpc_url:
+            return {
+                "check": "H09 candidate-bound simulation",
+                "status": H.UNKNOWN,
+                "detail": "Base RPC unavailable; no candidate simulation attempted",
+                "evidence": {"signed": False, "broadcast": False},
+            }
+
+        # Use the same canonical quoter/composition path as the scanner.
+        quoter_registry = QuoterRegistry()
+        meta = await run_single_canonical_flash_loan_audit_tick(quoter_registry)
+
+        audit_run_id = meta.get("audit_run_id")
+        scanner_tick_id = meta.get("scanner_tick_id")
+        worker_id = meta.get("worker_id")
+
+        if not audit_run_id or scanner_tick_id is None:
+            return {
+                "check": "H09 candidate-bound simulation",
+                "status": H.UNKNOWN,
+                "detail": "canonical audit tick did not produce exact provenance",
+                "evidence": {
+                    "audit_run_id": audit_run_id,
+                    "scanner_tick_id": scanner_tick_id,
+                    "worker_id": worker_id,
+                    "signed": False,
+                    "broadcast": False,
+                },
+            }
+
+        repo = EvidenceBundlesRepo(get_db())
+        rows = await repo.find_for_audit(
+            audit_run_id=audit_run_id,
+            scanner_tick_id=scanner_tick_id,
+            worker_id=worker_id,
+            source_component="flash_loan_arb_verifier",
+        )
+
+        confirmed = [
+            r for r in rows
+            if isinstance(r, dict)
+            and r.get("verification_status") == "CONFIRMED"
+            and r.get("broadcast") is not True
+            and r.get("candidate_id")
+        ]
+
+        if not confirmed:
+            return {
+                "check": "H09 candidate-bound simulation",
+                "status": H.UNKNOWN,
+                "detail": (
+                    "no CONFIRMED non-broadcast candidate was produced by "
+                    "this exact canonical audit tick; simulation not attempted"
+                ),
+                "evidence": {
+                    "audit_run_id": audit_run_id,
+                    "scanner_tick_id": scanner_tick_id,
+                    "worker_id": worker_id,
+                    "bundle_count": len(rows),
+                    "confirmed_candidates": 0,
+                    "signed": False,
+                    "broadcast": False,
+                },
+            }
+
+        # Never simulate more than one candidate in this certification tick.
+        # Deterministically select the strongest persisted economics only.
+        def _profit(row):
+            econ = row.get("economics")
+            if not isinstance(econ, dict):
+                return float("-inf")
+            for key in (
+                "expected_net_after_costs_usd",
+                "atomic_profit_usd",
+                "net_profit_usd",
+            ):
+                try:
+                    value = econ.get(key)
+                    if value is not None:
+                        return float(value)
+                except (TypeError, ValueError):
+                    pass
+            return float("-inf")
+
+        candidate = max(
+            confirmed,
+            key=lambda r: (_profit(r), str(r.get("candidate_id") or "")),
+        )
+        candidate_id = str(candidate["candidate_id"])
+
+        # Certification never needs or accepts a plaintext private key.
+        # The bridge receives only the authoritative signer-presence boolean.
+        signer_present = False
+        signer_evidence = H.make_vault_signer_evidence(get_db())
+        if isinstance(signer_evidence, dict):
+            signer_present = bool(
+                signer_evidence.get("present") is True
+                and signer_evidence.get("matches_expected") is True
+                and signer_evidence.get("derived_address")
+            )
+
+        result, diagnostic = await simulate_candidate_binding(
+            repo,
+            audit_run_id=audit_run_id,
+            scanner_tick_id=scanner_tick_id,
+            candidate_id=candidate_id,
+            rpc_url=rpc_url,
+            signer_present=signer_present,
+            from_address=(
+                signer_evidence.get("derived_address")
+                if isinstance(signer_evidence, dict)
+                else None
+            ),
+        )
+
+        cert = diagnostic.get("certification") if isinstance(diagnostic, dict) else None
+        passed = (
+            isinstance(cert, dict)
+            and cert.get("certified") is True
+            and cert.get("tier") == "SIMULATION_CERTIFIED"
+        )
+
+        return {
+            "check": "H09 candidate-bound simulation",
+            "status": H.PASS if passed else H.UNKNOWN,
+            "detail": (
+                "real candidate-bound atomic simulation PASS"
+                if passed
+                else "candidate-bound simulation did not certify; fail closed"
+            ),
+            "evidence": {
+                "audit_run_id": audit_run_id,
+                "scanner_tick_id": scanner_tick_id,
+                "worker_id": worker_id,
+                "candidate_id": candidate_id,
+                "simulation": result,
+                "diagnostic": diagnostic,
+                "signed": False,
+                "broadcast": False,
+            },
+        }
+
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "check": "H09 candidate-bound simulation",
+            "status": H.UNKNOWN,
+            "detail": f"H09 integration failed closed: {type(exc).__name__}",
+            "evidence": {
+                "signed": False,
+                "broadcast": False,
+            },
+        }
 
 
 def _report_md(data: dict) -> str:
