@@ -46,10 +46,23 @@ def _meta_real():
 
 class _FakeRegistry:
     async def quote_route(self, *, chain, hops):
-        hop = SimpleNamespace(dex="uniswap_v3", status="ok")
-        return SimpleNamespace(status="ok", final_amount_out_wei=int(1.05e16),
+        # HopQuote doubles carry the authoritative execution fields production
+        # requires (token_in/token_out, amount_in/out_wei, dex, status,
+        # block_number) and chain consistently with the SUPPLIED route: each
+        # hop consumes the previous hop's output; the final leg yields the
+        # route's final_amount_out_wei.
+        legs, amt_in = [], int(hops[0].get("amount_in_wei") or 0)
+        final_out = int(1.05e16)
+        for i, h in enumerate(hops):
+            amt_out = final_out if i == len(hops) - 1 else amt_in * 2
+            legs.append(SimpleNamespace(
+                dex=h["dex"], token_in=h["token_in"], token_out=h["token_out"],
+                amount_in_wei=amt_in, amount_out_wei=amt_out,
+                status="ok", block_number=12345))
+            amt_in = amt_out
+        return SimpleNamespace(status="ok", final_amount_out_wei=final_out,
                                aggregate_gas_estimate_units=300_000,
-                               hops=[hop, hop])
+                               hops=legs)
 
 
 class _StaticAddrTVL:

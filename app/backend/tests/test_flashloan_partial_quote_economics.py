@@ -115,7 +115,7 @@ def test_real_quote_route_passthrough_creates_intermediate_unit_output():
 # ---------------------------------------------------------------------------
 
 def _meta():
-    return {"borrow_token": "WETH", "route_pools": ["p1", "p2"],
+    return {"borrow_token": "WETH", "route_pools": _real_pool_ids(),
             "cycle_token_path": ["WETH", "USDC", "WETH"]}
 
 
@@ -124,14 +124,30 @@ class _FakeRegistry:
         self._rq = rq
 
     async def quote_route(self, *, chain, hops):
-        return self._rq
+        # A callable double builds HopQuotes consistent with the SUPPLIED
+        # route (chained amounts; the final leg yields final_amount_out_wei).
+        return self._rq(hops) if callable(self._rq) else self._rq
 
 
 def _rq(status, *, hop_status="ok", final_out=int(1.05e16)):
-    hop = SimpleNamespace(dex="uniswap_v3", status=hop_status, block_number=1)
-    return SimpleNamespace(status=status, final_amount_out_wei=final_out,
-                           aggregate_gas_estimate_units=300_000,
-                           hops=[hop, hop])
+    """RouteQuote double whose HopQuotes carry the authoritative execution
+    fields production requires (token_in/token_out, amount_in/out_wei, dex,
+    status, block_number), chained consistently with the supplied route: each
+    hop consumes the previous hop's output and the final hop yields
+    ``final_amount_out_wei``."""
+    def build(hops):
+        legs, amt_in = [], int(hops[0].get("amount_in_wei") or 0)
+        for i, h in enumerate(hops):
+            amt_out = int(final_out) if i == len(hops) - 1 else amt_in * 2
+            legs.append(SimpleNamespace(
+                dex=h["dex"], token_in=h["token_in"], token_out=h["token_out"],
+                amount_in_wei=amt_in, amount_out_wei=amt_out,
+                status=hop_status, block_number=1))
+            amt_in = amt_out
+        return SimpleNamespace(status=status, final_amount_out_wei=final_out,
+                               aggregate_gas_estimate_units=300_000,
+                               hops=legs)
+    return build
 
 
 def test_provider_fail_closed_on_partial():
@@ -148,7 +164,7 @@ def test_provider_fail_closed_on_reverted_hop_even_if_route_status_ok():
 
 def test_provider_fail_closed_on_non_cyclic_path():
     prov = make_live_quote_provider(_FakeRegistry(_rq("ok")))
-    bad = {"borrow_token": "WETH", "route_pools": ["p1", "p2"],
+    bad = {"borrow_token": "WETH", "route_pools": _real_pool_ids(),
            "cycle_token_path": ["WETH", "USDC", "DAI"]}   # not a closed cycle
     assert _run(prov(bad, 10_000.0)) is None
 

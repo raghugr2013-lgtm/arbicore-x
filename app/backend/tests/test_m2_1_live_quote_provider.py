@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
+from arbicore.discovery import base_pool_registry as reg
 from arbicore.scanners.flash_loan_arbitrage.live_quote_provider import (
     make_live_quote_provider,
 )
@@ -23,10 +24,21 @@ def _run(coro):
     return asyncio.new_event_loop().run_until_complete(coro)
 
 
+def _pool_ids():
+    """Two REAL deterministic-verified UniV3 WETH/USDC canonical ids so
+    ``_plan_base()`` resolves genuine registry specs (no synthetic p1/p2)."""
+    ids = [p.canonical_id for p in reg.get_canonical_pools()
+           if p.address_resolution == reg.DETERMINISTIC_VERIFIED
+           and p.dex == "uniswap_v3"
+           and {"WETH", "USDC"} == {p.token0_symbol, p.token1_symbol}]
+    assert len(ids) >= 2, "need two real WETH/USDC UniV3 pools in registry"
+    return ids[:2]
+
+
 def _meta():
     return {
         "borrow_token": "WETH",
-        "route_pools": ["p1", "p2"],
+        "route_pools": _pool_ids(),
         "cycle_token_path": ["WETH", "USDC", "WETH"],
     }
 
@@ -40,14 +52,30 @@ class _FakeRegistry:
         self.calls.append((chain, hops))
         if isinstance(self._rq, Exception):
             raise self._rq
-        return self._rq
+        # A callable double builds HopQuotes consistent with the SUPPLIED
+        # route (chained amounts; the final leg yields final_amount_out_wei).
+        return self._rq(hops) if callable(self._rq) else self._rq
 
 
 def _rq(final_out_wei, status="ok"):
-    hop = SimpleNamespace(dex="uniswap_v3", status="ok", block_number=12345)
-    return SimpleNamespace(
-        status=status, final_amount_out_wei=final_out_wei,
-        aggregate_gas_estimate_units=300_000, hops=[hop, hop])
+    """RouteQuote double whose HopQuotes carry the authoritative execution
+    fields production requires (token_in/token_out, amount_in/out_wei, dex,
+    status, block_number), chained consistently with the supplied route: each
+    hop consumes the previous hop's output and the final hop yields
+    ``final_amount_out_wei``."""
+    def build(hops):
+        legs, amt_in = [], int(hops[0].get("amount_in_wei") or 0)
+        for i, h in enumerate(hops):
+            amt_out = int(final_out_wei) if i == len(hops) - 1 else amt_in * 2
+            legs.append(SimpleNamespace(
+                dex=h["dex"], token_in=h["token_in"], token_out=h["token_out"],
+                amount_in_wei=amt_in, amount_out_wei=amt_out,
+                status="ok", block_number=12345))
+            amt_in = amt_out
+        return SimpleNamespace(
+            status=status, final_amount_out_wei=final_out_wei,
+            aggregate_gas_estimate_units=300_000, hops=legs)
+    return build
 
 
 def test_live_provider_returns_real_facts_with_provenance():
@@ -77,7 +105,7 @@ def test_live_provider_gross_profit_from_real_ratio():
 
 def test_fail_closed_on_malformed_route():
     prov = make_live_quote_provider(_FakeRegistry(_rq(int(1.05e16))))
-    bad = {"borrow_token": "WETH", "route_pools": ["p1"],
+    bad = {"borrow_token": "WETH", "route_pools": _pool_ids()[:1],
            "cycle_token_path": ["WETH", "USDC", "WETH"]}   # len mismatch
     assert _run(prov(bad, 1e4)) is None
 

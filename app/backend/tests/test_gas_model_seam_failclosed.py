@@ -19,7 +19,13 @@ from arbicore.searcher.base_all_in_cost import (
     make_base_all_in_cost_estimator_from_env,
 )
 
-_RPC_ENVS = ("PROVIDER_RPC_URLS_BASE", "PROVIDER_RPC_URL_BASE")
+# All five RPC env inputs that can satisfy the provider-registry sync
+# (PROVIDER_* directly; ARBICORE_*/BASE_RPC_URL via the cert.env mirror).
+# Every "not configured" assertion must clear ALL of them — a leftover from
+# another module or the shell would otherwise be synced into PROVIDER_* and
+# falsely count as explicit operator configuration.
+_RPC_ENVS = ("PROVIDER_RPC_URLS_BASE", "PROVIDER_RPC_URL_BASE",
+             "ARBICORE_RPC_URL_BASE", "ARBICORE_RPC_URL", "BASE_RPC_URL")
 
 
 def _run(coro):
@@ -67,6 +73,11 @@ def test_explicit_plural_env_counts_as_configured(monkeypatch):
 
 
 def test_blank_env_is_not_configured(monkeypatch):
+    # Clear ALL five RPC env inputs first: a leftover ARBICORE_RPC_URL_BASE /
+    # ARBICORE_RPC_URL / BASE_RPC_URL would be synced into PROVIDER_* and
+    # falsely count as explicit operator configuration.
+    for k in _RPC_ENVS:
+        monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv("PROVIDER_RPC_URL_BASE", "   ")
     monkeypatch.setenv("PROVIDER_RPC_URLS_BASE", "")
     assert base_rpc_explicitly_configured() is False

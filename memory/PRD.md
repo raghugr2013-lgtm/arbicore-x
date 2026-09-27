@@ -858,3 +858,28 @@ ceiling + 1 test_vps_harness::test_h05_pass_when_enabled (fail at baseline).
 
 SAFETY: no signing/broadcast/auto-exec/Limited Live/deploy; production/main/protected
 files untouched. Local commit only.
+
+## 2026-09-27 — G5.79 validation correction (test fixtures only, branch impl/g5-79-multirpc-provider)
+Fixed stale test doubles after production B7 hardening of make_live_quote_provider()
+(authoritative per-hop execution fields now REQUIRED; quoted_in/out <= 0 → fail closed).
+Changed (tests only; production code untouched):
+- tests/test_m2_1_live_quote_provider.py — _FakeRegistry/_rq now build HopQuotes with
+  token_in/token_out/amount_in_wei/amount_out_wei/dex/status/block_number, amounts
+  chained from the SUPPLIED route (final leg = final_amount_out_wei); synthetic
+  route-pool ids p1/p2 replaced with real DETERMINISTIC_VERIFIED UniV3 WETH/USDC
+  canonical ids (_pool_ids()); malformed-route test uses a real single id.
+- tests/test_flashloan_partial_quote_economics.py — same fixture hardening; _meta()
+  and non-cyclic test use _real_pool_ids().
+- tests/test_m2_2_real_tvl_gate8.py — _FakeRegistry.quote_route builds fully-specified
+  chained HopQuote doubles (adds block_number).
+- tests/test_gas_model_seam_failclosed.py — _RPC_ENVS extended to all five RPC inputs
+  (PROVIDER_RPC_URLS_BASE, PROVIDER_RPC_URL_BASE, ARBICORE_RPC_URL_BASE,
+  ARBICORE_RPC_URL, BASE_RPC_URL); test_blank_env_is_not_configured clears all five
+  before asserting fail-closed (fixes cross-module ARBICORE_RPC_URL pollution).
+NOT modified (per instruction): make_live_quote_provider, _plan_base,
+base_rpc_explicitly_configured, ProviderRegistry, G5.79 production code.
+RESULTS: focused suite 30/30 PASS (was 10 failed); G5.79 suite 15/15 PASS;
+disposable validator scripts/run_vps_validator_audit.sh → 236 passed, AUDIT RESULT: PASS.
+SAFETY: no production code change, no container/service restart, no signing/broadcast,
+no VPS action; validator Mongo = local pod, dedicated db=arbicore_validator.
+Changes are UNCOMMITTED in working tree pending operator review.
