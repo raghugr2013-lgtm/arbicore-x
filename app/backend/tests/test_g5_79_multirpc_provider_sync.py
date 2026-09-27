@@ -237,17 +237,34 @@ def test_chain_isolation_no_cross_chain_leak():
 
 
 # ---------------------------------------------------------------------------
-# 12. fail-closed empty configuration
+# 12. fail-closed MANAGED export on empty config + backward-compatible default
+#     Two distinct contracts:
+#       (a) G5.79 managed-export layer is FAIL-CLOSED: empty persistent config
+#           writes NO managed PROVIDER_RPC_URLS_<CHAIN> (and no marker).
+#       (b) The pre-existing bootstrap registry layer remains BACKWARD-COMPATIBLE:
+#           with nothing configured, _rpc_urls() falls back to the canonical
+#           public DEFAULT so the system is never left with zero Base providers.
+#           This default fallback is INTENTIONAL (it predates G5.79 and underpins
+#           existing single-endpoint certification) and is explicitly asserted
+#           here so the behaviour is documented, not accidental.
 # ---------------------------------------------------------------------------
-def test_fail_closed_empty_config():
-    exp = _sync_env([])                                    # no persistent rpcs
+def test_empty_config_failcloses_managed_export_and_keeps_default_provider():
+    from arbicore.providers.bootstrap import DEFAULT_RPC_URLS
+
+    # (a) managed-export layer is fail-closed on empty persistent config.
+    exp = _sync_env([])
     assert VAR not in exp                                  # nothing exported
-    assert os_environ(VAR) is None                         # fail-closed
+    assert os_environ(VAR) is None                         # no managed value
+    assert os_environ(MARK) is None                        # no provenance marker
+
+    # (b) registry layer retains the backward-compatible single DEFAULT provider.
     reg = ProviderRegistry()
-    out = pb.sync_rpc_providers_from_env(reg, ["base"])    # falls back to default
+    out = pb.sync_rpc_providers_from_env(reg, ["base"])
     assert out["ok"] is True
-    assert all(i.startswith("rpc_base_0_")
-               for i in [e.provider_id for e in reg.list(chain="base")])
+    ids = [e.provider_id for e in reg.list(chain="base")]
+    assert len(ids) == 1 and ids[0].startswith("rpc_base_0_")
+    # the single provider IS the canonical public default (documented fallback).
+    assert reg.get(ids[0]).url == DEFAULT_RPC_URLS["base"]
 
 
 # ---------------------------------------------------------------------------
