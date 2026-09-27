@@ -72,7 +72,13 @@ async def test_all_in_cost_happy_path_components():
 @pytest.mark.asyncio
 async def test_deny_when_no_rpc(monkeypatch):
     # No explicit operator Base RPC configured ⇒ estimator None (fail closed).
-    for k in ("PROVIDER_RPC_URLS_BASE", "PROVIDER_RPC_URL_BASE"):
+    for k in (
+        "PROVIDER_RPC_URLS_BASE",
+        "PROVIDER_RPC_URL_BASE",
+        "ARBICORE_RPC_URL_BASE",
+        "ARBICORE_RPC_URL",
+        "BASE_RPC_URL",
+    ):
         monkeypatch.delenv(k, raising=False)
     with patch.object(persist, "resolve_rpc_url_from_env", lambda c: None):
         assert aic.make_base_all_in_cost_estimator_from_env() is None
