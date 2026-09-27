@@ -340,6 +340,83 @@ def bootstrap(registry: ProviderRegistry) -> Dict[str, Any]:
 __all__ = ["bootstrap", "ensure_default_registry"]
 
 
+def sync_rpc_providers_from_env(registry: Optional[ProviderRegistry] = None,
+                                chains: Optional[List[str]] = None
+                                ) -> Dict[str, Any]:
+    """G5.79 — re-synchronize ONLY EVM RPC providers from the environment into
+    the LIVE provider registry (the same default registry live consumers use).
+
+    Behaviour (deterministic, fail-closed, read-only — no tx):
+      * desired set = ``_rpc_urls(chain)`` (full precedence: explicit
+        ``PROVIDER_RPC_URLS_<CHAIN>`` CSV first, then single, then canonical).
+      * NEW endpoint        → register (fresh health).
+      * CHANGED URL at an existing ``rpc_<chain>_<index>_<host>`` id → replace
+        via register() (intentionally fresh health — a different endpoint has
+        no valid history).
+      * UNCHANGED (same id AND same url) → SKIP register() so EWMA/circuit/
+        success-failure health state is preserved.
+      * STALE ``rpc_<chain>_<index>_*`` ids not in the desired set →
+        deregister() (stale removal).
+      * Strict chain isolation: only ``rpc_<chain>_<index>_*`` ids for the
+        given chains are touched; DEX/CEX/quote/gas providers are never
+        modified.
+
+    Returns a secret-safe summary (provider ids + counts, never raw URLs).
+    """
+    from .rpc_failover import get_default_registry  # lazy: avoid import cycles
+
+    if registry is None:
+        registry = get_default_registry()
+    if registry is None:
+        return {"ok": False, "reason": "no_default_registry"}
+
+    chains = list(chains) if chains else list(_EVM_CHAINS)
+    summary: Dict[str, Any] = {"ok": True, "synced": {}, "removed": {},
+                               "skipped": {}, "errors": []}
+
+    def _pid(chn: str, index: int, url: str) -> str:
+        host = url.split("//", 1)[-1].split("/", 1)[0].replace(".", "_")[:24]
+        return f"rpc_{chn}_{index}_{host}"
+
+    for chain in chains:
+        urls = _rpc_urls(chain)
+        desired = {_pid(chain, i, u): u for i, u in enumerate(urls)}
+        prefix = f"rpc_{chain}_"
+
+        existing_ids = [e.provider_id for e in registry.list(chain=chain)]
+        synced: List[str] = []
+        removed: List[str] = []
+        skipped: List[str] = []
+
+        # 1) Remove stale RPC providers for THIS chain no longer configured.
+        for pid in existing_ids:
+            if not pid.startswith(prefix):
+                continue
+            rest = pid[len(prefix):]
+            if not rest.split("_", 1)[0].isdigit():
+                continue  # only manage bootstrap-style rpc_<chain>_<idx>_<host>
+            if pid not in desired:
+                registry.deregister(pid)
+                removed.append(pid)
+
+        # 2) Register new / replace changed / skip unchanged.
+        for index, url in enumerate(urls):
+            pid = _pid(chain, index, url)
+            existing = registry.get(pid)
+            if existing is not None and getattr(existing, "url", None) == url:
+                skipped.append(pid)   # unchanged → preserve health state
+                continue
+            registry.register(
+                EthJsonRpcProvider(url=url, chain=chain, provider_id=pid),
+                chain=chain, priority=100 + index)
+            synced.append(pid)
+
+        summary["synced"][chain] = synced
+        summary["removed"][chain] = removed
+        summary["skipped"][chain] = skipped
+    return summary
+
+
 def ensure_default_registry() -> ProviderRegistry:
     """Idempotently return the process-default ProviderRegistry, bootstrapping
     it once if nothing has initialized it yet.

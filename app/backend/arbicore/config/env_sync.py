@@ -27,12 +27,64 @@ Invoked from:
 """
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 from typing import Any, Dict
 
 
 logger = logging.getLogger(__name__)
+
+
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _provider_rpc_managed_marker(chain: str) -> str:
+    return f"ARBICORE_PROVIDER_RPC_URLS_{chain.upper()}_MANAGED"
+
+
+def _sync_managed_provider_rpc_urls(chain: str, rpcs, exported: Dict[str, str]
+                                    ) -> None:
+    """G5.79 — synchronize the persistent multi-RPC list into
+    ``PROVIDER_RPC_URLS_<CHAIN>`` with explicit managed-vs-operator provenance.
+
+    Provenance rules (deterministic):
+      * explicit operator value (no marker, or value diverged from the marker)
+        → authoritative; NEVER overwritten; any stale marker is cleared.
+      * managed value (marker matches the current value) → safe to update or
+        remove when the persistent Network Config changes.
+      * nothing set → write the managed value + its provenance marker.
+
+    Secret-safe: the returned ``exported`` audit map records only a redacted
+    marker, never the raw URL (RPC URLs may embed API keys).
+    """
+    c = chain.upper()
+    var = f"PROVIDER_RPC_URLS_{c}"
+    mark = _provider_rpc_managed_marker(chain)
+    cur = os.environ.get(var)
+    marker = os.environ.get(mark)
+
+    urls = [u.strip() for u in (rpcs or []) if isinstance(u, str) and u.strip()]
+    desired = ",".join(urls)
+
+    is_managed = bool(marker) and cur is not None and _sha256(cur) == marker
+    is_explicit = cur is not None and not is_managed
+
+    if is_explicit:
+        # Operator-owned explicit config WINS and is never overwritten.
+        os.environ.pop(mark, None)
+        return
+    if desired:
+        if not is_managed or cur != desired:
+            os.environ[var] = desired
+            os.environ[mark] = _sha256(desired)
+            exported[var] = f"<{len(urls)} endpoints, managed>"
+    elif is_managed:
+        # Persistent list was cleared AND we own the current value → remove it.
+        os.environ.pop(var, None)
+        os.environ.pop(mark, None)
+        exported[var] = "<removed, managed>"
 
 
 async def sync_env_from_network_config(network_repo, *, chain: str = "base"
@@ -67,6 +119,11 @@ async def sync_env_from_network_config(network_repo, *, chain: str = "base"
         # consistent with the UI-managed persistent config during migration.
         os.environ[f"{chain.upper()}_RPC_URL"] = primary_rpc
         exported[f"{chain.upper()}_RPC_URL"] = primary_rpc
+
+    # G5.79 — multi-RPC managed synchronization (managed/explicit provenance).
+    # Runs even when the persistent list is empty so a managed value can be
+    # removed; an explicit operator PROVIDER_RPC_URLS_<CHAIN> stays authoritative.
+    _sync_managed_provider_rpc_urls(chain, rpcs, exported)
 
     # Executor address — chain-scoped.
     exec_addr = ((cfg.get("executor_addresses") or {}).get(chain) or "").strip()

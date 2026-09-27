@@ -5994,6 +5994,15 @@ async def v2_settings_network_apply(body: Optional[Dict[str, Any]] = None
         # reads, executor verifications and broadcasts pick it up without
         # a backend restart.
         exported = await sync_env_from_network_config(_NETWORK_CONFIG)
+        # G5.79 — re-sync multi-RPC providers into the live ProviderRegistry
+        # (fail-closed, read-only; never enables scanner/signing/broadcast).
+        if _PROVIDERS_AVAILABLE:
+            try:
+                from arbicore.providers.bootstrap import (
+                    sync_rpc_providers_from_env as _g579_sync_rpc)
+                _g579_sync_rpc()
+            except Exception:  # noqa: BLE001
+                logger.exception("g5.79 rpc provider sync failed")
         return {"ok": True, "config": cfg, "env_synced": sorted(exported.keys()),
                 "generated_at": _iso_now()}
     except ValueError as exc:
@@ -6013,6 +6022,15 @@ async def v2_settings_network_rollback(body: Optional[Dict[str, Any]] = None
         # Phase 10.10 — same hot-load on rollback so runtime env tracks
         # whichever revision is now current.
         exported = await sync_env_from_network_config(_NETWORK_CONFIG)
+        # G5.79 — re-sync multi-RPC providers into the live ProviderRegistry
+        # (fail-closed, read-only; never enables scanner/signing/broadcast).
+        if _PROVIDERS_AVAILABLE:
+            try:
+                from arbicore.providers.bootstrap import (
+                    sync_rpc_providers_from_env as _g579_sync_rpc)
+                _g579_sync_rpc()
+            except Exception:  # noqa: BLE001
+                logger.exception("g5.79 rpc provider sync failed")
         return {"ok": True, "config": cfg, "env_synced": sorted(exported.keys()),
                 "generated_at": _iso_now()}
     except ValueError as exc:
@@ -8647,6 +8665,15 @@ async def _seed_execution_substrate():
         # drives the runtime env (broadcast, gas, MEV, wallet balance,
         # executor verify, RPC health all consume os.environ).  Idempotent.
         exported = await sync_env_from_network_config(_NETWORK_CONFIG)
+        # G5.79 — re-sync multi-RPC providers into the live ProviderRegistry
+        # (fail-closed, read-only; never enables scanner/signing/broadcast).
+        if _PROVIDERS_AVAILABLE:
+            try:
+                from arbicore.providers.bootstrap import (
+                    sync_rpc_providers_from_env as _g579_sync_rpc)
+                _g579_sync_rpc()
+            except Exception:  # noqa: BLE001
+                logger.exception("g5.79 rpc provider sync failed")
         if exported:
             logger.info("phase-10.10 env sync exported: %s",
                          sorted(exported.keys()))
