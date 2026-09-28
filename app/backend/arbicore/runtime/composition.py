@@ -1143,6 +1143,21 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
     return _flash_loan_arb_scanner
 
 
+def build_multichain_quote_provider(quoter_registry, chain: str):
+    """SP-3 seam (NON-ACTIVATING) — return a live quote provider for a configured
+    non-Base ``chain`` sourced from the SP-2 read-only multichain registry, or
+    ``None`` (fail closed) for base/unconfigured/unknown chains.
+
+    This does NOT start any scanner, does NOT modify the canonical Base wiring
+    (``_wire_canonical_flash_loan_scanner``), and adds NO TVL/liquidity logic
+    (``tvl_provider`` stays ``None`` → Gate 8 fails closed). It only exposes the
+    seam by which the SP-2 registry CAN feed runtime quote discovery. Non-Base
+    live quoting remains RUNTIME-VERIFICATION-PENDING (SP-4 / Codex VPS)."""
+    from ..scanners.flash_loan_arbitrage.live_quote_provider import (
+        make_multichain_quote_provider)
+    return make_multichain_quote_provider(quoter_registry, chain)
+
+
 async def _wire_canonical_flash_loan_scanner(quoter_registry):
     """Shared wiring for the canonical FlashLoanArbitrageScanner (live quote
     provider + fail-closed Gate-8 TVL provider + price provenance + auditable

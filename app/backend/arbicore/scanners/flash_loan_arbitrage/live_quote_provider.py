@@ -82,6 +82,10 @@ def make_live_quote_provider(
     quoter_registry,
     *,
     tvl_provider=None,
+    chain: Optional[str] = None,
+    token_address_fn: Optional[Callable[[str], Optional[str]]] = None,
+    pool_specs: Optional[Dict[str, Dict[str, Any]]] = None,
+    probe_amount_fn: Optional[Callable[[str], int]] = None,
 ) -> Callable[[Dict[str, Any], float], Awaitable[Optional[Dict[str, Any]]]]:
     """Return an async ``QuoteProvider`` bound to a live ``QuoterRegistry``.
 
@@ -89,8 +93,20 @@ def make_live_quote_provider(
     depth for Gate 8. When it is ``None`` (preview / not provisioned) or a
     pool's depth is unverifiable, ``min_pool_tvl_usd_in_route`` is ``0.0`` so
     Gate 8 fails closed — depth is NEVER fabricated.
+
+    SP-3 — chain-parameterization seam. ``chain`` / ``token_address_fn`` /
+    ``pool_specs`` / ``probe_amount_fn`` all DEFAULT to the exact Base sources
+    (``base_venues`` + ``base_pool_registry``), so the Base call site is
+    byte-for-byte unchanged. A non-Base chain supplies its own resolvers (see
+    ``make_multichain_quote_provider``, fed by the SP-2 read-only registry).
+    This seam adds NO liquidity/TVL logic (that is SP-4) and does not claim
+    runtime verification — an unpriceable route still fails closed (None).
     """
-    specs = canonical_pool_specs()
+    # SP-3: resolve every chain-source to its Base default when not overridden.
+    quote_chain = chain or CHAIN
+    _token_address = token_address_fn or token_address
+    _probe_amount = probe_amount_fn or probe_amount
+    specs = pool_specs if pool_specs is not None else canonical_pool_specs()
 
     async def _provider(cycle_metadata: Dict[str, Any],
                         borrow_amount_usd: float) -> Optional[Dict[str, Any]]:
@@ -106,7 +122,7 @@ def make_live_quote_provider(
         for i, pool_addr in enumerate(route_pools):
             spec = dict(specs.get(pool_addr) or {})
             tin, tout = token_path[i], token_path[i + 1]
-            addr_in, addr_out = token_address(tin), token_address(tout)
+            addr_in, addr_out = _token_address(tin), _token_address(tout)
             if not addr_in or not addr_out:
                 return None
             hop: Dict[str, Any] = {
@@ -115,7 +131,7 @@ def make_live_quote_provider(
                 "token_out": addr_out,
             }
             if i == 0:
-                hop["amount_in_wei"] = int(probe_amount(borrow_token))
+                hop["amount_in_wei"] = int(_probe_amount(borrow_token))
             if "fee" in spec:
                 hop["fee"] = spec["fee"]
             # Pass the venue-specific quote params so non-UniV3 hops quote
@@ -132,7 +148,7 @@ def make_live_quote_provider(
             hops.append(hop)
 
         try:
-            rq = await quoter_registry.quote_route(chain=CHAIN, hops=hops)
+            rq = await quoter_registry.quote_route(chain=quote_chain, hops=hops)
         except Exception:  # noqa: BLE001
             return None
         # QUOTE INTEGRITY — FAIL CLOSED (audit 2026-06 partial-quote defect).
@@ -169,7 +185,7 @@ def make_live_quote_provider(
             fee_bps = 0
             # HopQuote has no fee; recover from spec by matching addresses.
             hop_legs.append({
-                "venue_id": f"{getattr(h, 'dex', 'dex')}:{CHAIN}",
+                "venue_id": f"{getattr(h, 'dex', 'dex')}:{quote_chain}",
                 "source_id": _dex_source_id(getattr(h, "dex", "")),
                 "price": None,
                 "depth_usd": 0.0,
@@ -205,3 +221,52 @@ def make_live_quote_provider(
         }
 
     return _provider
+
+
+def make_multichain_quote_provider(quoter_registry, chain, *, tvl_provider=None):
+    """SP-3 — build a live quote provider for a CONFIGURED non-Base chain, sourcing
+    token addresses + candidate pool specs from the SP-2 READ-ONLY multichain
+    registry (``discovery/multichain_pool_registry``).
+
+    Fail-closed:
+      * ``chain == "base"``  → delegate to the canonical Base provider (unchanged).
+      * unconfigured/unknown → return ``None`` (no fabricated provider).
+    No pool contract address is fabricated (the registry never exposes one), no
+    TVL/liquidity logic is added (``tvl_provider`` defaults ``None`` → Gate 8 fails
+    closed), and no runtime verification is claimed — a route the live quoter
+    cannot price still yields ``None`` (denied:venue_unreadable) downstream.
+    """
+    from ...discovery import multichain_pool_registry as mreg
+
+    c = (chain or "").strip().lower()
+    if c == "base":
+        return make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider)
+    if not mreg.is_chain_configured(c):
+        return None  # fail closed — never a fabricated non-Base provider
+
+    def _token_addr(sym: str) -> Optional[str]:
+        return mreg.token_address(c, sym)  # bound to THIS chain (no leakage)
+
+    def _probe(sym: str) -> int:
+        # Decimals-aware probe notional (mirrors base_venues.probe_amount's
+        # default). This is a probe SIZE, not liquidity/TVL — SP-4 owns depth.
+        spec = mreg.token_spec(c, sym)
+        dec = int(spec["decimals"]) if spec else 18
+        return 5 * 10 ** (dec - 2) if dec >= 12 else 200 * 10 ** dec
+
+    pool_specs: Dict[str, Dict[str, Any]] = {}
+    for row in mreg.pool_candidate_specs(c):
+        vid = row.get("venue_id")
+        if not vid:
+            continue
+        spec: Dict[str, Any] = {"dex": row.get("dex") or "uniswap_v3"}
+        fee_bps = row.get("fee_bps")
+        if fee_bps is not None:
+            spec["fee"] = int(fee_bps) * 100   # bps → ppm for the UniV3 quoter
+        pool_specs[vid] = spec
+
+    return make_live_quote_provider(
+        quoter_registry, tvl_provider=tvl_provider, chain=c,
+        token_address_fn=_token_addr, pool_specs=pool_specs,
+        probe_amount_fn=_probe,
+    )
