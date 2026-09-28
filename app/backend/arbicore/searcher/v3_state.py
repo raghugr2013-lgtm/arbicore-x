@@ -231,6 +231,37 @@ def make_base_v3_reserves_fn(
     return reserves_fn
 
 
+def make_evm_v3_reserves_fn(eth_call: EthCall, pool_meta: Dict[str, tuple]):
+    """SP-4 — chain-NEUTRAL ``reserves_fn(chain, pool)`` via ERC-20
+    ``balanceOf(pool)``. Same read logic as ``make_base_v3_reserves_fn`` but with
+    NO ``base_pool_registry`` fallback: a pool with no supplied ``pool_meta`` fails
+    CLOSED (returns None) — Base token metadata is NEVER substituted for another
+    chain. ``pool_meta`` maps pool_address(lower) ->
+    (t0_id, t0_addr, dec0, t1_id, t1_addr, dec1)."""
+    async def reserves_fn(chain: str, pool: str):
+        import logging as _lg
+        _LOG = _lg.getLogger("arbicore.tvl.v3_reserves.evm")
+        meta = pool_meta.get((pool or "").lower())
+        if meta is None:
+            _LOG.warning("tvl DENY chain=%s pool=%s tvl_error=pool_metadata_unresolved",
+                         chain, pool)
+            return None
+        t0_id, t0_addr, d0, t1_id, t1_addr, d1 = meta
+        raw0 = await eth_call(t0_addr, _balanceof_data(pool))
+        raw1 = await eth_call(t1_addr, _balanceof_data(pool))
+        if not raw0 or not raw1:
+            return None
+        try:
+            r0 = int(raw0, 16) / (10 ** int(d0))
+            r1 = int(raw1, 16) / (10 ** int(d1))
+        except (ValueError, TypeError):
+            return None
+        if r0 <= 0 or r1 <= 0:
+            return None
+        return (t0_id, r0, t1_id, r1)
+    return reserves_fn
+
+
 def build_pool_meta_for_reserves(pools) -> Dict[str, tuple]:
     """Build the ``pool_meta`` map for ``make_base_v3_reserves_fn`` from canonical
     registry pools that have a resolved address."""

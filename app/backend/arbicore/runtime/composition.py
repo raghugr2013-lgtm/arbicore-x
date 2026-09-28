@@ -1158,6 +1158,30 @@ def build_multichain_quote_provider(quoter_registry, chain: str):
     return make_multichain_quote_provider(quoter_registry, chain)
 
 
+def build_multichain_tvl_provider(chain, *, pool_meta=None, price_source=None):
+    """SP-4 seam (NON-ACTIVATING) — chain-aware, fail-closed Gate-8 TVL provider
+    for a supported non-Base chain (ethereum/arbitrum/optimism/polygon/bnb), or
+    ``None`` (fail closed) for base/unsupported chains or when required inputs are
+    missing. NEVER substitutes Base liquidity and NEVER fabricates TVL.
+
+    ``pool_meta`` (resolved pool address → token layout) is REQUIRED for a real
+    TVL read; without it → ``None`` → Gate 8 fails closed. The on-chain
+    pool-address RESOLUTION that produces ``pool_meta`` remains a SEPARATE
+    dependency and is deliberately NOT implemented here (documented seam). This
+    factory starts no scanner, adds no execution, and leaves the Base TVL path
+    (`build_base_tvl_provider`) untouched."""
+    from ..searcher.runtime import (
+        build_evm_tvl_provider, make_evm_eth_call_from_env,
+        make_evm_price_source_from_env)
+    c = (chain or "").strip().lower()
+    if c == "base" or not c:
+        return None  # Base keeps its existing dedicated TVL provider
+    eth_call = make_evm_eth_call_from_env(c)
+    ps = (price_source if price_source is not None
+          else make_evm_price_source_from_env(c))
+    return build_evm_tvl_provider(c, eth_call, ps, pool_meta)
+
+
 async def _wire_canonical_flash_loan_scanner(quoter_registry):
     """Shared wiring for the canonical FlashLoanArbitrageScanner (live quote
     provider + fail-closed Gate-8 TVL provider + price provenance + auditable
