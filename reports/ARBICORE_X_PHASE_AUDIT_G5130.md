@@ -13,8 +13,10 @@ classification, gates, evidence). Runtime capability, however, is **Base-only**
 across three independent layers:
   (a) Quote adapters — `QuoterRegistry._CONTRACT_BY_CHAIN` = {base, base-sepolia};
       every other chain returns `_fallback_hop("no adapter")`.
-  (b) Gas models — `chains/gas_model._GAS_MODELS` = {"base"} only; non-Base ⇒
-      `get_chain_gas_model()` returns None ⇒ economics DENY (fail-closed).
+  (b) [CORRECTED 2026-09-28] Gas models EXIST for all 6 chains — `chains/gas_model`
+      dynamically registers Base + evm_gas (arbitrum/optimism/ethereum/polygon/bnb)
+      with correct L1 flags; unit-tested by test_phase2_multichain.py. NOT a gap.
+      The real gap is the LIVE DEX QUOTE ADAPTER (see (a)) + Base-only TVL/wiring.
   (c) Wiring — `runtime/composition.py` + `live_quote_provider.py` are hardwired to
       Base (`make_base_*`, `base_pool_registry`, base token map, `get_chain_gas_model("base")`).
 Consequently only Base can run DISCOVER→QUOTE→LIQUIDITY→ECONOMICS→PROFIT-GATE
@@ -68,8 +70,11 @@ EVIDENCE        — ✅ generic (bundle per CONFIRMED/DENIED, provenance fail-cl
 - G1 (P0): No non-Base UniV3 QuoterV2 / DEX quoter addresses.
   File: `execution/quoter.py` (`_CONTRACT_BY_CHAIN`, `_ROUTER_BY_CHAIN`,
   `_DEFAULT_FACTORY_BY_CHAIN`). Effect: QUOTE fails closed off-Base.
-- G2 (P0): No non-Base gas model. File: `chains/gas_model.py` (`_GAS_MODELS`).
-  Effect: ECONOMICS DENY off-Base even if quotes existed.
+- G2 [CORRECTED — NOT A GAP]: gas models EXIST for all 6 chains
+  (`chains/gas_model.py` dynamically registers Base + `evm_gas` for
+  arbitrum/optimism/ethereum/polygon/bnb, correct L1 flags, fail-closed on no
+  RPC; unit-tested by test_phase2_multichain.py). Economics math is chain-generic;
+  the missing INPUT is real off-Base quotes (G1).
 - G3 (P0): Live wiring Base-hardwired. Files: `runtime/composition.py`
   (`_wire_canonical_flash_loan_scanner`, `build_controlled_live_safety`),
   `scanners/flash_loan_arbitrage/live_quote_provider.py` (`base_venues.CHAIN`,
@@ -125,7 +130,7 @@ it belongs in the G5.79 worktree only.
 ## 6. Prioritized remaining engineering tasks
 - T0: G5.130 test-isolation remediation (worktree only) — closes the 2 failures.
 - T1 (P0): Non-Base quoter adapters (real QuoterV2 addresses per chain).
-- T2 (P0): Non-Base chain gas models (register EVM gas models per chain).
+- T2 [REMOVED — gas models already exist for all 6 chains; no work needed].
 - T3 (P0): Chain-parameterize live wiring (composition + live_quote_provider),
   Base path regression-frozen.
 - T4 (P1): Multichain pool-spec/token-address registry (fail-closed empty per
