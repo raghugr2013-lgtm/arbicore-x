@@ -151,8 +151,10 @@ class TestUniV3QuoterV2:
 
     @pytest.mark.asyncio
     async def test_unsupported_chain(self, monkeypatch):
+        # SP-1: polygon is now an address-aware canonical chain, so use a chain
+        # that genuinely has no UniV3 QuoterV2 adapter to assert fail-closed.
         r = await UniV3QuoterV2().quote_hop(
-            hop_index=0, chain="polygon",
+            hop_index=0, chain="solana",
             token_in=WETH, token_out=USDC, amount_in_wei=1,
             hop_spec={"fee": 500}, rpc_url="https://stub/rpc",
         )

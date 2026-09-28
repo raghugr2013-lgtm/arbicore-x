@@ -75,6 +75,21 @@ BASE_SEPOLIA_UNIV3_QUOTER_V2 = to_checksum_address("0xC5290058841028F1614F3A6F0F
 BASE_AERO_SLIPSTREAM_QUOTER = to_checksum_address("0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0")
 BASE_AERO_CLASSIC_ROUTER    = to_checksum_address("0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43")
 
+# SP-1 — Uniswap V3 QuoterV2 canonical deployments for the remaining five
+# canonical chains. These are the official Uniswap V3 periphery QuoterV2
+# addresses (v3-periphery/deploys.md): Ethereum / Arbitrum / Optimism / Polygon
+# share the same deterministic deployment address; BNB Chain uses its own.
+#
+# RUNTIME-VERIFICATION-PENDING: adding an address here only makes the adapter
+# ADDRESS-AWARE — it does NOT constitute runtime proof that live quoting works
+# on that chain. A real per-chain eth_call round-trip against a configured RPC
+# (Codex/VPS, read-only) must confirm each chain before any non-Base capability
+# is treated as verified. Unknown/unconfigured chains still fail closed via
+# ``_fallback_hop`` (no fabricated quote). No execution/signing/broadcast, no
+# threshold or readiness change.
+UNIV3_QUOTER_V2_CANONICAL   = to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e")
+BNB_UNIV3_QUOTER_V2         = to_checksum_address("0x78D78E420Da98ad378D7799bE8f4AF69033EB077")
+
 
 # Selector cache — computed once at import.
 _SEL = {
@@ -371,12 +386,27 @@ async def _eth_call(
 # --------------------------------------------------------------------------- #
 
 class UniV3QuoterV2:
-    """Live quoter for Uniswap V3 pools on Base (all fee tiers)."""
+    """Live quoter for Uniswap V3 pools (all fee tiers).
+
+    Base is the runtime-verified chain. SP-1 adds the canonical QuoterV2
+    addresses for the remaining five canonical chains
+    (ethereum/arbitrum/optimism/polygon/bnb); those remain
+    RUNTIME-VERIFICATION-PENDING until a real per-chain eth_call round-trip
+    confirms them. Any unknown/unconfigured chain fails closed
+    (``_fallback_hop`` → ``fallback:no_adapter``) — never a fabricated quote.
+    """
     dex = "uniswap_v3"
 
     _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        # Runtime-verified.
         "base": BASE_UNIV3_QUOTER_V2,
         "base-sepolia": BASE_SEPOLIA_UNIV3_QUOTER_V2,
+        # SP-1 — address-aware, RUNTIME-VERIFICATION-PENDING (see constants above).
+        "ethereum": UNIV3_QUOTER_V2_CANONICAL,
+        "arbitrum": UNIV3_QUOTER_V2_CANONICAL,
+        "optimism": UNIV3_QUOTER_V2_CANONICAL,
+        "polygon": UNIV3_QUOTER_V2_CANONICAL,
+        "bnb": BNB_UNIV3_QUOTER_V2,
     }
 
     async def quote_hop(
