@@ -1143,7 +1143,7 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
     return _flash_loan_arb_scanner
 
 
-def build_multichain_quote_provider(quoter_registry, chain: str):
+def build_multichain_quote_provider(quoter_registry, chain: str, *, borrow_sizer=None):
     """SP-3 seam (NON-ACTIVATING) — return a live quote provider for a configured
     non-Base ``chain`` sourced from the SP-2 read-only multichain registry, or
     ``None`` (fail closed) for base/unconfigured/unknown chains.
@@ -1152,10 +1152,108 @@ def build_multichain_quote_provider(quoter_registry, chain: str):
     (``_wire_canonical_flash_loan_scanner``), and adds NO TVL/liquidity logic
     (``tvl_provider`` stays ``None`` → Gate 8 fails closed). It only exposes the
     seam by which the SP-2 registry CAN feed runtime quote discovery. Non-Base
-    live quoting remains RUNTIME-VERIFICATION-PENDING (SP-4 / Codex VPS)."""
+    live quoting remains RUNTIME-VERIFICATION-PENDING (SP-4 / Codex VPS).
+
+    H05: an optional ``borrow_sizer`` callback binds exact-size quoting; default
+    ``None`` → probe behaviour unchanged."""
     from ..scanners.flash_loan_arbitrage.live_quote_provider import (
         make_multichain_quote_provider)
-    return make_multichain_quote_provider(quoter_registry, chain)
+    return make_multichain_quote_provider(quoter_registry, chain,
+                                          borrow_sizer=borrow_sizer)
+
+
+# ── H05 · runtime wiring — six-chain on-chain price source + exact-size sizer ──
+_H05_CHAINS = ("ethereum", "arbitrum", "base", "optimism", "polygon", "bnb")
+
+
+def _make_chain_price_feed(quoter_registry, chain, pools):
+    """Chain-BOUND M2.5 price feed: reuses OnChainUsdPriceFeed pricing/peg/
+    freshness, quoting via THIS chain's QuoterRegistry route. No Base leakage."""
+    from ..scanners.flash_loan_arbitrage.exact_size_sizer import MultichainUsdPriceFeed
+
+    async def quote_route_fn(hops):
+        rq = await quoter_registry.quote_route(chain=chain, hops=hops)
+        if getattr(rq, "status", None) != "ok":
+            return None
+        blocks = [h.block_number for h in rq.hops
+                  if getattr(h, "block_number", None) is not None]
+        return {"final_out_wei": rq.final_amount_out_wei,
+                "block": (min(blocks) if blocks else None),
+                "quoter": (rq.hops[0].quoter_contract if rq.hops else None)}
+
+    return MultichainUsdPriceFeed(quote_route_fn=quote_route_fn, pools=pools)
+
+
+async def build_multichain_price_source(quoter_registry=None, *, chains=_H05_CHAINS,
+                                        eth_call_factory=None, resolver=None):
+    """Six-chain on-chain USD price source (fail-closed) for H05.
+
+    None when the H05 price feed is disabled or no chain yields a genuine feed.
+    Each chain uses ITS OWN eth_call (RPC failover), ITS OWN
+    ``QuoterRegistry.quote_route(chain=...)`` and SP-5-resolved REAL UniV3 pools
+    — never Base/cross-chain substitution and no fabricated pools/prices. A chain
+    with no RPC / no resolvable pool is simply omitted (fails closed)."""
+    from ..scanners.flash_loan_arbitrage.exact_size_sizer import (
+        MultichainPriceSource, PricePool, price_feed_enabled)
+    if not price_feed_enabled():
+        return None
+    from ..discovery.multichain_pool_resolver import resolve_chain
+    from ..searcher.runtime import (
+        make_evm_eth_call_from_env, make_base_eth_call_from_env)
+    if quoter_registry is None:
+        from ..execution.quoter import QuoterRegistry
+        quoter_registry = QuoterRegistry()
+
+    def _default_eth(ch):
+        return (make_base_eth_call_from_env() if ch == "base"
+                else make_evm_eth_call_from_env(ch))
+
+    _eth = eth_call_factory or _default_eth
+    _resolve = resolver or resolve_chain
+
+    feeds = {}
+    for ch in chains:
+        c = (ch or "").lower()
+        eth_call = _eth(c)
+        if eth_call is None:
+            continue  # no RPC → fail closed for this chain
+        try:
+            res = await _resolve(c, eth_call)
+        except Exception:  # noqa: BLE001
+            continue
+        pools = []
+        for spec in getattr(res, "resolved_specs", []) or []:
+            addr = spec.get("pool_contract_address")
+            meta = (getattr(res, "pool_meta", {}) or {}).get((addr or "").lower())
+            fee_bps = spec.get("fee_bps")
+            if not addr or meta is None or fee_bps is None:
+                continue
+            t0_id, t0_addr, d0, t1_id, t1_addr, d1 = meta
+            pools.append(PricePool(t0_id, t0_addr, int(d0), t1_id, t1_addr, int(d1),
+                                   spec.get("dex") or "uniswap_v3", int(fee_bps), addr))
+        if not pools:
+            continue
+        feeds[c] = _make_chain_price_feed(quoter_registry, c, pools)
+    if not feeds:
+        return None
+    return MultichainPriceSource(feeds)
+
+
+async def build_h05_borrow_sizer(quoter_registry=None, *, price_source=None,
+                                 chains=_H05_CHAINS):
+    """Build the H05 exact-size ``borrow_sizer`` callback via
+    ``build_borrow_sizer_from_env`` — or ``None`` when H05 is disabled or no
+    genuine price source exists (fail closed, never fabricated)."""
+    from ..scanners.flash_loan_arbitrage.exact_size_sizer import (
+        build_borrow_sizer_from_env, registry_decimals, borrow_sizer_enabled)
+    if not borrow_sizer_enabled():
+        return None
+    if price_source is None:
+        price_source = await build_multichain_price_source(quoter_registry,
+                                                           chains=chains)
+    price_fn = price_source.price_usd if price_source is not None else None
+    return build_borrow_sizer_from_env(price_usd_fn=price_fn,
+                                       decimals_fn=registry_decimals)
 
 
 def build_multichain_tvl_provider(chain, *, pool_meta=None, price_source=None):
@@ -1234,8 +1332,23 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
             tvl_provider = build_base_tvl_provider(eth_call, price_source)
     except Exception:  # noqa: BLE001 — fail-closed to None
         tvl_provider = None
+    # H05 — EXACT-SIZE borrow sizing (DISABLED unless the operator enables both
+    # ARBICORE_BORROW_SIZER_ENABLED and ARBICORE_PRICE_FEED_ENABLED). When on, it
+    # reuses the Base M2.5 on-chain price feed above (no fabrication). Default →
+    # None → probe behaviour unchanged (byte-for-byte).
+    borrow_sizer = None
+    try:
+        from ..scanners.flash_loan_arbitrage.exact_size_sizer import (
+            MultichainPriceSource, build_borrow_sizer_from_env, registry_decimals)
+        if price_feed is not None:
+            _src = MultichainPriceSource({"base": price_feed})
+            borrow_sizer = build_borrow_sizer_from_env(
+                price_usd_fn=_src.price_usd, decimals_fn=registry_decimals)
+    except Exception:  # noqa: BLE001 — fail closed to probe
+        borrow_sizer = None
     scanner.set_quote_provider(
-        make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider))
+        make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider,
+                                 borrow_sizer=borrow_sizer))
     # M2.5 — wire per-token USD price provenance into the evidence bundle.
     if price_feed is not None:
         try:
