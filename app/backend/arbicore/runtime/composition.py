@@ -1217,26 +1217,65 @@ async def build_multichain_price_source(quoter_registry=None, *, chains=_H05_CHA
         eth_call = _eth(c)
         if eth_call is None:
             continue  # no RPC → fail closed for this chain
-        try:
-            res = await _resolve(c, eth_call)
-        except Exception:  # noqa: BLE001
-            continue
-        pools = []
-        for spec in getattr(res, "resolved_specs", []) or []:
-            addr = spec.get("pool_contract_address")
-            meta = (getattr(res, "pool_meta", {}) or {}).get((addr or "").lower())
-            fee_bps = spec.get("fee_bps")
-            if not addr or meta is None or fee_bps is None:
+        if c == "base":
+            # Base is intentionally EXCLUDED from the generic SP-5 resolver; use
+            # the EXISTING canonical Base pool registry (real, provenance-backed)
+            # via _load_canonical_base_pools(). Fail-closed eligibility only — no
+            # fabricated/inferred pool addresses.
+            pools = _base_price_pools()
+        else:
+            try:
+                res = await _resolve(c, eth_call)
+            except Exception:  # noqa: BLE001
                 continue
-            t0_id, t0_addr, d0, t1_id, t1_addr, d1 = meta
-            pools.append(PricePool(t0_id, t0_addr, int(d0), t1_id, t1_addr, int(d1),
-                                   spec.get("dex") or "uniswap_v3", int(fee_bps), addr))
+            pools = []
+            for spec in getattr(res, "resolved_specs", []) or []:
+                addr = spec.get("pool_contract_address")
+                meta = (getattr(res, "pool_meta", {}) or {}).get((addr or "").lower())
+                fee_bps = spec.get("fee_bps")
+                if not addr or meta is None or fee_bps is None:
+                    continue
+                t0_id, t0_addr, d0, t1_id, t1_addr, d1 = meta
+                pools.append(PricePool(t0_id, t0_addr, int(d0), t1_id, t1_addr, int(d1),
+                                       spec.get("dex") or "uniswap_v3", int(fee_bps), addr))
         if not pools:
             continue
         feeds[c] = _make_chain_price_feed(quoter_registry, c, pools)
     if not feeds:
         return None
     return MultichainPriceSource(feeds)
+
+
+def _base_price_pools():
+    """Convert ELIGIBLE canonical Base pools (real, provenance-backed) into the
+    H05 ``PricePool`` representation — reusing the existing Base canonical
+    registry, never a second Base pool list. Fail-closed: only pools with a real
+    resolved address (DETERMINISTIC_VERIFIED / RUNTIME_RESOLVED), UniV3 identity,
+    real token addresses, verified decimals and a fee are eligible."""
+    from ..searcher.runtime import _load_canonical_base_pools
+    from ..discovery.base_pool_registry import (
+        DETERMINISTIC_VERIFIED, RUNTIME_RESOLVED)
+    from ..scanners.flash_loan_arbitrage.exact_size_sizer import PricePool
+    real_states = (DETERMINISTIC_VERIFIED, RUNTIME_RESOLVED)
+    out = []
+    for p in _load_canonical_base_pools():
+        if getattr(p, "dex", None) != "uniswap_v3":
+            continue
+        if not getattr(p, "address", None):
+            continue
+        if getattr(p, "address_resolution", None) not in real_states:
+            continue
+        if getattr(p, "fee_bps", None) is None:
+            continue
+        if not (p.token0_address and p.token1_address):
+            continue
+        if p.token0_decimals is None or p.token1_decimals is None:
+            continue
+        out.append(PricePool(
+            p.token0_symbol, p.token0_address, int(p.token0_decimals),
+            p.token1_symbol, p.token1_address, int(p.token1_decimals),
+            p.dex, int(p.fee_bps), p.address))
+    return out
 
 
 async def build_h05_borrow_sizer(quoter_registry=None, *, price_source=None,
