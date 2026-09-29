@@ -86,6 +86,7 @@ def make_live_quote_provider(
     token_address_fn: Optional[Callable[[str], Optional[str]]] = None,
     pool_specs: Optional[Dict[str, Dict[str, Any]]] = None,
     probe_amount_fn: Optional[Callable[[str], int]] = None,
+    borrow_sizer: Optional[Callable[[str, str, float], Any]] = None,
 ) -> Callable[[Dict[str, Any], float], Awaitable[Optional[Dict[str, Any]]]]:
     """Return an async ``QuoteProvider`` bound to a live ``QuoterRegistry``.
 
@@ -117,6 +118,26 @@ def make_live_quote_provider(
         if len(route_pools) < 2 or len(token_path) != len(route_pools) + 1:
             return None  # malformed route → unreadable (honest)
 
+        # H05 — EXACT-SIZE binding. When a borrow_sizer is supplied, the first
+        # hop's amount_in is the EXACT integer produced from the requested USD
+        # notional via genuine on-chain price evidence; if the sizer cannot
+        # establish a trustworthy size it returns None → we fail closed here
+        # (no probe fallback under exact mode). Without a sizer, behaviour is
+        # unchanged (probe size, size_basis="probe").
+        if borrow_sizer is not None:
+            try:
+                exact_wei = await borrow_sizer(quote_chain, borrow_token,
+                                               borrow_amount_usd)
+            except Exception:  # noqa: BLE001 — never fabricate a size
+                return None
+            if exact_wei is None or int(exact_wei) <= 0:
+                return None
+            first_amount_wei = int(exact_wei)
+            size_basis = "exact"
+        else:
+            first_amount_wei = int(_probe_amount(borrow_token))
+            size_basis = "probe"
+
         # Build the live hop plan (mirrors OpportunityEngine._route_to_hops).
         hops: List[Dict[str, Any]] = []
         for i, pool_addr in enumerate(route_pools):
@@ -131,7 +152,7 @@ def make_live_quote_provider(
                 "token_out": addr_out,
             }
             if i == 0:
-                hop["amount_in_wei"] = int(_probe_amount(borrow_token))
+                hop["amount_in_wei"] = first_amount_wei
             if "fee" in spec:
                 hop["fee"] = spec["fee"]
             # Pass the venue-specific quote params so non-UniV3 hops quote
@@ -217,13 +238,17 @@ def make_live_quote_provider(
             "flash_loan_pool_address": "",
             "route_quote_status": rq.status,
             "quote_block": max(quote_blocks) if quote_blocks else None,
+            "size_basis": size_basis,
+            "quote_notional_usd": (float(borrow_amount_usd)
+                                   if size_basis == "exact" else None),
             "verified_at_ts": time.time(),
         }
 
     return _provider
 
 
-def make_multichain_quote_provider(quoter_registry, chain, *, tvl_provider=None):
+def make_multichain_quote_provider(quoter_registry, chain, *, tvl_provider=None,
+                                   borrow_sizer=None):
     """SP-3 — build a live quote provider for a CONFIGURED non-Base chain, sourcing
     token addresses + candidate pool specs from the SP-2 READ-ONLY multichain
     registry (``discovery/multichain_pool_registry``).
@@ -235,12 +260,17 @@ def make_multichain_quote_provider(quoter_registry, chain, *, tvl_provider=None)
     TVL/liquidity logic is added (``tvl_provider`` defaults ``None`` → Gate 8 fails
     closed), and no runtime verification is claimed — a route the live quoter
     cannot price still yields ``None`` (denied:venue_unreadable) downstream.
+
+    H05: an optional ``borrow_sizer(chain, token, usd)`` async callback binds the
+    EXACT first-hop size and records ``size_basis="exact"`` + ``quote_notional_usd``.
+    Default ``None`` → probe sizing, behaviour unchanged.
     """
     from ...discovery import multichain_pool_registry as mreg
 
     c = (chain or "").strip().lower()
     if c == "base":
-        return make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider)
+        return make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider,
+                                        borrow_sizer=borrow_sizer)
     if not mreg.is_chain_configured(c):
         return None  # fail closed — never a fabricated non-Base provider
 
@@ -268,5 +298,5 @@ def make_multichain_quote_provider(quoter_registry, chain, *, tvl_provider=None)
     return make_live_quote_provider(
         quoter_registry, tvl_provider=tvl_provider, chain=c,
         token_address_fn=_token_addr, pool_specs=pool_specs,
-        probe_amount_fn=_probe,
+        probe_amount_fn=_probe, borrow_sizer=borrow_sizer,
     )
