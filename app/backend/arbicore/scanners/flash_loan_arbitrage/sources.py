@@ -32,7 +32,7 @@ logger = logging.getLogger(
 
 
 _IN_SCOPE_CHAINS = frozenset({
-    "ethereum", "arbitrum", "base", "optimism", "polygon",
+    "ethereum", "arbitrum", "base", "optimism", "polygon", "bnb",
 })
 
 

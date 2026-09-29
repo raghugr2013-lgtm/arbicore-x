@@ -1070,7 +1070,16 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
         # only — emission is still fully gated by the economic/atomic/MEV gates
         # in the verifier, and execution by the mode ladder + AutoExecutor).
         cache = {"cfg": {"interval_s": 60.0,
-                          "chains": {"base": {"enabled": True}},
+                          # H06 — canonical config now REPRESENTS all six chains;
+                          # only Base is enabled (unchanged discovery behaviour).
+                          # Enabling another chain is an explicit operator action
+                          # (no silent production live discovery).
+                          "chains": {"ethereum": {"enabled": False},
+                                      "arbitrum": {"enabled": False},
+                                      "base": {"enabled": True},
+                                      "optimism": {"enabled": False},
+                                      "polygon": {"enabled": False},
+                                      "bnb": {"enabled": False}},
                           "providers": {"balancer_v2": {"enabled": True}},
                           "route_search": {"max_hops": 3, "wall_clock_cap_s": 3.0,
                                             "candidate_cap": 48, "min_pool_tvl_usd": 0.0},
@@ -1371,18 +1380,18 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
             tvl_provider = build_base_tvl_provider(eth_call, price_source)
     except Exception:  # noqa: BLE001 — fail-closed to None
         tvl_provider = None
-    # H05 — EXACT-SIZE borrow sizing (DISABLED unless the operator enables both
-    # ARBICORE_BORROW_SIZER_ENABLED and ARBICORE_PRICE_FEED_ENABLED). When on, it
-    # reuses the Base M2.5 on-chain price feed above (no fabrication). Default →
-    # None → probe behaviour unchanged (byte-for-byte).
+    # H06 — canonical quote wiring now uses the PROVEN six-chain H05 exact-size
+    # path (build_h05_borrow_sizer → build_multichain_price_source: Base via the
+    # canonical Base pool registry, the five non-Base chains via SP-5). This is a
+    # single shared pricing implementation — no CEX/hardcoded/native-proxy prices
+    # and no Base price reused for other chains. DISABLED unless both
+    # ARBICORE_BORROW_SIZER_ENABLED and ARBICORE_PRICE_FEED_ENABLED are set →
+    # None → probe behaviour unchanged (byte-for-byte). Under exact mode there is
+    # NO probe fallback: the live quote provider fails closed when the sizer
+    # returns None (see make_live_quote_provider H05 branch).
     borrow_sizer = None
     try:
-        from ..scanners.flash_loan_arbitrage.exact_size_sizer import (
-            MultichainPriceSource, build_borrow_sizer_from_env, registry_decimals)
-        if price_feed is not None:
-            _src = MultichainPriceSource({"base": price_feed})
-            borrow_sizer = build_borrow_sizer_from_env(
-                price_usd_fn=_src.price_usd, decimals_fn=registry_decimals)
+        borrow_sizer = await build_h05_borrow_sizer(quoter_registry)
     except Exception:  # noqa: BLE001 — fail closed to probe
         borrow_sizer = None
     scanner.set_quote_provider(
