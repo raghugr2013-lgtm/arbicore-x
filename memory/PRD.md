@@ -114,3 +114,30 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
 - Evidence is Emergent mocked/offline only. NO live enumeration proof.
 - STOP after P1. Do not merge/deploy/enable execution. P2 (Sushi/Pancake/Curve)
   NOT approved.
+
+### P1b — On-chain Balancer V2 PoolRegistered discovery source (DONE) — 2026-06
+- Context: VPS confirmed all ARBICORE_BALANCER_SUBGRAPH_URL_* + API_KEY NOT_SET →
+  live P1 enumeration blocked on subgraph. P1 commit 334385e (P0 f27da21). Added
+  the previously-proposed no-credential on-chain source.
+- New: arbicore/discovery/balancer_v2_onchain_source.py — OnChainPoolRegisteredSource
+  implements existing BalancerV2PoolSource protocol via bounded/chunked read-only
+  eth_getLogs of Vault PoolRegistered(bytes32,address,uint8). Guards: canonical
+  Vault emitter, poolId-embeds-address (no fabrication), left-padded addr topic,
+  topic0 match. Candidate-only → token membership NOT inferred from event; every
+  candidate re-validated via FROZEN P0 discover_and_quote() in unchanged
+  enumerate_and_quote. No API key (canonical RPC). Env: WINDOW_BLOCKS/CHUNK_SIZE/
+  FROM_BLOCK_<CHAIN>. Fail-closed: DISCOVERY_UNAVAILABLE (no fetcher/unresolved
+  range/RPC/rate-limit) distinct from OK+zero; MALFORMED on bad log; UNSUPPORTED
+  chain; BNB out. Public discover_candidates(chain, from_block, to_block) = the
+  deterministic live API for Codex.
+- P0 discovery, P1 enumeration, quoter.py ALL byte-for-byte unchanged (git diff
+  empty). No second quote path.
+- Tests: tests/test_p1b_balancer_v2_onchain_source.py — 19 passed (decoding,
+  multiple/duplicate/empty, malformed/too-few-topics/wrong-vault/poolid-mismatch/
+  wrong-topic0, rpc-failure/rate-limit/non-list, chunking+aggregation, invalid
+  range, unsupported chain, no-fetcher, window resolution, provenance-no-URL-leak,
+  token-pair filtering through P0 e2e). Combined regression 192 passed. diff-check
+  clean.
+- Matrix: capability_matrix.json p1_auto_enumeration.discovery_sources adds
+  balancer_v2_onchain_pool_registered (status IMPLEMENTED / live NONE).
+- Mocked/offline only. NO live eth_getLogs evidence. STOP. No merge/deploy/exec.

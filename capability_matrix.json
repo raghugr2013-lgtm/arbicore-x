@@ -59,14 +59,32 @@
           "discovery_unavailable_distinct_from_zero": true, "fail_closed": true,
           "source_injectable": true
         },
+        "discovery_sources": {
+          "balancer_v2_subgraph": {
+            "module": "app/backend/arbicore/discovery/balancer_v2_pool_enumeration.py (SubgraphBalancerV2PoolSource)",
+            "config": "ARBICORE_BALANCER_SUBGRAPH_URL_<CHAIN> (+ optional ARBICORE_BALANCER_SUBGRAPH_API_KEY)",
+            "status": "IMPLEMENTED_BUT_AUTH_REQUIRED", "live_validation_status": "NONE",
+            "note": "Fails closed to DISCOVERY_UNAVAILABLE when unconfigured (VPS currently has all subgraph vars NOT_SET)."
+          },
+          "balancer_v2_onchain_pool_registered": {
+            "module": "app/backend/arbicore/discovery/balancer_v2_onchain_source.py (OnChainPoolRegisteredSource)",
+            "mechanism": "read-only eth_getLogs of Vault PoolRegistered(bytes32,address,uint8); bounded/chunked block ranges; poolId-embeds-address + canonical-Vault-emitter guards; candidate-only.",
+            "config": "canonical RPC (ARBICORE_RPC_URL_<CHAIN>); optional ARBICORE_BALANCER_DISCOVERY_WINDOW_BLOCKS, ARBICORE_BALANCER_DISCOVERY_CHUNK_SIZE, ARBICORE_BALANCER_DISCOVERY_FROM_BLOCK_<CHAIN>. NO API key.",
+            "status": "IMPLEMENTED", "live_validation_status": "NONE",
+            "note": "No external credential required — removes the subgraph auth dependency. Mocked tests only; live eth_getLogs pending Codex/VPS."
+          }
+        },
         "known_limitations": [
-          "Default discovery source is the Balancer subgraph and REQUIRES explicit per-chain URL config (and optional key); without it discovery is DISCOVERY_UNAVAILABLE (fail-closed), not zero.",
-          "An on-chain PoolRegistered-event source is not yet implemented (subgraph-backed default only).",
-          "Evidence is Emergent mocked/offline only — NO real six-chain live enumeration evidence. live_validation_status stays NONE until Codex validates."
+          "Subgraph source REQUIRES explicit per-chain URL config; without it that source is DISCOVERY_UNAVAILABLE (fail-closed), not zero. The on-chain PoolRegistered source needs no API key (uses canonical RPC).",
+          "On-chain source default window is bounded (recent ARBICORE_BALANCER_DISCOVERY_WINDOW_BLOCKS); full-history discovery requires an explicit from_block/to_block via discover_candidates().",
+          "Any RPC/rate-limit error during eth_getLogs fails the whole discovery closed as DISCOVERY_UNAVAILABLE (no silent partial results).",
+          "Evidence is Emergent mocked/offline only — NO real five-chain live enumeration evidence. live_validation_status stays NONE until Codex validates."
         ],
         "evidence": {
-          "tests": "app/backend/tests/test_p1_balancer_v2_enumeration.py (36 passed)",
-          "modules": ["app/backend/arbicore/discovery/balancer_v2_pool_enumeration.py"]
+          "tests": ["app/backend/tests/test_p1_balancer_v2_enumeration.py (36 passed)",
+                    "app/backend/tests/test_p1b_balancer_v2_onchain_source.py (19 passed)"],
+          "modules": ["app/backend/arbicore/discovery/balancer_v2_pool_enumeration.py",
+                      "app/backend/arbicore/discovery/balancer_v2_onchain_source.py"]
         }
       }
     },
@@ -114,6 +132,11 @@
     {"date": "2026-06-02", "slice": "P1",
      "summary": "Balancer V2 automatic candidate-pool enumeration layer built AROUND frozen P0 (injectable source; default env-configured subgraph; candidate-only discovery re-validated on-chain via P0; dedupe, wrong-vault/token-pair filtering, ranking, discovery-unavailable distinct from zero). 36 mocked tests pass; P0 unchanged. P0 Ethereum marked LIVE VALIDATED per Codex/VPS read-only evidence. P1 = IMPLEMENTED (auth/config required), live_validation_status NONE (mocked only).",
      "cells_updated": ["dex_venues.balancer_v2.p1_auto_enumeration.*",
-                       "dex_venues.balancer_v2.p0_pool_scoped_quote.chains.ethereum"]}
+                       "dex_venues.balancer_v2.p0_pool_scoped_quote.chains.ethereum"]},
+    {"date": "2026-06-03", "slice": "P1b",
+     "summary": "On-chain Balancer V2 PoolRegistered candidate-discovery source (OnChainPoolRegisteredSource) implementing the existing BalancerV2PoolSource protocol via bounded/chunked read-only eth_getLogs — no API key, uses canonical RPC. Removes the subgraph auth dependency. Candidate-only: every pool re-validated + token-pair filtered through the FROZEN P0 path in unchanged enumerate_and_quote. P0 + P1 enumeration modules byte-for-byte unchanged. 19 focused tests pass; combined regression 192 passed. Mocked/offline only — live eth_getLogs validation pending Codex/VPS.",
+     "cells_updated": ["dex_venues.balancer_v2.p1_auto_enumeration.discovery_sources.balancer_v2_onchain_pool_registered",
+                       "dex_venues.balancer_v2.p1_auto_enumeration.known_limitations",
+                       "dex_venues.balancer_v2.p1_auto_enumeration.evidence"]}
   ]
 }
