@@ -86,3 +86,31 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
   never-positive-on-error). Quoter regression 66 passed. git diff --check clean.
 - Evidence is Emergent mocked/offline only. NO live six-chain proof.
 - STOP after P0 for user review before P1 (Sushi/Pancake/Curve).
+
+### P1 — Balancer V2 automatic pool enumeration (DONE, review-pending) — 2026-06
+- User froze P0 (commit f27da21, branch emergent/p0-balancer-v2-20260930); P0
+  Ethereum now LIVE VALIDATED read-only on VPS ($1k USDC exact-size + UniV3<->Bal
+  cycles, both gross-negative → no execution eligibility). P0 files NOT modified.
+- New: arbicore/discovery/balancer_v2_pool_enumeration.py — enumeration layer
+  AROUND P0. Injectable BalancerV2PoolSource; default SubgraphBalancerV2PoolSource
+  (env-configured per chain ARBICORE_BALANCER_SUBGRAPH_URL_<CHAIN> + optional
+  ARBICORE_BALANCER_SUBGRAPH_API_KEY; no hardcoded endpoint/creds; fail-closed to
+  DISCOVERY_UNAVAILABLE). Discovery is CANDIDATE-ONLY → every candidate re-validated
+  on-chain via P0 discover_and_quote() before quoting. Dedupe, wrong-vault +
+  token-pair filtering, ranking (best output first). discovery_unavailable is a
+  distinct state, never collapsed to zero. Chains ETH/BASE/ARB/OP/POLYGON; BNB out.
+- Reuses P0 symbols only (discover_and_quote / BalancerV2Quote / vault map / OK);
+  no second quote path. P0 module byte-for-byte unchanged.
+- Tests: tests/test_p1_balancer_v2_enumeration.py — 36 passed (single/multiple/
+  duplicate/token-pair/unsupported-chain/discovery-unavailable/malformed-discovery/
+  invalid-address/pool-id-mismatch/wrong-vault/missing-identity/unknown-decimals/
+  zero-liquidity/stale/unknown-fee/quote-revert/malformed-quote/zero-output/
+  negative-output/selection+ranking/max-candidates/all-5-chains/P0-preserved/
+  subgraph missing-url+unsupported+transport+non200+malformed+ok+e2e).
+- Combined regression (P0+P1+quoter+discovery) 173 passed; git diff --check clean.
+- Matrix: capability_matrix.json → balancer_v2 split into p0_pool_scoped_quote
+  (ethereum IMPLEMENTED_AND_VALIDATED/VALIDATED; others VALIDATION_REQUIRED/NONE)
+  + p1_auto_enumeration (5 chains IMPLEMENTED_BUT_AUTH_REQUIRED / live NONE).
+- Evidence is Emergent mocked/offline only. NO live enumeration proof.
+- STOP after P1. Do not merge/deploy/enable execution. P2 (Sushi/Pancake/Curve)
+  NOT approved.
