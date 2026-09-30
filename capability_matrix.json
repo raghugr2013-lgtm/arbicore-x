@@ -117,13 +117,30 @@
     "morpho_blue": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P4. Economics metadata only; no flash adapter. Not started in P0."}
   },
   "route_families": {
-    "GENERIC_DEX": {"implementation_status": "VALIDATION_REQUIRED"},
-    "TRIANGULAR": {"implementation_status": "VALIDATION_REQUIRED", "note": "Enumerator present (triangular.py)."},
-    "STABLECOIN": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P3."},
-    "MULTI_HOP": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P3."},
-    "LST_LRT": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P3."},
+    "GENERIC_DEX": {
+      "implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE",
+      "description": "Buy on venue A, sell on venue B (2-venue, single-hop each) same-token atomic cycle. Read-only evaluator that composes validated building blocks only: QuoterRegistry (UniV3 + Balancer V2) exact-size quotes, H05 USD price + registry decimals for exact-size borrow, flash-fee catalog, and FlashLoanEconomicsAssessor (aggregate_economics) for the net-profit gate.",
+      "immutable_gate": {"min_atomic_profit_usd": 25.0, "floor_lowerable": false, "mev_risk_default": "MEDIUM"},
+      "fail_closed": {"unknown_price": "UNKNOWN_PRICE", "unknown_decimals": "UNKNOWN_DECIMALS",
+                      "unknown_liquidity": "leg quote fails (LEG1/LEG2_QUOTE_FAILED) or UNKNOWN_LIQUIDITY when pool-TVL gate enabled",
+                      "unknown_gas": "UNKNOWN_GAS (never a silent default)",
+                      "unknown_flash_fee": "UNSUPPORTED_FLASH_PROVIDER",
+                      "non_positive_or_below_floor": "NON_POSITIVE_NET / BELOW_PROFIT_FLOOR"},
+      "capabilities": {"buy_a_sell_b": true, "exact_size_quote_comparison": true,
+                       "same_token_route_validation": true, "gas_estimation_input": true,
+                       "flash_loan_fee": true, "slippage_safety_via_quote_inclusive": true,
+                       "net_profit_gate": true, "six_chain_preserved": true,
+                       "no_execution_signing_broadcast": true},
+      "evidence": {"tests": "app/backend/tests/test_generic_dex_route_engine.py (30 passed)",
+                   "modules": ["app/backend/arbicore/scanners/generic_dex_route_engine.py"],
+                   "note": "Net-profit math is the REAL FlashLoanEconomicsAssessor; only quotes/prices/decimals/gas are injected in tests. Mocked/offline only — NO live evidence."}
+    },
+    "TRIANGULAR": {"implementation_status": "VALIDATION_REQUIRED", "note": "Enumerator present (triangular.py). Subsequent route family."},
+    "STABLECOIN": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "Subsequent route family."},
+    "MULTI_HOP": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "Subsequent route family."},
+    "LST_LRT": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "Subsequent route family."},
     "CROSS_CHAIN": {"implementation_status": "ADAPTER_INCOMPLETE",
-                     "note": "Signal-level scanner present. INVENTORY/SETTLEMENT not proven. Do not treat bridge as atomic."}
+                     "note": "Signal-level scanner present. INVENTORY/SETTLEMENT not proven. Do not treat bridge as atomic. Subsequent route family."}
   },
   "changelog": [
     {"date": "2026-06-01", "slice": "P0",
@@ -137,6 +154,9 @@
      "summary": "On-chain Balancer V2 PoolRegistered candidate-discovery source (OnChainPoolRegisteredSource) implementing the existing BalancerV2PoolSource protocol via bounded/chunked read-only eth_getLogs — no API key, uses canonical RPC. Removes the subgraph auth dependency. Candidate-only: every pool re-validated + token-pair filtered through the FROZEN P0 path in unchanged enumerate_and_quote. P0 + P1 enumeration modules byte-for-byte unchanged. 19 focused tests pass; combined regression 192 passed. Mocked/offline only — live eth_getLogs validation pending Codex/VPS.",
      "cells_updated": ["dex_venues.balancer_v2.p1_auto_enumeration.discovery_sources.balancer_v2_onchain_pool_registered",
                        "dex_venues.balancer_v2.p1_auto_enumeration.known_limitations",
-                       "dex_venues.balancer_v2.p1_auto_enumeration.evidence"]}
+                       "dex_venues.balancer_v2.p1_auto_enumeration.evidence"]},
+    {"date": "2026-06-04", "slice": "GENERIC_DEX",
+     "summary": "GENERIC_DEX route engine (buy venue A / sell venue B, same-token atomic cycle). Read-only orchestrator composing ONLY validated blocks: QuoterRegistry (UniV3 + Balancer V2) exact-size quotes, H05 USD price + registry decimals, flash-fee catalog, and FlashLoanEconomicsAssessor for the net-profit gate. Immutable $25 floor (cannot be lowered). Fail-closed on unknown price/decimals/quote/liquidity/gas/flash-fee; non-positive/below-floor DENY. Six-chain preserved. No execution/signing/broadcast. 30 focused tests pass (real economics math). Note: pre-existing UNRELATED failure in protected test_flashloan_partial_quote_economics.py (its fake backend predates quote_route's max_retries kwarg) — NOT caused by and NOT modified by this package.",
+     "cells_updated": ["route_families.GENERIC_DEX"]}
   ]
 }

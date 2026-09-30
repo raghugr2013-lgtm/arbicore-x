@@ -141,3 +141,35 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
 - Matrix: capability_matrix.json p1_auto_enumeration.discovery_sources adds
   balancer_v2_onchain_pool_registered (status IMPLEMENTED / live NONE).
 - Mocked/offline only. NO live eth_getLogs evidence. STOP. No merge/deploy/exec.
+
+### GENERIC_DEX route engine (DONE, review-pending) — 2026-06
+- P1b frozen/accepted (on-chain source implementation-complete; historical
+  eth_getLogs constrained by current RPC providers — accepted, do not change
+  chunk defaults). Next package = DEX-to-DEX GENERIC_DEX route engine.
+- New: arbicore/scanners/generic_dex_route_engine.py — GenericDexRouteEngine.
+  Buy venue A / sell venue B, same-token atomic cycle. Read-only orchestrator
+  composing ONLY validated blocks: QuoterRegistry (UniV3 + Balancer V2) exact-size
+  quotes; H05 MultichainPriceSource + registry decimals for exact-size borrow;
+  flash-fee catalog + FlashLoanEconomicsAssessor (aggregate_economics) for the
+  net-profit gate. NO new quote path, NO new economics math.
+- Immutable $25 floor (constructor may only RAISE it, never lower — clamped).
+  Fail-closed: UNKNOWN_PRICE/UNKNOWN_DECIMALS/LEG1|LEG2_QUOTE_FAILED (unknown/
+  insufficient liquidity surfaces here)/UNKNOWN_GAS (never silent default)/
+  UNSUPPORTED_FLASH_PROVIDER/SAME_TOKEN_VIOLATION/INVALID_ROUTE; non-positive→
+  NON_POSITIVE_NET, below floor→BELOW_PROFIT_FLOOR; optional pool-TVL gate
+  (UNKNOWN_LIQUIDITY/INSUFFICIENT_LIQUIDITY). Quote-inclusive (no double swap
+  fee). Six-chain preserved (flash provider supports_chains gate). No exec/sign/
+  broadcast.
+- Tests: tests/test_generic_dex_route_engine.py — 30 passed (real economics math;
+  eligible/below/non-positive/negative-gross, same-token, invalid addr, flash
+  provider unknown/unsupported-chain, unknown price/decimals, leg1/leg2 fail,
+  unknown gas + estimator, TVL gate, immutable floor cannot lower / can raise,
+  flash fee applied, quote-inclusive no-double-fee, provenance/pipe, six-chain
+  parametrized). Regression 151 passed (generic_dex + balancer P0/P1/P1b + quoter).
+- KNOWN pre-existing UNRELATED failure: protected test_flashloan_partial_quote_
+  economics.py fake backend lacks quote_route's max_retries kwarg (present in
+  parent 14d0c9e, before all my work). NOT caused by / NOT modified by this
+  package (protected file).
+- Existing code untouched (only new module + new test + matrix). Mocked/offline
+  only — NO live evidence. STOP for VPS validation. Other route families
+  (TRIANGULAR/STABLECOIN/MULTI_HOP/LST_LRT/CROSS_CHAIN) subsequent.
