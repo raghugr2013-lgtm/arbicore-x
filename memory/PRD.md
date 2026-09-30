@@ -142,7 +142,30 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
   balancer_v2_onchain_pool_registered (status IMPLEMENTED / live NONE).
 - Mocked/offline only. NO live eth_getLogs evidence. STOP. No merge/deploy/exec.
 
-### GENERIC_DEX route engine (DONE, review-pending) — 2026-06
+### GENERIC_DEX canonical gas integration (DONE) — 2026-06
+- Base commit cd509a0 (generic-dex-route-engine branch). Wired
+  GenericDexRouteEngine to canonical get_chain_gas_model()/ChainGasModel
+  all_in_cost() seam. NO new gas calculator; NO BaseGasModel/EvmGasModel
+  duplication; quoter.py UNTOUCHED.
+- Route-level gas: uses RouteQuote.aggregate_gas_estimate_units from BOTH legs.
+  Requires both status=ok AND both aggregates non-None; combined only when both
+  known; None never treated as zero; one leg's gas never used when other unknown
+  -> else UNKNOWN_GAS. Helper _estimate_route_gas_cost(): get_chain_gas_model ->
+  native USD via canonical price source on registry-sourced wrapped-native addr
+  (_native_wrapped_token; base uses OP-stack WETH 0x4200..06) -> all_in_cost();
+  gas-only USD = l1_fee_usd + l2_fee_usd (flash/slippage stay with assessor).
+  model None / native None / all_in_cost None -> UNKNOWN_GAS. Explicit
+  gas_cost_usd / gas_estimator preserved as overrides.
+- Preserved: MIN_ATOMIC_PROFIT_USD $25 (immutable), net<=0 NON_POSITIVE_NET,
+  0<net<25 BELOW_PROFIT_FLOOR, net>=25 ELIGIBLE, gross_is_quote_inclusive, flash
+  fee, TVL/quote fail-closed. No signing/broadcast/execution.
+- Tests: tests/test_generic_dex_gas_integration.py — 23 passed (both-legs-gas
+  canonical call; leg1/leg2/both None -> UNKNOWN_GAS; model None; model missing;
+  native price None; gas once + net identity; immutable floor; flash fee
+  unchanged; all six chains resolve via get_chain_gas_model + _native_wrapped_
+  token; no-exec-surface). Route suite 30 passed; 151 regression passed. quoter.py
+  untouched; only engine module modified + new test.
+- Mocked/offline only (fake gas model). NO live evidence. STOP for VPS validation.
 - P1b frozen/accepted (on-chain source implementation-complete; historical
   eth_getLogs constrained by current RPC providers — accepted, do not change
   chunk defaults). Next package = DEX-to-DEX GENERIC_DEX route engine.

@@ -45,6 +45,7 @@ from eth_utils import to_checksum_address
 from ..models.enums import MevRiskLevel, StrategyType
 from .flash_loan_arbitrage.economics import (
     FLASH_LOAN_PROVIDERS, FlashLoanEconomicsAssessor)
+from ..chains.gas_model import get_chain_gas_model
 
 # --------------------------------------------------------------------------- #
 # Immutable economic gate (mirrors data/scanner_config_defaults.py).          #
@@ -314,13 +315,38 @@ class GenericDexRouteEngine:
         gross_pct = gross_wei / borrow_wei * 100.0
         gross_usd = gross_wei / (10 ** dec) * float(price)
 
-        # (8) gas — explicit live estimate required; NEVER a silent default
-        gas_usd = gas_cost_usd
-        if not _finite_pos(gas_usd) and gas_estimator is not None:
-            gas_usd = await gas_estimator(chain_n)
-        if not _finite_pos(gas_usd):
+        # (8) gas — canonical ChainGasModel priced via route-level aggregate gas.
+        #
+        # DISTINCTION: RouteQuote.aggregate_gas_estimate_units is DEX-QUOTE gas
+        # (the quoter's per-hop estimate), NOT a full execution-transaction
+        # estimate. We price it ONLY through the canonical get_chain_gas_model()
+        # all_in_cost() seam (gas-only = l1_fee_usd + l2_fee_usd; flash-fee and
+        # slippage stay with the economics assessor). Explicit gas_cost_usd /
+        # gas_estimator remain honored as caller overrides. If complete route gas
+        # cannot be established, the result is UNKNOWN_GAS — never a fabrication,
+        # never None-as-zero, never one leg's gas when the other is unknown.
+        gas_usd: Optional[float]
+        if _finite_pos(gas_cost_usd):
+            gas_usd = float(gas_cost_usd)
+        elif gas_estimator is not None:
+            g = await gas_estimator(chain_n)
+            gas_usd = float(g) if _finite_pos(g) else None
+        else:
+            u1 = getattr(rq1, "aggregate_gas_estimate_units", None)
+            u2 = getattr(rq2, "aggregate_gas_estimate_units", None)
+            if (getattr(rq1, "status", None) == "ok"
+                    and getattr(rq2, "status", None) == "ok"
+                    and u1 is not None and u2 is not None):
+                gas_usd = await self._estimate_route_gas_cost(
+                    chain=chain_n, route_gas_units=int(u1) + int(u2),
+                    gross_profit_usd=gross_usd, borrow_amount_usd=borrow_usd,
+                    notional_usd=borrow_usd)
+            else:
+                gas_usd = None
+        if gas_usd is None or not math.isfinite(float(gas_usd)) or float(gas_usd) < 0:
             return self._deny(UNKNOWN_GAS,
-                              "gas cost unavailable (no live estimate)",
+                              "gas cost unavailable (canonical gas model / native "
+                              "price unknown, or incomplete route gas)",
                               leg1=leg1, leg2=leg2, gross_profit_wei=gross_wei,
                               gross_profit_usd=gross_usd, gross_profit_pct=gross_pct,
                               **ctx)
@@ -364,6 +390,44 @@ class GenericDexRouteEngine:
                             **common)
         return GenericDexRouteResult(**{**result.__dict__, "eligible": True})
 
+    async def _estimate_route_gas_cost(
+        self, *, chain: str, route_gas_units: int,
+        gross_profit_usd: float, borrow_amount_usd: float, notional_usd: float,
+    ) -> Optional[float]:
+        """Price complete route DEX-quote gas via the canonical gas model.
+
+        Returns gas USD (l1_fee_usd + l2_fee_usd) or None (⇒ UNKNOWN_GAS).
+        Does NOT duplicate BaseGasModel/EvmGasModel math — it only calls the
+        canonical ``all_in_cost()`` and extracts the gas-only component (flash
+        fee + slippage are handled by the economics assessor). Native-token USD
+        comes from the existing canonical price source; if it is unavailable, or
+        the canonical model is missing, or ``all_in_cost()`` returns None, this
+        returns None (fail-closed)."""
+        model = get_chain_gas_model(chain)          # ONLY canonical lookup
+        if model is None:
+            return None
+        wnative = _native_wrapped_token(chain)
+        if not wnative:
+            return None
+        native_usd = await self.price_source.price_usd(chain, wnative)
+        if not _finite_pos(native_usd):
+            return None
+        res = await model.all_in_cost(
+            gross_profit_usd=float(gross_profit_usd),
+            borrow_amount_usd=float(borrow_amount_usd),
+            notional_usd=float(notional_usd),
+            gas_units=int(route_gas_units),
+            eth_usd=float(native_usd),
+        )
+        if not res:                                  # None ⇒ unknown (fail-closed)
+            return None
+        l1 = res.get("l1_fee_usd")
+        l2 = res.get("l2_fee_usd")
+        if l1 is None or l2 is None:
+            return None
+        gas = float(l1) + float(l2)
+        return gas if math.isfinite(gas) and gas >= 0.0 else None
+
 
 def _leg_from_route(role: str, dex: str, token_in: str, token_out: str,
                      amount_in_wei: int, rq) -> QuoteLeg:
@@ -383,3 +447,32 @@ def _leg_from_route(role: str, dex: str, token_in: str, token_out: str,
 def _default_decimals_fn(chain: str, token: str) -> Optional[int]:
     from ..runtime.composition import registry_decimals
     return registry_decimals(chain, token)
+
+
+# Wrapped-native token per chain — SOURCED from the canonical chain registry
+# (never fabricated). Used only to price the chain's native gas token via the
+# existing canonical price source. Base (not in CHAIN_REGISTRIES) uses the
+# canonical OP-stack WETH predeploy.
+_BASE_WETH = "0x4200000000000000000000000000000000000006"
+_NATIVE_WRAPPED_SYMBOL = {"ETH": ("WETH",), "POL": ("WMATIC", "WPOL"),
+                          "MATIC": ("WMATIC", "WPOL"), "BNB": ("WBNB",)}
+
+
+def _native_wrapped_token(chain: str) -> Optional[str]:
+    c = (chain or "").strip().lower()
+    if c == "base":
+        return _BASE_WETH
+    try:
+        from ..chains.registries import CHAIN_REGISTRIES
+    except Exception:  # noqa: BLE001
+        return None
+    reg = CHAIN_REGISTRIES.get(c)
+    if not reg:
+        return None
+    native = str(reg.get("native_token", "")).upper()
+    tokens = reg.get("tokens", {}) or {}
+    for sym in _NATIVE_WRAPPED_SYMBOL.get(native, ()):
+        entry = tokens.get(sym)
+        if entry and entry.get("address"):
+            return entry["address"]
+    return None
