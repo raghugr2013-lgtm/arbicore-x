@@ -655,6 +655,84 @@ def _should_failover(q: "HopQuote") -> bool:
 
 
 # --------------------------------------------------------------------------- #
+# Balancer V2 backend (P0 — Vault.queryBatchSwap single-swap quote)           #
+# --------------------------------------------------------------------------- #
+
+class BalancerV2Quoter:
+    """Live quoter for Balancer V2 pools via the Vault's read-only
+    ``queryBatchSwap`` simulation.
+
+    Requires an EXPLICIT ``pool_id`` (bytes32) or ``pool_address`` in
+    ``hop_spec`` — Balancer routing is pool-scoped, never a fabricated/guessed
+    pool. On-chain discovery (tokens, balances, swap fee, decimals, provenance)
+    + liquidity validation happen per quote; ANY unknown / stale / malformed /
+    illiquid / unsupported / reverting input fails closed (``amount_out_wei=0``,
+    ``status='fallback:*'``), never a substituted value.
+
+    Balancer V2 is deployed on Ethereum/Base/Arbitrum/Optimism/Polygon (NOT BNB)
+    → unsupported chains fail closed. READ-ONLY: no signing, no broadcast."""
+    dex = "balancer_v2"
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote:
+        from ..discovery.balancer_v2_pool_discovery import (
+            BALANCER_V2_VAULT_BY_CHAIN, discover_and_quote, hop_status_for, OK)
+
+        vault = BALANCER_V2_VAULT_BY_CHAIN.get((chain or "").strip().lower())
+        pool_id = hop_spec.get("pool_id") or hop_spec.get("poolId")
+        pool_address = hop_spec.get("pool_address") or hop_spec.get("pool")
+
+        if not vault:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, "unsupported", _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  f"balancer_v2 not deployed on chain '{chain}'")
+        if not (pool_id or pool_address):
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, vault, _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  "balancer_v2 requires 'pool_id' or 'pool_address' in hop_spec")
+
+        async def _call(to: str, data: str):
+            return await _eth_call(rpc_url, to=to, data=data, max_retries=max_retries)
+
+        try:
+            q = await discover_and_quote(
+                _call, chain, token_in, token_out, int(amount_in_wei),
+                pool_id=pool_id, pool_address=pool_address,
+                current_block=hop_spec.get("current_block"),
+                max_age_blocks=hop_spec.get("max_age_blocks"))
+        except Exception as exc:  # noqa: BLE001 — defensive; discovery is already fail-closed
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, vault, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"{type(exc).__name__}: {exc}")
+
+        contract = q.meta.pool_address if q.meta else (pool_address or vault)
+        if q.status == OK:
+            return HopQuote(
+                hop_index=hop_index, dex=self.dex,
+                token_in=to_checksum_address(token_in),
+                token_out=to_checksum_address(token_out),
+                amount_in_wei=int(amount_in_wei),
+                amount_out_wei=int(q.amount_out_wei),
+                sqrt_price_x96_after=None,
+                gas_estimate_units=None,
+                price_impact_bps=None,
+                quoter_contract=vault,
+                rpc_host=_redact_host(rpc_url),
+                block_number=q.block_number,
+                status="ok", error=None, generated_at=_now_iso(),
+            )
+        return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                              amount_in_wei, contract, _redact_host(rpc_url),
+                              hop_status_for(q.status),
+                              f"balancer_v2:{q.status}: {q.error or ''}"[:200])
+
+
+# --------------------------------------------------------------------------- #
 # QuoterRegistry — the object the rest of ArbiCore consumes                   #
 # --------------------------------------------------------------------------- #
 
@@ -676,6 +754,7 @@ class QuoterRegistry:
             UniV3QuoterV2(),
             AerodromeSlipStreamQuoter(),
             AerodromeClassicQuoter(),
+            BalancerV2Quoter(),
         ]
         self._backends: Dict[str, QuoterBackend] = {
             b.dex: b for b in (backends or default_backends)

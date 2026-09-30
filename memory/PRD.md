@@ -56,3 +56,33 @@ secrets; never fabricate data or readiness. Start with Git archaeology.
   (fork validation + live/archive RPC not provisioned — honestly blocked, not faked).
 - Remaining (need operator RPC): 2E fork validation, 2F flash on-chain verify,
   live-RPC economics, learning-loop end-to-end proof, kill-switch store unification.
+
+## Engineering Handoff (2026-06 fork) — multi-chain arbitrage completion
+- Source: GitHub branch emergent/arbitrage-engineering-handoff-20260930 (commit
+  5bd9525), handoff doc VPS_CURRENT_STATE_HANDOFF.md (read in full).
+- Base lineage decision (user-confirmed): build on /app main (H05/H06 lineage,
+  HEAD 14d0c9e). Handoff baseline 4fec11f is NOT an ancestor of /app main → do
+  NOT merge production baseline; keep isolated from production. No push from /app
+  (Save to GitHub only). No live RPC/VPS here → live evidence is Codex/VPS-side.
+- Priority order P0..P7 (see handoff). Deliver in controlled, tested slices.
+- Machine-readable matrix: /app/capability_matrix.json (states: IMPLEMENTED_AND_
+  VALIDATED / IMPLEMENTED_BUT_AUTH_REQUIRED / IMPLEMENTED_BUT_LIQUIDITY_UNPROVEN /
+  ADAPTER_INCOMPLETE / UNSUPPORTED / VALIDATION_REQUIRED). implementation_status
+  kept separate from live_validation_status (NONE until Codex validates).
+
+### P0 — Balancer V2 quote adapter (DONE, VALIDATION_REQUIRED) — 2026-06
+- New: arbicore/discovery/balancer_v2_pool_discovery.py — read-only on-chain pool
+  discovery (getPoolId/getPoolTokens/getSwapFeePercentage/decimals) + Vault
+  queryBatchSwap single-swap quote. Fail-closed vocabulary; UNKNOWN never→0.
+  Injected eth_call → offline-testable. Chains: ETH/BASE/ARB/OP/POLYGON; BNB
+  UNSUPPORTED (Vault not deployed). Pool ENUMERATION-by-pair NOT done (needs
+  events/subgraph) → VALIDATION_REQUIRED limitation.
+- Modified: arbicore/execution/quoter.py — added BalancerV2Quoter backend
+  (dex="balancer_v2"), registered in QuoterRegistry default_backends. gas=None.
+- Tests: tests/test_p0_balancer_v2_quote.py — 40 passed (registration, happy path,
+  provenance, fee→bps, decimals, ordering, pool_id derivation+mismatch, unknown
+  pool, rpc/rate-limit, malformed, unknown fee/decimals, HTTP 401/403/404/5xx,
+  token-not-in-pool, zero/insufficient liquidity, quote revert, no-output, stale,
+  never-positive-on-error). Quoter regression 66 passed. git diff --check clean.
+- Evidence is Emergent mocked/offline only. NO live six-chain proof.
+- STOP after P0 for user review before P1 (Sushi/Pancake/Curve).

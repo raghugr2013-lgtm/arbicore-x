@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-06-01",
+  "source_branch": "emergent/arbitrage-engineering-handoff-20260930",
+  "base_lineage_note": "Built on /app main (H05/H06 lineage). NOT merged with production baseline 4fec11f. Kept isolated from production.",
+  "states": {
+    "IMPLEMENTED_AND_VALIDATED": "Code + tests present AND backed by real read-only live evidence.",
+    "IMPLEMENTED_BUT_AUTH_REQUIRED": "Code present but requires external API credentials to operate; fails closed without them.",
+    "IMPLEMENTED_BUT_LIQUIDITY_UNPROVEN": "Code + tests present but real on-chain liquidity/quote not yet proven live.",
+    "ADAPTER_INCOMPLETE": "Partial adapter; missing required capability.",
+    "UNSUPPORTED": "Deliberately not supported (e.g. provider not deployed on chain).",
+    "VALIDATION_REQUIRED": "Implemented with unit/mocked tests only; real VPS validation outstanding."
+  },
+  "status_semantics": {
+    "implementation_status": "What the code + offline/mocked tests establish (Emergent responsibility).",
+    "live_validation_status": "What real six-chain read-only VPS evidence establishes (Codex responsibility). 'NONE' until Codex validates."
+  },
+  "dex_venues": {
+    "balancer_v2": {
+      "kind": "amm_dex",
+      "quote_mechanism": "Vault.queryBatchSwap (read-only) + on-chain pool discovery (getPoolId/getPoolTokens/getSwapFeePercentage/decimals)",
+      "chains": {
+        "ethereum": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "base": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "arbitrum": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "optimism": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "polygon": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "bnb": {"implementation_status": "UNSUPPORTED", "live_validation_status": "N/A",
+                "note": "Balancer V2 Vault not deployed on BNB Chain; adapter fails closed."}
+      },
+      "capabilities": {
+        "pool_discovery_by_identity": true,
+        "pool_enumeration_by_pair": false,
+        "exact_pool_id": true,
+        "token_ordering": true,
+        "pool_balances": true,
+        "pool_fee": true,
+        "token_decimals": true,
+        "querybatchswap_quote": true,
+        "quote_decoding": true,
+        "liquidity_validation": true,
+        "block_provenance": true,
+        "stale_pool_handling": true,
+        "fail_closed": true
+      },
+      "known_limitations": [
+        "Pool ENUMERATION for a token pair (PoolRegistered events / subgraph) is NOT implemented — a pool identity (pool_id or pool_address) must be supplied. VALIDATION_REQUIRED.",
+        "No real six-chain live quote evidence yet (mocked tests only).",
+        "getSwapFeePercentage assumed present; pools without it fail closed (UNKNOWN_FEE)."
+      ],
+      "evidence": {
+        "tests": "app/backend/tests/test_p0_balancer_v2_quote.py",
+        "modules": [
+          "app/backend/arbicore/discovery/balancer_v2_pool_discovery.py",
+          "app/backend/arbicore/execution/quoter.py (BalancerV2Quoter)"
+        ]
+      }
+    },
+    "uniswap_v3": {
+      "kind": "amm_dex",
+      "quote_mechanism": "QuoterV2.quoteExactInputSingle",
+      "chains": {
+        "ethereum": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "base": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "arbitrum": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "optimism": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "polygon": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"},
+        "bnb": {"implementation_status": "VALIDATION_REQUIRED", "live_validation_status": "NONE"}
+      },
+      "note": "Pre-existing (SP-1). Included for context; not modified in P0. Live validation is Codex/VPS responsibility."
+    },
+    "uniswap_v2": {"implementation_status": "UNSUPPORTED", "note": "No quote adapter in /app main yet. Out of P0 scope."},
+    "sushiswap": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P1. Not started in P0."},
+    "pancakeswap": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P1. pancake_v3 QuoterV2 address wired in scanners/dex_arbitrage/quoter.py only; not a full adapter."},
+    "curve": {"implementation_status": "UNSUPPORTED", "note": "P1. Only where genuinely verified. Not started in P0."}
+  },
+  "aggregators": {
+    "1inch": {"implementation_status": "IMPLEMENTED_BUT_AUTH_REQUIRED", "note": "P2. Returns 401 in tested env. Not modified in P0."},
+    "0x": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P2. Returns 404 in tested env; API contract needs verification. Not modified in P0."}
+  },
+  "flash_loan_providers": {
+    "aave_v3": {"implementation_status": "VALIDATION_REQUIRED", "note": "Adapter + economics present. Not modified in P0."},
+    "balancer_v2": {"implementation_status": "VALIDATION_REQUIRED", "note": "Flash adapter + economics present (0 bps). Not modified in P0."},
+    "uniswap_v3_flash": {"implementation_status": "VALIDATION_REQUIRED", "note": "Adapter present. Not modified in P0."},
+    "morpho_blue": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P4. Economics metadata only; no flash adapter. Not started in P0."}
+  },
+  "route_families": {
+    "GENERIC_DEX": {"implementation_status": "VALIDATION_REQUIRED"},
+    "TRIANGULAR": {"implementation_status": "VALIDATION_REQUIRED", "note": "Enumerator present (triangular.py)."},
+    "STABLECOIN": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P3."},
+    "MULTI_HOP": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P3."},
+    "LST_LRT": {"implementation_status": "ADAPTER_INCOMPLETE", "note": "P3."},
+    "CROSS_CHAIN": {"implementation_status": "ADAPTER_INCOMPLETE",
+                     "note": "Signal-level scanner present. INVENTORY/SETTLEMENT not proven. Do not treat bridge as atomic."}
+  },
+  "changelog": [
+    {"date": "2026-06-01", "slice": "P0",
+     "summary": "Balancer V2 read-only pool discovery + queryBatchSwap single-swap quote adapter, fail-closed, registered in QuoterRegistry. Full negative-path test suite (mocked RPC/HTTP). No live evidence yet.",
+     "cells_updated": ["dex_venues.balancer_v2.*"]}
+  ]
+}
