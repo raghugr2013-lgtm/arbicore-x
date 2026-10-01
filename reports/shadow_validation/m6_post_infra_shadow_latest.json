@@ -1650,6 +1650,6 @@
   "post_infra_final_sha": "2682556cb05e351e25fdbd5d9c8be9dca3d6c106",
   "start_sha_post_infra": "aab47f2400b3b80f89a46d957208145bcfc81ad7",
   "post_infra_final_sha_note": "STATUS block / git rev-parse HEAD binding; no self-reference churn",
-  "disposition_tip_at_close": "9446f7e5b3741aa2dc585fae97ff01a4428aa9a7",
+  "disposition_tip_at_close": "cc6739ceaee0501ad4af054ed94f9a915703b91a",
   "disposition_tip_before_close_commit": "339e36f0e24700f614aa67e417b3e7eb24737340"
 }
