@@ -17,7 +17,8 @@ M6 validation START SHA (reference): `7ec144009b38fd94f7a0a977b41f4a92abdef750`
 
 ## 2. Final SHA
 
-Recorded after this evidence/docs commit (`git rev-parse HEAD` at close). Tip prior to commit: `aab47f2400b3b80f89a46d957208145bcfc81ad7`.
+
+
 
 ## 3. Branch
 

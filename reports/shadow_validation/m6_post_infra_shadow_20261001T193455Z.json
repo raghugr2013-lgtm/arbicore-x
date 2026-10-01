@@ -1646,5 +1646,7 @@
   "finished_at_post_infra": "2026-10-01T19:35:33.026415+00:00",
   "evidence_commit_only": true,
   "post_infra_report": "docs/certification/M6_POST_INFRA_SHADOW_20261002.md",
-  "post_infra_start_sha": "aab47f2400b3b80f89a46d957208145bcfc81ad7"
+  "post_infra_start_sha": "aab47f2400b3b80f89a46d957208145bcfc81ad7",
+  "post_infra_final_sha": "2682556cb05e351e25fdbd5d9c8be9dca3d6c106",
+  "start_sha_post_infra": "aab47f2400b3b80f89a46d957208145bcfc81ad7"
 }
