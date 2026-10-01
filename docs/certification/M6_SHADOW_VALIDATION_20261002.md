@@ -2,7 +2,8 @@
 
 - Status: **PASS (evidence-complete)** — A=0 profitable live opportunities (valid honest outcome)
 - Date: 2026-10-02 (UTC labeling; run finished 2026-10-01T19:16:33Z)
-- Validation tip (START/FINAL, no code change to certified modules): `7ec144009b38fd94f7a0a977b41f4a92abdef750`
+- Validation START SHA (pre-evidence): `7ec144009b38fd94f7a0a977b41f4a92abdef750`
+- Evidence FINAL SHA (docs/harness only; no certified-module change): `63ae5764f9bc4dbf67c521fc184a825c7dcc79ec`
 - Branch: `phase-b/h06-six-chain-runtime`
 - M5 certified tip: `05dacdb3eb3cc2f6555aee77b8a9811206891bc5`
 - M5 tag: `arbicore-m5-canonical-activation-pass-20261001`

@@ -1474,5 +1474,7 @@
     "m5_sources_registered": true
   },
   "m6_status": "PASS",
-  "finished_at": "2026-10-01T19:16:33.589122+00:00"
+  "finished_at": "2026-10-01T19:16:33.589122+00:00",
+  "final_sha": "63ae5764f9bc4dbf67c521fc184a825c7dcc79ec",
+  "evidence_commit_only": true
 }
