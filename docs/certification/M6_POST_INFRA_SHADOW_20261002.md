@@ -17,7 +17,7 @@ M6 validation START SHA (reference): `7ec144009b38fd94f7a0a977b41f4a92abdef750`
 
 ## 2. Final SHA
 
-`cc1afbe0000745822607e4067915840d654194bb`
+Authoritative tip = `git rev-parse HEAD` after the POST-M6 infra evidence/docs commits (avoid self-updating this field). Evidence series starts at `aab47f2400b3b80f89a46d957208145bcfc81ad7`. STATUS block FINAL SHA is binding.
 
 
 ## 3. Branch
