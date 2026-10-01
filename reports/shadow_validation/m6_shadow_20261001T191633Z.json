@@ -1475,6 +1475,6 @@
   },
   "m6_status": "PASS",
   "finished_at": "2026-10-01T19:16:33.589122+00:00",
-  "final_sha": "dafeff69205d325cbc209afaf4486bce46f819c4",
-  "evidence_commit_only": true
+  "evidence_commit_only": true,
+  "final_sha_note": "set_to_git_HEAD_after_evidence_commit"
 }
