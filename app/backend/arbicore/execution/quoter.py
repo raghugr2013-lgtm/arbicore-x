@@ -93,6 +93,10 @@ SUSHI_V2_ROUTER02_ETHEREUM  = to_checksum_address("0xd9e1cE17f2641f24aE83637ab66
 CAMELOT_V3_QUOTER_ARBITRUM  = to_checksum_address("0x0Fc73040b26E9bC8514fA028D998E73A254Fa76E")
 # QuickSwap V3 quoter · Polygon — docs.quickswap.exchange/overview/contracts
 QUICKSWAP_V3_QUOTER_POLYGON = to_checksum_address("0xa15F0D7377B2A0C0c10db057f641beD21028FC89")
+# Uniswap V3 QuoterV2 — canonical public deployment shared by Ethereum, Arbitrum,
+# Optimism and Polygon (identical address). BNB uses its own deployment below.
+UNIV3_QUOTER_V2_CANONICAL   = to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e")
+BNB_UNIV3_QUOTER_V2         = to_checksum_address("0x78D78E420Da98ad378D7799bE8f4AF69033EB077")
 
 
 # Selector cache — computed once at import.
@@ -520,11 +524,11 @@ class UniV3QuoterV2:
         # providers/dex.py::UniswapV3Quoter.QUOTER_ADDRESSES). Additive only;
         # Base behaviour above is unchanged. A chain absent here fails closed
         # ('fallback:no_adapter').
-        "ethereum": to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
-        "arbitrum": to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
-        "optimism": to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
-        "polygon":  to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e"),
-        "bnb":      to_checksum_address("0x78D78E420Da98ad378D7799bE8f4AF69033EB077"),
+        "ethereum": UNIV3_QUOTER_V2_CANONICAL,
+        "arbitrum": UNIV3_QUOTER_V2_CANONICAL,
+        "optimism": UNIV3_QUOTER_V2_CANONICAL,
+        "polygon":  UNIV3_QUOTER_V2_CANONICAL,
+        "bnb":      BNB_UNIV3_QUOTER_V2,
     }
 
     async def quote_hop(

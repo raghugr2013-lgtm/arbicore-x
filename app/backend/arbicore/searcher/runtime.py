@@ -421,3 +421,81 @@ __all__ = ["BaseSearcherRuntime", "ScanMetrics", "searcher_enabled",
            "make_base_eth_call_from_env", "make_base_price_source_from_env",
            "make_eth_call_for_chain_from_env",
            "make_base_v3_state_initializer_from_env", "STRATEGY", "MODE"]
+
+
+# ── SP-4 · Chain-aware non-Base TVL/liquidity (fail-closed; no Base substitution)
+_EVM_TVL_CHAINS = ("ethereum", "arbitrum", "optimism", "polygon", "bnb")
+_EVM_NATIVE_SYMS = {
+    "ethereum": {"WETH", "ETH"}, "arbitrum": {"WETH", "ETH"},
+    "optimism": {"WETH", "ETH"}, "polygon": {"WMATIC", "POL", "MATIC"},
+    "bnb": {"WBNB", "BNB"},
+}
+
+
+def build_evm_tvl_provider(chain, eth_call, price_source, pool_meta):
+    """SP-4 — chain-AWARE, fail-closed TVL provider for a supported non-Base EVM
+    chain, REUSING ``OnChainReserveTVLProvider`` + ``CachedTVLProvider`` (identical
+    contract to ``build_base_tvl_provider``).
+
+    Fail-closed → returns ``None`` (⇒ Gate 8 fails closed) when the chain is not
+    supported, ``eth_call`` is unavailable, no genuine ``price_source`` exists, or
+    ``pool_meta`` is empty. NEVER fabricates TVL and NEVER substitutes Base data.
+    ``pool_meta`` (resolved pool address → token layout) is supplied by the
+    on-chain pool-resolution project (SEPARATE dependency — see composition seam).
+    """
+    c = (chain or "").lower()
+    if c not in _EVM_TVL_CHAINS:
+        return None
+    if not eth_call or price_source is None or not pool_meta:
+        return None
+    from ..scanners.flash_loan_arbitrage.tvl_provider import (
+        OnChainReserveTVLProvider, CachedTVLProvider)
+    from .v3_state import make_evm_v3_reserves_fn
+    reserves_fn = make_evm_v3_reserves_fn(eth_call, pool_meta)
+
+    async def price_fn(_chain, token):
+        return await price_source(token)
+
+    return CachedTVLProvider(OnChainReserveTVLProvider(reserves_fn, price_fn))
+
+
+def make_evm_eth_call_from_env(chain):
+    """Return ``async (to, data) -> hex`` over the per-chain registry-backed RPC,
+    or ``None`` when no registry provider exists for ``chain`` (fail closed)."""
+    from ..providers.rpc_failover import get_registry_rpc_provider
+    provider = get_registry_rpc_provider((chain or "").lower())
+    if provider is None:
+        return None
+
+    async def eth_call(to: str, data: str):
+        try:
+            return await provider.eth_call({"to": to, "data": data})
+        except Exception:  # noqa: BLE001 — fail closed
+            return None
+    return eth_call
+
+
+def make_evm_price_source_from_env(chain):
+    """Return ``async (token) -> usd|None`` serving ONLY the chain's native asset
+    from genuine operator config ``ARBICORE_NATIVE_PRICE_USD_<CHAIN>`` (mirrors
+    ``make_base_price_source_from_env``; NOT a hardcoded constant). Every other
+    token → None so Gate 8 fails closed until a full multi-token feed is wired.
+    Returns ``None`` when the chain is unsupported or no price config exists."""
+    c = (chain or "").lower()
+    syms = _EVM_NATIVE_SYMS.get(c)
+    if not syms:
+        return None
+    raw = os.environ.get(f"ARBICORE_NATIVE_PRICE_USD_{c.upper()}")
+    if not raw:
+        return None
+    try:
+        native = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if native <= 0:
+        return None
+
+    async def price_source(token: str):
+        return native if str(token).upper() in syms else None
+    return price_source
+

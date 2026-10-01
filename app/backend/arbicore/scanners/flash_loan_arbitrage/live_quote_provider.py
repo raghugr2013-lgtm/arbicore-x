@@ -184,6 +184,10 @@ def make_live_quote_provider(
     tvl_provider_chain: str = "base",
     eth_call_for_chain: Optional[Callable[[str], Optional[Any]]] = None,
     borrow_sizer: Optional[Callable[[str, str, float], Optional[int]]] = None,
+    chain: Optional[str] = None,
+    token_address_fn: Optional[Callable[[str], Optional[str]]] = None,
+    pool_specs: Optional[Dict[str, Dict[str, Any]]] = None,
+    probe_amount_fn: Optional[Callable[[str], int]] = None,
 ) -> Callable[[Dict[str, Any], float], Awaitable[Optional[Dict[str, Any]]]]:
     """Return an async ``QuoteProvider`` bound to a live ``QuoterRegistry``.
 
@@ -207,6 +211,17 @@ def make_live_quote_provider(
     verifier then fails closed (``DENIED_SIZE_NOT_QUOTED``) rather than
     extrapolate a probe ratio onto a different dollar notional.
     """
+    # SP-3 injected-closure seam (non-Base multichain). When a caller supplies
+    # its own chain/token/pool resolvers (see ``make_multichain_quote_provider``,
+    # fed by the SP-2 READ-ONLY registry) the self-contained injected provider is
+    # returned. The canonical Base / generic-EVM provider below is left COMPLETELY
+    # unchanged for the default (non-injected) Base call site.
+    if (token_address_fn is not None or pool_specs is not None
+            or probe_amount_fn is not None):
+        return _make_injected_quote_provider(
+            quoter_registry, chain=chain, tvl_provider=tvl_provider,
+            token_address_fn=token_address_fn, pool_specs=pool_specs,
+            probe_amount_fn=probe_amount_fn, borrow_sizer=borrow_sizer)
     _tvl_chain = str(tvl_provider_chain or "").lower()
     async def _provider(cycle_metadata: Dict[str, Any],
                         borrow_amount_usd: float) -> Optional[Dict[str, Any]]:
@@ -358,3 +373,193 @@ def make_live_quote_provider(
         }
 
     return _provider
+
+
+def _make_injected_quote_provider(
+    quoter_registry,
+    *,
+    chain=None,
+    tvl_provider=None,
+    token_address_fn=None,
+    pool_specs=None,
+    probe_amount_fn=None,
+    borrow_sizer=None,
+):
+    """SP-3 injected-closure quote provider for a CONFIGURED non-Base chain.
+
+    Token addresses + candidate pool specs are supplied by the caller
+    (``make_multichain_quote_provider``, fed by the SP-2 READ-ONLY registry);
+    nothing is fabricated and no Base data leaks. Adds NO TVL/liquidity logic
+    (``tvl_provider`` defaults ``None`` -> Gate 8 fails closed) and claims NO
+    runtime verification: a route the live quoter cannot price still yields
+    ``None`` (denied:venue_unreadable downstream). H05: an optional async
+    ``borrow_sizer`` binds the EXACT first-hop size (``size_basis="exact"``);
+    absent/None -> probe sizing. The canonical Base/generic provider is untouched.
+    """
+    quote_chain = (chain or "base")
+    specs = pool_specs if pool_specs is not None else {}
+
+    async def _provider(cycle_metadata: Dict[str, Any],
+                        borrow_amount_usd: float) -> Optional[Dict[str, Any]]:
+        hm = cycle_metadata or {}
+        route_pools: List[str] = list(hm.get("route_pools") or [])
+        token_path: List[str] = [str(t).upper() for t in (hm.get("cycle_token_path") or [])]
+        borrow_token = (hm.get("borrow_token")
+                        or (token_path[0] if token_path else "")).upper()
+        if len(route_pools) < 2 or len(token_path) != len(route_pools) + 1:
+            return None  # malformed route → unreadable (honest)
+
+        # H05 — EXACT-SIZE binding (fail closed; no probe fallback under exact).
+        if borrow_sizer is not None:
+            try:
+                exact_wei = await borrow_sizer(quote_chain, borrow_token,
+                                               borrow_amount_usd)
+            except Exception:  # noqa: BLE001 — never fabricate a size
+                return None
+            if exact_wei is None or int(exact_wei) <= 0:
+                return None
+            first_amount_wei = int(exact_wei)
+            size_basis = "exact"
+        else:
+            if probe_amount_fn is None:
+                return None
+            first_amount_wei = int(probe_amount_fn(borrow_token))
+            size_basis = "probe"
+
+        hops: List[Dict[str, Any]] = []
+        for i, pool_addr in enumerate(route_pools):
+            spec = dict(specs.get(pool_addr) or {})
+            tin, tout = token_path[i], token_path[i + 1]
+            addr_in = token_address_fn(tin) if token_address_fn else None
+            addr_out = token_address_fn(tout) if token_address_fn else None
+            if not addr_in or not addr_out:
+                return None
+            hop: Dict[str, Any] = {
+                "dex": spec.get("dex") or "uniswap_v3",
+                "token_in": addr_in,
+                "token_out": addr_out,
+            }
+            if i == 0:
+                hop["amount_in_wei"] = first_amount_wei
+            if "fee" in spec:
+                hop["fee"] = spec["fee"]
+            if "tick_spacing" in spec:
+                hop["tick_spacing"] = spec["tick_spacing"]
+            if "stable" in spec:
+                hop["stable"] = spec["stable"]
+            hops.append(hop)
+
+        try:
+            rq = await quoter_registry.quote_route(chain=quote_chain, hops=hops)
+        except Exception:  # noqa: BLE001
+            return None
+        # QUOTE INTEGRITY — FAIL CLOSED (partial-quote defect, audit 2026-06).
+        if rq is None or rq.status != "ok":
+            return None
+        if any(getattr(h, "status", None) not in (None, "ok") for h in rq.hops):
+            return None
+        if token_path[0] != token_path[-1]:
+            return None  # not a closed cycle → the wei ratio is meaningless
+
+        amount_in = int(hops[0].get("amount_in_wei") or 0)
+        final_out = int(rq.final_amount_out_wei or 0)
+        if amount_in <= 0 or final_out <= 0:
+            return None
+        gross_profit_pct = 100.0 * (final_out - amount_in) / amount_in
+
+        hop_legs: List[Dict[str, Any]] = []
+        for h in rq.hops:
+            hop_legs.append({
+                "venue_id": f"{getattr(h, 'dex', 'dex')}:{quote_chain}",
+                "source_id": _dex_source_id(getattr(h, "dex", ""), quote_chain),
+                "price": None,
+                "depth_usd": 0.0,
+                "fee_bps": 0,
+                "dex_protocol": getattr(h, "dex", None),
+                "status": getattr(h, "status", None),
+                "block_number": getattr(h, "block_number", None),
+            })
+        # REAL measured on-chain depth (M2.2); fail-closed (0.0) without provider.
+        pool_tvls = await _resolve_pool_tvls(route_pools, tvl_provider,
+                                             chain=quote_chain)
+        for leg, pool_addr in zip(hop_legs, route_pools):
+            spec = specs.get(pool_addr) or {}
+            leg["fee_bps"] = int(spec.get("fee", 3000)) // 100
+            leg["depth_usd"] = float(pool_tvls.get(pool_addr, 0.0))
+
+        min_tvl = _route_min_tvl(pool_tvls, route_pools)
+        quote_blocks = [int(h.get("block_number")) for h in hop_legs
+                        if isinstance(h.get("block_number"), int)]
+
+        return {
+            "hop_legs": hop_legs,
+            "gross_profit_pct": gross_profit_pct,
+            "tx_gas_units": rq.aggregate_gas_estimate_units,
+            "min_pool_tvl_usd_in_route": min_tvl,
+            "tvl_provenance": ("onchain_reserves" if tvl_provider is not None
+                               else "unverified"),
+            "flash_loan_pool_address": "",
+            "route_quote_status": rq.status,
+            "chain": quote_chain,
+            "quote_block": max(quote_blocks) if quote_blocks else None,
+            "size_basis": size_basis,
+            "exact_size": (size_basis == "exact"),
+            "quoted_amount_in_wei": int(amount_in),
+            "quote_notional_usd": (float(borrow_amount_usd)
+                                   if size_basis == "exact" else None),
+            "borrow_token": borrow_token,
+            "final_amount_out_wei": int(final_out),
+            "verified_at_ts": time.time(),
+        }
+
+    return _provider
+
+
+def make_multichain_quote_provider(quoter_registry, chain, *, tvl_provider=None,
+                                   borrow_sizer=None):
+    """SP-3 — build a live quote provider for a CONFIGURED non-Base chain, sourcing
+    token addresses + candidate pool specs from the SP-2 READ-ONLY multichain
+    registry (``discovery/multichain_pool_registry``).
+
+    Fail-closed:
+      * ``chain == "base"``  → delegate to the canonical Base provider (unchanged).
+      * unconfigured/unknown → return ``None`` (no fabricated provider).
+    No pool contract address is fabricated (the registry never exposes one), no
+    TVL/liquidity logic is added (``tvl_provider`` defaults ``None`` → Gate 8 fails
+    closed), and no runtime verification is claimed. H05: an optional async
+    ``borrow_sizer(chain, token, usd)`` binds the EXACT first-hop size; default
+    ``None`` → probe sizing, behaviour unchanged.
+    """
+    from ...discovery import multichain_pool_registry as mreg
+
+    c = (chain or "").strip().lower()
+    if c == "base":
+        return make_live_quote_provider(quoter_registry, tvl_provider=tvl_provider,
+                                        borrow_sizer=borrow_sizer)
+    if not mreg.is_chain_configured(c):
+        return None  # fail closed — never a fabricated non-Base provider
+
+    def _token_addr(sym: str) -> Optional[str]:
+        return mreg.token_address(c, sym)  # bound to THIS chain (no leakage)
+
+    def _probe(sym: str) -> int:
+        spec = mreg.token_spec(c, sym)
+        dec = int(spec["decimals"]) if spec else 18
+        return 5 * 10 ** (dec - 2) if dec >= 12 else 200 * 10 ** dec
+
+    pool_specs: Dict[str, Dict[str, Any]] = {}
+    for row in mreg.pool_candidate_specs(c):
+        vid = row.get("venue_id")
+        if not vid:
+            continue
+        spec: Dict[str, Any] = {"dex": row.get("dex") or "uniswap_v3"}
+        fee_bps = row.get("fee_bps")
+        if fee_bps is not None:
+            spec["fee"] = int(fee_bps) * 100   # bps → ppm for the UniV3 quoter
+        pool_specs[vid] = spec
+
+    return make_live_quote_provider(
+        quoter_registry, tvl_provider=tvl_provider, chain=c,
+        token_address_fn=_token_addr, pool_specs=pool_specs,
+        probe_amount_fn=_probe, borrow_sizer=borrow_sizer,
+    )
