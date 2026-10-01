@@ -80,16 +80,18 @@ def _route_min_tvl(pool_tvls: Dict[str, float], route_pools: List[str]) -> float
 
 
 # ── per-hop plan: (dex, token_in_addr, token_out_addr, fee, tick_spacing,
-#    stable, tvl_key, tvl_addr, fee_bps) ──────────────────────────────────────
+#    stable, tvl_key, tvl_addr, fee_bps, pool_id, pool_address) ───────────────
 class _HopPlan:
     __slots__ = ("dex", "token_in", "token_out", "fee", "tick_spacing",
-                 "stable", "tvl_key", "tvl_addr", "fee_bps")
+                 "stable", "tvl_key", "tvl_addr", "fee_bps",
+                 "pool_id", "pool_address")
 
     def __init__(self, dex, token_in, token_out, fee, tick_spacing, stable,
-                 tvl_key, tvl_addr, fee_bps):
+                 tvl_key, tvl_addr, fee_bps, pool_id=None, pool_address=None):
         self.dex, self.token_in, self.token_out = dex, token_in, token_out
         self.fee, self.tick_spacing, self.stable = fee, tick_spacing, stable
         self.tvl_key, self.tvl_addr, self.fee_bps = tvl_key, tvl_addr, fee_bps
+        self.pool_id, self.pool_address = pool_id, pool_address
 
 
 def _plan_base(hm: Dict[str, Any]) -> Optional[Tuple[List[_HopPlan], List[str], int]]:
@@ -117,8 +119,47 @@ def _plan_base(hm: Dict[str, Any]) -> Optional[Tuple[List[_HopPlan], List[str], 
             stable=spec.get("stable"),
             tvl_key=pool_addr,
             tvl_addr=(getattr(cp, "address", None) if cp else None),
-            fee_bps=int(spec.get("fee", 3000)) // 100))
+            fee_bps=int(spec.get("fee", 3000)) // 100,
+            pool_id=spec.get("pool_id"),
+            pool_address=spec.get("pool_address") or (
+                getattr(cp, "address", None) if cp else None)))
     return plans, token_path, int(probe_amount(borrow_token))
+
+
+def _explicit_balancer_identity(rh: Dict[str, Any]) -> Optional[Tuple[Optional[str], Optional[str]]]:
+    """Return (pool_id, pool_address) only when an explicit on-chain identity is
+    present. Synthetic venue ids (``balancer_v2:TOKEN:...``) are rejected —
+    BalancerV2Quoter requires a real pool_id or pool_address (fail-closed)."""
+    pool_id = rh.get("pool_id") or rh.get("poolId")
+    pool_address = rh.get("pool_address")
+    raw_pool = rh.get("pool")
+    # ``pool`` may be a real 0x address OR a synthetic venue id — only accept
+    # checksummable 20-byte addresses as pool_address.
+    if pool_address is None and isinstance(raw_pool, str):
+        p = raw_pool.strip()
+        if p.startswith("0x") and len(p) == 42:
+            pool_address = p
+        elif p.startswith("0x") and len(p) == 66 and pool_id is None:
+            pool_id = p
+    if isinstance(pool_id, str):
+        pid = pool_id.strip()
+        if not (pid.startswith("0x") and len(pid) == 66):
+            pool_id = None
+        else:
+            pool_id = pid
+    else:
+        pool_id = None
+    if isinstance(pool_address, str):
+        pa = pool_address.strip()
+        if not (pa.startswith("0x") and len(pa) == 42):
+            pool_address = None
+        else:
+            pool_address = pa
+    else:
+        pool_address = None
+    if not pool_id and not pool_address:
+        return None
+    return pool_id, pool_address
 
 
 async def _plan_generic_evm(
@@ -126,8 +167,9 @@ async def _plan_generic_evm(
 ) -> Optional[Tuple[List[_HopPlan], List[str], int]]:
     """Chain/venue-aware plan for a non-Base EVM chain. Requires per-hop venue
     specs in ``route_hops`` and an explicit borrow ``amount_in_wei``. UniV3 hops
-    are validated on-chain via the resolver; anything unsupported/unreadable
-    fails closed (returns None)."""
+    are validated on-chain via the resolver; Balancer V2 hops are accepted only
+    with an explicit ``pool_id``/``pool_address`` (quoted by BalancerV2Quoter /
+    P0 — never fabricated). Anything unsupported/unreadable fails closed."""
     from ...chains.registries import tokens_for
     from ...discovery.univ3_pool_resolver import resolve_univ3_pool
 
@@ -159,21 +201,39 @@ async def _plan_generic_evm(
         fee = rh.get("fee")
         if not dex or not addr_in or not addr_out:
             return None
-        if dex != "uniswap_v3":
+        dex_l = str(dex).lower()
+        if dex_l == "uniswap_v3":
+            if fee is None:
+                return None
+            pool = await resolve_univ3_pool(chain, addr_in, addr_out, int(fee),
+                                            eth_call=eth_call)
+            if pool is None:                        # invalid/unreadable/nonexistent
+                return None
+            plans.append(_HopPlan(
+                dex=dex_l, token_in=addr_in, token_out=addr_out, fee=int(fee),
+                tick_spacing=rh.get("tick_spacing"), stable=rh.get("stable"),
+                tvl_key=pool["pool_address"], tvl_addr=pool["pool_address"],
+                fee_bps=int(fee) // 100,
+                pool_address=pool["pool_address"]))
+        elif dex_l == "balancer_v2":
+            ident = _explicit_balancer_identity(rh)
+            if ident is None:
+                _LOG.debug("balancer_v2 hop missing explicit pool identity "
+                           "chain=%s", chain)
+                return None
+            pool_id, pool_address = ident
+            fee_bps = int(rh["fee_bps"]) if rh.get("fee_bps") is not None else 0
+            tvl_key = pool_id or pool_address or f"balancer_v2:{i}"
+            plans.append(_HopPlan(
+                dex=dex_l, token_in=addr_in, token_out=addr_out, fee=fee,
+                tick_spacing=rh.get("tick_spacing"), stable=rh.get("stable"),
+                tvl_key=tvl_key, tvl_addr=pool_address,
+                fee_bps=fee_bps, pool_id=pool_id, pool_address=pool_address))
+        else:
             # Implemented/discoverable but no generic resolver yet → fail closed.
-            _LOG.debug("no_pool_resolver_for_venue_family chain=%s dex=%s", chain, dex)
+            _LOG.debug("no_pool_resolver_for_venue_family chain=%s dex=%s",
+                       chain, dex)
             return None
-        if fee is None:
-            return None
-        pool = await resolve_univ3_pool(chain, addr_in, addr_out, int(fee),
-                                        eth_call=eth_call)
-        if pool is None:                        # invalid/unreadable/nonexistent
-            return None
-        plans.append(_HopPlan(
-            dex=dex, token_in=addr_in, token_out=addr_out, fee=int(fee),
-            tick_spacing=rh.get("tick_spacing"), stable=rh.get("stable"),
-            tvl_key=pool["pool_address"], tvl_addr=pool["pool_address"],
-            fee_bps=int(fee) // 100))
     return plans, token_path, amount_in_wei
 
 
@@ -228,7 +288,15 @@ def make_live_quote_provider(
         hm = cycle_metadata or {}
         chain = str(hm.get("chain") or "base").lower()
 
-        if chain in ("base", "base-sepolia"):
+        # M5: when route_hops carry explicit venue identities (GENERIC_DEX /
+        # triangular / Balancer activation sources), use the generic planner —
+        # including on Base — so balancer_v2 pool_id/pool_address reach
+        # QuoterRegistry. Base registry path remains the default when only
+        # route_pools is present (regression-frozen).
+        if hm.get("route_hops"):
+            eth_call = eth_call_for_chain(chain) if eth_call_for_chain else None
+            planned = await _plan_generic_evm(chain, hm, eth_call)
+        elif chain in ("base", "base-sepolia"):
             planned = _plan_base(hm)
         else:
             eth_call = eth_call_for_chain(chain) if eth_call_for_chain else None
@@ -275,6 +343,10 @@ def make_live_quote_provider(
                 hop["tick_spacing"] = p.tick_spacing
             if p.stable is not None:
                 hop["stable"] = p.stable
+            if getattr(p, "pool_id", None):
+                hop["pool_id"] = p.pool_id
+            if getattr(p, "pool_address", None):
+                hop["pool_address"] = p.pool_address
             hops.append(hop)
 
         try:
@@ -447,6 +519,11 @@ def _make_injected_quote_provider(
                 hop["tick_spacing"] = spec["tick_spacing"]
             if "stable" in spec:
                 hop["stable"] = spec["stable"]
+            if spec.get("pool_id"):
+                hop["pool_id"] = spec["pool_id"]
+            addr = spec.get("pool_address") or spec.get("pool_contract_address")
+            if addr:
+                hop["pool_address"] = addr
             hops.append(hop)
 
         try:

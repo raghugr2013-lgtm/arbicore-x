@@ -75,13 +75,18 @@ async def discover_triangular(
     native_usd: Optional[float],
     liquidity_by_provider: Optional[Dict[str, Optional[float]]] = None,
     fee_bps_by_provider: Optional[Dict[str, Optional[int]]] = None,
-    min_net_profit_usd: float = 35.0,
+    min_net_profit_usd: float = 25.0,
 ) -> Dict[str, Any]:
     """Enumerate + evaluate + emit ECONOMICALLY-VALID triangular candidates.
 
     Returns ``{evaluated, valid, emitted:[CanonicalOpportunity], details:[...]}``.
-    A cycle is emitted ONLY when true net profit ≥ ``min_net_profit_usd`` (the
-    $35 gate is never lowered) — otherwise it is recorded but NOT emitted.
+    A cycle is emitted ONLY when true net profit ≥ ``min_net_profit_usd``.
+
+    Default floor is **$25** — aligned with canonical Gate 7
+    (``FlashLoanGate7AtomicProfit`` / ``MIN_ATOMIC_PROFIT_USD``). This library
+    helper is a prefilter for direct callers only; when wired through the
+    canonical scanner DiscoverySource → verifier path, Gate 7 remains the
+    authoritative economic gate. Never lower the floor below $25.
     """
     if base_token_price_usd is None or base_token_price_usd <= 0:
         return {"evaluated": 0, "valid": 0, "emitted": [],

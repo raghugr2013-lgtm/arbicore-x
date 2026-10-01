@@ -132,7 +132,13 @@ def test_factory_returns_two_sources():
     out = build_all_flash_loan_sources(
         route_engine=engine, config_loader=lambda: _cfg())
     ids = sorted(s.source_id for s in out)
-    assert ids == ["flash_loan_provider_health", "flash_loan_route_search"]
+    # M5: activation sources join the D-6.1 pair (still INV-1 DiscoveryCandidate).
+    assert "flash_loan_provider_health" in ids
+    assert "flash_loan_route_search" in ids
+    assert "flash_loan_generic_dex" in ids
+    assert "flash_loan_triangular" in ids
+    assert "flash_loan_balancer_v2" in ids
+    assert len(ids) == 5
 
 
 # ============================================================================

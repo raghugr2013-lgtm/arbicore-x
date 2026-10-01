@@ -110,6 +110,39 @@ class RegistryRpcProvider:
             max_attempts=self.max_attempts,
         )
 
+    async def eth_get_logs(
+        self,
+        *,
+        address: Optional[str] = None,
+        topics: Optional[List[Any]] = None,
+        from_block: Any = "latest",
+        to_block: Any = "latest",
+    ) -> List[Any]:
+        """Read-only ``eth_getLogs`` via registry failover (capacity remediation).
+
+        Polygon/Base getLogs transport failures fail over to the next registered
+        RPC endpoint when ``PROVIDER_RPC_URLS_<CHAIN>`` lists multiple URLs.
+        Never fabricates logs; never signs/broadcasts.
+        """
+        registry = self.registry or _default_registry
+        if registry is None:
+            raise ProviderError(
+                f"no ProviderRegistry configured for chain={self.chain}",
+                retryable=False,
+            )
+
+        return await registry.call(
+            ProviderKind.RPC,
+            lambda p: p.eth_get_logs(
+                address=address,
+                topics=topics,
+                from_block=from_block,
+                to_block=to_block,
+            ),
+            chain=self.chain,
+            max_attempts=self.max_attempts,
+        )
+
 
 def get_registry_rpc_provider(
     chain: str = "base",

@@ -277,10 +277,28 @@ def build_all_flash_loan_sources(
     *,
     route_engine: RouteSearchEngine,
     config_loader: Callable[[], Dict[str, Any]],
+    eth_get_logs_factory: Optional[Callable[[str], Optional[Any]]] = None,
 ) -> List[DiscoverySource]:
-    """One instance of every D-6.1 flash-loan DiscoverySource."""
+    """Every flash-loan DiscoverySource (D-6.1 + M5 activation).
+
+    M5 adds GENERIC_DEX / Triangular / Balancer P1+P1b sources that feed the
+    existing verifier + sole ``_tick`` EmissionBus site. Optional
+    ``eth_get_logs_factory`` wires Balancer P1b through registry RPC failover.
+    """
+    from .activation_sources import (
+        GenericDexDiscoverySource,
+        TriangularDiscoverySource,
+        BalancerV2DiscoverySource,
+    )
     return [
         RouteSearchDiscoverySource(
             route_engine=route_engine, config_loader=config_loader),
         FlashLoanProviderHealthSource(config_loader=config_loader),
+        GenericDexDiscoverySource(
+            route_engine=route_engine, config_loader=config_loader),
+        TriangularDiscoverySource(
+            route_engine=route_engine, config_loader=config_loader),
+        BalancerV2DiscoverySource(
+            route_engine=route_engine, config_loader=config_loader,
+            eth_get_logs_factory=eth_get_logs_factory),
     ]

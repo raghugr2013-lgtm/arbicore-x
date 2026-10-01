@@ -291,6 +291,40 @@ def make_eth_call_for_chain_from_env(chain: str):
     return eth_call
 
 
+def make_eth_get_logs_for_chain_from_env(chain: str):
+    """Return ``async (chain, address, topics, from_block, to_block) -> logs``
+    over registry-backed RPC failover, or None (fail-closed).
+
+    M5 infra seam for Balancer P1b ``PoolRegistered`` discovery. Uses the same
+    operator-RPC gate + multi-endpoint failover as eth_call (Polygon/Base
+    capacity remediation via ``PROVIDER_RPC_URLS_<CHAIN>``). Never fabricates
+    logs; never signs/broadcasts.
+    """
+    from ..runtime.multichain_readiness import rpc_explicitly_configured
+    c = (chain or "").lower()
+    if not rpc_explicitly_configured(c):
+        return None
+    from ..providers.rpc_failover import get_registry_rpc_provider
+    provider = get_registry_rpc_provider(c)
+    if provider is None:
+        return None
+
+    async def eth_get_logs(chain_arg, address, topics, from_block, to_block):
+        # Bound to construction-time chain — reject cross-chain misuse.
+        if (chain_arg or "").lower() != c:
+            raise ValueError(
+                f"eth_get_logs bound to {c}, refused chain={chain_arg}")
+        return await provider.eth_get_logs(
+            address=address, topics=topics,
+            from_block=from_block, to_block=to_block)
+
+    async def eth_block_number(_chain_arg=None):
+        return await provider.eth_get_block_number()
+
+    eth_get_logs.eth_block_number = eth_block_number  # type: ignore[attr-defined]
+    return eth_get_logs
+
+
 def make_base_congestion_source_from_env():
     """Return a genuine Base congestion source using registry failover.
 
@@ -420,6 +454,7 @@ __all__ = ["BaseSearcherRuntime", "ScanMetrics", "searcher_enabled",
            "populate_from_registry", "build_base_tvl_provider",
            "make_base_eth_call_from_env", "make_base_price_source_from_env",
            "make_eth_call_for_chain_from_env",
+           "make_eth_get_logs_for_chain_from_env",
            "make_base_v3_state_initializer_from_env", "STRATEGY", "MODE"]
 
 

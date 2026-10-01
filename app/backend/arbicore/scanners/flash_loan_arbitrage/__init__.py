@@ -43,6 +43,10 @@ from .sources import (
     RouteSearchDiscoverySource, FlashLoanProviderHealthSource,
     build_all_flash_loan_sources,
 )
+from .activation_sources import (
+    GenericDexDiscoverySource, TriangularDiscoverySource,
+    BalancerV2DiscoverySource,
+)
 from .verifier import FlashLoanOpportunityVerifier
 
 __all__ = [
@@ -50,6 +54,8 @@ __all__ = [
     "PoolNode", "RouteSearchEngine", "RouteCycle",
     # Sources
     "RouteSearchDiscoverySource", "FlashLoanProviderHealthSource",
+    "GenericDexDiscoverySource", "TriangularDiscoverySource",
+    "BalancerV2DiscoverySource",
     "build_all_flash_loan_sources",
     # Economics
     "FlashLoanEconomicsAssessor", "FlashLoanEconomicsResult",

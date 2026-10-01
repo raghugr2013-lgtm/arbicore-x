@@ -79,8 +79,20 @@ class FlashLoanArbitrageScanner:
         )
 
         # ── Discovery sources ───────────────────────────────────────────
+        # M5: Balancer P1b uses registry-backed eth_getLogs failover when the
+        # operator has configured RPC endpoints (PROVIDER_RPC_URLS_<CHAIN>).
+        def _eth_get_logs_factory(chain: str):
+            try:
+                from ...searcher.runtime import (
+                    make_eth_get_logs_for_chain_from_env)
+                return make_eth_get_logs_for_chain_from_env(chain)
+            except Exception:  # noqa: BLE001 — fail closed (no fabricated logs)
+                return None
+
         self._sources = build_all_flash_loan_sources(
-            route_engine=self._route_engine, config_loader=config_loader)
+            route_engine=self._route_engine, config_loader=config_loader,
+            eth_get_logs_factory=_eth_get_logs_factory)
+        self._eth_get_logs_factory = _eth_get_logs_factory
         self._source_registry = DiscoverySourceRegistry()
         for s in self._sources:
             self._source_registry.register(s)
@@ -246,7 +258,8 @@ class FlashLoanArbitrageScanner:
             min_pool_tvl_usd=float(rs_cfg.get("min_pool_tvl_usd", 100_000)),
         )
         self._sources = build_all_flash_loan_sources(
-            route_engine=self._route_engine, config_loader=self._cfg)
+            route_engine=self._route_engine, config_loader=self._cfg,
+            eth_get_logs_factory=getattr(self, "_eth_get_logs_factory", None))
         self._source_registry = DiscoverySourceRegistry()
         for s in self._sources:
             self._source_registry.register(s)

@@ -208,6 +208,35 @@ class EthJsonRpcProvider:
         v = await self._call("eth_chainId", [])
         return int(v, 16)
 
+    async def eth_get_logs(
+        self,
+        *,
+        address: Optional[str] = None,
+        topics: Optional[List[Any]] = None,
+        from_block: Any = "latest",
+        to_block: Any = "latest",
+    ) -> List[Any]:
+        """Read-only ``eth_getLogs`` (no signing / broadcast).
+
+        Block tags may be hex strings, integers, or ``\"latest\"``. Used by
+        Balancer P1b PoolRegistered discovery through registry failover.
+        """
+        def _blk(v: Any) -> Any:
+            if isinstance(v, int):
+                return hex(v)
+            return v
+
+        filt: Dict[str, Any] = {
+            "fromBlock": _blk(from_block),
+            "toBlock": _blk(to_block),
+        }
+        if address is not None:
+            filt["address"] = address
+        if topics is not None:
+            filt["topics"] = topics
+        result = await self._call("eth_getLogs", [filt])
+        return list(result) if isinstance(result, (list, tuple)) else []
+
     async def verify_chain_id(self, expected: int) -> bool:
         """Fail-closed chain identity check: False on any RPC error/mismatch."""
         try:

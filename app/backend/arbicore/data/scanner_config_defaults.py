@@ -438,6 +438,14 @@ DEFAULT_FLASH_LOAN_ARB_CONFIG: Dict[str, Any] = {
         "candidate_cap": 64,
         "min_pool_tvl_usd": 100_000,
     },
+    # M5 activation sources — wired into build_all_flash_loan_sources.
+    # Still dormant until chains + providers are operator-enabled. Gate 7
+    # floor remains $25 (never lowered here).
+    "discovery_sources": {
+        "generic_dex": {"enabled": True},
+        "triangular": {"enabled": True},
+        "balancer_v2": {"enabled": True},
+    },
     "gate_thresholds": {
         "default": {
             "min_atomic_profit_usd": 25.0,

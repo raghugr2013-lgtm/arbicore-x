@@ -428,6 +428,11 @@ DEFAULT_FLASH_LOAN_ARB_CONFIG: Dict[str, Any] = {
         "candidate_cap": 64,
         "min_pool_tvl_usd": 100_000,
     },
+    "discovery_sources": {
+        "generic_dex": {"enabled": True},
+        "triangular": {"enabled": True},
+        "balancer_v2": {"enabled": True},
+    },
     "gate_thresholds": {
         "default": {
             "min_atomic_profit_usd": 25.0,

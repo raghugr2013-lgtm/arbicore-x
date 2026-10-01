@@ -53,6 +53,13 @@ from ..chains.gas_model import get_chain_gas_model
 # --------------------------------------------------------------------------- #
 MIN_ATOMIC_PROFIT_USD: float = 25.0
 
+# Pathological gas / native-price ceilings (fail-closed → UNKNOWN_GAS).
+# Live SHADOW on public RPCs observed BNB gas USD ~1e10 from bad native
+# pricing units; treating that as a real cost mis-buckets the deny reason and
+# can pollute economics telemetry. Never bypass Gate 7 — absurd gas is unknown.
+_MAX_SANE_NATIVE_USD: float = 1_000_000.0
+_MAX_SANE_GAS_USD: float = 100_000.0
+
 # Route status vocabulary (fail-closed).
 ELIGIBLE = "eligible"
 SAME_TOKEN_VIOLATION = "same_token_violation"
@@ -351,6 +358,15 @@ class GenericDexRouteEngine:
                               gross_profit_usd=gross_usd, gross_profit_pct=gross_pct,
                               **ctx)
         gas_usd = float(gas_usd)
+        # Pathological gas (bad native-price units / RPC nonsense) → UNKNOWN_GAS.
+        # Still fail-closed for Gate 7; never treat absurd gas as priced evidence.
+        if gas_usd > _MAX_SANE_GAS_USD:
+            return self._deny(UNKNOWN_GAS,
+                              f"pathological gas_cost_usd=${gas_usd:.2f} exceeds "
+                              f"sane ceiling ${_MAX_SANE_GAS_USD:.0f}",
+                              leg1=leg1, leg2=leg2, gross_profit_wei=gross_wei,
+                              gross_profit_usd=gross_usd, gross_profit_pct=gross_pct,
+                              **ctx)
 
         # (9) net-profit economic gate — reuse FlashLoanEconomicsAssessor
         econ = self.assessor.assess(
@@ -412,6 +428,8 @@ class GenericDexRouteEngine:
         native_usd = await self.price_source.price_usd(chain, wnative)
         if not _finite_pos(native_usd):
             return None
+        if float(native_usd) > _MAX_SANE_NATIVE_USD:
+            return None  # pathological native price → UNKNOWN_GAS upstream
         res = await model.all_in_cost(
             gross_profit_usd=float(gross_profit_usd),
             borrow_amount_usd=float(borrow_amount_usd),
