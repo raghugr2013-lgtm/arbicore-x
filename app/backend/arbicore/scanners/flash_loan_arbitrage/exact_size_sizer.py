@@ -68,7 +68,10 @@ class ExactSizeBorrowSizer:
             return None
         if not _finite_positive(borrow_amount_usd):
             return None
-        dec = self._decimals(c, tok)
+        try:
+            dec = self._decimals(c, tok)
+        except Exception:  # noqa: BLE001 — decimals resolver must fail closed
+            return None
         if dec is None:
             return None
         try:
@@ -83,10 +86,13 @@ class ExactSizeBorrowSizer:
             return None
         if not _finite_positive(price):
             return None
-        amount_token = float(borrow_amount_usd) / float(price)
-        if not (math.isfinite(amount_token) and amount_token > 0.0):
+        try:
+            amount_token = float(borrow_amount_usd) / float(price)
+            if not (math.isfinite(amount_token) and amount_token > 0.0):
+                return None
+            wei = int(math.floor(amount_token * (10 ** dec_i)))
+        except Exception:  # noqa: BLE001 — unsafe USD→wei conversion must fail closed
             return None
-        wei = int(math.floor(amount_token * (10 ** dec_i)))
         if wei <= 0 or wei > _MAX_UINT256:
             return None
         return wei
