@@ -1,0 +1,1150 @@
+{
+  "phase": "live_shadow_validation",
+  "certified_tip": "861af4d60e841ac8abac5891d663e23986c356ad",
+  "tag": "arbicore-extract-port-pass-20261001",
+  "started_at": "2026-10-01T17:41:16.986432+00:00",
+  "execution_mode_expected": "SHADOW",
+  "signing": false,
+  "broadcast": false,
+  "balancer": [
+    {
+      "chain": "ethereum",
+      "rpc": "https://rpc.mevblocker.io/<redacted>",
+      "provider": "balancer_v2",
+      "p0": {
+        "status": "token_not_in_pool",
+        "error": "token_in/token_out not both present in pool",
+        "amount_out_wei": 0,
+        "block_number": null,
+        "pool_id": "0x92c33a54dc8202ed3d468e8a81472c2143a05d420002000000000000000007cb",
+        "pool_address": "0x92c33A54Dc8202ED3D468e8a81472c2143A05d42",
+        "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "token_out": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "amount_in_wei": 1000000000000000,
+        "meta": {
+          "pool_address": "0x92c33A54Dc8202ED3D468e8a81472c2143A05d42",
+          "pool_id": "0x92c33a54dc8202ed3d468e8a81472c2143a05d420002000000000000000007cb",
+          "tokens": [
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+          ],
+          "balances": [
+            1,
+            1
+          ],
+          "decimals": [
+            6,
+            6
+          ],
+          "swap_fee_bps": 5.0,
+          "last_change_block": 26090142
+        }
+      },
+      "p1_subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'ethereum' (ARBICORE_BALANCER_SUBGRAPH_URL_ETHEREUM)",
+        "candidates": 0,
+        "source": "balancer_v2_subgraph",
+        "expected_unavailable_without_url": true
+      },
+      "p1b_onchain": {
+        "status": "ok",
+        "error": null,
+        "candidates": 5,
+        "sample": [
+          {
+            "pool_id": "0x92c33a54dc8202ed3d468e8a81472c2143a05d420002000000000000000007cb",
+            "pool_address": "0x92c33A54Dc8202ED3D468e8a81472c2143A05d42",
+            "raw_block": 26088010
+          },
+          {
+            "pool_id": "0xcb4ead929d90d0ee4c02f5d355b8c78dc8fd3e850002000000000000000007cc",
+            "pool_address": "0xCb4EAD929D90D0eE4c02F5D355B8c78dC8Fd3E85",
+            "raw_block": 26088039
+          },
+          {
+            "pool_id": "0x6ef2b0a1c112e003f7bed59385cf570d85c446c50002000000000000000007cd",
+            "pool_address": "0x6eF2b0a1C112e003f7bed59385cf570d85c446c5",
+            "raw_block": 26090361
+          },
+          {
+            "pool_id": "0xdbbbe36a625fd6581af4c5a72cbf4867d7ebdec50002000000000000000007ce",
+            "pool_address": "0xDbBbE36a625Fd6581af4C5A72cbF4867d7EbDEc5",
+            "raw_block": 26090384
+          },
+          {
+            "pool_id": "0xd9c45f3224549ed7d22338d75688e32f0399d2460002000000000000000007cf",
+            "pool_address": "0xd9C45F3224549ED7d22338D75688e32f0399D246",
+            "raw_block": 26098637
+          }
+        ],
+        "provenance": {
+          "chain": "ethereum",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "from_block": 26079024,
+          "to_block": 26099024,
+          "chunks": 21,
+          "chunk_size": 1000,
+          "returned": 5,
+          "event_topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e"
+        },
+        "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+        "window_blocks": 20000
+      },
+      "failures": [],
+      "p0_retry_pool_tokens": {
+        "status": "rpc_error",
+        "error": "None",
+        "amount_out_wei": 0,
+        "amount_in_wei": 1000,
+        "block_number": null,
+        "token_in": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "token_out": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "ok": false
+      },
+      "liquidity_snapshot": {
+        "tokens": [
+          "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+        ],
+        "balances": [
+          1,
+          1
+        ],
+        "decimals": [
+          6,
+          6
+        ],
+        "swap_fee_bps": 5.0
+      },
+      "p0_known_bal_weth": {
+        "status": "ok",
+        "error": null,
+        "amount_in_wei": 1000000000000000,
+        "amount_out_wei": 19918655339573085611,
+        "block_number": 26099025,
+        "pool_id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014",
+        "pool_address": "0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56",
+        "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+        "token_out": "0xba100000625a3754423978a60c9317c58a424e3D",
+        "ok": true,
+        "meta": {
+          "tokens": [
+            "0xba100000625a3754423978a60c9317c58a424e3D",
+            "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+          ],
+          "balances": [
+            30556184614273503461811569,
+            379676394937695682557
+          ],
+          "decimals": [
+            18,
+            18
+          ],
+          "swap_fee_bps": 100.0
+        }
+      },
+      "p0_known_quoter_registry": {
+        "route_status": "ok",
+        "hop_status": "ok",
+        "amount_out_wei": 19918655339573085611,
+        "error": null
+      }
+    },
+    {
+      "chain": "arbitrum",
+      "rpc": "https://arb1.arbitrum.io/<redacted>",
+      "provider": "balancer_v2",
+      "p0": {
+        "status": "token_not_in_pool",
+        "error": "token_in/token_out not both present in pool",
+        "amount_out_wei": 0,
+        "block_number": null,
+        "pool_id": "0x659d7982defc391a4ac2e54e026bf85d21405af80002000000000000000006a7",
+        "pool_address": "0x659d7982DeFc391a4ac2e54E026bF85d21405aF8",
+        "token_in": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+        "token_out": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        "amount_in_wei": 1000000000000000,
+        "meta": {
+          "pool_address": "0x659d7982DeFc391a4ac2e54E026bF85d21405aF8",
+          "pool_id": "0x659d7982defc391a4ac2e54e026bf85d21405af80002000000000000000006a7",
+          "tokens": [
+            "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+            "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
+          ],
+          "balances": [
+            28135492,
+            63361928
+          ],
+          "decimals": [
+            6,
+            6
+          ],
+          "swap_fee_bps": 5.0,
+          "last_change_block": 26098994
+        }
+      },
+      "p1_subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'arbitrum' (ARBICORE_BALANCER_SUBGRAPH_URL_ARBITRUM)",
+        "candidates": 0,
+        "source": "balancer_v2_subgraph",
+        "expected_unavailable_without_url": true
+      },
+      "p1b_onchain": {
+        "status": "ok",
+        "error": null,
+        "candidates": 1,
+        "sample": [
+          {
+            "pool_id": "0x659d7982defc391a4ac2e54e026bf85d21405af80002000000000000000006a7",
+            "pool_address": "0x659d7982DeFc391a4ac2e54E026bF85d21405aF8",
+            "raw_block": 510719653
+          }
+        ],
+        "provenance": {
+          "chain": "arbitrum",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "from_block": 510712195,
+          "to_block": 510732195,
+          "chunks": 21,
+          "chunk_size": 1000,
+          "returned": 1,
+          "event_topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e"
+        },
+        "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+        "window_blocks": 20000
+      },
+      "failures": [],
+      "p0_retry_pool_tokens": {
+        "status": "ok",
+        "error": null,
+        "amount_out_wei": 998,
+        "amount_in_wei": 1000,
+        "block_number": 510732233,
+        "token_in": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+        "token_out": "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+        "ok": true
+      },
+      "liquidity_snapshot": {
+        "tokens": [
+          "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
+        ],
+        "balances": [
+          28135492,
+          63361928
+        ],
+        "decimals": [
+          6,
+          6
+        ],
+        "swap_fee_bps": 5.0
+      }
+    },
+    {
+      "chain": "base",
+      "rpc": "https://mainnet.base.org/<redacted>",
+      "provider": "balancer_v2",
+      "p0": null,
+      "p1_subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'base' (ARBICORE_BALANCER_SUBGRAPH_URL_BASE)",
+        "candidates": 0,
+        "source": "balancer_v2_subgraph",
+        "expected_unavailable_without_url": true
+      },
+      "p1b_onchain": {
+        "status": "discovery_unavailable",
+        "error": "eth_getLogs failed [52026575,52027574]: ReadError",
+        "candidates": 0,
+        "sample": [],
+        "provenance": {
+          "chain": "base",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "chunks": 4
+        },
+        "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+        "window_blocks": 20000
+      },
+      "failures": [
+        "no_pool_identity_for_p0"
+      ]
+    },
+    {
+      "chain": "optimism",
+      "rpc": "https://mainnet.optimism.io/<redacted>",
+      "provider": "balancer_v2",
+      "p0": null,
+      "p1_subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'optimism' (ARBICORE_BALANCER_SUBGRAPH_URL_OPTIMISM)",
+        "candidates": 0,
+        "source": "balancer_v2_subgraph",
+        "expected_unavailable_without_url": true
+      },
+      "p1b_onchain": {
+        "status": "ok",
+        "error": null,
+        "candidates": 0,
+        "sample": [],
+        "provenance": {
+          "chain": "optimism",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "from_block": 157618861,
+          "to_block": 157638861,
+          "chunks": 21,
+          "chunk_size": 1000,
+          "returned": 0,
+          "event_topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e"
+        },
+        "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+        "window_blocks": 20000
+      },
+      "failures": [
+        "no_pool_identity_for_p0"
+      ]
+    },
+    {
+      "chain": "polygon",
+      "rpc": "https://polygon-bor.publicnode.com/<redacted>",
+      "provider": "balancer_v2",
+      "p0": null,
+      "p1_subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'polygon' (ARBICORE_BALANCER_SUBGRAPH_URL_POLYGON)",
+        "candidates": 0,
+        "source": "balancer_v2_subgraph",
+        "expected_unavailable_without_url": true
+      },
+      "p1b_onchain": {
+        "status": "discovery_unavailable",
+        "error": "eth_getLogs failed [94775910,94776909]: ReadTimeout",
+        "candidates": 0,
+        "sample": [],
+        "provenance": {
+          "chain": "polygon",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "chunks": 16
+        },
+        "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+        "window_blocks": 20000
+      },
+      "failures": [
+        "no_pool_identity_for_p0"
+      ]
+    }
+  ],
+  "generic_dex": [
+    {
+      "chain": "ethereum",
+      "rpc": "https://rpc.mevblocker.io/<redacted>",
+      "candidates": [
+        {
+          "route": "univ3_500->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.883308,
+          "gas_cost_usd": 0.7736290154530298,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -2.756937,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-2.76 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_3000->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.516753,
+          "gas_cost_usd": 0.8118118571637191,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -2.428565,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-2.43 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        }
+      ],
+      "summary": {
+        "A_eligible": 0,
+        "B_below_floor_or_nonpos": 2,
+        "C_quote_fail": 0,
+        "D_liq_fail": 0,
+        "E_gas_fail": 0,
+        "F_rpc_data_fail": 0,
+        "G_unsupported": 0
+      }
+    },
+    {
+      "chain": "arbitrum",
+      "rpc": "https://arb1.arbitrum.io/<redacted>",
+      "candidates": [
+        {
+          "route": "univ3_500->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.913165,
+          "gas_cost_usd": 0.013949925854612834,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -2.027115,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-2.03 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_500->sushi_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.262261,
+          "gas_cost_usd": 0.015987090725512833,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -1.378248,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-1.38 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_500->camelot",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "unknown_gas",
+          "eligible": false,
+          "gross_profit_usd": -0.0956,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "gas cost unavailable (canonical gas model / native price unknown, or incomplete route gas)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_3000->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.489446,
+          "gas_cost_usd": 0.013496703610026832,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -1.602943,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-1.60 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_3000->sushi_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.551197,
+          "gas_cost_usd": 0.016114392457690273,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -1.667311,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-1.67 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_3000->camelot",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "unknown_gas",
+          "eligible": false,
+          "gross_profit_usd": -0.384821,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "gas cost unavailable (canonical gas model / native price unknown, or incomplete route gas)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "sushi_500->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.227503,
+          "gas_cost_usd": 0.014014576286712833,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -1.341518,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-1.34 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "sushi_500->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.940215,
+          "gas_cost_usd": 0.014598256076937835,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -2.054813,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-2.05 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        }
+      ],
+      "summary": {
+        "A_eligible": 0,
+        "B_below_floor_or_nonpos": 6,
+        "C_quote_fail": 0,
+        "D_liq_fail": 0,
+        "E_gas_fail": 2,
+        "F_rpc_data_fail": 0,
+        "G_unsupported": 0
+      }
+    },
+    {
+      "chain": "base",
+      "rpc": "https://mainnet.base.org/<redacted>",
+      "candidates": [
+        {
+          "route": "univ3_500->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "unknown_gas",
+          "eligible": false,
+          "gross_profit_usd": -0.96986,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "gas cost unavailable (canonical gas model / native price unknown, or incomplete route gas)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_500->aero_ss_100",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg2_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "sell leg quote failed (fallback:no_adapter)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "fallback:no_adapter"
+        },
+        {
+          "route": "univ3_500->aero_vol",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "unknown_gas",
+          "eligible": false,
+          "gross_profit_usd": -0.886544,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "gas cost unavailable (canonical gas model / native price unknown, or incomplete route gas)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_3000->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "unknown_gas",
+          "eligible": false,
+          "gross_profit_usd": -0.430299,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "gas cost unavailable (canonical gas model / native price unknown, or incomplete route gas)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_3000->aero_ss_100",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg2_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "sell leg quote failed (fallback:no_adapter)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "fallback:no_adapter"
+        },
+        {
+          "route": "univ3_3000->aero_vol",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "unknown_gas",
+          "eligible": false,
+          "gross_profit_usd": -1.115002,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "gas cost unavailable (canonical gas model / native price unknown, or incomplete route gas)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "aero_ss_100->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:no_adapter)"
+          ],
+          "leg1_status": "fallback:no_adapter",
+          "leg2_status": null
+        },
+        {
+          "route": "aero_ss_100->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:no_adapter)"
+          ],
+          "leg1_status": "fallback:no_adapter",
+          "leg2_status": null
+        }
+      ],
+      "summary": {
+        "A_eligible": 0,
+        "B_below_floor_or_nonpos": 0,
+        "C_quote_fail": 4,
+        "D_liq_fail": 0,
+        "E_gas_fail": 4,
+        "F_rpc_data_fail": 0,
+        "G_unsupported": 0
+      }
+    },
+    {
+      "chain": "optimism",
+      "rpc": "https://mainnet.optimism.io/<redacted>",
+      "candidates": [
+        {
+          "route": "univ3_500->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -1.0441,
+          "gas_cost_usd": 0.0007784900631363633,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -2.144878,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-2.14 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_3000->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -0.471637,
+          "gas_cost_usd": 0.0006778538400447151,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -1.572315,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-1.57 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        }
+      ],
+      "summary": {
+        "A_eligible": 0,
+        "B_below_floor_or_nonpos": 2,
+        "C_quote_fail": 0,
+        "D_liq_fail": 0,
+        "E_gas_fail": 0,
+        "F_rpc_data_fail": 0,
+        "G_unsupported": 0
+      }
+    },
+    {
+      "chain": "polygon",
+      "rpc": "https://polygon-bor.publicnode.com/<redacted>",
+      "candidates": [
+        {
+          "route": "univ3_500->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:rpc_error)"
+          ],
+          "leg1_status": "fallback:rpc_error",
+          "leg2_status": null
+        },
+        {
+          "route": "univ3_500->quickswap",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:rpc_error)"
+          ],
+          "leg1_status": "fallback:rpc_error",
+          "leg2_status": null
+        },
+        {
+          "route": "univ3_3000->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:rpc_error)"
+          ],
+          "leg1_status": "fallback:rpc_error",
+          "leg2_status": null
+        },
+        {
+          "route": "univ3_3000->quickswap",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:rpc_error)"
+          ],
+          "leg1_status": "fallback:rpc_error",
+          "leg2_status": null
+        },
+        {
+          "route": "quickswap->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:rpc_error)"
+          ],
+          "leg1_status": "fallback:rpc_error",
+          "leg2_status": null
+        },
+        {
+          "route": "quickswap->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg2_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "sell leg quote failed (fallback:rpc_error)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "fallback:rpc_error"
+        }
+      ],
+      "summary": {
+        "A_eligible": 0,
+        "B_below_floor_or_nonpos": 0,
+        "C_quote_fail": 6,
+        "D_liq_fail": 0,
+        "E_gas_fail": 0,
+        "F_rpc_data_fail": 0,
+        "G_unsupported": 0
+      }
+    },
+    {
+      "chain": "bnb",
+      "rpc": "https://bsc-dataseed.binance.org/<redacted>",
+      "candidates": [
+        {
+          "route": "univ3_500->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000000000000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -3.43784527542151,
+          "gas_cost_usd": 10698649394.750233,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -10698649399.288078,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-10698649399.29 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_500->pancake_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000000000000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg2_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "sell leg quote failed (fallback:no_adapter)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "fallback:no_adapter"
+        },
+        {
+          "route": "univ3_3000->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000000000000000,
+          "borrow_amount_usd": 200.0,
+          "status": "non_positive_net",
+          "eligible": false,
+          "gross_profit_usd": -2.88553711102529,
+          "gas_cost_usd": 10727016897.801325,
+          "flash_fee_usd": 0.1,
+          "net_profit_usd": -10727016901.786861,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "net profit $-10727016901.79 <= 0"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "ok"
+        },
+        {
+          "route": "univ3_3000->pancake_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000000000000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg2_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "sell leg quote failed (fallback:no_adapter)"
+          ],
+          "leg1_status": "ok",
+          "leg2_status": "fallback:no_adapter"
+        },
+        {
+          "route": "pancake_500->univ3_500",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000000000000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:no_adapter)"
+          ],
+          "leg1_status": "fallback:no_adapter",
+          "leg2_status": null
+        },
+        {
+          "route": "pancake_500->univ3_3000",
+          "flash_provider": "aave_v3",
+          "borrow_asset": "USDC",
+          "borrow_token": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
+          "intermediate": "WETH",
+          "borrow_amount_wei": 200000000000000000000,
+          "borrow_amount_usd": 200.0,
+          "status": "leg1_quote_failed",
+          "eligible": false,
+          "gross_profit_usd": 0.0,
+          "gas_cost_usd": 0.0,
+          "flash_fee_usd": 0.0,
+          "net_profit_usd": 0.0,
+          "min_atomic_profit_usd": 25.0,
+          "gate7_pass": false,
+          "reasons": [
+            "buy leg quote failed (fallback:no_adapter)"
+          ],
+          "leg1_status": "fallback:no_adapter",
+          "leg2_status": null
+        }
+      ],
+      "summary": {
+        "A_eligible": 0,
+        "B_below_floor_or_nonpos": 2,
+        "C_quote_fail": 4,
+        "D_liq_fail": 0,
+        "E_gas_fail": 0,
+        "F_rpc_data_fail": 0,
+        "G_unsupported": 0
+      }
+    }
+  ],
+  "integration_decision": {
+    "generic_dex_scanner_wiring_required_for_evidence": false,
+    "rationale": "GenericDexRouteEngine is a certified library that already performs quotes\u2192gas\u2192economics\u2192$25 Gate 7. Live SHADOW evidence is produced by driving it with QuoterRegistry + real RPCs. EmissionBus/scanner wiring remains a residual architecture item.",
+    "code_change": false
+  },
+  "finished_at": "2026-10-01T17:46:06.340430+00:00",
+  "economic_evidence": {
+    "A_real_profitable": 0,
+    "B_real_economically_rejected": 12,
+    "C_quote_failures": 14,
+    "D_liquidity_failures": 0,
+    "E_gas_failures": 6,
+    "F_rpc_data_failures": 0,
+    "G_unsupported_routes": 0,
+    "note": "Counts from GENERIC_DEX live route evaluations only; unit-test greens are excluded."
+  }
+}
