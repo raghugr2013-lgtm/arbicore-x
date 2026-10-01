@@ -200,6 +200,18 @@ async def test_sp5_pool_meta_feeds_sp4_tvl():
     tvl = await prov.get_pool_tvl_usd("arbitrum", POOL)
     assert tvl == pytest.approx(2 * 2000.0 + 4000 * 1.0)  # 8000
 
-    # And the composition seam accepts the same pool_meta (no None).
+    # And the composition seam accepts the same pool_meta — now UNDER the
+    # canonical operator-RPC gate (H06 remediation). With NO operator RPC it
+    # FAILS CLOSED (None); only a configured operator RPC yields a provider.
+    import os
+    for _k in ("ARBITRUM_RPC_URL", "PROVIDER_RPC_URL_ARBITRUM",
+               "PROVIDER_RPC_URLS_ARBITRUM", "ARBICORE_RPC_URL_ARBITRUM"):
+        os.environ.pop(_k, None)
     assert build_multichain_tvl_provider(
-        "arbitrum", pool_meta=res.pool_meta, price_source=price_source) is not None
+        "arbitrum", pool_meta=res.pool_meta, price_source=price_source) is None
+    os.environ["ARBITRUM_RPC_URL"] = "https://arb.operator.example/rpc"
+    try:
+        assert build_multichain_tvl_provider(
+            "arbitrum", pool_meta=res.pool_meta, price_source=price_source) is not None
+    finally:
+        os.environ.pop("ARBITRUM_RPC_URL", None)

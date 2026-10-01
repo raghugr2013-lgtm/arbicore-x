@@ -460,19 +460,18 @@ def build_evm_tvl_provider(chain, eth_call, price_source, pool_meta):
 
 
 def make_evm_eth_call_from_env(chain):
-    """Return ``async (to, data) -> hex`` over the per-chain registry-backed RPC,
-    or ``None`` when no registry provider exists for ``chain`` (fail closed)."""
-    from ..providers.rpc_failover import get_registry_rpc_provider
-    provider = get_registry_rpc_provider((chain or "").lower())
-    if provider is None:
-        return None
+    """Return ``async (to, data) -> hex`` for a NON-Base chain, or ``None`` (fail
+    closed).
 
-    async def eth_call(to: str, data: str):
-        try:
-            return await provider.eth_call({"to": to, "data": data})
-        except Exception:  # noqa: BLE001 — fail closed
-            return None
-    return eth_call
+    H06 safety remediation: this is now a THIN ALIAS that REUSES the canonical
+    operator-RPC gate ``make_eth_call_for_chain_from_env`` rather than a parallel,
+    weaker implementation. It therefore enforces the SAME
+    ``rpc_explicitly_configured`` requirement as the rest of the codebase — an
+    unconfigured / implicit / public-default RPC yields ``None`` (no fabricated
+    provider, no Base fallback, no optimistic success, no hidden default). Base
+    behaviour is unchanged (Base uses the canonical-registry path, not this seam).
+    """
+    return make_eth_call_for_chain_from_env(chain)
 
 
 def make_evm_price_source_from_env(chain):
