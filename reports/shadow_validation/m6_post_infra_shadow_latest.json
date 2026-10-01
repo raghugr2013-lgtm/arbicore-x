@@ -1648,5 +1648,7 @@
   "post_infra_report": "docs/certification/M6_POST_INFRA_SHADOW_20261002.md",
   "post_infra_start_sha": "aab47f2400b3b80f89a46d957208145bcfc81ad7",
   "post_infra_final_sha": "2682556cb05e351e25fdbd5d9c8be9dca3d6c106",
-  "start_sha_post_infra": "aab47f2400b3b80f89a46d957208145bcfc81ad7"
+  "start_sha_post_infra": "aab47f2400b3b80f89a46d957208145bcfc81ad7",
+  "post_infra_final_sha_note": "evidence tip after pin commit; see git rev-parse HEAD",
+  "disposition_tip_at_close": "9446f7e5b3741aa2dc585fae97ff01a4428aa9a7"
 }

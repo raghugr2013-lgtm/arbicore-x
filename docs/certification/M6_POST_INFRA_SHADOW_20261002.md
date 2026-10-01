@@ -11,13 +11,13 @@
 ## 1. Starting SHA
 
 `aab47f2400b3b80f89a46d957208145bcfc81ad7`  
-(M6 final evidence tip; ancestor of this evidence commit)
+
 
 M6 validation START SHA (reference): `7ec144009b38fd94f7a0a977b41f4a92abdef750`
 
 ## 2. Final SHA
 
-
+`9446f7e5b3741aa2dc585fae97ff01a4428aa9a7`
 
 
 ## 3. Branch
