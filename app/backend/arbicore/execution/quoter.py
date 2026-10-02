@@ -233,6 +233,16 @@ _RPC_LAST_TS: Dict[str, float] = {}
 # (block_number) then comes from a separate best-effort eth_blockNumber.
 _HOST_BATCH_OK: Dict[str, bool] = {}
 
+# HTTP-429 (rate-limit) policy for the quoter transport. A 429 means the host
+# asked us to back off; retrying the SAME host aggressively amplifies 429s
+# instead of failing over. 429 is therefore bounded INDEPENDENTLY of the
+# general retry budget, and each 429 places the host on a short cooldown so
+# QuoterRegistry.quote_route fails over promptly to a valid alternate endpoint.
+_RPC_MAX_RETRIES_429 = int(os.environ.get("ARBICORE_RPC_MAX_RETRIES_429", "1"))
+_RPC_RATE_LIMIT_COOLDOWN_S = float(
+    os.environ.get("ARBICORE_RPC_RATE_LIMIT_COOLDOWN_S", "60"))
+_RPC_HOST_COOLDOWN_UNTIL: Dict[str, float] = {}
+
 # ── H06 (P1 defense-in-depth): endpoint chain-identity verification ──────────
 # Every RPC endpoint used for a chain must prove, via ``eth_chainId``, that it
 # actually serves the INTENDED chain. Wrong / ambiguous / unreadable identity
@@ -428,6 +438,20 @@ async def _eth_call(
     scope = _throttle_scope(rpc_url)
     last_err: Optional[Dict[str, Any]] = None
     retries = _RPC_MAX_RETRIES if max_retries is None else max(0, int(max_retries))
+    # HTTP-429 is bounded INDEPENDENTLY of the general retry budget so a
+    # rate-limited host is not hammered (amplification), and each 429 puts the
+    # host on a short cooldown so later calls fail over to a valid alternate.
+    eff_429 = min(retries, _RPC_MAX_RETRIES_429)
+
+    def _cooldown_host() -> None:
+        _RPC_HOST_COOLDOWN_UNTIL[host] = (
+            asyncio.get_event_loop().time() + _RPC_RATE_LIMIT_COOLDOWN_S)
+
+    # Per-host cooldown gate: fail fast (NO POST) with a rate-limited error so
+    # QuoterRegistry.quote_route fails over to the next candidate endpoint.
+    if _RPC_HOST_COOLDOWN_UNTIL.get(host, 0.0) > asyncio.get_event_loop().time():
+        return None, None, {"code": -32016,
+                            "message": "HTTP 429 host cooldown (recent rate limit)"}
     for attempt in range(retries + 1):
         await _throttle(scope)
         use_batch = with_block_number and _HOST_BATCH_OK.get(host, True)
@@ -441,11 +465,16 @@ async def _eth_call(
             except httpx.HTTPStatusError as exc:
                 if exc.response is not None and exc.response.status_code == 429:
                     last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    _cooldown_host()
+                    if attempt < eff_429:
+                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    return None, None, last_err
                 raise
-            if err and _is_rate_limited(err) and attempt < retries:
+            if err and _is_rate_limited(err):
                 last_err = err
-                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _cooldown_host()
+                if attempt < eff_429:
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
             return result, bn, err
 
         # ---- Batch mode ------------------------------------------------------
@@ -458,13 +487,19 @@ async def _eth_call(
             r = await _post_json(rpc_url, payload, timeout)
             if getattr(r, "status_code", 200) == 429:
                 last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _cooldown_host()
+                if attempt < eff_429:
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                return None, None, last_err
             r.raise_for_status()
             body = r.json()
         except httpx.HTTPStatusError as exc:
             if exc.response is not None and exc.response.status_code == 429:
                 last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _cooldown_host()
+                if attempt < eff_429:
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                return None, None, last_err
             raise
 
         if isinstance(body, list):
@@ -472,9 +507,11 @@ async def _eth_call(
             if call_resp is not None:
                 if "error" in call_resp:
                     err = call_resp["error"]
-                    if _is_rate_limited(err) and attempt < retries:
+                    if _is_rate_limited(err):
                         last_err = err
-                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                        _cooldown_host()
+                        if attempt < eff_429:
+                            await asyncio.sleep(0.3 * (2 ** attempt)); continue
                     return None, None, err
                 block_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 2), None) or {}
                 bn_hex = (block_resp or {}).get("result")
@@ -485,9 +522,11 @@ async def _eth_call(
             # switch this host to single mode and retry.
             err = next((b.get("error") for b in body if isinstance(b, dict) and "error" in b), None)
             if err:
-                if _is_rate_limited(err) and attempt < retries:
+                if _is_rate_limited(err):
                     last_err = err
-                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    _cooldown_host()
+                    if attempt < eff_429:
+                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
                 return None, None, err
             logger.info("quoter: host %s mishandled JSON-RPC batch (array) — switching to single-request mode", host)
             _HOST_BATCH_OK[host] = False
@@ -496,9 +535,11 @@ async def _eth_call(
         # mark the host batch-averse and retry in single mode.
         if isinstance(body, dict) and "error" in body:
             err = body["error"]
-            if _is_rate_limited(err) and attempt < retries:
+            if _is_rate_limited(err):
                 last_err = err
-                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _cooldown_host()
+                if attempt < eff_429:
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
             # A real auth/other error (e.g. Ankr keyless "Unauthorized"): surface it.
             return None, None, err
         logger.info("quoter: host %s answered batch with a non-array — switching to single-request mode", host)
