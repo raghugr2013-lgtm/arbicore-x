@@ -69,11 +69,15 @@ async def test_429_retries_then_succeeds(monkeypatch):
 
 
 async def test_429_exhaustion_fails_closed(monkeypatch):
-    p = _provider([_Resp(429)] * 4, monkeypatch)  # max_retries=3 -> 4 attempts
+    # 429 is now bounded by ARBICORE_RPC_MAX_RETRIES_429 (default 1) -> 2 POSTs,
+    # and the host is placed on a cooldown so the registry fails over instead of
+    # amplifying 429s against a rate-limited host.
+    p = _provider([_Resp(429)] * 4, monkeypatch)
     with pytest.raises(ProviderError) as ei:
         await p._call("eth_blockNumber", [])
     assert "429" in str(ei.value) and ei.value.retryable is True
-    assert p._client.calls == 4
+    assert p._client.calls == 2
+    assert p._cooldown_until > 0.0
 
 
 async def test_5xx_retries_then_fails_closed(monkeypatch):

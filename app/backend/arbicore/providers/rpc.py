@@ -78,6 +78,14 @@ class EthJsonRpcProvider:
         self._max_retries = max(0, _env_int("ARBICORE_RPC_MAX_RETRIES", 3))
         self._backoff_base_ms = max(0, _env_int("ARBICORE_RPC_BACKOFF_BASE_MS", 200))
         self._backoff_cap_ms = max(0, _env_int("ARBICORE_RPC_BACKOFF_CAP_MS", 4000))
+        # HTTP-429 (rate-limit) policy. A 429 means the host asked us to back
+        # off, so retrying the SAME host aggressively amplifies 429s instead of
+        # failing over. Use a smaller retry budget for 429 and put the host on a
+        # short cooldown so the registry fails over to a valid alternate.
+        self._max_retries_429 = max(0, _env_int("ARBICORE_RPC_MAX_RETRIES_429", 1))
+        self._cooldown_s = float(
+            max(0, _env_int("ARBICORE_RPC_RATE_LIMIT_COOLDOWN_S", 60)))
+        self._cooldown_until = 0.0
 
     async def _http(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -105,14 +113,24 @@ class EthJsonRpcProvider:
     async def _call(self, method: str, params: List[Any]) -> Any:
         """Read-only JSON-RPC call with bounded exponential backoff.
 
-        Retryable (up to ARBICORE_RPC_MAX_RETRIES): HTTP 429 (honors Retry-After),
-        HTTP 5xx, network/timeout errors, malformed JSON. Non-retryable: other 4xx
-        and JSON-RPC error objects. On exhaustion a ProviderError is raised so
-        callers FAIL CLOSED — a rate-limited/unavailable RPC is NEVER treated as
-        valid market data. Never logs URLs/secrets (only host-derived provider_id)."""
+        Retryable: HTTP 429 (bounded by ARBICORE_RPC_MAX_RETRIES_429, honors
+        Retry-After, and places the host on a short cooldown — see
+        ARBICORE_RPC_RATE_LIMIT_COOLDOWN_S), HTTP 5xx, network/timeout errors,
+        malformed JSON (both bounded by ARBICORE_RPC_MAX_RETRIES). Non-retryable:
+        other 4xx and JSON-RPC error objects. On exhaustion a ProviderError is
+        raised so callers FAIL CLOSED — a rate-limited/unavailable RPC is NEVER
+        treated as valid market data. Never logs URLs/secrets (only
+        host-derived provider_id)."""
         client = await self._http()
+        # Host cooldown gate: if this host recently returned 429, fail fast
+        # (no POST) with a retryable error so the registry fails over to a valid
+        # alternate instead of re-hammering a rate-limited host.
+        if self._cooldown_until > time.monotonic():
+            raise ProviderError(
+                f"{self.provider_id} {method} host_cooldown (recent 429)",
+                retryable=True, provider_id=self.provider_id)
         last_exc: Optional[ProviderError] = None
-        for attempt in range(self._max_retries + 1):
+        for attempt in range(max(self._max_retries, self._max_retries_429) + 1):
             self._req_id += 1
             payload = {"jsonrpc": "2.0", "id": self._req_id,
                        "method": method, "params": params}
@@ -127,7 +145,18 @@ class EthJsonRpcProvider:
                 raise last_exc from e
 
             status = r.status_code
-            if status == 429 or status >= 500:
+            if status == 429:
+                # Rate-limited: cool the host down so subsequent calls fail over
+                # instead of amplifying 429s, and use the smaller 429 budget.
+                self._cooldown_until = time.monotonic() + self._cooldown_s
+                last_exc = ProviderError(
+                    f"{self.provider_id} {method} -> {status}",
+                    retryable=True, provider_id=self.provider_id)
+                if attempt < self._max_retries_429:
+                    await self._sleep_backoff(attempt, _parse_retry_after(r.headers))
+                    continue
+                raise last_exc
+            if status >= 500:
                 last_exc = ProviderError(
                     f"{self.provider_id} {method} -> {status}",
                     retryable=True, provider_id=self.provider_id)
