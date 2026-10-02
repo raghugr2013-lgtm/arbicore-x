@@ -15,11 +15,10 @@
 export default [
   {
     ignores: [
-      "app/frontend/public/arbicore-companion.user.js",
-      "app/frontend/public/arbicore-companion-v2.user.js",
-      "app/frontend/src/**",
-      "app/frontend/build/**",
-      "app/frontend/node_modules/**",
+      "**/*.user.js",
+      "**/frontend/src/**",
+      "**/frontend/build/**",
+      "**/frontend/node_modules/**",
       "**/node_modules/**",
       "**/build/**",
       "**/dist/**",
