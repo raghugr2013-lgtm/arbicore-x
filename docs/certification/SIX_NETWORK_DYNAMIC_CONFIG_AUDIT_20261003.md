@@ -1,7 +1,7 @@
 # SIX-NETWORK ACTIVATION + DYNAMIC NETWORK CONFIG — AUDIT (Part A + Part B)
 
 - **Status:** **IMPLEMENTED (code only)** — see commit pointer below. No live Network Config APPLY, no Mongo mutation, no restart/redeploy, no AUTOEXEC/RUNTIME/live enablement, no six-network activation / SHADOW.
-- **IMPLEMENTED pointer:** search `git log --oneline --grep='six-network dynamic Network Config'` for the implementation commit (FE allowlist + Add Network + generalised env_sync). Live APPLY / six-network activation / SHADOW remain blocked. **STOP — await activation GO.**
+- **IMPLEMENTED pointer:** `27dfab42ae6981b39628c04fd9d1b869c3f6c57b` — six-network dynamic Network Config (FE allowlist + Add Network + generalised env_sync). Live APPLY / six-network activation / SHADOW remain blocked. **STOP — await activation GO.**
 - **Date (UTC context):** 2026-10-03
 - **Cert workspace:** `/home/raghu/projects/arbicore-x-cert`
 - **Production (read-only):** `/home/raghu/projects/arbicore-x-v2`
