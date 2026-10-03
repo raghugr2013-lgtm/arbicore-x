@@ -1367,14 +1367,19 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
         from ..discovery.multichain_venues import (
             build_pool_graph as _mc_pool_graph, supported_discovery_chains)
         from ..config.persistent import resolve_rpc_url_from_env
+        from ..scanners.flash_loan_arbitrage.pool_tvl_propagation import (
+            PoolTVLOverlay)
 
-        def _multichain_pool_loader(chain: str):
+        _pool_tvl_overlay = PoolTVLOverlay()
+
+        def _raw_pool_loader(chain: str):
             """Generic multi-chain pool universe (SHADOW, fail-closed).
 
             Base → canonical resolved graph minus the current runtime V3
             eligibility deny-list. The canonical registry itself is never
             mutated by this filter and RouteSearchEngine remains synchronous
-            and pure.
+            and pure. ``tvl_usd`` is still the graph placeholder until the
+            overlay applies a measured snapshot.
             """
             c = (chain or "").lower()
             if c == _BASE_CHAIN:
@@ -1389,6 +1394,9 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
                 return _mc_pool_graph(c)
             return []
 
+        def _multichain_pool_loader(chain: str):
+            return _pool_tvl_overlay.apply(chain, _raw_pool_loader(chain))
+
         _flash_loan_arb_scanner = FlashLoanArbitrageScanner(
             emission_bus=get_emission_bus(),
             discovery_queue=get_discovery_queue(),
@@ -1400,6 +1408,8 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
             chain_liveness_loader=None,
             confidence_engine=get_confidence_engine(),
         )
+        _flash_loan_arb_scanner._pool_tvl_overlay = _pool_tvl_overlay
+        _flash_loan_arb_scanner._raw_pool_loader = _raw_pool_loader
         _flash_loan_arb_scanner._refresh_caches_once = _refresh_caches_once  # type: ignore[attr-defined]
     return _flash_loan_arb_scanner
 
@@ -1500,9 +1510,22 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
             tvl_provider = build_base_tvl_provider(eth_call, price_source)
     except Exception:  # noqa: BLE001 — fail-closed to None
         tvl_provider = None
+    from ..scanners.flash_loan_arbitrage.pool_tvl_propagation import (
+        attach_measured_tvl_path)
+    # Same measurer feeds the pre-search PoolNode field and Gate 8.
+    # The dispatcher refuses to answer a chain with another chain's provider.
+    # Refresh is invoked only from an enabled tick; this wiring does not
+    # start the scanner and does not change min_pool_tvl_usd.
+    tvl_dispatch = attach_measured_tvl_path(
+        scanner,
+        eth_call_for_chain=make_eth_call_for_chain_from_env,
+        base_tvl_provider=tvl_provider,
+        quoter_registry=quoter_registry,
+    )
+    quote_tvl = tvl_dispatch if tvl_dispatch is not None else tvl_provider
     scanner.set_quote_provider(
         make_live_quote_provider(
-            quoter_registry, tvl_provider=tvl_provider,
+            quoter_registry, tvl_provider=quote_tvl,
             # H05: EXACT-SIZE sizer (multichain exact-size architecture) bound to
             # the SAME Base price feed; the SOLE Base sizer. Env-gated
             # (ARBICORE_BORROW_SIZER_ENABLED + ARBICORE_PRICE_FEED_ENABLED) →

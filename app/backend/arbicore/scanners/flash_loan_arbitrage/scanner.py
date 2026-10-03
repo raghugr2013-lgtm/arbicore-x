@@ -129,6 +129,13 @@ class FlashLoanArbitrageScanner:
         self._verifier_registry = OpportunityVerifierRegistry()
         self._verifier_registry.register(self._verifier)
 
+        # Measured TVL is written onto the loader before search. The hook
+        # stays unset until activation wires it, and _tick calls it only
+        # after is_enabled() is true. The $100,000 floor is unchanged.
+        self._pool_tvl_refresh = None
+        self._pool_tvl_overlay = None
+        self._raw_pool_loader = pool_loader
+
         self._worker_id = f"flash_loan_arb:{uuid.uuid4().hex[:8]}"
         # Diagnostic provenance identity (observability only; never a verdict
         # input). ``_audit_run_id`` is stable for this scanner instance;
@@ -210,6 +217,14 @@ class FlashLoanArbitrageScanner:
         """M2.5 — wire the per-token USD price provenance source onto the
         verifier for the evidence bundle."""
         self._verifier.price_provenance_fn = fn
+
+    def set_pool_tvl_refresh(self, fn) -> None:
+        """Measure pool TVL onto the route-search loader before discovery.
+
+        ``_tick`` calls this only after ``is_enabled()`` is true. The
+        callback must leave ``min_pool_tvl_usd`` unchanged.
+        """
+        self._pool_tvl_refresh = fn
 
     def _diagnostic_provenance(self, candidate) -> Dict[str, Any]:
         """Diagnostic provenance stamped onto every evidence bundle. Pure
@@ -335,6 +350,17 @@ class FlashLoanArbitrageScanner:
             self._maybe_rebuild_route_engine()
         except Exception as exc:  # noqa: BLE001 — never let a rebuild abort a tick
             self._stats["last_error"] = f"route_rebuild: {exc!r}"
+
+        # Measured TVL lands on PoolNode before search applies the floor.
+        # Unknown readings stay 0 and remain excluded. Disabled ticks
+        # returned above and never reach this hook.
+        refresh = self._pool_tvl_refresh
+        if refresh is not None:
+            try:
+                await refresh()
+            except Exception as exc:  # noqa: BLE001 — unmeasured TVL stays 0
+                self._stats["last_error"] = f"pool_tvl_refresh: {exc!r}"
+                logger.exception("flash_loan pool TVL refresh failed: %s", exc)
 
         # ---- 1. Discover --------------------------------------------------
         all_candidates: List[DiscoveryCandidate] = []

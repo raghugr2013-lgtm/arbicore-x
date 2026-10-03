@@ -30,6 +30,8 @@ import logging
 import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
+from .pool_tvl_propagation import tvl_provider_usable_for_chain
+
 _LOG = logging.getLogger("arbicore.live_quote_provider")
 
 
@@ -252,11 +254,13 @@ def make_live_quote_provider(
     """Return an async ``QuoteProvider`` bound to a live ``QuoterRegistry``.
 
     ``tvl_provider`` (M2.2, optional) supplies REAL measured on-chain pool depth
-    for Gate 8 (fail-closed when absent). It is CHAIN-SCOPED: ``tvl_provider_chain``
-    names the single chain it is valid for (default ``"base"``). H07: a route on
-    any OTHER chain must NOT consume this provider's depth — doing so would let
-    Base TVL leak into non-Base economics. For a mismatched chain the depth is
-    left absent, so Gate 8 fails closed rather than trusting foreign data.
+    for Gate 8 (fail-closed when absent). A provider without ``scoped_chains``
+    is valid only for ``tvl_provider_chain`` (default ``"base"``). H07: a route
+    on any OTHER chain must NOT consume that provider's depth — doing so would
+    let Base TVL leak into non-Base economics. A dispatcher that publishes
+    ``scoped_chains`` is consulted only for a chain it actually serves, and
+    it still cannot answer with another chain's provider. For a mismatched
+    chain the depth is left absent, so Gate 8 fails closed.
     ``eth_call_for_chain(chain)`` supplies an async ``eth_call`` for NON-Base
     chains' on-chain pool validation; when it is ``None`` (or returns ``None``
     for a chain), non-Base routes fail closed. Base uses the canonical registry.
@@ -369,9 +373,10 @@ def make_live_quote_provider(
         # REAL measured on-chain depth (M2.2), keyed per hop via the plan.
         tvl_keys = [p.tvl_key for p in plans]
         pool_tvls: Dict[str, float] = {}
-        # H07: only consult the TVL provider for the chain it is scoped to.
+        # H07: only consult the TVL provider for a chain it is scoped to.
         # A route on any other chain must not inherit this provider's depth.
-        tvl_usable = tvl_provider is not None and chain == _tvl_chain
+        tvl_usable = tvl_provider_usable_for_chain(
+            tvl_provider, chain, _tvl_chain)
         if tvl_provider is not None and not tvl_usable:
             _LOG.warning(
                 "live_quote_provider: TVL provider is chain-scoped to %r but "
