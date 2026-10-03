@@ -26,6 +26,7 @@ from ...models.discovery import (
 from ...models.enums import DataProvenance, OpportunityType
 from ...chains.registries import probe_amount_wei
 from ..discovery_source import DiscoverySource
+from .economics import providers_for_chain
 from .route_search import PoolNode, RouteCycle, RouteSearchEngine
 
 logger = logging.getLogger(
@@ -123,7 +124,7 @@ class RouteSearchDiscoverySource(DiscoverySource):
                         f"{type(exc).__name__}: {exc}")
                     continue
                 for cycle in cycles:
-                    for provider in enabled_providers:
+                    for provider in providers_for_chain(chain, enabled_providers):
                         cand = self._candidate_for_cycle(
                             cycle, provider=provider)
                         if cand is not None:

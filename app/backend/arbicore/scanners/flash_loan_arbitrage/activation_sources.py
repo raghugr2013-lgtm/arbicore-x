@@ -23,6 +23,7 @@ from ...models.discovery import (
 from ...models.enums import DataProvenance, OpportunityType
 from ...chains.registries import probe_amount_wei, tokens_for
 from ..discovery_source import DiscoverySource
+from .economics import providers_for_chain
 from .route_search import PoolNode, RouteSearchEngine
 from .triangular import enumerate_cycles
 
@@ -212,7 +213,7 @@ class GenericDexDiscoverySource(DiscoverySource):
                                        cycle.token_path[i + 1])
                         for i in range(2)
                     ]
-                    for provider in enabled_providers:
+                    for provider in providers_for_chain(chain, enabled_providers):
                         hm: Dict[str, Any] = {
                             "chain": chain,
                             "provider": provider,
@@ -357,7 +358,7 @@ class TriangularDiscoverySource(DiscoverySource):
                     ]
                     venues = [p.pool_address for p in chosen]
                     route_id = f"tri:{chain}:{':'.join(cyc)}:{':'.join(venues)}"
-                    for provider in enabled_providers:
+                    for provider in providers_for_chain(chain, enabled_providers):
                         hm: Dict[str, Any] = {
                             "chain": chain,
                             "provider": provider,
@@ -602,7 +603,7 @@ class BalancerV2DiscoverySource(DiscoverySource):
                         f"bal:{chain}:{token_a}:{token_b}:"
                         f"{cand.pool_id or cand.pool_address}:"
                         f"{complement.pool_address}")
-                    for provider in enabled_providers:
+                    for provider in providers_for_chain(chain, enabled_providers):
                         hm: Dict[str, Any] = {
                             "chain": chain,
                             "provider": provider,

@@ -501,3 +501,28 @@ FAMILY_LABELS: Dict[str, str] = {
     "funding_arb":     "Funding Arbitrage",
     "launch_arb":      "Launch Arbitrage",
 }
+
+
+def chain_config_patch(persisted_chains, chain_id: str, *, enabled: bool) -> Dict[str, Any]:
+    """``$set`` one known flash-loan chain without replacing ``chains``.
+
+    A chain is known when ``DEFAULT_FLASH_LOAN_ARB_CONFIG`` has it, even if
+    the persisted document omitted the key (BNB was seeded before the key
+    existed). The patch key is ``chains.<id>`` so sibling chains stay put.
+    Metadata comes from the default object. No RPC URL is written. Unknown
+    chains raise ``KeyError``.
+    """
+    defaults = (DEFAULT_FLASH_LOAN_ARB_CONFIG.get("chains") or {})
+    base = defaults.get(chain_id)
+    if not isinstance(base, dict) or not base:
+        raise KeyError(chain_id)
+    current = {}
+    if isinstance(persisted_chains, dict):
+        raw = persisted_chains.get(chain_id) or {}
+        if isinstance(raw, dict):
+            current = dict(raw)
+    merged = dict(base)
+    merged.update(current)
+    merged["enabled"] = bool(enabled)
+    merged.pop("rpc_url", None)
+    return {f"chains.{chain_id}": merged}

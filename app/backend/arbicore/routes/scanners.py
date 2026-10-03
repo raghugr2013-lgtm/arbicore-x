@@ -16,6 +16,7 @@ from ..runtime.composition import (
     get_scanner_config_repo,
     get_scanner_state_repo, get_venue_capability_repo,
 )
+from ..data.scanner_config_defaults import chain_config_patch
 from .arbicore import require_auth
 
 router = APIRouter(prefix="/api/arbicore", tags=["arbicore-d1"])
@@ -1202,28 +1203,24 @@ async def flash_loan_provider_disable(provider_id: str):
               dependencies=[Depends(require_auth)])
 async def flash_loan_chain_enable(chain_id: str):
     cfg = await get_scanner_config_repo().get("flash_loan_arb")
-    chains = dict(cfg.get("chains", {}))
-    c = dict(chains.get(chain_id, {}))
-    if not c:
+    try:
+        patch = chain_config_patch(cfg.get("chains"), chain_id, enabled=True)
+    except KeyError:
         raise HTTPException(404, f"unknown chain: {chain_id}")
-    c["enabled"] = True
-    chains[chain_id] = c
-    return await get_scanner_config_repo().update(
-        "flash_loan_arb", {"chains": chains})
+    # Dotted $set of chains.<id> only. Does not write scanner state, does
+    # not resume the scanner, and does not store an RPC URL.
+    return await get_scanner_config_repo().update("flash_loan_arb", patch)
 
 
 @router.post("/scanners/flash_loan_arb/chains/{chain_id}/disable",
               dependencies=[Depends(require_auth)])
 async def flash_loan_chain_disable(chain_id: str):
     cfg = await get_scanner_config_repo().get("flash_loan_arb")
-    chains = dict(cfg.get("chains", {}))
-    c = dict(chains.get(chain_id, {}))
-    if not c:
+    try:
+        patch = chain_config_patch(cfg.get("chains"), chain_id, enabled=False)
+    except KeyError:
         raise HTTPException(404, f"unknown chain: {chain_id}")
-    c["enabled"] = False
-    chains[chain_id] = c
-    return await get_scanner_config_repo().update(
-        "flash_loan_arb", {"chains": chains})
+    return await get_scanner_config_repo().update("flash_loan_arb", patch)
 
 
 @router.get("/scanners/flash_loan_arb/preview",

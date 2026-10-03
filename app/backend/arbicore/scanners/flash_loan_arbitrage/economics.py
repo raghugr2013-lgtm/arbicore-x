@@ -57,6 +57,24 @@ FLASH_LOAN_PROVIDERS: Dict[str, Dict[str, Any]] = {
 }
 
 
+def providers_for_chain(chain: str, enabled_providers) -> List[str]:
+    """Enabled catalog providers whose ``supports_chains`` includes ``chain``.
+
+    A provider the catalog does not list for that chain is not paired onto
+    a candidate. Unknown provider ids are skipped. This does not enable any
+    provider; the caller passes the already-configured set.
+    """
+    c = (chain or "").lower()
+    out: List[str] = []
+    for name in enabled_providers or []:
+        meta = FLASH_LOAN_PROVIDERS.get(str(name))
+        if not meta:
+            continue
+        if c in (meta.get("supports_chains") or ()):
+            out.append(str(name))
+    return out
+
+
 def provider_fee_bps(provider: str,
                       override_tier_bps: Optional[int] = None,
                       ) -> int:
