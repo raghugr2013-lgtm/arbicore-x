@@ -2,10 +2,16 @@
  * ArbiCore X — UI v2 · Settings page (Slice 5)
  * Sub-rail: Account · Vault · Execution · Exchanges · Notifications · Documentation · Operational
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Route, Routes, NavLink, Navigate } from "react-router-dom";
 import { toast } from "sonner";
 import { v2Api } from "@/v2/lib/api";
+import {
+  FALLBACK_SUPPORTED_CHAINS,
+  resolveSupportedChains,
+  unusedAllowlistChains,
+  enableAllowlistedChain,
+} from "@/v2/lib/supportedChains";
 
 const SUB = [
   { key: "account", label: "Account" },
@@ -537,15 +543,31 @@ function Notifications() {
   );
 }
 
-/* -------------------- Network (Phase 10.1) -------------------- */
-const CHAINS = ["base", "ethereum", "arbitrum", "optimism", "polygon"];
+/* -------------------- Network (Phase 10.1 — six-network dynamic) -------------------- */
 
 function Network() {
   const [{ loading, data }, reload] = useAsync(() => v2Api.networkGet());
   const [form, setForm] = useState(null);
   const [validation, setValidation] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [addChain, setAddChain] = useState("");
   useEffect(() => { if (data?.config) setForm(JSON.parse(JSON.stringify(data.config))); }, [data]);
+  const chains = useMemo(() => resolveSupportedChains(data), [data]);
+  const addable = useMemo(
+    () => unusedAllowlistChains(chains, form?.chains_enabled),
+    [chains, form?.chains_enabled],
+  );
+  const addNetwork = () => {
+    if (!addChain) return;
+    const r = enableAllowlistedChain(form, addChain, chains);
+    if (!r.ok) {
+      toast.error(r.error || "Add Network failed");
+      return;
+    }
+    setForm(r.form);
+    setAddChain("");
+    toast.success(`Enabled ${addChain} in draft — VALIDATE → APPLY to activate`);
+  };
   const validate = async () => {
     try {
       const r = await v2Api.networkValidate(form);
@@ -589,7 +611,33 @@ function Network() {
     <section data-testid="v2-settings-network">
       <div className="v2-panel" style={{ maxWidth: 900 }}>
         <div className="v2-panel__title">Per-chain RPC endpoints</div>
-        {CHAINS.map((c) => (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14 }} data-testid="v2-settings-network-add">
+          <span style={{ color: "var(--v2-text-muted)", fontFamily: "var(--v2-font-mono)", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6 }}>Add Network</span>
+          <select
+            data-testid="v2-settings-network-add-select"
+            value={addChain}
+            onChange={(e) => setAddChain(e.target.value)}
+            style={{ ...INPUT_STYLE, width: 180 }}
+            disabled={addable.length === 0}
+          >
+            <option value="">{addable.length === 0 ? "All allowlisted chains enabled" : "Select allowlisted chain…"}</option>
+            {addable.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+          <button
+            style={BTN_GHOST}
+            onClick={addNetwork}
+            disabled={!addChain || busy}
+            data-testid="v2-settings-network-add-btn"
+          >
+            ENABLE
+          </button>
+          <span style={{ color: "var(--v2-text-muted)", fontSize: 11 }}>
+            Allowlist only ({chains.length} supported). Does not APPLY.
+          </span>
+        </div>
+        {chains.map((c) => (
           <div key={c} style={{ marginBottom: 14, borderBottom: "1px solid var(--v2-border-subtle)", paddingBottom: 12 }} data-testid={`v2-settings-network-chain-${c}`}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <span style={{ color: "var(--v2-text-strong)", fontFamily: "var(--v2-font-mono)", fontSize: 13, textTransform: "uppercase", letterSpacing: 1.2 }}>{c}</span>
@@ -770,7 +818,7 @@ function Scanner() {
   const supportedDex = data?.market_families_supported || [];
   const paused = !!globalForm.paused;
   const enabled = !!globalForm.enabled;
-  const chains = ["base", "ethereum", "arbitrum", "optimism", "polygon"];
+  const chains = FALLBACK_SUPPORTED_CHAINS;
 
   return (
     <section data-testid="v2-settings-scanner">

@@ -11,10 +11,11 @@ import { API_BASE } from "@/lib/apiBase";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import axios from "axios";
 import { toast } from "sonner";
+import { FALLBACK_SUPPORTED_CHAINS } from "@/v2/lib/supportedChains";
 
 const API = API_BASE;
 
-const CHAINS = ["base", "ethereum", "arbitrum", "optimism", "polygon"];
+const CHAINS = FALLBACK_SUPPORTED_CHAINS;
 const ROLES = ["gas", "treasury", "watch_only"];
 
 const cx = (...c) => c.filter(Boolean).join(" ");

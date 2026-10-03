@@ -2,8 +2,8 @@
 
 Reuses the existing ``NetworkConfigRepo`` (Phase 10.1) to mirror the operator's
 UI-managed network configuration into the process environment so that every
-runtime read of ``ARBICORE_RPC_URL``, ``ARBICORE_RPC_URL_BASE``, and
-``ARBICORE_EXECUTOR_ADDRESS_BASE`` transparently consumes the same values the
+runtime read of ``ARBICORE_RPC_URL``, ``ARBICORE_RPC_URL_<CHAIN>``, and
+``ARBICORE_EXECUTOR_ADDRESS_<CHAIN>`` transparently consumes the same values the
 UI displays.
 
 Design contract:
@@ -14,6 +14,8 @@ Design contract:
       is left untouched (full backward compatibility with pre-Phase-10 setups
       that configured everything via ``backend/.env``).
     * Idempotent — running it multiple times converges on the same env state.
+    * Syncs every chain in ``SUPPORTED_CHAINS`` by default (six-network).
+    * Global ``ARBICORE_RPC_URL`` is Base-only (never overwritten by non-Base).
     * No new schema, no new collections, no new configuration framework.
 
 Invoked from:
@@ -30,7 +32,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Iterable, Optional
+
+from arbicore.config.persistent import SUPPORTED_CHAINS
 
 
 logger = logging.getLogger(__name__)
@@ -87,32 +91,19 @@ def _sync_managed_provider_rpc_urls(chain: str, rpcs, exported: Dict[str, str]
         exported[var] = "<removed, managed>"
 
 
-async def sync_env_from_network_config(network_repo, *, chain: str = "base"
-                                        ) -> Dict[str, str]:
-    """Push the persistent Network config onto ``os.environ``.
-
-    Args:
-        network_repo: an instance of ``NetworkConfigRepo``.
-        chain: which chain's RPC / executor to export; default ``"base"``.
-
-    Returns:
-        A dict of the env vars that were set on this call (for audit logging).
-    """
-    exported: Dict[str, str] = {}
-    try:
-        cfg = await network_repo.get()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("env_sync: could not read network config: %s", exc)
-        return exported
-
+def _sync_one_chain(cfg: Dict[str, Any], chain: str,
+                    exported: Dict[str, str]) -> None:
+    """Push one chain's persistent Network config onto ``os.environ``."""
     # RPC URL — primary of the chain's rpc_urls list wins.
     rpcs = (cfg.get("rpc_urls") or {}).get(chain) or []
     primary_rpc = next((u for u in rpcs if isinstance(u, str) and u.strip()),
                        None)
     if primary_rpc:
-        os.environ["ARBICORE_RPC_URL"] = primary_rpc
+        # Global ARBICORE_RPC_URL is Base-only — never overwrite with non-Base.
+        if chain == "base":
+            os.environ["ARBICORE_RPC_URL"] = primary_rpc
+            exported["ARBICORE_RPC_URL"] = primary_rpc
         os.environ[f"ARBICORE_RPC_URL_{chain.upper()}"] = primary_rpc
-        exported["ARBICORE_RPC_URL"] = primary_rpc
         exported[f"ARBICORE_RPC_URL_{chain.upper()}"] = primary_rpc
         # T0-5: also export the legacy ``<CHAIN>_RPC_URL`` alias so legacy
         # readers (e.g. paper/simulator.py, scanner_config rpc_env_var) stay
@@ -132,7 +123,55 @@ async def sync_env_from_network_config(network_repo, *, chain: str = "base"
         os.environ[env_key] = exec_addr
         exported[env_key] = exec_addr
 
+
+async def sync_env_from_network_config(
+    network_repo,
+    *,
+    chain: Optional[str] = None,
+    chains: Optional[Iterable[str]] = None,
+) -> Dict[str, str]:
+    """Push the persistent Network config onto ``os.environ``.
+
+    Args:
+        network_repo: an instance of ``NetworkConfigRepo``.
+        chain: optional single-chain override (backward compatible). When set,
+            only that chain is synced. Prefer omitting this so all
+            ``SUPPORTED_CHAINS`` are synced.
+        chains: optional explicit iterable of chains to sync. Ignored when
+            ``chain`` is provided. Defaults to ``SUPPORTED_CHAINS``.
+
+    Returns:
+        A dict of the env vars that were set on this call (for audit logging).
+
+    Fail-closed: unknown chains in ``chain``/``chains`` are skipped with a
+    warning; repo read failures return ``{}`` without mutating env.
+    """
+    exported: Dict[str, str] = {}
+    try:
+        cfg = await network_repo.get()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("env_sync: could not read network config: %s", exc)
+        return exported
+
+    if chain is not None:
+        target = [chain]
+    elif chains is not None:
+        target = list(chains)
+    else:
+        target = list(SUPPORTED_CHAINS)
+
+    for c in target:
+        if c not in SUPPORTED_CHAINS:
+            logger.warning("env_sync: skipping unsupported chain %r", c)
+            continue
+        before = len(exported)
+        _sync_one_chain(cfg, c, exported)
+        if len(exported) > before:
+            logger.debug("env_sync: chain=%s exported %d var(s)",
+                         c, len(exported) - before)
+
     if exported:
         logger.info("env_sync: exported %d var(s) from persistent network "
-                     "config (chain=%s)", len(exported), chain)
+                     "config (chains=%s)", len(exported),
+                     ",".join(target))
     return exported

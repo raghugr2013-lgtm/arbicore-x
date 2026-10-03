@@ -53,6 +53,7 @@ from arbicore.execution.operator_wizard import (
 from arbicore.execution.operator_journey import build_journey
 from arbicore.config.persistent import (
     ConfigRepo, NetworkConfigRepo, NETWORK_KIND, first_rpc_endpoint,
+    SUPPORTED_CHAINS as NETWORK_SUPPORTED_CHAINS,
 )
 from arbicore.config.env_sync import sync_env_from_network_config
 from arbicore.config.stubs_migration import (
@@ -5957,7 +5958,14 @@ async def v2_settings_network() -> Dict[str, Any]:
     try:
         cfg = await _NETWORK_CONFIG.get()
         draft = await _NETWORK_CONFIG.get_draft()
-        return {"config": cfg, "draft": draft, "generated_at": _iso_now()}
+        # Canonical allowlist for Network Settings / Add Network UX.
+        # Sourced from NetworkConfigRepo SUPPORTED_CHAINS (includes bnb).
+        return {
+            "config": cfg,
+            "draft": draft,
+            "supported_chains": list(NETWORK_SUPPORTED_CHAINS),
+            "generated_at": _iso_now(),
+        }
     except Exception as exc:  # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}",
                  "generated_at": _iso_now()}
