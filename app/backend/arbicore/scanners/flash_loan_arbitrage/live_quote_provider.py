@@ -164,78 +164,260 @@ def _explicit_balancer_identity(rh: Dict[str, Any]) -> Optional[Tuple[Optional[s
     return pool_id, pool_address
 
 
+_QUOTER_BACKENDS: Optional[Dict[str, Any]] = None
+
+
+def _quoter_backends() -> Dict[str, Any]:
+    """Registered quote backends. Local map only — no RPC."""
+    global _QUOTER_BACKENDS
+    if _QUOTER_BACKENDS is None:
+        from ...execution.quoter import QuoterRegistry
+        _QUOTER_BACKENDS = QuoterRegistry()._backends
+    return _QUOTER_BACKENDS
+
+
+def quoter_serves(dex: str, chain: str) -> bool:
+    """True when an existing backend has a contract for this dex and chain.
+
+    This is the local capability map. It does not resolve pools and it does
+    not add a quoter that is not already registered.
+    """
+    d = (dex or "").lower()
+    c = (chain or "").lower()
+    if not d or not c:
+        return False
+    if d == "balancer_v2":
+        from ...discovery.balancer_v2_pool_discovery import (
+            BALANCER_V2_VAULT_BY_CHAIN)
+        return c in BALANCER_V2_VAULT_BY_CHAIN
+    backend = _quoter_backends().get(d)
+    if backend is None:
+        return False
+    for attr in ("_CONTRACT_BY_CHAIN", "_ROUTER_BY_CHAIN"):
+        mapping = getattr(backend, attr, None)
+        if isinstance(mapping, dict) and mapping.get(c):
+            return True
+    return False
+
+
+def hop_quote_capable(chain: str, pool) -> bool:
+    """True when this pool's DEX can be quoted on ``chain``.
+
+    Selection uses this local map so an unsupported DEX does not occupy a
+    candidate slot. The planner still fail-closes a hop whose pool cannot
+    be resolved. No RPC.
+    """
+    return quoter_serves(getattr(pool, "dex_protocol", ""), chain)
+
+
+def _token_addr(chain: str, sym_or_addr: str) -> Optional[str]:
+    s = str(sym_or_addr or "")
+    if s.startswith("0x") and len(s) == 42:
+        return s
+    from ...discovery.multichain_pool_registry import token_address
+    return token_address(chain, s)
+
+
+def _borrow_amount_wei(chain: str, hm: Dict[str, Any],
+                       token_path: List[str]) -> int:
+    try:
+        amount = int(hm.get("borrow_amount_wei") or 0)
+    except (TypeError, ValueError):
+        amount = 0
+    if amount > 0:
+        return amount
+    # Base route_hops (generic DEX / triangular) do not carry the registry
+    # probe. Reuse the same Base probe _plan_base already uses. Unknown
+    # symbols stay unquoted — probe_amount's unknown-symbol default is not
+    # used.
+    if chain in ("base", "base-sepolia"):
+        from ...discovery.base_venues import canonical_symbol, probe_amount
+        borrow = hm.get("borrow_token") or (token_path[0] if token_path else "")
+        if canonical_symbol(str(borrow)):
+            return int(probe_amount(str(borrow)) or 0)
+    return 0
+
+
+async def _plan_one_hop(
+    chain: str, rh: Dict[str, Any], addr_in: str, addr_out: str, eth_call,
+) -> Optional[_HopPlan]:
+    """Plan one hop with an existing quoter, or return None (fail closed)."""
+    dex_l = str(rh.get("dex") or "").lower()
+    if not dex_l or not quoter_serves(dex_l, chain):
+        _LOG.debug("quoter_not_on_chain chain=%s dex=%s", chain, dex_l)
+        return None
+
+    from ...chains.registries import dex_abi
+    abi = dex_abi(chain, dex_l)
+
+    if dex_l in ("aerodrome", "aerodrome_slipstream"):
+        return _plan_aerodrome_hop(chain, dex_l, rh, addr_in, addr_out)
+    if abi == "univ3" or dex_l == "uniswap_v3":
+        return await _plan_univ3_hop(chain, dex_l, rh, addr_in, addr_out, eth_call)
+    if abi == "algebra":
+        return await _plan_algebra_hop(chain, dex_l, rh, addr_in, addr_out, eth_call)
+    if abi == "univ2":
+        return await _plan_univ2_hop(chain, dex_l, rh, addr_in, addr_out, eth_call)
+    if dex_l == "balancer_v2":
+        return _plan_balancer_hop(chain, rh, addr_in, addr_out)
+    _LOG.debug("no_pool_resolver_for_venue_family chain=%s dex=%s", chain, dex_l)
+    return None
+
+
+def _plan_base_univ3_from_registry(dex_l, rh, addr_in, addr_out):
+    """Base UniV3 identity is the canonical registry, not the generic factory."""
+    from ...discovery.base_pool_registry import canonical_pool_by_id
+    pool_key = rh.get("pool") or rh.get("pool_address")
+    cp = canonical_pool_by_id(pool_key) if pool_key else None
+    if cp is None or getattr(cp, "dex", None) != "uniswap_v3":
+        return None
+    if not getattr(cp, "address", None):
+        return None
+    fee = rh.get("fee")
+    if fee is None:
+        fee = getattr(cp, "fee_ppm", None)
+    if fee is None:
+        return None
+    return _HopPlan(
+        dex=dex_l, token_in=addr_in, token_out=addr_out, fee=int(fee),
+        tick_spacing=rh.get("tick_spacing"), stable=rh.get("stable"),
+        tvl_key=cp.address, tvl_addr=cp.address,
+        fee_bps=int(fee) // 100, pool_address=cp.address)
+
+
+async def _plan_univ3_hop(chain, dex_l, rh, addr_in, addr_out, eth_call):
+    if chain in ("base", "base-sepolia") and dex_l == "uniswap_v3":
+        planned = _plan_base_univ3_from_registry(dex_l, rh, addr_in, addr_out)
+        if planned is not None:
+            return planned
+    fee = rh.get("fee")
+    if fee is None or eth_call is None:
+        return None
+    from ...discovery.univ3_pool_resolver import resolve_univ3_pool
+    pool = await resolve_univ3_pool(
+        chain, addr_in, addr_out, int(fee), eth_call=eth_call, dex=dex_l)
+    if pool is None:
+        return None
+    return _HopPlan(
+        dex=dex_l, token_in=addr_in, token_out=addr_out, fee=int(fee),
+        tick_spacing=rh.get("tick_spacing"), stable=rh.get("stable"),
+        tvl_key=pool["pool_address"], tvl_addr=pool["pool_address"],
+        fee_bps=int(fee) // 100, pool_address=pool["pool_address"])
+
+
+async def _plan_algebra_hop(chain, dex_l, rh, addr_in, addr_out, eth_call):
+    """Dynamic fee stays on the quoter. Do not invent a fee tier."""
+    if eth_call is None:
+        return None
+    from ...discovery.algebra_pool_resolver import resolve_algebra_pool
+    pool = await resolve_algebra_pool(
+        chain, addr_in, addr_out, eth_call=eth_call, dex=dex_l)
+    if pool is None:
+        return None
+    fee_bps = int(rh["fee_bps"]) if rh.get("fee_bps") is not None else 0
+    return _HopPlan(
+        dex=dex_l, token_in=addr_in, token_out=addr_out, fee=None,
+        tick_spacing=None, stable=None,
+        tvl_key=pool["pool_address"], tvl_addr=pool["pool_address"],
+        fee_bps=fee_bps, pool_address=pool["pool_address"])
+
+
+async def _plan_univ2_hop(chain, dex_l, rh, addr_in, addr_out, eth_call):
+    """Router quoter. Resolve the pair with getPair, not UniV3 getPool."""
+    if eth_call is None:
+        return None
+    from ...discovery.univ3_pool_resolver import resolve_univ2_pool
+    pool = await resolve_univ2_pool(
+        chain, addr_in, addr_out, eth_call=eth_call, dex=dex_l)
+    if pool is None:
+        return None
+    fee_bps = int(rh["fee_bps"]) if rh.get("fee_bps") is not None else 30
+    return _HopPlan(
+        dex=dex_l, token_in=addr_in, token_out=addr_out, fee=None,
+        tick_spacing=None, stable=None,
+        tvl_key=pool["pool_address"], tvl_addr=pool["pool_address"],
+        fee_bps=fee_bps, pool_address=pool["pool_address"])
+
+
+def _plan_aerodrome_hop(chain, dex_l, rh, addr_in, addr_out):
+    """Base canonical identity: address plus tick_spacing or stable."""
+    if chain not in ("base", "base-sepolia"):
+        return None
+    from ...discovery.base_pool_registry import canonical_pool_by_id
+    pool_key = rh.get("pool") or rh.get("pool_address")
+    cp = canonical_pool_by_id(pool_key) if pool_key else None
+    if cp is None or getattr(cp, "dex", None) != dex_l or not getattr(cp, "address", None):
+        return None
+    if dex_l == "aerodrome_slipstream":
+        spacing = getattr(cp, "tick_spacing", None)
+        if spacing is None:
+            return None
+        try:
+            spacing_i = int(spacing)
+        except (TypeError, ValueError):
+            return None
+        if spacing_i == 0:
+            return None
+        return _HopPlan(
+            dex=dex_l, token_in=addr_in, token_out=addr_out, fee=None,
+            tick_spacing=spacing_i, stable=None,
+            tvl_key=cp.address, tvl_addr=cp.address, fee_bps=0,
+            pool_address=cp.address)
+    stable = getattr(cp, "stable", None)
+    if stable is None:
+        return None
+    return _HopPlan(
+        dex=dex_l, token_in=addr_in, token_out=addr_out, fee=None,
+        tick_spacing=None, stable=bool(stable),
+        tvl_key=cp.address, tvl_addr=cp.address, fee_bps=0,
+        pool_address=cp.address)
+
+
+def _plan_balancer_hop(chain, rh, addr_in, addr_out):
+    ident = _explicit_balancer_identity(rh)
+    if ident is None:
+        _LOG.debug("balancer_v2 hop missing explicit pool identity chain=%s",
+                   chain)
+        return None
+    pool_id, pool_address = ident
+    fee_bps = int(rh["fee_bps"]) if rh.get("fee_bps") is not None else 0
+    tvl_key = pool_id or pool_address
+    return _HopPlan(
+        dex="balancer_v2", token_in=addr_in, token_out=addr_out,
+        fee=rh.get("fee"), tick_spacing=rh.get("tick_spacing"),
+        stable=rh.get("stable"), tvl_key=tvl_key, tvl_addr=pool_address,
+        fee_bps=fee_bps, pool_id=pool_id, pool_address=pool_address)
+
+
 async def _plan_generic_evm(
     chain: str, hm: Dict[str, Any], eth_call,
 ) -> Optional[Tuple[List[_HopPlan], List[str], int]]:
-    """Chain/venue-aware plan for a non-Base EVM chain. Requires per-hop venue
-    specs in ``route_hops`` and an explicit borrow ``amount_in_wei``. UniV3 hops
-    are validated on-chain via the resolver; Balancer V2 hops are accepted only
-    with an explicit ``pool_id``/``pool_address`` (quoted by BalancerV2Quoter /
-    P0 — never fabricated). Anything unsupported/unreadable fails closed."""
-    from ...chains.registries import tokens_for
-    from ...discovery.univ3_pool_resolver import resolve_univ3_pool
+    """Plan a route whose hops already have venue identities.
 
+    A hop is planned only when ``QuoterRegistry`` already has that DEX on
+    this chain, and the existing resolver returns a real pool (UniV3-family,
+    Algebra, UniV2) or an explicit Balancer / Base Aerodrome identity.
+    Curve, Velodrome, and any other family stay ``None``. One failed hop
+    fails the route. No quoter is fabricated.
+    """
     route_hops: List[Dict[str, Any]] = list(hm.get("route_hops") or [])
     token_path: List[str] = [str(t).upper() for t in (hm.get("cycle_token_path") or [])]
-    amount_in_wei = int(hm.get("borrow_amount_wei") or 0)
     if len(route_hops) < 2 or len(token_path) != len(route_hops) + 1:
         return None
+    amount_in_wei = _borrow_amount_wei(chain, hm, token_path)
     if amount_in_wei <= 0:                      # no fabricated probe amount
         return None
-    if eth_call is None:                        # no RPC → fail closed
-        _LOG.debug("no eth_call for chain=%s → venue_unreadable", chain)
-        return None
-
-    toks = tokens_for(chain)
-
-    def _addr(sym_or_addr: str) -> Optional[str]:
-        s = str(sym_or_addr)
-        if s.startswith("0x") and len(s) == 42:
-            return s
-        t = toks.get(s.upper())
-        return t.get("address") if t else None
 
     plans: List[_HopPlan] = []
     for i, rh in enumerate(route_hops):
-        dex = rh.get("dex")
-        addr_in = _addr(rh.get("token_in") or token_path[i])
-        addr_out = _addr(rh.get("token_out") or token_path[i + 1])
-        fee = rh.get("fee")
-        if not dex or not addr_in or not addr_out:
+        addr_in = _token_addr(chain, rh.get("token_in") or token_path[i])
+        addr_out = _token_addr(chain, rh.get("token_out") or token_path[i + 1])
+        if not addr_in or not addr_out:
             return None
-        dex_l = str(dex).lower()
-        if dex_l == "uniswap_v3":
-            if fee is None:
-                return None
-            pool = await resolve_univ3_pool(chain, addr_in, addr_out, int(fee),
-                                            eth_call=eth_call)
-            if pool is None:                        # invalid/unreadable/nonexistent
-                return None
-            plans.append(_HopPlan(
-                dex=dex_l, token_in=addr_in, token_out=addr_out, fee=int(fee),
-                tick_spacing=rh.get("tick_spacing"), stable=rh.get("stable"),
-                tvl_key=pool["pool_address"], tvl_addr=pool["pool_address"],
-                fee_bps=int(fee) // 100,
-                pool_address=pool["pool_address"]))
-        elif dex_l == "balancer_v2":
-            ident = _explicit_balancer_identity(rh)
-            if ident is None:
-                _LOG.debug("balancer_v2 hop missing explicit pool identity "
-                           "chain=%s", chain)
-                return None
-            pool_id, pool_address = ident
-            fee_bps = int(rh["fee_bps"]) if rh.get("fee_bps") is not None else 0
-            tvl_key = pool_id or pool_address or f"balancer_v2:{i}"
-            plans.append(_HopPlan(
-                dex=dex_l, token_in=addr_in, token_out=addr_out, fee=fee,
-                tick_spacing=rh.get("tick_spacing"), stable=rh.get("stable"),
-                tvl_key=tvl_key, tvl_addr=pool_address,
-                fee_bps=fee_bps, pool_id=pool_id, pool_address=pool_address))
-        else:
-            # Implemented/discoverable but no generic resolver yet → fail closed.
-            _LOG.debug("no_pool_resolver_for_venue_family chain=%s dex=%s",
-                       chain, dex)
+        planned = await _plan_one_hop(chain, rh, addr_in, addr_out, eth_call)
+        if planned is None:
             return None
+        plans.append(planned)
     return plans, token_path, amount_in_wei
 
 
