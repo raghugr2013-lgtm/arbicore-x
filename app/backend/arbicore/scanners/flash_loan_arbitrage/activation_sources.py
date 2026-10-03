@@ -110,6 +110,22 @@ def _candidate(
     )
 
 
+def _pick_quotable_pool(
+    chain: str,
+    cands: List[PoolNode],
+    predicate: Callable[[str, PoolNode], bool],
+) -> Optional[PoolNode]:
+    """Smallest pool id among hops the predicate accepts.
+
+    Alphabetical order is kept, but only after incapable DEXes are removed.
+    An empty capable set returns None so the cycle is not emitted.
+    """
+    capable = [p for p in cands if predicate(chain, p)]
+    if not capable:
+        return None
+    return min(capable, key=lambda p: p.pool_address)
+
+
 def _attach_probe(chain: str, borrow_token: str,
                   hint_metric: Dict[str, Any]) -> None:
     amt = probe_amount_wei(chain, borrow_token)
@@ -186,6 +202,10 @@ class GenericDexDiscoverySource(DiscoverySource):
                     if len(set(dexes)) < 2 and len(set(
                             p.pool_address for p in cycle.pools)) < 2:
                         continue
+                    pred = getattr(self._engine, "hop_predicate", None)
+                    if pred is not None and not all(
+                            pred(chain, p) for p in cycle.pools):
+                        continue
                     hops = [
                         _hop_from_pool(cycle.pools[i],
                                        cycle.token_path[i],
@@ -259,11 +279,13 @@ class TriangularDiscoverySource(DiscoverySource):
         config_loader: Callable[[], Dict[str, Any]],
         borrow_token_set: Optional[List[str]] = None,
         intermediates: Optional[List[str]] = None,
+        hop_predicate: Optional[Callable[[str, PoolNode], bool]] = None,
     ) -> None:
         self._engine = route_engine
         self._cfg = config_loader
         self._borrow_tokens = list(borrow_token_set or _DEFAULT_BORROW)
         self._intermediates = list(intermediates or _DEFAULT_INTERMEDIATES)
+        self._hop_predicate = hop_predicate
         self._last_emission_at: Optional[float] = None
         self._last_error: Optional[str] = None
         self._last_latency_ms = 0
@@ -274,6 +296,12 @@ class TriangularDiscoverySource(DiscoverySource):
 
     async def close(self) -> None:
         return None
+
+    def _predicate(self):
+        if self._hop_predicate is not None:
+            return self._hop_predicate
+        from .live_quote_provider import hop_quote_capable
+        return hop_quote_capable
 
     def _pools_for_leg(self, pools: List[PoolNode], a: str, b: str
                        ) -> List[PoolNode]:
@@ -314,12 +342,12 @@ class TriangularDiscoverySource(DiscoverySource):
                     ok = True
                     for a, b in legs:
                         cands = self._pools_for_leg(pools, a, b)
-                        if not cands:
+                        chosen_leg = _pick_quotable_pool(
+                            chain, cands, self._predicate())
+                        if chosen_leg is None:
                             ok = False
                             break
-                        # Prefer first distinct pool; deterministic order.
-                        leg_pools.append(sorted(
-                            cands, key=lambda p: p.pool_address)[0])
+                        leg_pools.append(chosen_leg)
                     if not ok or any(p is None for p in leg_pools):
                         continue
                     chosen: List[PoolNode] = [p for p in leg_pools if p]
@@ -456,15 +484,14 @@ class BalancerV2DiscoverySource(DiscoverySource):
         t = toks.get(sym.upper())
         return t.get("address") if t else None
 
-    def _complement_venue(self, pools: List[PoolNode], a: str, b: str
-                          ) -> Optional[PoolNode]:
+    def _complement_venue(self, chain: str, pools: List[PoolNode],
+                          a: str, b: str) -> Optional[PoolNode]:
         a_u, b_u = a.upper(), b.upper()
         cands = [p for p in pools
                  if {p.token_a.upper(), p.token_b.upper()} == {a_u, b_u}
                  and str(p.dex_protocol).lower() != "balancer_v2"]
-        if not cands:
-            return None
-        return sorted(cands, key=lambda p: p.pool_address)[0]
+        from .live_quote_provider import hop_quote_capable
+        return _pick_quotable_pool(chain, cands, hop_quote_capable)
 
     async def discover(self) -> List[DiscoveryCandidate]:
         cfg = self._cfg() or {}
@@ -541,7 +568,7 @@ class BalancerV2DiscoverySource(DiscoverySource):
                 if not bal_cands:
                     continue
                 complement = self._complement_venue(
-                    graph_pools, token_a, token_b)
+                    chain, graph_pools, token_a, token_b)
                 if complement is None:
                     # No second venue → cannot form a closed flash cycle; skip
                     # (do not fabricate a complementary pool).

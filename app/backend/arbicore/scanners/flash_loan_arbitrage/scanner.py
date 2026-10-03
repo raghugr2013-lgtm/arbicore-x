@@ -70,12 +70,14 @@ class FlashLoanArbitrageScanner:
         borrow_amount = float(cfg0.get("default_notional_usd") or 10_000.0)
 
         # ── Route search engine (the genuinely novel substrate) ─────────
+        from .live_quote_provider import hop_quote_capable
         self._route_engine = RouteSearchEngine(
             pool_loader=pool_loader,
             max_hops=int(rs_cfg.get("max_hops", 4)),
             wall_clock_cap_s=float(rs_cfg.get("wall_clock_cap_s", 5.0)),
             candidate_cap=int(rs_cfg.get("candidate_cap", 64)),
             min_pool_tvl_usd=float(rs_cfg.get("min_pool_tvl_usd", 100_000)),
+            hop_predicate=hop_quote_capable,
         )
 
         # ── Discovery sources ───────────────────────────────────────────
@@ -271,6 +273,7 @@ class FlashLoanArbitrageScanner:
             wall_clock_cap_s=float(rs_cfg.get("wall_clock_cap_s", 5.0)),
             candidate_cap=int(rs_cfg.get("candidate_cap", 64)),
             min_pool_tvl_usd=float(rs_cfg.get("min_pool_tvl_usd", 100_000)),
+            hop_predicate=self._route_engine.hop_predicate,
         )
         self._sources = build_all_flash_loan_sources(
             route_engine=self._route_engine, config_loader=self._cfg,

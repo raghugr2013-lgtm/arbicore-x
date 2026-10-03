@@ -105,12 +105,16 @@ class RouteSearchEngine:
         wall_clock_cap_s: float = 5.0,
         candidate_cap: int = 64,
         min_pool_tvl_usd: float = 100_000.0,
+        hop_predicate=None,
     ) -> None:
         self._pool_loader = pool_loader
         self.max_hops = int(max_hops)
         self.wall_clock_cap_s = float(wall_clock_cap_s)
         self.candidate_cap = int(candidate_cap)
         self.min_pool_tvl_usd = float(min_pool_tvl_usd)
+        # None → every pool that passes TVL is eligible (fixture default).
+        # A predicate drops pools before they are appended or counted.
+        self.hop_predicate = hop_predicate
         self._last_wall_ms: int = 0
         self._last_explored: int = 0
 
@@ -127,6 +131,8 @@ class RouteSearchEngine:
         t0 = time.time()
         pools = list(self._pool_loader(chain) or [])
         pools = [p for p in pools if p.tvl_usd >= self.min_pool_tvl_usd]
+        if self.hop_predicate is not None:
+            pools = [p for p in pools if self.hop_predicate(chain, p)]
         adjacency = _build_adjacency(pools)
 
         cycles: List[RouteCycle] = []
