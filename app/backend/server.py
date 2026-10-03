@@ -2126,6 +2126,16 @@ async def v2_scanner_action(family: str, action: str) -> Dict[str, Any]:
         from arbicore.runtime.composition import get_scanner_state_repo
         state_repo = get_scanner_state_repo()
         await state_repo.set_enabled(scanner_id, enabled_target, actor="ui")
+        if scanner_id == "flash_loan_arb":
+            # Mirror into the running scanner cache. Does not construct
+            # or start the scanner; other families are unchanged.
+            try:
+                from arbicore.runtime.composition import (
+                    refresh_live_flash_loan_state_cache,
+                )
+                await refresh_live_flash_loan_state_cache()
+            except Exception:  # noqa: BLE001
+                pass
         state_row = await state_repo.get(scanner_id) or {}
         ui_state = "RUNNING" if state_row.get("enabled") else "IDLE"
     except Exception:  # noqa: BLE001

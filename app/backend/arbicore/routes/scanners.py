@@ -1047,8 +1047,15 @@ async def flash_loan_status():
 @router.post("/scanners/flash_loan_arb/kill",
              dependencies=[Depends(require_auth)])
 async def flash_loan_kill():
-    return await get_scanner_state_repo().set_enabled(
+    res = await get_scanner_state_repo().set_enabled(
         "flash_loan_arb", False, actor="operator_kill")
+    # Pause the running loop immediately. Do not construct the scanner.
+    try:
+        from ..runtime.composition import refresh_live_flash_loan_state_cache
+        await refresh_live_flash_loan_state_cache()
+    except Exception:  # noqa: BLE001
+        pass
+    return res
 
 
 @router.post("/scanners/flash_loan_arb/resume",
@@ -1057,7 +1064,17 @@ async def flash_loan_resume():
     res = await get_scanner_state_repo().set_enabled(
         "flash_loan_arb", True, actor="operator_resume")
     try:
-        await get_flash_loan_arb_scanner().start()
+        scanner = get_flash_loan_arb_scanner()
+    except Exception:  # noqa: BLE001
+        return res
+    refresh = getattr(scanner, "_refresh_caches_once", None)
+    if refresh is not None:
+        try:
+            await refresh()
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        await scanner.start()
     except Exception:  # noqa: BLE001
         pass
     return res

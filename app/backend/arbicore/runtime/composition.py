@@ -1221,6 +1221,79 @@ def _deep_merge_cfg(base: dict, over: dict) -> dict:
     return out
 
 
+def mirror_flash_loan_enabled_cache(cache: dict, persisted) -> None:
+    """Copy a persisted ``scanner_state`` row into the runtime cache.
+
+    ``FlashLoanArbitrageScanner.is_enabled()`` reads this in-memory cache,
+    not Mongo. The other scanner factories assign ``cache["state"]`` from
+    ``state_repo.get``. This one does the same, but only when ``enabled``
+    is a real bool so a missing or malformed row cannot flip the boot
+    default. A failed read must pass ``persisted=None`` and leaves the
+    cache unchanged (boot ``enabled=False``).
+
+    This does not start the scanner and does not touch config, RPCs, TVL,
+    route planning, providers, or execution gates.
+    """
+    if not isinstance(cache, dict) or not isinstance(persisted, dict):
+        return
+    enabled = persisted.get("enabled", None)
+    if enabled is True or enabled is False:
+        cache["state"] = dict(persisted)
+
+
+def sync_flash_loan_runtime_cache(cache, cfg_doc, state_doc, boot_cfg) -> None:
+    """One refresh: authoritative config deep-merge plus state assignment.
+
+    ``cfg_doc`` / ``state_doc`` of ``None`` means that read failed; the
+    corresponding half of the cache is left unchanged.
+    """
+    if cfg_doc:
+        cache["cfg"] = _deep_merge_cfg(boot_cfg, cfg_doc)
+    mirror_flash_loan_enabled_cache(cache, state_doc)
+
+
+async def refresh_flash_loan_scanner_caches(cache, cfg_repo, state_repo,
+                                            boot_cfg) -> None:
+    """Read Mongo config + scanner state and mirror them into ``cache``.
+
+    This is the body of ``get_flash_loan_arb_scanner``'s
+    ``_refresh_caches_once``. A failed state read does not assign state,
+    so the boot default ``enabled=False`` stays in place. A successful
+    read assigns the persisted row, including ``enabled=true``.
+    """
+    rc = None
+    cfg_ok = False
+    try:
+        rc = await cfg_repo.get("flash_loan_arb")
+        cfg_ok = True
+    except Exception:
+        cfg_ok = False
+    rs = None
+    state_ok = False
+    try:
+        rs = await state_repo.get("flash_loan_arb")
+        state_ok = True
+    except Exception:
+        state_ok = False
+    sync_flash_loan_runtime_cache(
+        cache,
+        rc if cfg_ok else None,
+        rs if state_ok else None,
+        boot_cfg,
+    )
+
+
+async def refresh_live_flash_loan_state_cache() -> None:
+    """Push persisted enabled-state into a scanner that is already built.
+
+    Does not construct the scanner and does not start it.
+    """
+    scanner = _flash_loan_arb_scanner
+    refresh = getattr(scanner, "_refresh_caches_once", None) if scanner is not None else None
+    if refresh is None:
+        return
+    await refresh()
+
 
 def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
     """Phase D D-6.1 Flash-Loan Arbitrage scanner factory.
@@ -1273,17 +1346,13 @@ def get_flash_loan_arb_scanner() -> FlashLoanArbitrageScanner:
 
         async def _refresh_caches_once():
             # C-1: persisted config is authoritative — DEEP-merge it over the
-            # fail-closed boot baseline (was a shallow {**cache, **rc} that both
-            # dropped sibling keys AND could never change the frozen route engine).
-            try:
-                rc = await cfg_repo.get("flash_loan_arb")
-                if rc:
-                    cache["cfg"] = _deep_merge_cfg(_BOOT_CFG, rc)
-                rs = await state_repo.get("flash_loan_arb")
-                if isinstance(rs, dict) and rs.get("enabled") is False and rs.get("_operator_set"):
-                    cache["state"] = {"enabled": False}
-            except Exception:
-                pass
+            # fail-closed boot baseline. Persisted scanner state is assigned
+            # the same way as the other scanner factories. The previous
+            # refresh only wrote enabled=False, and only when ``_operator_set``
+            # was present — a flag set_enabled() never writes — so resume left
+            # the running loop disabled.
+            await refresh_flash_loan_scanner_caches(
+                cache, cfg_repo, state_repo, _BOOT_CFG)
 
         # Base route universe is sourced from the ONE canonical registry
         # (Z8/Z9 fix): canonical pool identity → resolved real addresses →
