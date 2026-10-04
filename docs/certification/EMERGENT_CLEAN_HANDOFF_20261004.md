@@ -33,7 +33,7 @@ Do **not** use:
 | Commit | Role |
 |---|---|
 | `ab2d6d5b8fc92b6deb47469152497a98d0245fcb` | Already present before this handoff: post-remediation pre-SHADOW coverage audit (docs-only) |
-| *(this handoff docs commit)* | Oct 4 flash-loan certification pack + integrity/clean handoff reports (docs-only; see git log after commit) |
+| `e503551f3a74041600ee6e0405c2b86be2bc0a89` | Oct 4 flash-loan readiness / pipeline / blocker pack + Git–VPS integrity + this clean-handoff report (docs-only) |
 
 No application-code commit is part of this handoff preparation.
 
