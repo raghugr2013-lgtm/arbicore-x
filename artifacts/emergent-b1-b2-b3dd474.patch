@@ -1,0 +1,603 @@
+From b3dd474a2bb5fb99ab1a6a3d7575c62703d8affc Mon Sep 17 00:00:00 2001
+From: arbicore-eng <eng@arbicore.local>
+Date: Sun, 4 Oct 2026 06:43:12 +0000
+Subject: [PATCH] fix(flash): B1 six-chain exact-size sizing + B2
+ discovery-queue chain fairness
+
+B1 (composition.py): wire the canonical live flash-loan scanner to the EXISTING
+generalized six-chain exact-size sizer (build_multichain_price_source/_H05_CHAINS
+/build_h05_borrow_sizer/ExactSizeBorrowSizer) via new async helper
+_build_live_h05_borrow_sizer, preserving the live Base feed instance. Non-Base
+chains (Ethereum,...) now reach exact-size quoting -> Gate 7 instead of
+size_basis=probe -> size_not_quoted. Fail-closed/env-gated; no parallel
+architecture; sync non-canonical seam left Base-only by design.
+
+B2 (discovery_queue.py, models/discovery.py): DiscoveryQueue.claim_batch now
+fills the batch round-robin across chains with eligible candidates (additive
+top-level 'chain' field + index; upsert stamps it from hint_metric/subject_id).
+Each claim keeps the identical atomic eligibility predicate, expiry semantics,
+claim locking and verified_outcome behaviour. Legacy rows (no chain) stay
+claimable via the None bucket. No opportunity forced; no downstream gate touched.
+
+Tests: test_emergent_b1_multichain_sizing (7), test_emergent_b2_discovery_queue_fairness (8).
+Unchanged: $25 gate, $100k TVL floor, risk/safety gates, Polygon, Network/RPC
+config, quoter.py. No deploy/SHADOW/PAPER/LIVE/signing/broadcast.
+---
+ app/backend/arbicore/data/discovery_queue.py  |  64 ++++--
+ app/backend/arbicore/models/discovery.py      |   3 +
+ app/backend/arbicore/runtime/composition.py   |  32 ++-
+ .../test_emergent_b1_multichain_sizing.py     | 102 +++++++++
+ ...st_emergent_b2_discovery_queue_fairness.py | 195 ++++++++++++++++++
+ .../EMERGENT_B1_B2_IMPLEMENTATION_20261004.md |  73 +++++++
+ 6 files changed, 456 insertions(+), 13 deletions(-)
+ create mode 100644 app/backend/tests/test_emergent_b1_multichain_sizing.py
+ create mode 100644 app/backend/tests/test_emergent_b2_discovery_queue_fairness.py
+ create mode 100644 docs/certification/EMERGENT_B1_B2_IMPLEMENTATION_20261004.md
+
+diff --git a/app/backend/arbicore/data/discovery_queue.py b/app/backend/arbicore/data/discovery_queue.py
+index 359ac30..4debadf 100644
+--- a/app/backend/arbicore/data/discovery_queue.py
++++ b/app/backend/arbicore/data/discovery_queue.py
+@@ -31,6 +31,11 @@ class DiscoveryQueue:
+         await self._col.create_index(
+             [("opportunity_type", 1), ("claimed_until", 1), ("expires_at", 1)]
+         )
++        # B2: chain-fair claim index (chain-partitioned eligibility scan).
++        await self._col.create_index(
++            [("chain", 1), ("verified_outcome", 1), ("claimed_until", 1),
++             ("expires_at", 1)]
++        )
+         await self._col.create_index([("hint_source", 1), ("hint_observed_at", -1)])
+         # TTL: Mongo TTL reaper deletes once expires_at is in the past.
+         await self._col.create_index("expires_at", expireAfterSeconds=0)
+@@ -43,6 +48,17 @@ class DiscoveryQueue:
+         inserted = 0
+         for c in candidates:
+             doc = c.model_dump()
++            # B2: stamp a top-level chain (fair-scheduling key) when derivable —
++            # from the hint metric, else the flash-loan subject_id convention
++            # (flash_loan:{provider}:{chain}:...). Never invents a chain.
++            if not doc.get("chain"):
++                ch = (c.hint_metric or {}).get("chain")
++                if not ch:
++                    parts = (c.subject_id or "").split(":")
++                    if len(parts) >= 3 and parts[0] == "flash_loan":
++                        ch = parts[2]
++                if ch:
++                    doc["chain"] = str(ch).strip().lower()
+             # Only set on insert — preserves claim lock + outcome on update
+             res = await self._col.update_one(
+                 {"candidate_id": c.candidate_id},
+@@ -57,26 +73,49 @@ class DiscoveryQueue:
+                           batch_size: int = 32,
+                           claim_ttl_s: float = 60.0,
+                           ) -> List[DiscoveryCandidate]:
+-        """Atomically claim up to `batch_size` candidates.
++        """Atomically claim up to `batch_size` candidates with CHAIN FAIRNESS.
+ 
+-        A candidate is eligible if:
++        Eligibility predicate (UNCHANGED — all downstream gates untouched):
+           - verified_outcome is None (unprocessed)
+           - claimed_until is None or < now (no live claim)
+           - expires_at > now (not stale)
++
++        B2: instead of draining whichever candidates an index happens to order
++        first (which lets one chain monopolise the batch and starve others), the
++        batch is filled round-robin across the chains that currently have eligible
++        candidates. Each individual claim still uses the SAME atomic
++        find_one_and_update with the SAME eligibility predicate, so expiry
++        semantics, claim locking and verified_outcome behaviour are preserved and
++        no opportunity is ever forced. Legacy rows without a ``chain`` match the
++        ``None`` bucket and remain claimable.
+         """
+         now = time.time()
+         claim_until = now + claim_ttl_s
++        base_filter: Dict[str, Any] = {
++            "verified_outcome": None,
++            "expires_at": {"$gt": now},
++            "$or": [
++                {"claimed_until": None},
++                {"claimed_until": {"$lt": now}},
++            ],
++        }
++        # Chains with eligible candidates right now (None = legacy/untagged).
++        chains = await self._col.distinct("chain", base_filter)
++        order: List[Any] = sorted([c for c in chains if c])
++        if any(c is None for c in chains):
++            order.append(None)  # legacy/untagged bucket, claimed fairly too
+         out: List[DiscoveryCandidate] = []
+-        for _ in range(batch_size):
++        if not order:
++            return out
++        exhausted: set = set()
++        idx = 0
++        while len(out) < batch_size and len(exhausted) < len(order):
++            c = order[idx % len(order)]
++            idx += 1
++            if c in exhausted:
++                continue
+             doc = await self._col.find_one_and_update(
+-                {
+-                    "verified_outcome": None,
+-                    "expires_at": {"$gt": now},
+-                    "$or": [
+-                        {"claimed_until": None},
+-                        {"claimed_until": {"$lt": now}},
+-                    ],
+-                },
++                {**base_filter, "chain": c},
+                 {"$set": {
+                     "claimed_at": now,
+                     "claimed_by": worker_id,
+@@ -85,7 +124,8 @@ class DiscoveryQueue:
+                 return_document=True,
+             )
+             if doc is None:
+-                break
++                exhausted.add(c)
++                continue
+             doc.pop("_id", None)
+             try:
+                 out.append(DiscoveryCandidate(**doc))
+diff --git a/app/backend/arbicore/models/discovery.py b/app/backend/arbicore/models/discovery.py
+index 223de47..c43c87d 100644
+--- a/app/backend/arbicore/models/discovery.py
++++ b/app/backend/arbicore/models/discovery.py
+@@ -78,6 +78,9 @@ class DiscoveryCandidate(BaseModel):
+     hint_observed_at: float = Field(default_factory=lambda: time.time())
+     subject_id: str
+     asset: Optional[str] = None
++    # B2: additive top-level chain tag enabling chain-fair claim scheduling.
++    # Optional/back-compat — legacy rows without it remain safely claimable.
++    chain: Optional[str] = None
+     candidate_venues: List[str] = Field(default_factory=list)
+     hint_metric: Dict[str, Any] = Field(default_factory=dict)
+     reason: str = ""
+diff --git a/app/backend/arbicore/runtime/composition.py b/app/backend/arbicore/runtime/composition.py
+index a9178ee..5f6b017 100644
+--- a/app/backend/arbicore/runtime/composition.py
++++ b/app/backend/arbicore/runtime/composition.py
+@@ -1431,6 +1431,10 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
+             tvl_provider = build_base_tvl_provider(eth_call, price_source)
+     except Exception:  # noqa: BLE001 — fail-closed to None
+         tvl_provider = None
++    # B1: six-chain exact-size sizer (reuses the generalized H05 infrastructure;
++    # preserves the live Base feed instance). Fail-closed/env-gated → None by
++    # default (routes stay PROBE-sized; verifier DENIED_SIZE_NOT_QUOTED).
++    b1_sizer = await _build_live_h05_borrow_sizer(quoter_registry, price_feed)
+     scanner.set_quote_provider(
+         make_live_quote_provider(
+             quoter_registry, tvl_provider=tvl_provider,
+@@ -1441,7 +1445,7 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
+             # closed (DENIED_SIZE_NOT_QUOTED). Base-scoped; a non-Base route is
+             # never sized from Base data. Exact-size failure FAILS CLOSED (None),
+             # never a probe fallback presented as exact economic evidence.
+-            borrow_sizer=_build_base_exact_size_borrow_sizer(price_feed),
++            borrow_sizer=b1_sizer,
+             # Chain/venue-aware seam for NON-Base routes: a real per-chain
+             # eth_call ONLY when that chain has an operator-configured RPC,
+             # else None → the route stays DISCOVERABLE and fails closed with
+@@ -2206,6 +2210,32 @@ async def build_h05_borrow_sizer(quoter_registry=None, *, price_source=None,
+                                        decimals_fn=registry_decimals)
+ 
+ 
++async def _build_live_h05_borrow_sizer(quoter_registry, base_price_feed):
++    """B1: six-chain exact-size borrow sizer for the LIVE canonical scanner.
++
++    Reuses the EXISTING generalized ``build_multichain_price_source`` /
++    ``_H05_CHAINS`` / ``build_h05_borrow_sizer`` (no parallel architecture).
++    PRESERVES the live Base price-feed INSTANCE so Base behaviour is unchanged.
++    Fail-closed and env-gated (ARBICORE_BORROW_SIZER_ENABLED +
++    ARBICORE_PRICE_FEED_ENABLED): returns None (routes stay PROBE-sized → verifier
++    DENIED_SIZE_NOT_QUOTED) when disabled, and preserves the prior Base-only
++    behaviour if no genuine multichain source yields. Never fabricates a price.
++    """
++    from ..scanners.flash_loan_arbitrage.exact_size_sizer import borrow_sizer_enabled
++    if not borrow_sizer_enabled():
++        return None
++    price_source = await build_multichain_price_source(
++        quoter_registry, chains=_H05_CHAINS)
++    if price_source is None:
++        # No genuine multichain source → preserve prior Base-only behaviour.
++        return _build_base_exact_size_borrow_sizer(base_price_feed)
++    # Preserve the EXISTING live Base feed instance (no Base behaviour change).
++    if base_price_feed is not None:
++        price_source._feeds["base"] = base_price_feed
++    return await build_h05_borrow_sizer(
++        quoter_registry, price_source=price_source, chains=_H05_CHAINS)
++
++
+ def build_multichain_tvl_provider(chain, *, pool_meta=None, price_source=None):
+     """SP-4 seam (NON-ACTIVATING) — chain-aware, fail-closed Gate-8 TVL provider
+     for a supported non-Base chain (ethereum/arbitrum/optimism/polygon/bnb), or
+diff --git a/app/backend/tests/test_emergent_b1_multichain_sizing.py b/app/backend/tests/test_emergent_b1_multichain_sizing.py
+new file mode 100644
+index 0000000..68390bd
+--- /dev/null
++++ b/app/backend/tests/test_emergent_b1_multichain_sizing.py
+@@ -0,0 +1,102 @@
++"""B1 — multichain exact-size sizing (chain-aware live wiring).
++
++Confirms the live canonical scanner now sizes all six supported chains via the
++EXISTING generalized H05 infrastructure (no parallel architecture), preserving
++the Base feed instance and staying fail-closed when a chain has no feed.
++"""
++import os
++
++import pytest
++
++from arbicore.scanners.flash_loan_arbitrage.exact_size_sizer import (
++    ExactSizeBorrowSizer, MultichainPriceSource)
++from arbicore.runtime import composition as C
++
++SIX = ("ethereum", "arbitrum", "base", "optimism", "polygon", "bnb")
++
++
++class _Feed:
++    def __init__(self, price):
++        self._price = price
++
++    async def price_source(self, token):
++        return self._price
++
++
++def _sizer(price_by_chain, decimals=18):
++    src = MultichainPriceSource({c: _Feed(p) for c, p in price_by_chain.items()})
++
++    def _dec(chain, token):
++        return decimals
++    return ExactSizeBorrowSizer(src.price_usd, _dec), src
++
++
++# 1. MultichainPriceSource for all six chains
++async def test_multichain_price_source_all_six_chains():
++    src = MultichainPriceSource({c: _Feed(1000.0 + i) for i, c in enumerate(SIX)})
++    assert sorted(src.configured_chains()) == sorted(SIX)
++    for i, c in enumerate(SIX):
++        assert await src.price_usd(c, "WETH") == 1000.0 + i
++
++
++# 2. Ethereum exact-size calculation
++async def test_ethereum_exact_size_calculation():
++    sizer, _ = _sizer({"ethereum": 2000.0}, decimals=18)
++    wei = await sizer.size("ethereum", "WETH", 10_000.0)
++    assert wei == 5 * 10 ** 18  # floor(10000/2000 * 1e18)
++
++
++# 3. Exact-size for every supported chain with a valid feed
++async def test_exact_size_all_supported_chains():
++    sizer, _ = _sizer({c: 2000.0 for c in SIX}, decimals=18)
++    for c in SIX:
++        assert await sizer.size(c, "WETH", 2000.0) == 1 * 10 ** 18
++
++
++# 4. Missing-feed fail-closed (Base-only source cannot size Ethereum)
++async def test_missing_feed_fail_closed():
++    sizer, src = _sizer({"base": 2000.0}, decimals=18)
++    assert await src.price_usd("ethereum", "WETH") is None
++    assert await sizer.size("ethereum", "WETH", 10_000.0) is None  # no fabrication
++
++
++# 5. Base feed instance preservation via the live wiring helper
++async def test_base_feed_instance_preserved(monkeypatch):
++    os.environ["ARBICORE_BORROW_SIZER_ENABLED"] = "1"
++    os.environ["ARBICORE_PRICE_FEED_ENABLED"] = "1"
++    base_feed = _Feed(3000.0)
++    built = MultichainPriceSource({"ethereum": _Feed(2000.0), "base": _Feed(1.0)})
++
++    async def _fake_build_src(quoter_registry=None, *, chains=None):
++        return built
++    captured = {}
++
++    async def _fake_build_sizer(quoter_registry=None, *, price_source=None, chains=None):
++        captured["price_source"] = price_source
++        return "SIZER"
++
++    monkeypatch.setattr(C, "build_multichain_price_source", _fake_build_src)
++    monkeypatch.setattr(C, "build_h05_borrow_sizer", _fake_build_sizer)
++
++    out = await C._build_live_h05_borrow_sizer(None, base_feed)
++    assert out == "SIZER"
++    # the EXISTING live Base feed instance is preserved (identity), Ethereum kept
++    assert captured["price_source"]._feeds["base"] is base_feed
++    assert "ethereum" in captured["price_source"]._feeds
++
++
++# 6. Canonical/live composition wiring references the six-chain helper
++async def test_canonical_wiring_uses_six_chain_helper():
++    import inspect
++    src = inspect.getsource(C._wire_canonical_flash_loan_scanner)
++    assert "_build_live_h05_borrow_sizer" in src
++    assert "borrow_sizer=b1_sizer" in src
++    # six-chain set is the canonical _H05_CHAINS (all six, unchanged)
++    assert set(C._H05_CHAINS) == set(SIX)
++
++
++# 7. Base regression — disabled => None (probe-sized, verifier fails closed)
++async def test_base_regression_disabled_returns_none(monkeypatch):
++    monkeypatch.delenv("ARBICORE_BORROW_SIZER_ENABLED", raising=False)
++    out = await C._build_live_h05_borrow_sizer(None, _Feed(3000.0))
++    assert out is None
+diff --git a/app/backend/tests/test_emergent_b2_discovery_queue_fairness.py b/app/backend/tests/test_emergent_b2_discovery_queue_fairness.py
+new file mode 100644
+index 0000000..1718cda
+--- /dev/null
++++ b/app/backend/tests/test_emergent_b2_discovery_queue_fairness.py
+@@ -0,0 +1,195 @@
++"""B2 — DiscoveryQueue chain-fair claim scheduling.
++
++Confirms claim_batch distributes verifier access fairly across the six supported
++chains (no monopoly / no starvation) while preserving the EXACT eligibility
++predicate, expiry semantics, claim locking and verified_outcome behaviour.
++Uses an in-memory async Mongo fake — no real database required.
++"""
++import time
++
++import pytest
++
++from arbicore.data.discovery_queue import DiscoveryQueue
++from arbicore.models.enums import OpportunityType
++
++SIX = ("ethereum", "arbitrum", "base", "optimism", "polygon", "bnb")
++
++
++def _match(doc, flt):
++    for k, cond in flt.items():
++        if k == "$or":
++            if not any(_match(doc, sub) for sub in cond):
++                return False
++            continue
++        val = doc.get(k)
++        if isinstance(cond, dict):
++            if "$gt" in cond and not (val is not None and val > cond["$gt"]):
++                return False
++            if "$lt" in cond and not (val is not None and val < cond["$lt"]):
++                return False
++        else:
++            # equality; None matches missing-or-None (Mongo semantics)
++            if cond is None:
++                if val is not None:
++                    return False
++            elif val != cond:
++                return False
++    return True
++
++
++class _FakeCol:
++    def __init__(self):
++        self._docs = []  # insertion-ordered
++
++    async def create_index(self, *a, **k):
++        return None
++
++    async def distinct(self, field, flt):
++        seen, out = set(), []
++        for d in self._docs:
++            if _match(d, flt):
++                v = d.get(field)
++                if v not in seen:
++                    seen.add(v); out.append(v)
++        return out
++
++    async def find_one_and_update(self, flt, update, return_document=True):
++        for d in self._docs:
++            if _match(d, flt):
++                d.update(update.get("$set", {}))
++                return dict(d)
++        return None
++
++    async def update_one(self, flt, update, upsert=False):
++        for d in self._docs:
++            if _match(d, flt):
++                d.update(update.get("$set", {}))
++                return type("R", (), {"upserted_id": None, "modified_count": 1})()
++        if upsert:
++            doc = dict(update.get("$setOnInsert", {}))
++            doc.update(flt)
++            self._docs.append(doc)
++            return type("R", (), {"upserted_id": "x", "modified_count": 0})()
++        return type("R", (), {"upserted_id": None, "modified_count": 0})()
++
++
++def _seed(col, chain, n, *, expired=False, claimed=False, processed=False):
++    now = time.time()
++    for i in range(n):
++        col._docs.append({
++            "candidate_id": f"{chain}-{i}-{len(col._docs)}",
++            "opportunity_type": OpportunityType.FLASH_LOAN_ARBITRAGE.value,
++            "hint_source": "flash_loan_route_search",
++            "subject_id": f"flash_loan:aave_v3:{chain}:USDC:r{i}",
++            "chain": chain,
++            "hint_observed_at": now,
++            "expires_at": now - 10 if expired else now + 600,
++            "verified_outcome": "CONFIRMED:x" if processed else None,
++            "claimed_at": None, "claimed_by": None,
++            "claimed_until": (now + 300) if claimed else None,
++        })
++
++
++def _q():
++    q = DiscoveryQueue.__new__(DiscoveryQueue)
++    q._col = _FakeCol()
++    return q
++
++
++def _chains(batch):
++    return [c.chain for c in batch]
++
++
++# 1 + 2 + 3: fairness across six chains, incl. skew and no monopoly
++async def test_six_chain_fairness_balanced():
++    q = _q()
++    for c in SIX:
++        _seed(q._col, c, 10)
++    batch = await q.claim_batch("w1", batch_size=12)
++    counts = {c: _chains(batch).count(c) for c in SIX}
++    assert len(batch) == 12
++    assert all(counts[c] >= 1 for c in SIX)          # every chain served
++    assert max(counts.values()) <= 3                 # no monopoly
++
++
++async def test_skewed_counts_do_not_starve_minority_chains():
++    q = _q()
++    _seed(q._col, "ethereum", 100)                   # heavy chain
++    for c in ("arbitrum", "optimism", "bnb"):
++        _seed(q._col, c, 1)                          # minority chains
++    batch = await q.claim_batch("w1", batch_size=8)
++    served = set(_chains(batch))
++    assert {"arbitrum", "optimism", "bnb"}.issubset(served)
++    assert _chains(batch).count("ethereum") < 8      # cannot take whole batch
++
++
++async def test_no_permanent_monopoly_over_repeated_claims():
++    q = _q()
++    _seed(q._col, "ethereum", 50)
++    _seed(q._col, "arbitrum", 3)
++    seen = set()
++    for _ in range(3):
++        seen.update(_chains(await q.claim_batch("w", batch_size=4)))
++    assert "arbitrum" in seen                         # minority eventually served
++
++
++# 4 + 7: expired candidates never claimed; expiry semantics unchanged
++async def test_expired_never_claimed():
++    q = _q()
++    _seed(q._col, "base", 5, expired=True)
++    _seed(q._col, "ethereum", 2)
++    batch = await q.claim_batch("w1", batch_size=10)
++    assert _chains(batch) == ["ethereum", "ethereum"]  # expired base excluded
++    assert len(batch) == 2
++
++
++# 5: already-claimed / processed never incorrectly claimed
++async def test_claimed_and_processed_excluded():
++    q = _q()
++    _seed(q._col, "ethereum", 3, claimed=True)
++    _seed(q._col, "arbitrum", 3, processed=True)
++    _seed(q._col, "optimism", 2)
++    batch = await q.claim_batch("w1", batch_size=10)
++    assert set(_chains(batch)) == {"optimism"}
++    assert len(batch) == 2
++
++
++# 6: legacy candidates without a chain field remain claimable
++async def test_legacy_without_chain_still_claimable():
++    q = _q()
++    now = time.time()
++    q._col._docs.append({
++        "candidate_id": "legacy-1",
++        "opportunity_type": OpportunityType.FLASH_LOAN_ARBITRAGE.value,
++        "hint_source": "legacy", "subject_id": "legacy:subject",
++        "hint_observed_at": now, "expires_at": now + 600,
++        "verified_outcome": None, "claimed_at": None,
++        "claimed_by": None, "claimed_until": None,
++        # NOTE: no 'chain' key at all
++    })
++    _seed(q._col, "base", 1)
++    batch = await q.claim_batch("w1", batch_size=10)
++    ids = {c.candidate_id for c in batch}
++    assert "legacy-1" in ids                          # legacy served via None bucket
++    assert len(batch) == 2
++
++
++# 8: no unsupported/synthetic chains are ever introduced
++async def test_no_unsupported_chains_introduced():
++    q = _q()
++    _seed(q._col, "ethereum", 2)
++    _seed(q._col, "base", 2)
++    batch = await q.claim_batch("w1", batch_size=10)
++    assert set(_chains(batch)).issubset({"ethereum", "base"})
++
++
++# upsert_many stamps a top-level chain from the flash-loan subject_id
++async def test_upsert_stamps_chain_from_subject_id():
++    from arbicore.models.discovery import DiscoveryCandidate
++    q = _q()
++    cand = DiscoveryCandidate(
++        candidate_id="c1", opportunity_type=OpportunityType.FLASH_LOAN_ARBITRAGE,
++        hint_source="flash_loan_route_search",
++        subject_id="flash_loan:aave_v3:arbitrum:USDC:r0")
++    await q.upsert_many([cand])
++    assert q._col._docs[0].get("chain") == "arbitrum"
+diff --git a/docs/certification/EMERGENT_B1_B2_IMPLEMENTATION_20261004.md b/docs/certification/EMERGENT_B1_B2_IMPLEMENTATION_20261004.md
+new file mode 100644
+index 0000000..737fbf9
+--- /dev/null
++++ b/docs/certification/EMERGENT_B1_B2_IMPLEMENTATION_20261004.md
+@@ -0,0 +1,73 @@
++# ArbiCore X — Emergent B1 + B2 Surgical Implementation (2026-10-04)
++
++Flash-loan multichain: **B1** exact-size chain-aware sizing · **B2** discovery-queue chain fairness.
++Code implementation ONLY. No deploy, no SHADOW/PAPER/LIVE, no signing/broadcast, no VPS change.
++
++## 1. Starting baseline commit
++- Certified application baseline: `9ed2718b3550066934bd11e99a96503ce75a499f` (`9ed2718`).
++- **Provenance note:** `9ed2718` and its five remediation commits (`cb79ef1, df12c3d, 4b25cc3, 1241e6c, 9ed2718`) are **not present in this Emergent pod** (this pod descends from `93a20c9`). Implementation was authored against the pod's reconciled working-tree copies of the three target files, which match the certified behaviour described in the approved review. A portable patch is provided so Cursor can apply/verify onto `9ed2718` independent of ancestry. Cursor's own uncommitted B1/B2 tree, `arbicore-x-v2`, the dirty `quoter.py`, and the scoped-throttle test were **NOT** used as sources.
++
++## 2. Implementation commit hash
++- Branch: `phase-b/emergent-b1-b2-impl-20261004`
++- Commit: `a181634` (see verify below; amended once to embed this SHA — ancestry unchanged)
++
++## 3. Files changed
++- `app/backend/arbicore/runtime/composition.py` (B1)
++- `app/backend/arbicore/data/discovery_queue.py` (B2)
++- `app/backend/arbicore/models/discovery.py` (B2 — additive field)
++- `app/backend/tests/test_emergent_b1_multichain_sizing.py` (new)
++- `app/backend/tests/test_emergent_b2_discovery_queue_fairness.py` (new)
++- `docs/certification/EMERGENT_B1_B2_IMPLEMENTATION_20261004.md` (this report)
++
++## 4. B1 implementation summary
++- Root cause: the canonical live scanner wiring (`_wire_canonical_flash_loan_scanner`) built the exact-size `borrow_sizer` from a **Base-only** price source (`_build_base_exact_size_borrow_sizer` → `MultichainPriceSource({"base": ...})`). Non-Base chains (Ethereum, …) therefore had no feed → `price_usd` None → sizer None → `size_basis=probe` → `size_not_quoted` → Gate 7 never reached. The generalized six-chain infra (`build_multichain_price_source`, `_H05_CHAINS`, `build_h05_borrow_sizer`, `ExactSizeBorrowSizer`) already existed but was invoked only by tests.
++- Fix (reuse, no parallel architecture): new async helper `_build_live_h05_borrow_sizer(quoter_registry, base_price_feed)` builds the six-chain price source via the existing `build_multichain_price_source(..., chains=_H05_CHAINS)`, **preserves the live Base feed instance** (`price_source._feeds["base"] = base_price_feed`), and returns `build_h05_borrow_sizer(price_source=...)`. Wired into the canonical async path (`borrow_sizer=b1_sizer`).
++- Fail-closed/env-gated: returns `None` unless `ARBICORE_BORROW_SIZER_ENABLED` + `ARBICORE_PRICE_FEED_ENABLED`; if no genuine multichain source yields, it preserves the prior Base-only behaviour; a chain with no RPC / no resolvable real pool is omitted (no fabricated price, no unsafe estimate, no probe-as-exact).
++- **Scope decision:** the sync seam `build_controlled_live_safety` (line 517) was intentionally left Base-only — converting it to the async six-chain sizer would require a non-minimal sync→async refactor of a non-canonical composition path. The canonical discovery/verifier sizing path (where the Ethereum `size_not_quoted` originates) is fixed. Flagged for Cursor reconciliation.
++
++## 5. B2 implementation summary
++- Root cause: `DiscoveryQueue.claim_batch` drained `batch_size` candidates with no chain fairness (effective `expires_at` ordering via the compound index), letting one chain monopolise the batch and starve Arbitrum/Optimism/BNB. `DiscoveryCandidate` had no queryable `chain` field.
++- Fix (smallest safe):
++  1. Additive optional top-level `chain` on `DiscoveryCandidate` (back-compat; default `None`).
++  2. `upsert_many` stamps `chain` when derivable (from `hint_metric["chain"]`, else the `flash_loan:{provider}:{chain}:...` subject convention); never invents one.
++  3. New chain index in `ensure_indexes`.
++  4. `claim_batch` now fills the batch **round-robin across chains that currently have eligible candidates** (via `distinct("chain", base_filter)`), each claim using the **identical atomic `find_one_and_update` with the identical eligibility predicate**. Legacy/untagged rows match the `None` bucket and remain claimable.
++- Preserved exactly: eligibility predicate (`verified_outcome None`, `expires_at > now`, not claimed), expiry semantics, claim locking, `verified_outcome` behaviour. No opportunity forced; no downstream gate touched; no unsupported chain introduced.
++
++## 6. Focused test results
++- `test_emergent_b1_multichain_sizing.py` — **7 passed** (six-chain source; Ethereum exact-size; all supported chains; missing-feed fail-closed; Base feed-instance preservation; canonical wiring uses the six-chain helper; disabled→None Base regression).
++- `test_emergent_b2_discovery_queue_fairness.py` — **8 passed** (six-chain fairness; skewed counts; no permanent monopoly; expired never claimed; claimed/processed excluded; legacy-without-chain claimable; expiry semantics unchanged; no unsupported chains; + upsert chain-stamping).
++- Combined: **15 passed.**
++
++## 7. Regression test results
++- Related sizing/six-chain/quote suites: **93 passed** (`test_h06_canonical_sixchain`, `test_h05_exact_size_sizer`, `test_h05_exact_size_binding`, `test_live_quote_provider_multichain`, `test_multichain_univ3_support`, `test_h06_h07_chain_isolation`, `test_flash_route_to_quote_pipeline`, `test_m2_1_live_quote_provider`).
++- Discovery-queue/flash suites: **137 passed, 6 skipped, 1 failed**. The single failure — `_pending_scanner_activation/test_d6_1_verifier_scanner_sources.py::test_only_verifier_constructs_canonical_in_flash_loan_pkg` — is a **pre-existing** AST/package-structure check on the `flash_loan_arbitrage` package (which B1/B2 never touch); it fails identically with the B1/B2 changes stashed. Not a regression.
++
++## 8. Base regression verification
++- Base keeps its **existing live price-feed instance** (identity-preserved in `_build_live_h05_borrow_sizer`; asserted by test #5).
++- `ExactSizeBorrowSizer` and Base sizing formula unchanged; `_H05_CHAINS` still the six supported chains (asserted).
++- All Base-path six-chain/quote regression tests pass (§7).
++
++## 9. Polygon — untouched
++- No Polygon code modified. Classified **Class E (transient/stale RPC)** per the certified re-probe; to be re-evaluated in post-implementation six-chain verification.
++
++## 10. $100,000 TVL floor — unchanged
++- No change to Gate 8 / TVL logic. B2 does not alter eligibility beyond chain-fair ordering; TVL gating remains downstream in the verifier.
++
++## 11. $25 profitability gate — unchanged
++- Gate 7 $25 floor untouched. B1 only lets non-Base chains reach Gate 7 with a genuine exact size; it never alters the floor.
++
++## 12. Risk / safety gates — unchanged
++- No change to kill-switch, mode ladder, provider restrictions, quote eligibility, freshness, MEV (Gate 9), or fail-closed behaviour. No fabricated pricing/fallback added.
++
++## 13. Network / RPC configuration — unchanged
++- No Network Config, RPC config, Alchemy A/B, or provider endpoint change. `MONGO_URL` was supplied only transiently for the local test run; no `.env`/config file modified.
++
++## 14. VPS deployment — none
++- No deploy, no container change, no VPS access. Isolated Emergent branch only.
++
++## 15. Signing / broadcast — none
++- No signing, no broadcast, no wallet change. SHADOW posture unchanged; nothing started.
++
++---
++Next stage: independent Cursor review of this Emergent implementation before any deployment.
+-- 
+2.39.5
+
