@@ -1431,6 +1431,10 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
             tvl_provider = build_base_tvl_provider(eth_call, price_source)
     except Exception:  # noqa: BLE001 — fail-closed to None
         tvl_provider = None
+    # B1: six-chain exact-size sizer (reuses the generalized H05 infrastructure;
+    # preserves the live Base feed instance). Fail-closed/env-gated → None by
+    # default (routes stay PROBE-sized; verifier DENIED_SIZE_NOT_QUOTED).
+    b1_sizer = await _build_live_h05_borrow_sizer(quoter_registry, price_feed)
     scanner.set_quote_provider(
         make_live_quote_provider(
             quoter_registry, tvl_provider=tvl_provider,
@@ -1441,7 +1445,7 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
             # closed (DENIED_SIZE_NOT_QUOTED). Base-scoped; a non-Base route is
             # never sized from Base data. Exact-size failure FAILS CLOSED (None),
             # never a probe fallback presented as exact economic evidence.
-            borrow_sizer=_build_base_exact_size_borrow_sizer(price_feed),
+            borrow_sizer=b1_sizer,
             # Chain/venue-aware seam for NON-Base routes: a real per-chain
             # eth_call ONLY when that chain has an operator-configured RPC,
             # else None → the route stays DISCOVERABLE and fails closed with
@@ -2204,6 +2208,32 @@ async def build_h05_borrow_sizer(quoter_registry=None, *, price_source=None,
     price_fn = price_source.price_usd if price_source is not None else None
     return build_borrow_sizer_from_env(price_usd_fn=price_fn,
                                        decimals_fn=registry_decimals)
+
+
+async def _build_live_h05_borrow_sizer(quoter_registry, base_price_feed):
+    """B1: six-chain exact-size borrow sizer for the LIVE canonical scanner.
+
+    Reuses the EXISTING generalized ``build_multichain_price_source`` /
+    ``_H05_CHAINS`` / ``build_h05_borrow_sizer`` (no parallel architecture).
+    PRESERVES the live Base price-feed INSTANCE so Base behaviour is unchanged.
+    Fail-closed and env-gated (ARBICORE_BORROW_SIZER_ENABLED +
+    ARBICORE_PRICE_FEED_ENABLED): returns None (routes stay PROBE-sized → verifier
+    DENIED_SIZE_NOT_QUOTED) when disabled, and preserves the prior Base-only
+    behaviour if no genuine multichain source yields. Never fabricates a price.
+    """
+    from ..scanners.flash_loan_arbitrage.exact_size_sizer import borrow_sizer_enabled
+    if not borrow_sizer_enabled():
+        return None
+    price_source = await build_multichain_price_source(
+        quoter_registry, chains=_H05_CHAINS)
+    if price_source is None:
+        # No genuine multichain source → preserve prior Base-only behaviour.
+        return _build_base_exact_size_borrow_sizer(base_price_feed)
+    # Preserve the EXISTING live Base feed instance (no Base behaviour change).
+    if base_price_feed is not None:
+        price_source._feeds["base"] = base_price_feed
+    return await build_h05_borrow_sizer(
+        quoter_registry, price_source=price_source, chains=_H05_CHAINS)
 
 
 def build_multichain_tvl_provider(chain, *, pool_meta=None, price_source=None):

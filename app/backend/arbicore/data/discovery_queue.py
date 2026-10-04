@@ -31,6 +31,11 @@ class DiscoveryQueue:
         await self._col.create_index(
             [("opportunity_type", 1), ("claimed_until", 1), ("expires_at", 1)]
         )
+        # B2: chain-fair claim index (chain-partitioned eligibility scan).
+        await self._col.create_index(
+            [("chain", 1), ("verified_outcome", 1), ("claimed_until", 1),
+             ("expires_at", 1)]
+        )
         await self._col.create_index([("hint_source", 1), ("hint_observed_at", -1)])
         # TTL: Mongo TTL reaper deletes once expires_at is in the past.
         await self._col.create_index("expires_at", expireAfterSeconds=0)
@@ -43,6 +48,17 @@ class DiscoveryQueue:
         inserted = 0
         for c in candidates:
             doc = c.model_dump()
+            # B2: stamp a top-level chain (fair-scheduling key) when derivable —
+            # from the hint metric, else the flash-loan subject_id convention
+            # (flash_loan:{provider}:{chain}:...). Never invents a chain.
+            if not doc.get("chain"):
+                ch = (c.hint_metric or {}).get("chain")
+                if not ch:
+                    parts = (c.subject_id or "").split(":")
+                    if len(parts) >= 3 and parts[0] == "flash_loan":
+                        ch = parts[2]
+                if ch:
+                    doc["chain"] = str(ch).strip().lower()
             # Only set on insert — preserves claim lock + outcome on update
             res = await self._col.update_one(
                 {"candidate_id": c.candidate_id},
@@ -57,26 +73,49 @@ class DiscoveryQueue:
                           batch_size: int = 32,
                           claim_ttl_s: float = 60.0,
                           ) -> List[DiscoveryCandidate]:
-        """Atomically claim up to `batch_size` candidates.
+        """Atomically claim up to `batch_size` candidates with CHAIN FAIRNESS.
 
-        A candidate is eligible if:
+        Eligibility predicate (UNCHANGED — all downstream gates untouched):
           - verified_outcome is None (unprocessed)
           - claimed_until is None or < now (no live claim)
           - expires_at > now (not stale)
+
+        B2: instead of draining whichever candidates an index happens to order
+        first (which lets one chain monopolise the batch and starve others), the
+        batch is filled round-robin across the chains that currently have eligible
+        candidates. Each individual claim still uses the SAME atomic
+        find_one_and_update with the SAME eligibility predicate, so expiry
+        semantics, claim locking and verified_outcome behaviour are preserved and
+        no opportunity is ever forced. Legacy rows without a ``chain`` match the
+        ``None`` bucket and remain claimable.
         """
         now = time.time()
         claim_until = now + claim_ttl_s
+        base_filter: Dict[str, Any] = {
+            "verified_outcome": None,
+            "expires_at": {"$gt": now},
+            "$or": [
+                {"claimed_until": None},
+                {"claimed_until": {"$lt": now}},
+            ],
+        }
+        # Chains with eligible candidates right now (None = legacy/untagged).
+        chains = await self._col.distinct("chain", base_filter)
+        order: List[Any] = sorted([c for c in chains if c])
+        if any(c is None for c in chains):
+            order.append(None)  # legacy/untagged bucket, claimed fairly too
         out: List[DiscoveryCandidate] = []
-        for _ in range(batch_size):
+        if not order:
+            return out
+        exhausted: set = set()
+        idx = 0
+        while len(out) < batch_size and len(exhausted) < len(order):
+            c = order[idx % len(order)]
+            idx += 1
+            if c in exhausted:
+                continue
             doc = await self._col.find_one_and_update(
-                {
-                    "verified_outcome": None,
-                    "expires_at": {"$gt": now},
-                    "$or": [
-                        {"claimed_until": None},
-                        {"claimed_until": {"$lt": now}},
-                    ],
-                },
+                {**base_filter, "chain": c},
                 {"$set": {
                     "claimed_at": now,
                     "claimed_by": worker_id,
@@ -85,7 +124,8 @@ class DiscoveryQueue:
                 return_document=True,
             )
             if doc is None:
-                break
+                exhausted.add(c)
+                continue
             doc.pop("_id", None)
             try:
                 out.append(DiscoveryCandidate(**doc))

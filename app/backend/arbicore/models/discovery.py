@@ -78,6 +78,9 @@ class DiscoveryCandidate(BaseModel):
     hint_observed_at: float = Field(default_factory=lambda: time.time())
     subject_id: str
     asset: Optional[str] = None
+    # B2: additive top-level chain tag enabling chain-fair claim scheduling.
+    # Optional/back-compat — legacy rows without it remain safely claimable.
+    chain: Optional[str] = None
     candidate_venues: List[str] = Field(default_factory=list)
     hint_metric: Dict[str, Any] = Field(default_factory=dict)
     reason: str = ""
