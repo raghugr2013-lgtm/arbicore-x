@@ -31,6 +31,13 @@ from .sources import build_all_flash_loan_sources
 from .verifier import (
     FlashLoanOpportunityVerifier, QuoteProvider, noop_quote_provider,
 )
+from .verification_pool import (
+    VerificationPoolStats,
+    resolve_claim_batch_size,
+    resolve_claim_ttl_s,
+    resolve_verification_workers,
+    run_bounded,
+)
 
 logger = logging.getLogger("arbicore.scanners.flash_loan_arb")
 
@@ -160,7 +167,11 @@ class FlashLoanArbitrageScanner:
             "denied_venue_unreadable": 0,
             "last_run_at": None,
             "last_error": None,
+            # Shared verification worker pool (capacity only; B2 owns fairness).
+            "verification_workers_configured": 0,
+            "verification_pool": {},
         }
+        self._pool_stats = VerificationPoolStats()
 
     # -- accessors --------------------------------------------------------
 
@@ -179,6 +190,14 @@ class FlashLoanArbitrageScanner:
         try:
             out["gate7_profit_distribution"] = self._gate_7.metrics.snapshot()
         except Exception:  # noqa: BLE001 — stats must never break the scanner
+            pass
+        try:
+            out["verification_pool"] = self._pool_stats.snapshot()
+            out["verification_workers_configured"] = (
+                self._pool_stats.workers_configured
+                or out.get("verification_workers_configured")
+                or 0)
+        except Exception:  # noqa: BLE001
             pass
         return out
 
@@ -386,83 +405,125 @@ class FlashLoanArbitrageScanner:
             except Exception as exc:  # noqa: BLE001
                 self._stats["last_error"] = f"queue_upsert: {exc!r}"
 
-        # ---- 2. Claim ------------------------------------------------------
+        # ---- 2. Claim (B2 fair selection — capacity sized to worker pool) --
+        # Fairness is decided HERE by DiscoveryQueue.claim_batch (chain RR).
+        # The shared worker pool below only verifies already-claimed jobs and
+        # MUST NOT re-order or re-select across an unordered global queue.
+        cfg_now = self._cfg() or {}
+        workers = resolve_verification_workers(cfg_now)
+        batch_size = resolve_claim_batch_size(cfg_now, workers=workers)
+        claim_ttl_s = resolve_claim_ttl_s(
+            batch_size=batch_size, workers=workers)
+        self._stats["verification_workers_configured"] = workers
         try:
             batch = await self._queue.claim_batch(
-                self._worker_id, batch_size=32)
+                self._worker_id,
+                batch_size=batch_size,
+                claim_ttl_s=claim_ttl_s,
+            )
         except Exception as exc:  # noqa: BLE001
             self._stats["last_error"] = f"queue_claim: {exc!r}"
             return
         self._stats["candidates_claimed"] += len(batch)
 
-        # ---- 3. Verify each candidate -------------------------------------
-        for c in batch:
-            if c.opportunity_type != OpportunityType.FLASH_LOAN_ARBITRAGE:
-                await self._queue.mark_processed(
-                    c.candidate_id, VerifiedOutcome.DENIED_NO_VERIFIER,
-                    observed_at=c.hint_observed_at,
-                )
-                continue
-            verifier = self._verifier_registry.get(c.opportunity_type)
-            if verifier is None:
-                await self._queue.mark_processed(
-                    c.candidate_id, VerifiedOutcome.DENIED_NO_VERIFIER,
-                    observed_at=c.hint_observed_at,
-                )
-                continue
+        # ---- 3..6. Shared bounded verification pool ----------------------
+        # One canonical path: same verifier / H05 / Gate-7 for every chain.
+        if not batch:
+            return
+        await run_bounded(
+            batch,
+            self._process_claimed_candidate,
+            workers=workers,
+            stop_event=self._stop,
+            stats=self._pool_stats,
+        )
+
+    async def _process_claimed_candidate(
+            self, c: DiscoveryCandidate) -> Optional[str]:
+        """Verify one already-claimed candidate (shared pool worker body).
+
+        Preserves the historical sequential path semantics: deny unknown
+        types, invoke the registered verifier, emit only on CONFIRMED, mark
+        processed. Exceptions are isolated per candidate.
+        """
+        if self._stop.is_set():
             try:
-                opp, outcome = await verifier.verify(c)
-            except Exception as exc:  # noqa: BLE001
-                self._stats["verifier_errors"] += 1
-                self._stats["last_error"] = f"verify: {exc!r}"
                 await self._queue.mark_processed(
                     c.candidate_id,
-                    f"{VerifiedOutcome.ERROR_PREFIX}{type(exc).__name__}",
+                    f"{VerifiedOutcome.ERROR_PREFIX}scanner_shutdown",
                     observed_at=c.hint_observed_at,
                 )
-                continue
+            except Exception:  # noqa: BLE001
+                pass
+            return "shutdown"
 
-            # ---- 4. Emit (sole FLASH_LOAN_ARBITRAGE emit site) ──────────
-            if opp is not None and outcome.startswith(
-                    VerifiedOutcome.CONFIRMED_PREFIX):
-                try:
-                    # ── _TICK_EMIT: SOLE FLASH_LOAN_ARBITRAGE emit site ──
-                    await self._bus.emit(
-                        opp,
-                        venue_ids=[v for v in
-                                    (opp.buy_venue, opp.sell_venue) if v],
-                        actor="flash_loan_arb_scanner",
-                    )
-                    self._stats["rows_emitted"] += 1
-                except Exception as exc:  # noqa: BLE001
-                    self._stats["last_error"] = f"bus_publish: {exc!r}"
+        if c.opportunity_type != OpportunityType.FLASH_LOAN_ARBITRAGE:
+            await self._queue.mark_processed(
+                c.candidate_id, VerifiedOutcome.DENIED_NO_VERIFIER,
+                observed_at=c.hint_observed_at,
+            )
+            return VerifiedOutcome.DENIED_NO_VERIFIER
+        verifier = self._verifier_registry.get(c.opportunity_type)
+        if verifier is None:
+            await self._queue.mark_processed(
+                c.candidate_id, VerifiedOutcome.DENIED_NO_VERIFIER,
+                observed_at=c.hint_observed_at,
+            )
+            return VerifiedOutcome.DENIED_NO_VERIFIER
+        try:
+            opp, outcome = await verifier.verify(c)
+        except Exception as exc:  # noqa: BLE001
+            self._stats["verifier_errors"] += 1
+            self._stats["last_error"] = f"verify: {exc!r}"
+            await self._queue.mark_processed(
+                c.candidate_id,
+                f"{VerifiedOutcome.ERROR_PREFIX}{type(exc).__name__}",
+                observed_at=c.hint_observed_at,
+            )
+            return f"{VerifiedOutcome.ERROR_PREFIX}{type(exc).__name__}"
 
-            # ---- 5. Stats roll-up ---------------------------------------
-            if outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX):
-                self._stats["verifier_confirmed"] += 1
-            else:
-                self._stats["verifier_denied"] += 1
-                if outcome == VerifiedOutcome.DENIED_VENUE_UNREADABLE or \
-                        outcome.startswith(
-                            VerifiedOutcome.DENIED_VENUE_UNREADABLE + ":"):
-                    self._stats["denied_venue_unreadable"] += 1
-                elif outcome.startswith(VerifiedOutcome.DENIED_GATE_PREFIX):
-                    tail = outcome[len(VerifiedOutcome.DENIED_GATE_PREFIX):]
-                    gate_name = tail.split(":", 1)[0]
-                    key = {
-                        "gate_7": "gate_7_atomic_profit",
-                        "gate_8": "gate_8_liquidity_depth",
-                        "gate_9": "gate_9_flash_loan_mev",
-                    }.get(gate_name)
-                    if key:
-                        self._stats["gate_rejections"][key] += 1
-
-            # ---- 6. Mark processed --------------------------------------
+        # ---- Emit (sole FLASH_LOAN_ARBITRAGE emit site) ------------------
+        if opp is not None and outcome.startswith(
+                VerifiedOutcome.CONFIRMED_PREFIX):
             try:
-                await self._queue.mark_processed(
-                    c.candidate_id, outcome,
-                    opportunity_id=(opp.opportunity_id if opp else None),
-                    observed_at=c.hint_observed_at,
+                # ── _TICK_EMIT: SOLE FLASH_LOAN_ARBITRAGE emit site ──
+                await self._bus.emit(
+                    opp,
+                    venue_ids=[v for v in
+                                (opp.buy_venue, opp.sell_venue) if v],
+                    actor="flash_loan_arb_scanner",
                 )
+                self._stats["rows_emitted"] += 1
             except Exception as exc:  # noqa: BLE001
-                self._stats["last_error"] = f"queue_mark: {exc!r}"
+                self._stats["last_error"] = f"bus_publish: {exc!r}"
+
+        # ---- Stats roll-up ----------------------------------------------
+        if outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX):
+            self._stats["verifier_confirmed"] += 1
+        else:
+            self._stats["verifier_denied"] += 1
+            if outcome == VerifiedOutcome.DENIED_VENUE_UNREADABLE or \
+                    outcome.startswith(
+                        VerifiedOutcome.DENIED_VENUE_UNREADABLE + ":"):
+                self._stats["denied_venue_unreadable"] += 1
+            elif outcome.startswith(VerifiedOutcome.DENIED_GATE_PREFIX):
+                tail = outcome[len(VerifiedOutcome.DENIED_GATE_PREFIX):]
+                gate_name = tail.split(":", 1)[0]
+                key = {
+                    "gate_7": "gate_7_atomic_profit",
+                    "gate_8": "gate_8_liquidity_depth",
+                    "gate_9": "gate_9_flash_loan_mev",
+                }.get(gate_name)
+                if key:
+                    self._stats["gate_rejections"][key] += 1
+
+        # ---- Mark processed ---------------------------------------------
+        try:
+            await self._queue.mark_processed(
+                c.candidate_id, outcome,
+                opportunity_id=(opp.opportunity_id if opp else None),
+                observed_at=c.hint_observed_at,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self._stats["last_error"] = f"queue_mark: {exc!r}"
+        return outcome
