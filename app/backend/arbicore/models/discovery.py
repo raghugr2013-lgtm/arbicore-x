@@ -64,6 +64,13 @@ class VerifiedOutcome(str):
     EXPIRED_UNCLAIMED = "expired_unclaimed"
 
 
+# Supported EVM chains for discovery-queue chain-fair scheduling (B2).
+# Additive / informational — does NOT expand discovery scope or filters.
+DISCOVERY_SUPPORTED_CHAINS = (
+    "ethereum", "arbitrum", "base", "optimism", "polygon", "bnb",
+)
+
+
 class DiscoveryCandidate(BaseModel):
     """Lightweight hint from a DiscoverySource. NEVER directly persisted into
     arbicore_opportunities. NEVER consumed by Confidence / Learning / Approval.
@@ -82,6 +89,11 @@ class DiscoveryCandidate(BaseModel):
     hint_metric: Dict[str, Any] = Field(default_factory=dict)
     reason: str = ""
     expires_at: Optional[float] = None
+    # Additive top-level chain (B2). Optional for backward compatibility with
+    # legacy rows that only carry chain inside hint_metric. Populated on
+    # construct from hint_metric.chain when omitted. Does NOT alter filters /
+    # TVL / economics — only enables fair claim scheduling.
+    chain: Optional[str] = None
     # Claim-lock fields (cooperative queue — see Spec §5.1)
     claimed_at: Optional[float] = None
     claimed_by: Optional[str] = None
@@ -97,6 +109,14 @@ class DiscoveryCandidate(BaseModel):
             data["expires_at"] = data.get(
                 "hint_observed_at", time.time()
             ) + _discovery_candidate_ttl_s()
+        # Additive chain population — never invents unsupported chains.
+        raw_chain = data.get("chain")
+        if not (isinstance(raw_chain, str) and raw_chain.strip()):
+            hm = data.get("hint_metric") or {}
+            if isinstance(hm, dict):
+                raw_chain = hm.get("chain")
+        if isinstance(raw_chain, str) and raw_chain.strip():
+            data["chain"] = raw_chain.strip().lower()
         super().__init__(**data)
 
 
