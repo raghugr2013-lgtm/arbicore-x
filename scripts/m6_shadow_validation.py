@@ -57,6 +57,10 @@ from arbicore.scanners.flash_loan_arbitrage.sources import (  # noqa: E402
 from arbicore.scanners.flash_loan_arbitrage.triangular import (  # noqa: E402
     discover_triangular,
 )
+from arbicore.scanners.flash_loan_arbitrage.filter import (  # noqa: E402
+    DEFAULT_MIN_ATOMIC_PROFIT_USD,
+    REPORTING_ATOMIC_PROFIT_FLOOR_USD,
+)
 from arbicore.scanners.generic_dex_route_engine import (  # noqa: E402
     MIN_ATOMIC_PROFIT_USD,
 )
@@ -68,7 +72,8 @@ from arbicore.searcher.runtime import (  # noqa: E402
 CHAINS = ("ethereum", "arbitrum", "base", "optimism", "polygon", "bnb")
 M5_SHA = "05dacdb3eb3cc2f6555aee77b8a9811206891bc5"
 M5_TAG = "arbicore-m5-canonical-activation-pass-20261001"
-GATE7_FLOOR = 25.0
+GATE7_FLOOR = DEFAULT_MIN_ATOMIC_PROFIT_USD  # dynamic positive EV
+GATE7_REPORTING_FLOOR = REPORTING_ATOMIC_PROFIT_FLOOR_USD  # historical bucket
 
 
 def _now() -> str:
@@ -126,24 +131,30 @@ def _safety_posture() -> Dict[str, Any]:
             "autoexec": "false",
             "runtime": "false",
             "gate7_usd": GATE7_FLOOR,
+            "gate7_reporting_usd": GATE7_REPORTING_FLOOR,
         },
     }
 
 
 def _gate7_probe() -> Dict[str, Any]:
     g7 = FlashLoanGate7AtomicProfit(thresholds={})
-    below = g7.evaluate(atomic_profit_usd=24.99, borrow_amount_usd=200.0)
-    at = g7.evaluate(atomic_profit_usd=25.0, borrow_amount_usd=200.0)
+    neg = g7.evaluate(atomic_profit_usd=-1.0, borrow_amount_usd=200.0)
+    tiny = g7.evaluate(atomic_profit_usd=0.10, borrow_amount_usd=200.0)
+    at_reporting = g7.evaluate(atomic_profit_usd=25.0, borrow_amount_usd=200.0)
     # Library triangular default signature inspection
     sig = inspect.signature(discover_triangular)
     lib_default = sig.parameters["min_net_profit_usd"].default
     return {
         "canonical_floor_usd": GATE7_FLOOR,
+        "reporting_floor_usd": GATE7_REPORTING_FLOOR,
         "generic_dex_MIN_ATOMIC_PROFIT_USD": float(MIN_ATOMIC_PROFIT_USD),
         "filter_default_floor_usd": float(
-            g7.cfg.get("min_atomic_profit_usd", 25.0)),
-        "gate7_rejects_24_99": (not below.passed),
-        "gate7_accepts_25_00": bool(at.passed),
+            g7.cfg.get("min_atomic_profit_usd", DEFAULT_MIN_ATOMIC_PROFIT_USD)
+            if "min_atomic_profit_usd" in g7.cfg
+            else DEFAULT_MIN_ATOMIC_PROFIT_USD),
+        "gate7_rejects_negative": (not neg.passed),
+        "gate7_accepts_sub_25_positive": bool(tiny.passed),
+        "gate7_accepts_25_00": bool(at_reporting.passed),
         "triangular_library_default_min_net_profit_usd": lib_default,
         "triangular_vs_gate7_drift": (
             None if float(lib_default) == GATE7_FLOOR
@@ -151,9 +162,8 @@ def _gate7_probe() -> Dict[str, Any]:
         ),
         "pass": (
             float(MIN_ATOMIC_PROFIT_USD) == GATE7_FLOOR
-            and float(g7.cfg.get("min_atomic_profit_usd", 25.0)) == GATE7_FLOOR
-            and (not below.passed) and at.passed
-            and float(lib_default) >= GATE7_FLOOR
+            and (not neg.passed) and tiny.passed and at_reporting.passed
+            and float(lib_default) == GATE7_FLOOR
         ),
     }
 

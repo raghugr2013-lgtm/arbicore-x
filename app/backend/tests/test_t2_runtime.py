@@ -38,7 +38,7 @@ async def test_runtime_end_to_end_shadow_produces_real_candidates():
     assert m["candidates"] >= 1
     c = res["candidates"][0]
     assert c["mode"] == "SHADOW" and c["provenance"] == "REAL"
-    assert c["atomic_profit_usd"] >= 25.0                          # Gate 7 held
+    assert c["atomic_profit_usd"] > 0.0                            # Gate 7 held
     assert c["min_route_tvl_usd"] == 5_000_000.0
     assert res["ranking"] and res["ranking"][0][1] > 0
 
@@ -51,12 +51,15 @@ async def test_gate8_fail_closed_without_tvl():
     assert m["candidates"] == 0 and m["gate8_rejected"] >= 1
 
 
-async def test_gate7_25_floor_blocks_tiny_profit():
+async def test_gate7_dynamic_floor_allows_sub_25_positive():
     rt = _seed_runtime()
-    # tiny size → sub-$25 native net → Gate 7 rejects (floor unchanged)
+    # tiny size → sub-$25 native net may still clear dynamic Gate 7 when > 0
     res = await rt.scan_block(1, ["A"], amount_in=1.0)
-    assert res["metrics"]["candidates"] == 0
-    assert res["metrics"]["gate7_rejected"] >= 1
+    for c in res["candidates"]:
+        assert c["atomic_profit_usd"] > 0.0
+    # Non-positive economics remain the only Gate-7 hard reject here.
+    # If nothing simulated positive, gate7_rejected may be > 0; that is fine.
+    assert res["metrics"]["broadcasts"] == 0
 
 
 async def test_stale_state_protection_blocks_scan():

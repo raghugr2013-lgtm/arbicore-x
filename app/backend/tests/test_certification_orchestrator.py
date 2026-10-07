@@ -45,7 +45,7 @@ def test_g1_green_but_downstream_blocked():
 
 def test_economic_drift_trips_circuit_breaker():
     ev = _green_g0_g1_evidence()
-    ev["economic_policy"]["min_atomic_profit_usd"] = 5   # someone lowered the floor
+    ev["economic_policy"]["min_atomic_profit_usd"] = 5   # someone changed the floor
     r = evaluate_certification(ev)
     assert r["circuit_breaker"]["tripped"] is True
     assert any(t["kind"] == "economic_policy_violation" for t in r["circuit_breaker"]["trips"])

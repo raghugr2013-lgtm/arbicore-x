@@ -475,8 +475,13 @@ async def validate_generic_dex_chain(chain: str, quoter: QuoterRegistry,
     if chain != "bnb":
         flash_providers.append("balancer_v2")
 
+    from arbicore.scanners.flash_loan_arbitrage.filter import (
+        DEFAULT_MIN_ATOMIC_PROFIT_USD,
+        REPORTING_ATOMIC_PROFIT_FLOOR_USD,
+    )
     eng = GenericDexRouteEngine(
-        quoter, price_src, decimals_fn=_decimals_fn, min_atomic_profit_usd=25.0)
+        quoter, price_src, decimals_fn=_decimals_fn,
+        min_atomic_profit_usd=DEFAULT_MIN_ATOMIC_PROFIT_USD)
 
     buckets = {"A_eligible": 0, "B_below_floor_or_nonpos": 0, "C_quote_fail": 0,
                "D_liq_fail": 0, "E_gas_fail": 0, "F_rpc_data_fail": 0,
@@ -523,7 +528,11 @@ async def validate_generic_dex_chain(chain: str, quoter: QuoterRegistry,
                 "flash_fee_usd": r.flash_fee_usd,
                 "net_profit_usd": r.net_profit_usd,
                 "min_atomic_profit_usd": r.min_atomic_profit_usd,
-                "gate7_pass": bool(r.eligible and r.net_profit_usd >= 25.0),
+                # Dynamic Gate 7: eligibility already encodes positive EV.
+                # reporting_ge_25 preserves the historical $25 comparison bucket.
+                "gate7_pass": bool(r.eligible),
+                "reporting_ge_25": bool(
+                    r.net_profit_usd >= REPORTING_ATOMIC_PROFIT_FLOOR_USD),
                 "reasons": list(r.reasons),
                 "leg1_status": None if not r.leg1 else r.leg1.status,
                 "leg2_status": None if not r.leg2 else r.leg2.status,

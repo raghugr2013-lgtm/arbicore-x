@@ -17,6 +17,9 @@ from eth_utils import to_checksum_address
 from arbicore.models.enums import MevRiskLevel
 from arbicore.intelligence.roi_probability import ROIProbabilityEngine
 from arbicore.scanners.flash_loan_arbitrage.economics import FlashLoanEconomicsAssessor
+from arbicore.scanners.flash_loan_arbitrage.filter import (
+    REPORTING_ATOMIC_PROFIT_FLOOR_USD,
+)
 from arbicore.scanners.generic_dex_route_engine import (
     GenericDexRouteEngine, VenueSpec,
     ELIGIBLE, SAME_TOKEN_VIOLATION, INVALID_ROUTE, UNSUPPORTED_FLASH_PROVIDER,
@@ -94,16 +97,24 @@ async def test_eligible_route():
     assert r.status == ELIGIBLE and r.eligible is True
     assert r.strategy == "GENERIC_DEX"
     assert abs(r.gross_profit_usd - 100.0) < 1e-6
-    assert r.net_profit_usd >= MIN_ATOMIC_PROFIT_USD
+    assert r.net_profit_usd > MIN_ATOMIC_PROFIT_USD
     assert abs(r.net_profit_usd - (100.0 - 0.0 - 2.0)) < 1e-6
     assert r.flash_fee_usd == 0.0
 
 
-async def test_below_profit_floor():
+async def test_sub_25_positive_is_eligible_under_dynamic_floor():
+    """Historical $25 floor must not deny positive sub-$25 nets."""
     q = FakeQuoter(_route("ok", LEG1_OUT), _route("ok", USDC_WEI + 20 * 10 ** 6))
     r = await _eval(_engine(q))
+    assert r.status == ELIGIBLE and r.eligible is True
+    assert 0.0 < r.net_profit_usd < REPORTING_ATOMIC_PROFIT_FLOOR_USD
+
+
+async def test_below_raised_profit_floor():
+    q = FakeQuoter(_route("ok", LEG1_OUT), _route("ok", USDC_WEI + 20 * 10 ** 6))
+    r = await _eval(_engine(q, floor=25.0))
     assert r.status == BELOW_PROFIT_FLOOR and r.eligible is False
-    assert 0.0 < r.net_profit_usd < MIN_ATOMIC_PROFIT_USD
+    assert 0.0 < r.net_profit_usd < 25.0
 
 
 async def test_non_positive_net():
@@ -250,14 +261,15 @@ async def test_min_tvl_ok_eligible():
 
 
 # --------------------------------------------------------------------------- #
-# Immutable floor                                                             #
+# Dynamic floor (operator may raise; default allows sub-$25 positive)         #
 # --------------------------------------------------------------------------- #
-async def test_immutable_floor_cannot_be_lowered():
+async def test_dynamic_floor_honours_operator_raise():
     q = FakeQuoter(_route("ok", LEG1_OUT), _route("ok", USDC_WEI + 20 * 10 ** 6))
-    eng = _engine(q, floor=1.0)                      # attempt to weaken
-    assert eng.min_atomic == MIN_ATOMIC_PROFIT_USD   # clamped to $25
+    eng = _engine(q, floor=1.0)                      # operator raise
+    assert eng.min_atomic == 1.0
     r = await _eval(eng)
-    assert r.status == BELOW_PROFIT_FLOOR            # $18 net still rejected
+    # ~$18 net clears a $1 raised floor
+    assert r.status == ELIGIBLE and r.eligible is True
 
 
 async def test_floor_can_be_raised():

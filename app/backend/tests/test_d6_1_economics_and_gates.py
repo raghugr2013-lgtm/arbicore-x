@@ -137,22 +137,33 @@ def test_inv2_economics_no_emission_bus():
 # ============================================================================
 
 def test_gate7_pass():
-    g = FlashLoanGate7AtomicProfit(thresholds={"min_atomic_profit_usd": 25.0})
+    g = FlashLoanGate7AtomicProfit(thresholds={})
     r = g.evaluate(atomic_profit_usd=50.0, borrow_amount_usd=10_000.0)
     assert r.passed
 
 
-def test_gate7_fail():
-    g = FlashLoanGate7AtomicProfit(thresholds={"min_atomic_profit_usd": 25.0})
-    r = g.evaluate(atomic_profit_usd=10.0, borrow_amount_usd=10_000.0)
+def test_gate7_fail_non_positive():
+    g = FlashLoanGate7AtomicProfit(thresholds={})
+    r = g.evaluate(atomic_profit_usd=-1.0, borrow_amount_usd=10_000.0)
     assert not r.passed
     assert "atomic_profit" in r.reason
+
+
+def test_gate7_sub_25_positive_passes_dynamic_floor():
+    g = FlashLoanGate7AtomicProfit(thresholds={})
+    r = g.evaluate(atomic_profit_usd=10.0, borrow_amount_usd=10_000.0)
+    assert r.passed
 
 
 def test_gate7_floor_override():
     g = FlashLoanGate7AtomicProfit(thresholds={"min_atomic_profit_usd": 100.0})
     r = g.evaluate(atomic_profit_usd=50.0, borrow_amount_usd=10_000.0)
     assert not r.passed
+
+    raised = FlashLoanGate7AtomicProfit(
+        thresholds={"min_atomic_profit_usd": 25.0})
+    assert not raised.evaluate(
+        atomic_profit_usd=10.0, borrow_amount_usd=10_000.0).passed
 
 
 # ============================================================================

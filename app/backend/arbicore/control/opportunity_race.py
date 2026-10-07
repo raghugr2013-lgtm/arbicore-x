@@ -5,8 +5,9 @@ using the EXISTING economic/profit gate — never a hardcoded chain preference.
 A candidate qualifies ONLY when:
   * its chain-scoped execution-readiness reaches at least the required stage
     (default ECONOMICS PASS — a genuine exact-quote all-in evaluation), AND
-  * its evidenced net profit clears the UNCHANGED Gate-7 floor
-    (``FlashLoanGate7AtomicProfit`` — $25, never weakened here).
+  * its evidenced net profit clears Gate 7
+    (``FlashLoanGate7AtomicProfit`` — dynamic positive risk-adjusted EV;
+    historical $25 is reporting-only).
 
 The race NEVER signs, broadcasts, executes, or promotes. It returns the winning
 candidate's readiness verdict (or None). Ordering is by SUBMISSION order only —
@@ -73,7 +74,7 @@ async def run_opportunity_race(
             econ = (readiness.get("stages") or {}).get("ECONOMICS", {})
             net = (econ.get("evidence") or {}).get("net_profit_usd")
             rec["net_profit_usd"] = net
-            # UNCHANGED Gate-7 profit floor — never weakened by the race.
+            # Gate-7 dynamic floor — race never invents a second threshold.
             g7 = profit_gate.evaluate(
                 atomic_profit_usd=float(net) if net is not None else 0.0,
                 borrow_amount_usd=float(

@@ -206,9 +206,9 @@ def canonical_net_profit_usd(assessment: "EconomicAssessment") -> float:
     ``aggregate_economics``/``EconomicAssessment`` is THE canonical economic
     kernel (it drives the flash-loan verifier + Gate 7). This helper is the
     one authoritative USD projection of that assessment so every caller uses
-    the same number — no divergent second calculation. Gate semantics and the
-    $25 floor are unchanged (they read ``atomic_profit_usd`` =
-    ``EconomicAssessment.expected_profit_usd``).
+    the same number — no divergent second calculation. Gate 7 reads
+    ``atomic_profit_usd`` = ``EconomicAssessment.expected_profit_usd`` and
+    applies a dynamic positive floor (historical $25 is reporting-only).
     """
     return float(getattr(assessment, "expected_profit_usd", 0.0))
 

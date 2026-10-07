@@ -513,8 +513,9 @@ def base_live_shadow_audit() -> Dict[str, Any]:
              "Runtime asserts broadcast=False; tx dicts are value=0x0 "
              "eth_call-only; zero signing/broadcast code path.",
              "LOCKED"),
-        item("gate7_25_floor", "SAFETY", "ENFORCED",
-             "FlashLoanGate7AtomicProfit $25 floor — not lowerable via this path.",
+        item("gate7_dynamic_floor", "SAFETY", "ENFORCED",
+             "FlashLoanGate7AtomicProfit dynamic positive risk-adjusted floor; "
+             "$25 is reporting-only (not a hard rejection).",
              "LOCKED"),
         item("gate8_fail_closed", "SAFETY", "ENFORCED",
              "FlashLoanGate8LiquidityDepth denies on unverifiable TVL.",

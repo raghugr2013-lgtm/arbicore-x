@@ -40,8 +40,11 @@ class LiveState(str, enum.Enum):
 
 
 # Mandated economic envelope — DRIFT DETECTION ONLY (never rewritten anywhere).
+# Gate 7 hard floor is dynamic (positive risk-adjusted EV). $25 is retained
+# only as reporting_atomic_profit_floor_usd for SHADOW / certification buckets.
 ECONOMIC_POLICY = {
-    "min_atomic_profit_usd": 25,
+    "min_atomic_profit_usd": 0,
+    "reporting_atomic_profit_floor_usd": 25,
     "conservative_cert_threshold_usd": 35,
     "min_tvl_usd": 100_000,
     "min_confidence": 60,

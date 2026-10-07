@@ -3,12 +3,14 @@
 Real-data path (flag-gated: ARBICORE_T2_SEARCHER_ENABLED):
   Base WSS/logs → PoolStateCache → local AMM/CL math → route discovery →
   fast filter → T1 sizing/economics/ranking → LocalMathSimulation →
-  Gate 7 ($25) / Gate 8 (real TVL, fail-closed) / REAL provenance →
-  candidate output.  (RevmForkBackend = optional stage-2b, fail-closed.)
+  Gate 7 (dynamic positive EV) / Gate 8 (real TVL, fail-closed) /
+  REAL provenance → candidate output.  (RevmForkBackend = optional
+  stage-2b, fail-closed.)
 
-INVARIANTS: never broadcasts; never promotes; $25 Gate 7 unchanged; Gate 8
-fails closed without verifiable TVL; only REAL/VERIFIED_REAL provenance;
-never fabricates liquidity/quotes/sims.
+INVARIANTS: never broadcasts; never promotes; Gate 7 rejects non-positive
+risk-adjusted profit ($25 is reporting-only); Gate 8 fails closed without
+verifiable TVL; only REAL/VERIFIED_REAL provenance; never fabricates
+liquidity/quotes/sims.
 """
 from __future__ import annotations
 
@@ -52,17 +54,20 @@ class BaseSearcherRuntime:
     def __init__(self, *, cache: PoolStateCache, graph: RouteGraph,
                  tvl_provider=None, sim_backend: Optional[SimulationBackend] = None,
                  max_hops: int = 3, min_ratio: float = 1.0005,
-                 g7_floor_usd: float = 25.0):
+                 g7_floor_usd: float = 0.0):
         self.cache = cache
         self.graph = graph
         self.tvl_provider = tvl_provider
         self.sim = sim_backend or LocalMathSimulationBackend(cache)
         self.max_hops = max_hops
         self.min_ratio = min_ratio
-        # $25 Gate 7 floor is NOT lowerable via this path.
-        self.gate7 = FlashLoanGate7AtomicProfit(thresholds={})
+        # Dynamic Gate 7 floor (positive risk-adjusted EV). Operator may raise
+        # via g7_floor_usd; historical $25 is reporting-only.
+        floor = max(0.0, float(g7_floor_usd))
+        self.gate7 = FlashLoanGate7AtomicProfit(
+            thresholds={"min_atomic_profit_usd": floor})
         self.gate8 = FlashLoanGate8LiquidityDepth(thresholds={})
-        self._g7_floor = g7_floor_usd
+        self._g7_floor = floor
         self.mode = MODE
 
     def ingest_log(self, log: Dict[str, Any]) -> None:

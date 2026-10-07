@@ -129,9 +129,10 @@ def test_route_search_budget_locked():
     assert rs["candidate_cap"] == 64
 
 
-def test_atomic_profit_floor_locked():
+def test_atomic_profit_floor_dynamic_with_reporting_25():
     gates = DEFAULT_FLASH_LOAN_ARB_CONFIG["gate_thresholds"]["default"]
-    assert gates["min_atomic_profit_usd"] == 25.0
+    assert gates["min_atomic_profit_usd"] == 0.0
+    assert gates["reporting_atomic_profit_floor_usd"] == 25.0
 
 
 def test_scanner_state_disabled_by_default():

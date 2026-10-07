@@ -440,7 +440,7 @@ DEFAULT_FLASH_LOAN_ARB_CONFIG: Dict[str, Any] = {
     },
     # M5 activation sources — wired into build_all_flash_loan_sources.
     # Still dormant until chains + providers are operator-enabled. Gate 7
-    # floor remains $25 (never lowered here).
+    # uses a dynamic positive risk-adjusted floor ($25 is reporting-only).
     "discovery_sources": {
         "generic_dex": {"enabled": True},
         "triangular": {"enabled": True},
@@ -448,10 +448,11 @@ DEFAULT_FLASH_LOAN_ARB_CONFIG: Dict[str, Any] = {
     },
     "gate_thresholds": {
         "default": {
-            "min_atomic_profit_usd": 25.0,
+            "min_atomic_profit_usd": 0.0,
             "min_pool_tvl_usd_in_route": 100_000.0,
             "max_flash_loan_mev_risk_class": "MEDIUM",
             "min_confidence": 60.0,
+            "reporting_atomic_profit_floor_usd": 25.0,
         },
     },
     "roi_probability": {

@@ -170,12 +170,17 @@ def test_economics_single_source_of_truth():
     assert canonical_net_profit_usd(a) == a.expected_profit_usd
 
 
-# ── #8 $25 gate unchanged ─────────────────────────────────────────────────
-def test_gate7_floor_is_still_25():
-    from arbicore.scanners.flash_loan_arbitrage.filter import FlashLoanGate7AtomicProfit
+# ── #8 Gate 7 dynamic floor (positive EV; $25 reporting-only) ─────────────
+def test_gate7_dynamic_floor_rejects_non_positive():
+    from arbicore.scanners.flash_loan_arbitrage.filter import (
+        FlashLoanGate7AtomicProfit, REPORTING_ATOMIC_PROFIT_FLOOR_USD)
     g = FlashLoanGate7AtomicProfit(thresholds={})
-    assert g.evaluate(atomic_profit_usd=24.99, borrow_amount_usd=1e5).passed is False
+    assert g.evaluate(atomic_profit_usd=-1.0, borrow_amount_usd=1e5).passed is False
+    assert g.evaluate(atomic_profit_usd=0.0, borrow_amount_usd=1e5).passed is False
+    assert g.evaluate(atomic_profit_usd=0.10, borrow_amount_usd=1e5).passed is True
+    assert g.evaluate(atomic_profit_usd=24.99, borrow_amount_usd=1e5).passed is True
     assert g.evaluate(atomic_profit_usd=25.00, borrow_amount_usd=1e5).passed is True
+    assert REPORTING_ATOMIC_PROFIT_FLOOR_USD == 25.0
 
 
 # ── #9 TVL cannot fabricate a liquidity pass (fail closed) ────────────────

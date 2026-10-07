@@ -174,7 +174,13 @@ class FlashLoanArbitrageScanner:
 
     @property
     def stats(self) -> Dict[str, Any]:
-        return dict(self._stats)
+        out = dict(self._stats)
+        # Gate-7 profit distribution (reporting / SHADOW certification).
+        try:
+            out["gate7_profit_distribution"] = self._gate_7.metrics.snapshot()
+        except Exception:  # noqa: BLE001 — stats must never break the scanner
+            pass
+        return out
 
     @property
     def source_registry(self) -> DiscoverySourceRegistry:

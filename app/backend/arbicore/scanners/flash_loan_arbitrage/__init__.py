@@ -8,7 +8,8 @@ Operator-scoped at D-6.0:
   - Chains:    Ethereum, Arbitrum, Base, Optimism, Polygon (no Solana)
   - Hop budget: max_hops = 4
   - Route search: wall_clock_cap = 5 s, candidate_cap = 64
-  - Atomic-profit floor: 25 USD (Gate 7 default)
+  - Atomic-profit floor: dynamic positive risk-adjusted EV (Gate 7;
+    historical $25 is reporting-only)
 
 INV-1: sources emit DiscoveryCandidate only. ``RouteSearchEngine``
 produces ordered route tuples that become DiscoveryCandidates.
@@ -34,6 +35,11 @@ from .filter import (
     FlashLoanGate8LiquidityDepth,
     FlashLoanGate9FlashLoanMev,
     GateResult,
+    DEFAULT_MIN_ATOMIC_PROFIT_USD,
+    REPORTING_ATOMIC_PROFIT_FLOOR_USD,
+    Gate7ProfitMetrics,
+    empty_gate7_profit_metrics,
+    profit_band_key,
 )
 from .route_search import (
     PoolNode, RouteSearchEngine, RouteCycle,
@@ -65,6 +71,8 @@ __all__ = [
     # Gates
     "FlashLoanGate7AtomicProfit", "FlashLoanGate8LiquidityDepth",
     "FlashLoanGate9FlashLoanMev", "GateResult",
+    "DEFAULT_MIN_ATOMIC_PROFIT_USD", "REPORTING_ATOMIC_PROFIT_FLOOR_USD",
+    "Gate7ProfitMetrics", "empty_gate7_profit_metrics", "profit_band_key",
     # Verifier + scanner
     "FlashLoanOpportunityVerifier", "FlashLoanArbitrageScanner",
 ]

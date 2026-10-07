@@ -107,8 +107,8 @@ def build_readiness_matrix(
                        "per-candidate: UniV3-only routes SUPPORTED; Aerodrome/"
                        "unsupported venues remain DENIED"))
     items.append(_item("economics_gate7", MARKET, "market",
-                       "per-candidate: atomic profit must clear the $25 floor "
-                       "(unchanged)"))
+                       "per-candidate: atomic profit must clear the dynamic "
+                       "positive Gate-7 floor (historical $25 is reporting-only)"))
     items.append(_item("gate8_liquidity", MARKET, "market",
                        "per-candidate: route TVL / Gate 8 (unchanged)"))
     items.append(_item("gate9_mev", MARKET, "market",

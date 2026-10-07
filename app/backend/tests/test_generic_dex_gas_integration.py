@@ -189,8 +189,9 @@ async def test_floor_immutable_with_canonical_gas(monkeypatch):
     eng = GenericDexRouteEngine(
         q, FakePrice(1.0, 3000.0), decimals_fn=lambda c, t: 6,
         economics_assessor=FlashLoanEconomicsAssessor(roi_engine=ROIProbabilityEngine()),
-        min_atomic_profit_usd=1.0, mev_risk_level=MevRiskLevel.LOW)
-    assert eng.min_atomic == MIN_ATOMIC_PROFIT_USD
+        min_atomic_profit_usd=25.0, mev_risk_level=MevRiskLevel.LOW)
+    # Operator-raised floor still rejects sub-floor positive nets.
+    assert eng.min_atomic == 25.0
     r = await _eval(eng)                   # gross $20 - $2 gas = $18 net
     assert r.status == "below_profit_floor"
 

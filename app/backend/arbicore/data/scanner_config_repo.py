@@ -435,10 +435,11 @@ DEFAULT_FLASH_LOAN_ARB_CONFIG: Dict[str, Any] = {
     },
     "gate_thresholds": {
         "default": {
-            "min_atomic_profit_usd": 25.0,
+            "min_atomic_profit_usd": 0.0,
             "min_pool_tvl_usd_in_route": 100_000.0,
             "max_flash_loan_mev_risk_class": "MEDIUM",
             "min_confidence": 60.0,
+            "reporting_atomic_profit_floor_usd": 25.0,
         },
     },
     "roi_probability": {

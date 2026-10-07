@@ -374,9 +374,10 @@ class TriangularDiscoverySource(DiscoverySource):
                             "route_hops": hops,
                             "strategy_hint": "TRIANGULAR",
                             "activation_source": self.source_id,
-                            # Gate 7 ($25) is authoritative — no library $35
-                            # prefilter on this DiscoverySource path.
-                            "canonical_gate7_floor_usd": 25.0,
+                            # Gate 7 dynamic positive floor is authoritative —
+                            # $25 retained as reporting bucket only.
+                            "canonical_gate7_floor_usd": 0.0,
+                            "reporting_gate7_floor_usd": 25.0,
                         }
                         _attach_probe(chain, base.upper(), hm)
                         out.append(_candidate(

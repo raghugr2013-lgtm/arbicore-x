@@ -205,10 +205,14 @@ def test_verifier_binds_notional_to_exact_quote():
     econ = bundle["economics"] if "economics" in bundle else None
     # borrow amount recorded in the bundle economics must be the bound $250
     meta = (bundle.get("category_metadata") or {})
-    # atomic profit ≈ 3% of $250 ≈ $7.5 (NOT 3% of $10k = $300) → gate_7 floor
-    # rejects, proving the notional was bound to the quoted size.
+    # atomic profit ≈ 3% of $250 ≈ $7.5 (NOT 3% of $10k = $300) — proves
+    # the notional was bound to the quoted size. Dynamic Gate 7 accepts
+    # sub-$25 positive EV; later gates / TVL may still deny confirmation.
     assert bundle["economics"]["borrow_amount_usd"] == 250.0
-    assert outcome != VerifiedOutcome.CONFIRMED_PREFIX  # tiny size → gate_7 deny
+    assert bundle["economics"]["atomic_profit_usd"] < 50.0
+    assert bundle["gates"]["gate_7"]["status"] == "PASS"
+    # Confirmation still requires Gate 8/9; fixture TVL is typically unverifiable.
+    assert outcome != VerifiedOutcome.CONFIRMED_PREFIX
 
     # H05: exact-size quote provenance must survive into the evidence bundle.
     assert bundle["quotes"]["size_basis"] == "exact"

@@ -17,8 +17,11 @@ Route shape (same-token atomic cycle):
         -> SELL on venue B:  INTERMEDIATE -> BORROW_TOKEN
         -> repay flash loan + premium
 
-Economic gate (immutable): net atomic profit must clear the $25 floor. Every
-unknown fails CLOSED with an explicit reason and NEVER becomes zero:
+Economic gate (aligned with Gate 7): net atomic profit must be strictly
+positive after the canonical FlashLoanEconomicsAssessor (fees/gas/slippage/MEV).
+The historical $25 floor is REPORTING ONLY — see
+``REPORTING_ATOMIC_PROFIT_FLOOR_USD``. Every unknown fails CLOSED with an
+explicit reason and NEVER becomes zero:
 
     unknown USD price     -> UNKNOWN_PRICE
     unknown decimals      -> UNKNOWN_DECIMALS
@@ -45,13 +48,21 @@ from eth_utils import to_checksum_address
 from ..models.enums import MevRiskLevel, StrategyType
 from .flash_loan_arbitrage.economics import (
     FLASH_LOAN_PROVIDERS, FlashLoanEconomicsAssessor)
+from .flash_loan_arbitrage.filter import (
+    DEFAULT_MIN_ATOMIC_PROFIT_USD,
+    REPORTING_ATOMIC_PROFIT_FLOOR_USD,
+)
 from ..chains.gas_model import get_chain_gas_model
 
 # --------------------------------------------------------------------------- #
-# Immutable economic gate (mirrors data/scanner_config_defaults.py).          #
-# Do NOT weaken. The constructor may only RAISE the floor, never lower it.    #
+# Dynamic economic gate (mirrors FlashLoanGate7AtomicProfit).                 #
+# Default floor is 0 → require strictly positive risk-adjusted net.           #
+# Operator may RAISE the floor; negative configs clamp to 0. No max cap.      #
+# $25 remains REPORTING_ATOMIC_PROFIT_FLOOR_USD only.                         #
 # --------------------------------------------------------------------------- #
-MIN_ATOMIC_PROFIT_USD: float = 25.0
+MIN_ATOMIC_PROFIT_USD: float = DEFAULT_MIN_ATOMIC_PROFIT_USD
+# Re-export for callers / SHADOW comparison buckets.
+REPORTING_MIN_ATOMIC_PROFIT_USD: float = REPORTING_ATOMIC_PROFIT_FLOOR_USD
 
 # Pathological gas / native-price ceilings (fail-closed → UNKNOWN_GAS).
 # Live SHADOW on public RPCs observed BNB gas USD ~1e10 from bad native
@@ -197,8 +208,9 @@ class GenericDexRouteEngine:
         self.quoter = quoter_registry
         self.price_source = price_source
         self.decimals_fn = decimals_fn or _default_decimals_fn
-        # Immutable floor — can only be raised, never lowered below $25.
-        self.min_atomic = max(MIN_ATOMIC_PROFIT_USD, float(min_atomic_profit_usd))
+        # Dynamic floor — default 0 (positive EV). Operator may raise; never
+        # negative. Historical $25 is reporting-only (not clamped here).
+        self.min_atomic = max(0.0, float(min_atomic_profit_usd))
         self.mev = mev_risk_level
         if economics_assessor is not None:
             self.assessor = economics_assessor
@@ -392,17 +404,20 @@ class GenericDexRouteEngine:
             flash_fee_usd=flash_fee_usd, gas_cost_usd=gas_usd,
             net_profit_usd=net, economics_metadata=econ.to_metadata(), **ctx)
 
-        # (10) decision — non-positive OR below immutable floor => DENY
+        # (10) decision — non-positive OR below (possibly raised) floor => DENY
+        # Aligned with Gate 7: positive risk-adjusted EV; no max profit cap.
         if net <= 0.0:
             return self._deny(NON_POSITIVE_NET,
                               f"net profit ${net:.2f} <= 0", **common)
-        if net < self.min_atomic:
+        if self.min_atomic > 0.0 and net < self.min_atomic:
             return self._deny(BELOW_PROFIT_FLOOR,
                               f"net profit ${net:.2f} < floor "
                               f"${self.min_atomic:.2f}", **common)
 
         result = self._deny(ELIGIBLE,
-                            f"net profit ${net:.2f} >= floor ${self.min_atomic:.2f}",
+                            f"net profit ${net:.2f} > 0 "
+                            f"(reporting_floor "
+                            f"${REPORTING_ATOMIC_PROFIT_FLOOR_USD:.2f})",
                             **common)
         return GenericDexRouteResult(**{**result.__dict__, "eligible": True})
 

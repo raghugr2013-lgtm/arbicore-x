@@ -120,13 +120,12 @@ def test_E_mev_adjustment_unchanged():
     assert high.atomic_profit_usd < low.atomic_profit_usd
 
 
-# ---- F. GATE 7 threshold & shared aggregator untouched ----
-def test_F_gate7_floor_and_shared_aggregator_untouched():
-    # Gate-7 default atomic floor stays $25 (code-level), not weakened.
-    import inspect
+# ---- F. GATE 7 reporting $25 + shared aggregator untouched ----
+def test_F_gate7_reporting_floor_and_shared_aggregator_untouched():
+    # Gate-7 keeps $25 as REPORTING_ATOMIC_PROFIT_FLOOR_USD only.
     import arbicore.scanners.flash_loan_arbitrage.filter as fmod
-    src = inspect.getsource(fmod)
-    assert "min_atomic_profit_usd" in src and "25.0" in src
+    assert fmod.REPORTING_ATOMIC_PROFIT_FLOOR_USD == 25.0
+    assert fmod.DEFAULT_MIN_ATOMIC_PROFIT_USD == 0.0
     # shared aggregate_economics still sums ALL leg fee_bps (unchanged contract):
     from arbicore.scanners.economics import aggregate_economics, LegCost
     econ = aggregate_economics(

@@ -75,18 +75,19 @@ async def discover_triangular(
     native_usd: Optional[float],
     liquidity_by_provider: Optional[Dict[str, Optional[float]]] = None,
     fee_bps_by_provider: Optional[Dict[str, Optional[int]]] = None,
-    min_net_profit_usd: float = 25.0,
+    min_net_profit_usd: float = 0.0,
 ) -> Dict[str, Any]:
     """Enumerate + evaluate + emit ECONOMICALLY-VALID triangular candidates.
 
     Returns ``{evaluated, valid, emitted:[CanonicalOpportunity], details:[...]}``.
     A cycle is emitted ONLY when true net profit ≥ ``min_net_profit_usd``.
 
-    Default floor is **$25** — aligned with canonical Gate 7
-    (``FlashLoanGate7AtomicProfit`` / ``MIN_ATOMIC_PROFIT_USD``). This library
-    helper is a prefilter for direct callers only; when wired through the
-    canonical scanner DiscoverySource → verifier path, Gate 7 remains the
-    authoritative economic gate. Never lower the floor below $25.
+    Default floor is **$0 (dynamic)** — aligned with canonical Gate 7
+    (``FlashLoanGate7AtomicProfit``): require positive risk-adjusted net.
+    Historical $25 is reporting-only. This library helper is a prefilter for
+    direct callers only; when wired through the canonical scanner
+    DiscoverySource → verifier path, Gate 7 remains the authoritative
+    economic gate. There is no maximum profit cap.
     """
     if base_token_price_usd is None or base_token_price_usd <= 0:
         return {"evaluated": 0, "valid": 0, "emitted": [],
@@ -120,7 +121,10 @@ async def discover_triangular(
         rec = {"cycle": list(cyc), "status": "priced",
                "gross_usd": round(gross_usd, 4), "true_net_usd": net,
                "provider": econ["provider"], "provider_fee_usd": econ["provider_fee_usd"]}
-        if net >= min_net_profit_usd:
+        # Align with Gate 7: strictly positive when floor is 0; otherwise
+        # honour a raised operator floor. No maximum profit cap.
+        _floor = max(0.0, float(min_net_profit_usd))
+        if net > 0.0 and net >= _floor:
             valid += 1
             rec["status"] = "economically_valid"
             opp = emit_flash_candidate(

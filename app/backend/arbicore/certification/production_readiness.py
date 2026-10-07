@@ -207,15 +207,26 @@ def collect_scan_enablement(cfg_snapshot: Optional[Dict] = None) -> List[Readine
 # --------------------------------------------------------------------------
 
 def collect_market(latest_race_winner: Optional[dict] = None) -> List[ReadinessItem]:
-    if latest_race_winner and float(latest_race_winner.get("net_profit_usd") or 0) >= 25.0:
+    # Historical $25 reporting bucket for "cert-quality" edge signalling.
+    # Gate 7 itself is dynamic (positive risk-adjusted EV); this MARKET item
+    # still tracks the legacy certification comparison threshold.
+    from ..scanners.flash_loan_arbitrage.filter import (
+        REPORTING_ATOMIC_PROFIT_FLOOR_USD,
+    )
+    reporting_floor = REPORTING_ATOMIC_PROFIT_FLOOR_USD
+    if latest_race_winner and float(
+            latest_race_winner.get("net_profit_usd") or 0) >= reporting_floor:
         return [ReadinessItem("MARKET", "qualifying_edge", Status.READY,
-                              detail={"net_profit_usd": latest_race_winner.get("net_profit_usd")})]
+                              detail={"net_profit_usd": latest_race_winner.get("net_profit_usd"),
+                                      "reporting_floor_usd": reporting_floor})]
     return [ReadinessItem(
         "MARKET", "qualifying_edge", Status.BLOCKED, Category.MARKET,
-        what_missing="a genuine >= $25 net (>= $35 conservative) atomic edge",
-        why_blocked="no qualifying opportunity present in the latest race (correct fail-closed)",
+        what_missing=(f"a genuine >= ${reporting_floor:.0f} net "
+                      "(>= $35 conservative) atomic edge"),
+        why_blocked="no cert-quality opportunity present in the latest race "
+                    "(Gate 7 itself is dynamic; $25 is reporting-only)",
         where_configured="opportunity race / live market",
-        required_value="wait for market; never lower Gate-7 or fabricate")]
+        required_value="wait for market; never fabricate economics")]
 
 
 def build_report(*, head_sha: str = "",

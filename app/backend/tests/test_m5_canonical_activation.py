@@ -68,7 +68,10 @@ def _cfg(**overrides) -> Dict[str, Any]:
             "balancer_v2": {"enabled": True},
         },
         "gate_thresholds": {
-            "default": {"min_atomic_profit_usd": 25.0},
+            "default": {
+                "min_atomic_profit_usd": 0.0,
+                "reporting_atomic_profit_floor_usd": 25.0,
+            },
         },
     }
     cfg.update(overrides)
@@ -102,13 +105,17 @@ def test_m5_sources_inv1_no_emission_bus():
     assert "emit_flash_candidate(" not in text
 
 
-def test_gate7_floor_still_25():
+def test_gate7_dynamic_floor_and_reporting_25():
+    from arbicore.scanners.flash_loan_arbitrage.filter import (
+        REPORTING_ATOMIC_PROFIT_FLOOR_USD, DEFAULT_MIN_ATOMIC_PROFIT_USD)
     g = FlashLoanGate7AtomicProfit(thresholds={})
     r = g.evaluate(atomic_profit_usd=24.99, borrow_amount_usd=10_000.0)
-    assert r.passed is False
+    assert r.passed is True  # sub-$25 positive clears dynamic floor
     r2 = g.evaluate(atomic_profit_usd=25.0, borrow_amount_usd=10_000.0)
     assert r2.passed is True
-    assert MIN_ATOMIC_PROFIT_USD == 25.0
+    assert g.evaluate(atomic_profit_usd=-1.0, borrow_amount_usd=10_000.0).passed is False
+    assert MIN_ATOMIC_PROFIT_USD == DEFAULT_MIN_ATOMIC_PROFIT_USD == 0.0
+    assert REPORTING_ATOMIC_PROFIT_FLOOR_USD == 25.0
 
 
 # --------------------------------------------------------------------------- #
@@ -157,9 +164,9 @@ def test_generic_dex_source_dormant_when_disabled():
 # Triangular DiscoverySource + $25 library alignment
 # --------------------------------------------------------------------------- #
 
-def test_triangular_library_default_is_gate7_25():
+def test_triangular_library_default_aligned_to_gate7_dynamic():
     sig = inspect.signature(discover_triangular)
-    assert sig.parameters["min_net_profit_usd"].default == 25.0
+    assert sig.parameters["min_net_profit_usd"].default == 0.0
 
 
 def test_triangular_source_emits_3hop_candidates():
@@ -179,7 +186,9 @@ def test_triangular_source_emits_3hop_candidates():
     assert out
     assert all(c.hint_metric.get("strategy_hint") == "TRIANGULAR" for c in out)
     assert all(c.hint_metric.get("hop_count") == 3 for c in out)
-    assert all(c.hint_metric.get("canonical_gate7_floor_usd") == 25.0
+    assert all(c.hint_metric.get("canonical_gate7_floor_usd") == 0.0
+               for c in out)
+    assert all(c.hint_metric.get("reporting_gate7_floor_usd") == 25.0
                for c in out)
     assert all(isinstance(c, DiscoveryCandidate) for c in out)
 
@@ -415,9 +424,14 @@ async def test_pathological_native_price_is_unknown_gas(monkeypatch):
     assert r.status == UNKNOWN_GAS
 
 
-def test_min_atomic_still_immutable_floor():
+def test_min_atomic_dynamic_floor_allows_raise():
     eng = GenericDexRouteEngine(
         FakeQuoter(), FakePrice(),
         decimals_fn=lambda c, t: 6,
-        min_atomic_profit_usd=1.0)  # attempt to lower
-    assert eng.min_atomic == 25.0
+        min_atomic_profit_usd=1.0)  # operator raise above dynamic 0
+    assert eng.min_atomic == 1.0
+    eng0 = GenericDexRouteEngine(
+        FakeQuoter(), FakePrice(),
+        decimals_fn=lambda c, t: 6,
+        min_atomic_profit_usd=0.0)
+    assert eng0.min_atomic == 0.0
