@@ -1523,17 +1523,23 @@ async def _wire_canonical_flash_loan_scanner(quoter_registry):
         quoter_registry=quoter_registry,
     )
     quote_tvl = tvl_dispatch if tvl_dispatch is not None else tvl_provider
+    # H05 / B1: six-chain ExactSizeBorrowSizer via the EXISTING
+    # build_h05_borrow_sizer + build_multichain_price_source seam. The live Base
+    # M2.5 price_feed instance is preserved (base_feed=…) so Base sizing matches
+    # the prior `_build_base_exact_size_borrow_sizer` path. Env-gated
+    # (ARBICORE_BORROW_SIZER_ENABLED + ARBICORE_PRICE_FEED_ENABLED) → None by
+    # default ⇒ routes stay PROBE-sized and the verifier fails closed
+    # (DENIED_SIZE_NOT_QUOTED). Missing/invalid per-chain feeds fail closed
+    # (omit chain / return None) — never fabricate prices or bypass sizing.
+    try:
+        borrow_sizer = await build_h05_borrow_sizer(
+            quoter_registry, base_feed=price_feed)
+    except Exception:  # noqa: BLE001 — fail closed to probe (never fabricate)
+        borrow_sizer = None
     scanner.set_quote_provider(
         make_live_quote_provider(
             quoter_registry, tvl_provider=quote_tvl,
-            # H05: EXACT-SIZE sizer (multichain exact-size architecture) bound to
-            # the SAME Base price feed; the SOLE Base sizer. Env-gated
-            # (ARBICORE_BORROW_SIZER_ENABLED + ARBICORE_PRICE_FEED_ENABLED) →
-            # None by default ⇒ routes stay PROBE-sized and the verifier fails
-            # closed (DENIED_SIZE_NOT_QUOTED). Base-scoped; a non-Base route is
-            # never sized from Base data. Exact-size failure FAILS CLOSED (None),
-            # never a probe fallback presented as exact economic evidence.
-            borrow_sizer=_build_base_exact_size_borrow_sizer(price_feed),
+            borrow_sizer=borrow_sizer,
             # Chain/venue-aware seam for NON-Base routes: a real per-chain
             # eth_call ONLY when that chain has an operator-configured RPC,
             # else None → the route stays DISCOVERABLE and fails closed with
@@ -2188,14 +2194,20 @@ def _make_chain_price_feed(quoter_registry, chain, pools):
 
 
 async def build_multichain_price_source(quoter_registry=None, *, chains=_H05_CHAINS,
-                                        eth_call_factory=None, resolver=None):
+                                        eth_call_factory=None, resolver=None,
+                                        base_feed=None):
     """Six-chain on-chain USD price source (fail-closed) for H05.
 
     None when the H05 price feed is disabled or no chain yields a genuine feed.
     Each chain uses ITS OWN eth_call (RPC failover), ITS OWN
     ``QuoterRegistry.quote_route(chain=...)`` and SP-5-resolved REAL UniV3 pools
     — never Base/cross-chain substitution and no fabricated pools/prices. A chain
-    with no RPC / no resolvable pool is simply omitted (fails closed)."""
+    with no RPC / no resolvable pool is simply omitted (fails closed).
+
+    When ``base_feed`` is supplied (the live M2.5 ``OnChainUsdPriceFeed`` from
+    ``build_base_price_feed_from_env``), that exact instance is bound under the
+    ``base`` key so Base pricing matches the prior Base-only sizer path.
+    """
     from ..scanners.flash_loan_arbitrage.exact_size_sizer import (
         MultichainPriceSource, PricePool, price_feed_enabled)
     if not price_feed_enabled():
@@ -2217,6 +2229,10 @@ async def build_multichain_price_source(quoter_registry=None, *, chains=_H05_CHA
     feeds = {}
     for ch in chains:
         c = (ch or "").lower()
+        if c == "base" and base_feed is not None:
+            # Preserve the existing Base price-feed instance/behavior.
+            feeds[c] = base_feed
+            continue
         eth_call = _eth(c)
         if eth_call is None:
             continue  # no RPC → fail closed for this chain
@@ -2282,17 +2298,22 @@ def _base_price_pools():
 
 
 async def build_h05_borrow_sizer(quoter_registry=None, *, price_source=None,
-                                 chains=_H05_CHAINS):
+                                 chains=_H05_CHAINS, base_feed=None):
     """Build the H05 exact-size ``borrow_sizer`` callback via
     ``build_borrow_sizer_from_env`` — or ``None`` when H05 is disabled or no
-    genuine price source exists (fail closed, never fabricated)."""
+    genuine price source exists (fail closed, never fabricated).
+
+    ``base_feed`` (optional) is forwarded to ``build_multichain_price_source`` so
+    the live Base M2.5 feed instance is preserved when the six-chain source is
+    constructed here.
+    """
     from ..scanners.flash_loan_arbitrage.exact_size_sizer import (
         build_borrow_sizer_from_env, registry_decimals, borrow_sizer_enabled)
     if not borrow_sizer_enabled():
         return None
     if price_source is None:
-        price_source = await build_multichain_price_source(quoter_registry,
-                                                           chains=chains)
+        price_source = await build_multichain_price_source(
+            quoter_registry, chains=chains, base_feed=base_feed)
     price_fn = price_source.price_usd if price_source is not None else None
     return build_borrow_sizer_from_env(price_usd_fn=price_fn,
                                        decimals_fn=registry_decimals)
