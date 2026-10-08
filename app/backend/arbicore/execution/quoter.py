@@ -46,10 +46,12 @@ Contract addresses (Base Mainnet, chain_id=8453)
 """
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import logging
 import os
+import re
 import time
-import asyncio
 from dataclasses import dataclass, asdict, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Protocol, Tuple
@@ -233,6 +235,122 @@ _RPC_LAST_TS: Dict[str, float] = {}
 # (block_number) then comes from a separate best-effort eth_blockNumber.
 _HOST_BATCH_OK: Dict[str, bool] = {}
 
+# HTTP-429 (rate-limit) policy for the quoter transport. A 429 means the host
+# asked us to back off; retrying the SAME host aggressively amplifies 429s
+# instead of failing over. 429 is therefore bounded INDEPENDENTLY of the
+# general retry budget, and each 429 places the host on a short cooldown so
+# QuoterRegistry.quote_route fails over promptly to a valid alternate endpoint.
+# Cooldown is HOST-scoped (never candidate-scoped) and uses monotonic time.
+_RPC_MAX_RETRIES_429 = int(os.environ.get("ARBICORE_RPC_MAX_RETRIES_429", "1"))
+_RPC_RATE_LIMIT_COOLDOWN_S = float(
+    os.environ.get("ARBICORE_RPC_RATE_LIMIT_COOLDOWN_S", "60"))
+_RPC_HOST_COOLDOWN_UNTIL: Dict[str, float] = {}
+
+# Structured 429 telemetry (host / chain / fingerprint). No secrets — fp is
+# sha256(key)[:8] of the /v2|/v3 path segment when present.
+_RPC_429_TELEMETRY: Dict[str, Any] = {
+    "http_429": 0,
+    "rpc_rate_limit": 0,
+    "cooldown_gate": 0,
+    "retries_attempted": 0,
+    "by_host": {},
+    "by_chain": {},
+    "by_fp": {},
+}
+
+
+def _rpc_key_fingerprint(rpc_url: str) -> Optional[str]:
+    m = re.search(r"/(?:v2|v3)/([A-Za-z0-9_-]+)", rpc_url or "")
+    if not m:
+        return None
+    return hashlib.sha256(m.group(1).encode("utf-8")).hexdigest()[:8]
+
+
+def _chain_hint_from_host(host: str) -> Optional[str]:
+    h = (host or "").lower()
+    if "base" in h:
+        return "base"
+    if "arb" in h:
+        return "arbitrum"
+    if "opt" in h:
+        return "optimism"
+    if "polygon" in h or "matic" in h:
+        return "polygon"
+    if "bnb" in h or "bsc" in h:
+        return "bnb"
+    if "eth" in h:
+        return "ethereum"
+    return None
+
+
+def _bump_counter(bucket: Dict[str, int], key: Optional[str]) -> None:
+    if not key:
+        key = "unknown"
+    bucket[key] = int(bucket.get(key) or 0) + 1
+
+
+def _record_rpc_429(
+    rpc_url: str,
+    *,
+    chain: Optional[str],
+    kind: str,
+    retried: bool = False,
+) -> None:
+    """Record a rate-limit / cooldown event. Never logs secrets/URLs."""
+    host = _host_key(rpc_url)
+    fp = _rpc_key_fingerprint(rpc_url)
+    chain_l = (chain or _chain_hint_from_host(host) or "unknown").lower()
+    tel = _RPC_429_TELEMETRY
+    if kind not in tel:
+        tel[kind] = 0
+    tel[kind] = int(tel.get(kind) or 0) + 1
+    if retried:
+        tel["retries_attempted"] = int(tel.get("retries_attempted") or 0) + 1
+    _bump_counter(tel["by_host"], host)
+    _bump_counter(tel["by_chain"], chain_l)
+    _bump_counter(tel["by_fp"], fp or "none")
+    logger.info(
+        "rpc_429 host=%s chain=%s fp=%s kind=%s retried=%s",
+        host, chain_l, fp or "none", kind, bool(retried),
+    )
+
+
+def rpc_429_telemetry_snapshot() -> Dict[str, Any]:
+    """Process-local quoter 429 counters (safe for status/capacity export)."""
+    tel = _RPC_429_TELEMETRY
+    now_m = time.monotonic()
+    return {
+        "http_429": int(tel.get("http_429") or 0),
+        "rpc_rate_limit": int(tel.get("rpc_rate_limit") or 0),
+        "cooldown_gate": int(tel.get("cooldown_gate") or 0),
+        "retries_attempted": int(tel.get("retries_attempted") or 0),
+        "by_host": dict(tel.get("by_host") or {}),
+        "by_chain": dict(tel.get("by_chain") or {}),
+        "by_fp": dict(tel.get("by_fp") or {}),
+        "cooldown_hosts_active": sum(
+            1 for t in _RPC_HOST_COOLDOWN_UNTIL.values() if t > now_m
+        ),
+        "max_retries_429": int(_RPC_MAX_RETRIES_429),
+        "cooldown_s": float(_RPC_RATE_LIMIT_COOLDOWN_S),
+    }
+
+
+def reset_rpc_429_telemetry() -> None:
+    _RPC_429_TELEMETRY["http_429"] = 0
+    _RPC_429_TELEMETRY["rpc_rate_limit"] = 0
+    _RPC_429_TELEMETRY["cooldown_gate"] = 0
+    _RPC_429_TELEMETRY["retries_attempted"] = 0
+    _RPC_429_TELEMETRY["by_host"] = {}
+    _RPC_429_TELEMETRY["by_chain"] = {}
+    _RPC_429_TELEMETRY["by_fp"] = {}
+    _RPC_HOST_COOLDOWN_UNTIL.clear()
+
+
+def _rpc_host_cooled(rpc_url: str) -> bool:
+    """True when the normalized host is still inside its 429 cooldown window."""
+    return _RPC_HOST_COOLDOWN_UNTIL.get(_host_key(rpc_url), 0.0) > time.monotonic()
+
+
 # ── H06 (P1 defense-in-depth): endpoint chain-identity verification ──────────
 # Every RPC endpoint used for a chain must prove, via ``eth_chainId``, that it
 # actually serves the INTENDED chain. Wrong / ambiguous / unreadable identity
@@ -415,6 +533,7 @@ async def _single_call(
 async def _eth_call(
     rpc_url: str, *, to: str, data: str, block: str = "latest", timeout: float = 12.0,
     with_block_number: bool = True, max_retries: Optional[int] = None,
+    chain: Optional[str] = None,
 ) -> Tuple[Optional[str], Optional[int], Optional[Dict[str, Any]]]:
     """Read-only ``eth_call`` — returns (result_hex, block_number, error_dict).
 
@@ -423,11 +542,34 @@ async def _eth_call(
     (e.g. Alchemy plans that answer a batch with a single object or an empty
     array). Applies a global throttle and retries on rate-limit (-32016 / HTTP
     429). Fail-closed: on any unrecovered error it returns an ``error_dict`` and
-    never a fabricated quote."""
+    never a fabricated quote.
+
+    HTTP 429 / soft rate-limit is HOST-scoped: bounded same-host retry
+    (``_RPC_MAX_RETRIES_429``), then a 60s monotonic cooldown so
+    ``quote_route`` advances A→B→C without delaying the candidate.
+    """
     host = _host_key(rpc_url)
     scope = _throttle_scope(rpc_url)
     last_err: Optional[Dict[str, Any]] = None
     retries = _RPC_MAX_RETRIES if max_retries is None else max(0, int(max_retries))
+    # HTTP-429 is bounded INDEPENDENTLY of the general retry budget so a
+    # rate-limited host is not hammered (amplification), and each 429 puts the
+    # host on a short cooldown so later calls fail over to a valid alternate.
+    eff_429 = min(retries, _RPC_MAX_RETRIES_429)
+
+    def _cooldown_host() -> None:
+        _RPC_HOST_COOLDOWN_UNTIL[host] = (
+            time.monotonic() + _RPC_RATE_LIMIT_COOLDOWN_S)
+
+    def _note_rl(kind: str, *, retried: bool = False) -> None:
+        _record_rpc_429(rpc_url, chain=chain, kind=kind, retried=retried)
+
+    # Per-host cooldown gate: fail fast (NO POST) with a rate-limited error so
+    # QuoterRegistry.quote_route fails over to the next candidate endpoint.
+    if _RPC_HOST_COOLDOWN_UNTIL.get(host, 0.0) > time.monotonic():
+        _note_rl("cooldown_gate", retried=False)
+        return None, None, {"code": -32016,
+                            "message": "HTTP 429 host cooldown (recent rate limit)"}
     for attempt in range(retries + 1):
         await _throttle(scope)
         use_batch = with_block_number and _HOST_BATCH_OK.get(host, True)
@@ -441,11 +583,21 @@ async def _eth_call(
             except httpx.HTTPStatusError as exc:
                 if exc.response is not None and exc.response.status_code == 429:
                     last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    _cooldown_host()
+                    if attempt < eff_429:
+                        _note_rl("http_429", retried=True)
+                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    _note_rl("http_429", retried=False)
+                    return None, None, last_err
                 raise
-            if err and _is_rate_limited(err) and attempt < retries:
+            if err and _is_rate_limited(err):
                 last_err = err
-                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _cooldown_host()
+                if attempt < eff_429:
+                    _note_rl("rpc_rate_limit", retried=True)
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _note_rl("rpc_rate_limit", retried=False)
+                return None, None, last_err
             return result, bn, err
 
         # ---- Batch mode ------------------------------------------------------
@@ -458,13 +610,23 @@ async def _eth_call(
             r = await _post_json(rpc_url, payload, timeout)
             if getattr(r, "status_code", 200) == 429:
                 last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _cooldown_host()
+                if attempt < eff_429:
+                    _note_rl("http_429", retried=True)
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _note_rl("http_429", retried=False)
+                return None, None, last_err
             r.raise_for_status()
             body = r.json()
         except httpx.HTTPStatusError as exc:
             if exc.response is not None and exc.response.status_code == 429:
                 last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
-                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _cooldown_host()
+                if attempt < eff_429:
+                    _note_rl("http_429", retried=True)
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _note_rl("http_429", retried=False)
+                return None, None, last_err
             raise
 
         if isinstance(body, list):
@@ -472,9 +634,14 @@ async def _eth_call(
             if call_resp is not None:
                 if "error" in call_resp:
                     err = call_resp["error"]
-                    if _is_rate_limited(err) and attempt < retries:
+                    if _is_rate_limited(err):
                         last_err = err
-                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                        _cooldown_host()
+                        if attempt < eff_429:
+                            _note_rl("rpc_rate_limit", retried=True)
+                            await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                        _note_rl("rpc_rate_limit", retried=False)
+                        return None, None, last_err
                     return None, None, err
                 block_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 2), None) or {}
                 bn_hex = (block_resp or {}).get("result")
@@ -485,9 +652,14 @@ async def _eth_call(
             # switch this host to single mode and retry.
             err = next((b.get("error") for b in body if isinstance(b, dict) and "error" in b), None)
             if err:
-                if _is_rate_limited(err) and attempt < retries:
+                if _is_rate_limited(err):
                     last_err = err
-                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    _cooldown_host()
+                    if attempt < eff_429:
+                        _note_rl("rpc_rate_limit", retried=True)
+                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    _note_rl("rpc_rate_limit", retried=False)
+                    return None, None, last_err
                 return None, None, err
             logger.info("quoter: host %s mishandled JSON-RPC batch (array) — switching to single-request mode", host)
             _HOST_BATCH_OK[host] = False
@@ -496,9 +668,14 @@ async def _eth_call(
         # mark the host batch-averse and retry in single mode.
         if isinstance(body, dict) and "error" in body:
             err = body["error"]
-            if _is_rate_limited(err) and attempt < retries:
+            if _is_rate_limited(err):
                 last_err = err
-                await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _cooldown_host()
+                if attempt < eff_429:
+                    _note_rl("rpc_rate_limit", retried=True)
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                _note_rl("rpc_rate_limit", retried=False)
+                return None, None, last_err
             # A real auth/other error (e.g. Ankr keyless "Unauthorized"): surface it.
             return None, None, err
         logger.info("quoter: host %s answered batch with a non-array — switching to single-request mode", host)
@@ -558,7 +735,8 @@ class UniV3QuoterV2:
         data = _SEL["univ3_quoteExactInputSingle"] + params_encoded.hex()
 
         try:
-            result_hex, block_number, err = await _eth_call(rpc_url, to=contract, data=data, max_retries=max_retries)
+            result_hex, block_number, err = await _eth_call(
+                rpc_url, to=contract, data=data, max_retries=max_retries, chain=chain)
         except Exception as exc:  # noqa: BLE001
             return _fallback_hop(hop_index, self.dex, token_in, token_out,
                                   amount_in_wei, contract, _redact_host(rpc_url),
@@ -630,7 +808,8 @@ class AerodromeSlipStreamQuoter:
         )
         data = _SEL["aeroSs_quoteExactInputSingle"] + params_encoded.hex()
         try:
-            result_hex, block_number, err = await _eth_call(rpc_url, to=contract, data=data, max_retries=max_retries)
+            result_hex, block_number, err = await _eth_call(
+                rpc_url, to=contract, data=data, max_retries=max_retries, chain=chain)
         except Exception as exc:  # noqa: BLE001
             return _fallback_hop(hop_index, self.dex, token_in, token_out,
                                   amount_in_wei, contract, _redact_host(rpc_url),
@@ -706,7 +885,8 @@ class AerodromeClassicQuoter:
         )
         data = _SEL["aero_getAmountsOut"] + params_encoded.hex()
         try:
-            result_hex, block_number, err = await _eth_call(rpc_url, to=router, data=data, max_retries=max_retries)
+            result_hex, block_number, err = await _eth_call(
+                rpc_url, to=router, data=data, max_retries=max_retries, chain=chain)
         except Exception as exc:  # noqa: BLE001
             return _fallback_hop(hop_index, self.dex, token_in, token_out,
                                   amount_in_wei, router, _redact_host(rpc_url),
@@ -795,7 +975,8 @@ class UniV2RouterQuoter:
                                     [int(amount_in_wei), path])
         data = _SEL["univ2_getAmountsOut"] + params_encoded.hex()
         try:
-            result_hex, block_number, err = await _eth_call(rpc_url, to=router, data=data, max_retries=max_retries)
+            result_hex, block_number, err = await _eth_call(
+                rpc_url, to=router, data=data, max_retries=max_retries, chain=chain)
         except Exception as exc:  # noqa: BLE001
             return _fallback_hop(hop_index, self.dex, token_in, token_out,
                                   amount_in_wei, router, _redact_host(rpc_url),
@@ -861,7 +1042,8 @@ class _AlgebraQuoter:
              int(amount_in_wei), 0])
         data = _SEL["algebra_quoteExactInputSingle"] + params.hex()
         try:
-            result_hex, block_number, err = await _eth_call(rpc_url, to=quoter, data=data, max_retries=max_retries)
+            result_hex, block_number, err = await _eth_call(
+                rpc_url, to=quoter, data=data, max_retries=max_retries, chain=chain)
         except Exception as exc:  # noqa: BLE001
             return _fallback_hop(hop_index, self.dex, token_in, token_out,
                                   amount_in_wei, quoter, _redact_host(rpc_url),
@@ -988,7 +1170,8 @@ class BalancerV2Quoter:
                                   "balancer_v2 requires 'pool_id' or 'pool_address' in hop_spec")
 
         async def _call(to: str, data: str):
-            return await _eth_call(rpc_url, to=to, data=data, max_retries=max_retries)
+            return await _eth_call(
+                rpc_url, to=to, data=data, max_retries=max_retries, chain=chain)
 
         try:
             q = await discover_and_quote(
@@ -1177,6 +1360,14 @@ class QuoterRegistry:
         # used — for an explicit rpc_url too. Fail-closed: none verified ⇒ empty.
         if rpc_candidates and self._verify_chain_identity:
             rpc_candidates = await _verified_chain_endpoints(rpc_candidates, chain)
+        # Prefer hosts not currently in a 429 cooldown so A→B failover does not
+        # even enter cooled A. Cooled hosts remain at the end (fail-fast if still
+        # cooled; eligible again after expiry). Candidate is never delayed 60s.
+        if rpc_candidates:
+            alive = [u for u in rpc_candidates if not _rpc_host_cooled(u)]
+            cooled = [u for u in rpc_candidates if _rpc_host_cooled(u)]
+            if alive:
+                rpc_candidates = alive + cooled
         results: List[HopQuote] = []
         if not rpc_candidates:
             for i, h in enumerate(hops):

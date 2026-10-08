@@ -17,6 +17,9 @@ import arbicore.execution.quoter as q
 def _reset_throttle_state(monkeypatch):
     monkeypatch.setattr(q, "_RPC_LOCKS", {}, raising=True)
     monkeypatch.setattr(q, "_RPC_LAST_TS", {}, raising=True)
+    # Host-scoped 429 cooldown is process-global; clear so prior amp tests
+    # cannot leak into failover/surface-error assertions.
+    monkeypatch.setattr(q, "_RPC_HOST_COOLDOWN_UNTIL", {}, raising=False)
     yield
 
 
