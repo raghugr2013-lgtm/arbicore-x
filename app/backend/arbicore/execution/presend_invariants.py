@@ -126,14 +126,10 @@ class TxByteBinding:
 # ---------------------------------------------------------------------------
 
 class SendCriticalSection:
-    """Process-local lock wrapping final KS re-read + send.
+    """DEPRECATED for LIVE broadcast — process-local only (Handoff-4 / C2).
 
-    Engage that commits to the authoritative store before ``guard()`` runs
-    under this lock will deny the send. This closes the TOCTOU gap between
-    earlier gate checks and ``eth_sendRawTransaction`` within one process.
-
-    Multi-instance: without a distributed lock this is CONDITIONAL — see
-    ``SINGLE_WRITER_ENV``.
+    Retained for unit-level illustrations. Production send path uses
+    ``BroadcastCoordinator`` in ``durable_broadcast_coordination.py``.
     """
 
     def __init__(self) -> None:
@@ -154,10 +150,10 @@ SINGLE_WRITER_ENV = "ARBICORE_BROADCAST_INSTANCE_ID"
 
 
 class NonceCoordinator:
-    """Per-signer nonce lease within one process; optional single-writer guard.
+    """DEPRECATED for LIVE broadcast — process-local only (Handoff-4 / C6).
 
-    If ``ARBICORE_BROADCAST_INSTANCE_ID`` is set and a second distinct id is
-    observed via ``claim_writer``, raises — enforcing single-writer.
+    Retained for unit-level illustrations. Production path uses
+    ``BroadcastCoordinator`` durable writer/nonce leases.
     """
 
     def __init__(self) -> None:

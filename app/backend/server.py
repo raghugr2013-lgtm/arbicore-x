@@ -270,7 +270,13 @@ def _limited_live_signer_status():
 
 
 from arbicore.execution.presend_invariants import DurableBudgetStore as _DurableBudgetStore
+from arbicore.execution.durable_broadcast_coordination import (
+    BroadcastCoordinator as _BroadcastCoordinator,
+)
 _DURABLE_BUDGET_STORE = _DurableBudgetStore(db)
+# WP-C2/C6 — durable cross-process kill/send + nonce coordination.
+_BROADCAST_COORDINATOR = _BroadcastCoordinator(db)
+_KILL_SWITCH_REPO.bind_broadcast_coordinator(_BROADCAST_COORDINATOR)
 
 _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     kill_switch=_KILL_SWITCH_REPO,
@@ -294,6 +300,7 @@ _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     require_revalidation=True,
     # WP-C / C5 — durable concurrency-safe notional budgets at send boundary.
     budget_store=_DURABLE_BUDGET_STORE,
+    broadcast_coordinator=_BROADCAST_COORDINATOR,
 )
 
 # ---------------------------------------------------------------------------

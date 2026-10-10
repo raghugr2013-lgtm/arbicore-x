@@ -87,6 +87,8 @@ class KillSwitchRepo:
 
     # Optional sync hook for in-memory mirrors (WP-C / C1). Set by server boot.
     _memory_mirror = None  # type: ignore[var-annotated]
+    # WP-C2: durable broadcast coordinator (shared with send path).
+    _broadcast_coordinator = None  # type: ignore[var-annotated]
 
     def bind_memory_mirror(self, mirror) -> None:
         """Bind an in-memory KillSwitch-like object (``engage``/``disengage``/``is_engaged``).
@@ -95,6 +97,10 @@ class KillSwitchRepo:
         after successful persistent transitions so sync callers see the same flag.
         """
         self._memory_mirror = mirror
+
+    def bind_broadcast_coordinator(self, coordinator) -> None:
+        """Bind durable C2 coordinator so engage/disengage share send fencing."""
+        self._broadcast_coordinator = coordinator
 
     def _sync_mirror_engaged(self, *, engaged: bool, actor: str, reason: str) -> None:
         mirror = self._memory_mirror
@@ -109,6 +115,11 @@ class KillSwitchRepo:
             pass
 
     async def engage(self, reason: str, actor: str = "operator") -> KillSwitchState:
+        # WP-C2: acknowledge engage in durable coord FIRST so mark_entering_rpc
+        # cannot win a race against this engagement across processes.
+        coord = self._broadcast_coordinator
+        if coord is not None:
+            await coord.on_kill_engaged(reason=reason, actor=actor)
         now = _now_iso()
         await self._coll.update_one(
             {"key": self.KEY},
@@ -144,6 +155,10 @@ class KillSwitchRepo:
              "$setOnInsert": {"key": self.KEY}},
             upsert=True,
         )
+        # WP-C2: clear durable send fence after authoritative KS is clear.
+        coord = self._broadcast_coordinator
+        if coord is not None:
+            await coord.on_kill_disengaged(reason=reason, actor=actor)
         self._sync_mirror_engaged(engaged=False, actor=actor, reason=reason)
         return await self.state()
 

@@ -33,18 +33,17 @@ from .calldata import EncodedCall, encode_plan_head_call
 from .kill_switch import KillSwitchEngagedError
 from .presend_invariants import (
     ChainPolicyError,
-    NonceCoordinator,
-    SendCriticalSection,
     TxByteBinding,
     assert_chain_allowed,
     assert_chain_ceiling,
 )
+from .durable_broadcast_coordination import (
+    AmbiguousBroadcastError,
+    BroadcastCoordinator,
+    CoordinationError,
+)
 
 logger = logging.getLogger("arbicore.execution.broadcast")
-
-# Process-local send critical section + nonce coordinator (WP-C C2/C6).
-_SEND_SECTION = SendCriticalSection()
-_NONCE_COORD = NonceCoordinator()
 
 
 def _now_iso() -> str:
@@ -248,7 +247,8 @@ class LimitedLiveBroadcaster:
                  rpc_url_env: str = "ARBICORE_RPC_URL",
                  preflight_only_default: bool = True,
                  budget_store=None,
-                 daily_notional_ceiling_usd: float = 10_000.0):
+                 daily_notional_ceiling_usd: float = 10_000.0,
+                 broadcast_coordinator: Optional[BroadcastCoordinator] = None):
         self._kill = kill_switch
         self._mode = mode_repo
         self._wallets = wallet_registry
@@ -258,6 +258,9 @@ class LimitedLiveBroadcaster:
         # WP-C / C5 — optional durable budget store (fail-closed when present).
         self._budget_store = budget_store
         self._daily_notional_ceiling_usd = float(daily_notional_ceiling_usd)
+        # WP-C2/C6 — durable cross-process send + nonce coordinator (required
+        # for LIVE broadcast). Absence fails closed at the send boundary.
+        self._coord = broadcast_coordinator
         # Isolated execution signer: resolved from the encrypted evm_sign
         # vault. This is deliberately separate from signer_wallet_id, which
         # remains the gas/capital wallet used by Gate 3.
@@ -822,15 +825,23 @@ class LimitedLiveBroadcaster:
                     denied.append(f"durable_budget: {type(exc).__name__}")
 
         if not denied and preflight_ok and confirm and not force_broadcast:
-            # All gates PASS — sign + broadcast under kill-vs-send critical section.
+            # All gates PASS — durable C2/C6 authorize → mark_entering_rpc → send.
+            nonce_lease = None
             try:
+                if self._coord is None:
+                    raise CoordinationError(
+                        "broadcast_coordinator_required: refuse send without "
+                        "durable cross-process coordination"
+                    )
                 from eth_account import Account
                 acct = Account.from_key(priv_hex)  # type: ignore[arg-type]
-                _NONCE_COORD.claim_writer()
-                leased_nonce = await _NONCE_COORD.allocate(
+                # Defense in depth: KS repo guard + durable coord fence.
+                await self._kill.guard()
+                await self._coord.claim_writer()
+                nonce_lease = await self._coord.allocate_nonce(
                     signer_address or "", int(nonce or 0),
                 )
-                nonce = leased_nonce
+                nonce = nonce_lease.nonce
                 # Legacy tx envelope (Base allowlisted).
                 tx = {
                     "to": encoded.contract_address,
@@ -844,31 +855,62 @@ class LimitedLiveBroadcaster:
                 # C3 · bind validated bytes before sign; re-check at send.
                 binding = TxByteBinding.from_tx(tx)
 
-                async def _sign_and_send():
-                    # Still under SendCriticalSection lock: KS re-read already done.
-                    binding.assert_matches(tx)
-                    signed = acct.sign_transaction(tx)
-                    raw_hex = signed.raw_transaction.hex()
-                    if not raw_hex.startswith("0x"):
-                        raw_hex = "0x" + raw_hex
+                # C2: durable authorize, then mark_entering_rpc (linearization
+                # vs kill engage), then sole eth_sendRawTransaction call.
+                auth = await self._coord.authorize_send()
+                try:
+                    await self._coord.mark_entering_rpc(auth)
+                except Exception:
+                    # Definite pre-boundary failure — nonce may be reused.
+                    await self._coord.mark_nonce_pre_broadcast_failure(nonce_lease)
+                    await self._coord.complete_send(auth, outcome="failed_pre_rpc")
+                    raise
+
+                binding.assert_matches(tx)
+                signed = acct.sign_transaction(tx)
+                raw_hex = signed.raw_transaction.hex()
+                if not raw_hex.startswith("0x"):
+                    raw_hex = "0x" + raw_hex
+                try:
                     # ---- THE ONE AND ONLY BROADCAST CALL SITE ----
-                    return await self._rpc(
+                    tx_hash = await self._rpc(
                         "eth_sendRawTransaction", [raw_hex], read_only=False,
                     )
+                except TimeoutError as exc:
+                    await self._coord.mark_nonce_ambiguous(
+                        nonce_lease, reason="rpc_timeout_after_boundary",
+                    )
+                    raise AmbiguousBroadcastError(
+                        f"rpc_timeout_after_boundary: {exc}"
+                    ) from exc
+                except Exception as exc:
+                    # Past broadcast boundary — do not release nonce blindly.
+                    await self._coord.mark_nonce_ambiguous(
+                        nonce_lease,
+                        reason=f"rpc_error_after_boundary:{type(exc).__name__}",
+                    )
+                    raise AmbiguousBroadcastError(
+                        f"rpc_error_after_boundary: {type(exc).__name__}: {exc}"
+                    ) from exc
 
-                tx_hash = await _SEND_SECTION.run_send(
-                    kill_switch=self._kill,
-                    send_coro_factory=_sign_and_send,
-                )
+                await self._coord.mark_nonce_submitted(nonce_lease, tx_hash=tx_hash)
+                await self._coord.mark_nonce_completed(nonce_lease)
+                await self._coord.complete_send(auth, outcome="completed")
                 broadcast_sent = True
                 gate_ladder["broadcast"] = "SENT"
                 gate_ladder["tx_byte_binding"] = "PASS"
                 gate_ladder["kill_switch_presend"] = "PASS"
+                gate_ladder["durable_send_coord"] = "PASS"
+                gate_ladder["durable_nonce"] = "PASS"
             except KillSwitchEngagedError as exc:
                 gate_ladder["broadcast"] = "DENIED"
                 gate_ladder["kill_switch_presend"] = "DENIED"
                 denied.append(f"kill_vs_send: {exc}")
-            except PermissionError as exc:
+            except AmbiguousBroadcastError as exc:
+                gate_ladder["broadcast"] = "AMBIGUOUS"
+                gate_ladder["durable_nonce"] = "BLOCKED"
+                denied.append(f"ambiguous_broadcast: {exc}")
+            except (CoordinationError, PermissionError) as exc:
                 gate_ladder["broadcast"] = "DENIED"
                 denied.append(f"presend_invariant: {exc}")
             except Exception as exc:  # noqa: BLE001
