@@ -6023,7 +6023,8 @@ async def v2_settings_network() -> Dict[str, Any]:
 
 @api_router.post("/arbicore/settings/network/validate", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_network_validate(patch: Dict[str, Any]) -> Dict[str, Any]:
-    return {**_NETWORK_CONFIG.validate(patch or {}),
+    # Redact validation output (errors/normalized) — may echo rpc_urls.
+    return {**_redact_network_payload(_NETWORK_CONFIG.validate(patch or {})),
              "generated_at": _iso_now()}
 
 
@@ -6031,9 +6032,12 @@ async def v2_settings_network_validate(patch: Dict[str, Any]) -> Dict[str, Any]:
 async def v2_settings_network_draft(patch: Dict[str, Any]) -> Dict[str, Any]:
     try:
         d = await _NETWORK_CONFIG.save_draft(patch or {}, actor="operator")
-        return {"ok": True, "draft": d, "generated_at": _iso_now()}
+        return {"ok": True, "draft": _redact_network_payload(d),
+                "generated_at": _iso_now()}
     except ValueError as exc:
-        return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
+        return {"ok": False,
+                "error": _redact_network_payload(str(exc)),
+                "generated_at": _iso_now()}
 
 
 @api_router.post("/arbicore/settings/network/apply", dependencies=[Depends(_require_admin_dep)])
@@ -6063,10 +6067,13 @@ async def v2_settings_network_apply(body: Optional[Dict[str, Any]] = None
                 _g579_sync_rpc()
             except Exception:  # noqa: BLE001
                 logger.exception("g5.79 rpc provider sync failed")
-        return {"ok": True, "config": cfg, "env_synced": sorted(exported.keys()),
+        return {"ok": True, "config": _redact_network_payload(cfg),
+                "env_synced": sorted(exported.keys()),
                 "generated_at": _iso_now()}
     except ValueError as exc:
-        return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
+        return {"ok": False,
+                "error": _redact_network_payload(str(exc)),
+                "generated_at": _iso_now()}
 
 
 @api_router.post("/arbicore/settings/network/rollback", dependencies=[Depends(_require_admin_dep)])
@@ -6092,10 +6099,13 @@ async def v2_settings_network_rollback(body: Optional[Dict[str, Any]] = None
                 _g579_sync_rpc()
             except Exception:  # noqa: BLE001
                 logger.exception("g5.79 rpc provider sync failed")
-        return {"ok": True, "config": cfg, "env_synced": sorted(exported.keys()),
+        return {"ok": True, "config": _redact_network_payload(cfg),
+                "env_synced": sorted(exported.keys()),
                 "generated_at": _iso_now()}
     except ValueError as exc:
-        return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
+        return {"ok": False,
+                "error": _redact_network_payload(str(exc)),
+                "generated_at": _iso_now()}
 
 
 @api_router.get("/arbicore/settings/network/history", dependencies=[Depends(_require_operator_dep)])
@@ -6109,14 +6119,18 @@ async def v2_settings_network_history(limit: int = 50) -> Dict[str, Any]:
 # Phase 10.2 · Generic config history across kinds
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/settings/config/history")
+@api_router.get("/arbicore/settings/config/history",
+                dependencies=[Depends(_require_operator_dep)])
 async def v2_config_history(kind: Optional[str] = None,
                              limit: int = 100) -> Dict[str, Any]:
+    # Handoff-2 emergency: was anonymous and returned raw rpc_urls inside
+    # network-kind history snapshots. Operator auth + recursive redaction
+    # for all kinds (network and non-network records).
     if kind:
         items = await _CONFIG_REPO.history(kind, limit=max(1, min(int(limit), 500)))
     else:
         items = await _CONFIG_REPO.all_history(limit=max(1, min(int(limit), 500)))
-    return {"items": items, "count": len(items),
+    return {"items": _redact_network_payload(items), "count": len(items),
              "kind_filter": kind, "generated_at": _iso_now()}
 
 
