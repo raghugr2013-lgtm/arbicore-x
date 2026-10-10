@@ -659,6 +659,21 @@ async def _require_operator_dep(
     return ctx
 
 
+async def _require_admin_dep(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+) -> Dict[str, Any]:
+    """WP-A / F-AUTH-02 — admin-only gate for signing-critical network mutations.
+
+    Role is taken from the authenticated session context (DB-backed via
+    ``services.auth``), never from a client-supplied body field.
+    """
+    ctx = await _require_operator_dep(request, authorization)
+    if ctx.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="admin_only")
+    return ctx
+
+
 def _audit_actor() -> str:
     """Server-derived audit actor for the current request.
 
@@ -4111,15 +4126,23 @@ async def v2_execution_kill_switch_engage(body: Dict[str, Any]) -> Dict[str, Any
     return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/execution/kill-switch/disengage", dependencies=[Depends(_require_operator_dep)])
+@api_router.post("/arbicore/execution/kill-switch/disengage", dependencies=[Depends(_require_admin_dep)])
 async def v2_execution_kill_switch_disengage(body: Dict[str, Any]) -> Dict[str, Any]:
+    # WP-B / F-AUTH-03: admin-only. Auth runs via Depends before any mutation.
+    # Audit actor is server-derived (_audit_actor); never trust body["actor"].
     b = body or {}
     reason = (b.get("reason") or "").strip()
     if not reason:
         return {"ok": False, "error": "reason is required",
                 "generated_at": _iso_now()}
-    state = await _KILL_SWITCH_REPO.disengage(reason=reason,
-                                                actor=_audit_actor())
+    try:
+        state = await _KILL_SWITCH_REPO.disengage(reason=reason,
+                                                    actor=_audit_actor())
+    except Exception as exc:  # noqa: BLE001 — audit/state fail-closed
+        raise HTTPException(
+            status_code=503,
+            detail=f"kill_switch_disengage_failed: {type(exc).__name__}",
+        ) from exc
     return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
 
 
@@ -5963,7 +5986,24 @@ async def v2_mark_vps_ready(body: Optional[Dict[str, Any]] = None) -> Dict[str, 
 # Phase 10.1 · Network Configuration — persistent, UI-editable
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/settings/network")
+def _redact_network_payload(value: Any) -> Any:
+    """Recursively redact credential-bearing URLs in network config responses.
+
+    Emergency Auth Reconciliation: GET network/history must not disclose raw
+    RPC URLs that embed provider API keys. Uses the shared credential-URL
+    redactor; never logs or returns the original sensitive segments.
+    """
+    from arbicore.log_redaction import redact_credential_url
+    if isinstance(value, str):
+        return redact_credential_url(value)
+    if isinstance(value, list):
+        return [_redact_network_payload(v) for v in value]
+    if isinstance(value, dict):
+        return {k: _redact_network_payload(v) for k, v in value.items()}
+    return value
+
+
+@api_router.get("/arbicore/settings/network", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_network() -> Dict[str, Any]:
     try:
         cfg = await _NETWORK_CONFIG.get()
@@ -5971,8 +6011,8 @@ async def v2_settings_network() -> Dict[str, Any]:
         # Canonical allowlist for Network Settings / Add Network UX.
         # Sourced from NetworkConfigRepo SUPPORTED_CHAINS (includes bnb).
         return {
-            "config": cfg,
-            "draft": draft,
+            "config": _redact_network_payload(cfg),
+            "draft": _redact_network_payload(draft),
             "supported_chains": list(NETWORK_SUPPORTED_CHAINS),
             "generated_at": _iso_now(),
         }
@@ -5996,9 +6036,11 @@ async def v2_settings_network_draft(patch: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/network/apply", dependencies=[Depends(_require_operator_dep)])
+@api_router.post("/arbicore/settings/network/apply", dependencies=[Depends(_require_admin_dep)])
 async def v2_settings_network_apply(body: Optional[Dict[str, Any]] = None
                                      ) -> Dict[str, Any]:
+    # WP-A / F-AUTH-02: admin-only. Auth failure aborts before apply/env sync,
+    # so unauthorized callers cannot partially mutate runtime configuration.
     b = body or {}
     reason = (b.get("reason") or "").strip()
     try:
@@ -6027,9 +6069,10 @@ async def v2_settings_network_apply(body: Optional[Dict[str, Any]] = None
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.post("/arbicore/settings/network/rollback", dependencies=[Depends(_require_operator_dep)])
+@api_router.post("/arbicore/settings/network/rollback", dependencies=[Depends(_require_admin_dep)])
 async def v2_settings_network_rollback(body: Optional[Dict[str, Any]] = None
                                         ) -> Dict[str, Any]:
+    # WP-A / F-AUTH-02: admin-only (same gate as apply).
     b = body or {}
     try:
         cfg = await _NETWORK_CONFIG.rollback(
@@ -6055,10 +6098,11 @@ async def v2_settings_network_rollback(body: Optional[Dict[str, Any]] = None
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/settings/network/history")
+@api_router.get("/arbicore/settings/network/history", dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_network_history(limit: int = 50) -> Dict[str, Any]:
     items = await _NETWORK_CONFIG.history(limit=max(1, min(int(limit), 200)))
-    return {"items": items, "count": len(items), "generated_at": _iso_now()}
+    return {"items": _redact_network_payload(items), "count": len(items),
+            "generated_at": _iso_now()}
 
 
 # ---------------------------------------------------------------------------
@@ -6990,62 +7034,40 @@ async def _resolve_current_user(
     request: Optional[Request] = None,
     authorization: Optional[str] = None,
 ):
-    """v2.9.3 — Unified auth resolver.
+    """WP-A — Canonical-only auth resolver (fail-closed).
 
-    Preferred path: the canonical cookie/bearer flow from ``services/auth.py``
-    (single-admin, session_version-versioned, brute-force lockout).  This
-    accepts either the ``access_token`` httpOnly cookie or an
-    ``Authorization: Bearer <access_token>`` header — both are handled by
-    ``services.auth.get_current_user``.
+    Sole path: ``services.auth.get_current_user`` (cookie or
+    ``Authorization: Bearer`` access token signed with ``JWT_SECRET``,
+    session_version-checked against the ``users`` collection).
 
-    Fallback path: the legacy bearer flow via ``arbicore.auth`` for anyone
-    who still holds a token issued before v2.9.3.  Kept read-only; no new
-    tokens are issued from this codepath because the Tree-B login endpoint
-    was removed in v2.9.3.
+    The legacy ``arbicore.auth`` bearer fallback (pre-v2.9.3 Tree-B tokens
+    and the deterministic ``ARBICORE_JWT_SECRET`` / MONGO_URL-derived secret)
+    is **removed** (F-AUTH-01 / F-AUTH-02 remediation plan mapping). Role is
+    always loaded from the persisted user document, never trusted from an
+    unverified token claim alone.
 
-    Returns ``None`` when neither path authenticates.  The returned dict
-    shape is preserved from v2.0.3 so downstream call sites do not change:
+    Returns ``None`` when authentication fails. Shape:
     ``{"user_id", "username", "role", "jti"}``.
     """
-    # ---- canonical path (cookie or bearer via services.auth) ----
-    if request is not None:
-        try:
-            from services import auth as _canonical_auth  # local import to avoid boot cycles
-            user = await _canonical_auth.get_current_user(request)
-            return {
-                "user_id":  user.get("id"),
-                "username": user.get("username"),
-                "role":     user.get("role"),
-                "jti":      None,   # canonical uses session_version, not JTI
-            }
-        except HTTPException:
-            pass
-        except Exception:  # noqa: BLE001
-            logger.exception("v2.9.3: canonical auth resolver crashed — falling back to legacy")
-        if authorization is None:
-            authorization = request.headers.get("Authorization")
-
-    # ---- legacy bearer fallback (arbicore.auth) ----
-    if not _AUTH_AVAILABLE or not authorization:
+    if request is None:
         return None
-    if not authorization.lower().startswith("bearer "):
-        return None
-    token = authorization.split(" ", 1)[1].strip()
+    # authorization Header is accepted by services.auth via the Request
+    # object; unused here but kept for call-site compatibility.
+    _ = authorization
     try:
-        payload = _auth_decode_token(token)
-    except ExpiredSignatureError:
+        from services import auth as _canonical_auth  # local import to avoid boot cycles
+        user = await _canonical_auth.get_current_user(request)
+        return {
+            "user_id":  user.get("id"),
+            "username": user.get("username"),
+            "role":     user.get("role"),
+            "jti":      None,   # canonical uses session_version, not JTI
+        }
+    except HTTPException:
         return None
-    except InvalidTokenError:
+    except Exception:  # noqa: BLE001
+        logger.exception("WP-A: canonical auth resolver failed — deny (no legacy fallback)")
         return None
-    jti = payload.get("jti")
-    if jti and await _auth_is_revoked(db, jti):
-        return None
-    return {
-        "user_id": payload.get("sub"),
-        "username": payload.get("username"),
-        "role": payload.get("role"),
-        "jti": jti,
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -7058,9 +7080,7 @@ async def _resolve_current_user(
 # keeps the first-registered handler for a given (method, path), and these
 # would have collided on `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`.
 #
-# `_resolve_current_user` above still supports legacy bearer tokens for
-# administrative endpoints elsewhere in this file (see call sites below),
-# preserving read-only backward compatibility for tokens issued before v2.9.3.
+# WP-A: legacy bearer acceptance in `_resolve_current_user` is also removed.
 # ---------------------------------------------------------------------------
 
 @app.get("/api/arbicore/mid/status")
@@ -8531,16 +8551,25 @@ async def kill_disengage(
     reason: str = "operator_request",
     authorization: Optional[str] = Header(default=None),
 ):
+    # WP-B / F-AUTH-03: admin-only (unchanged). Actor from authenticated ctx only.
     if not _SAFETY_AVAILABLE:
         raise HTTPException(status_code=503, detail="safety_unavailable")
     ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") != "admin":
         raise HTTPException(status_code=403, detail="admin_only")
-    entry = _KILL.disengage(by=ctx.get("username"), reason=reason)
+    actor = str(ctx.get("username") or ctx.get("user_id") or "admin")
+    # Audit-first when audit is wired — fail closed before mutating in-memory KS.
     if _AUDIT is not None:
-        await _AUDIT.log(event="kill.disengage",
-                          by=ctx.get("username"),
-                          payload={"reason": reason})
+        try:
+            await _AUDIT.log(event="kill.disengage",
+                              by=actor,
+                              payload={"reason": reason})
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(
+                status_code=503,
+                detail=f"kill_switch_disengage_failed: {type(exc).__name__}",
+            ) from exc
+    entry = _KILL.disengage(by=actor, reason=reason)
     return {**entry, "current": _KILL.to_dict()}
 
 

@@ -14,10 +14,29 @@ ACCESS_TTL_MIN = 30
 REFRESH_TTL_DAYS = 7
 MAX_ATTEMPTS = 5
 LOCKOUT_MIN = 15
+_MIN_JWT_SECRET_LEN = 32
+
+
+class AuthSecretError(RuntimeError):
+    """Raised when JWT_SECRET is missing or too short (fail-closed)."""
 
 
 def _secret() -> str:
-    return os.environ["JWT_SECRET"]
+    """Canonical JWT signing secret — fail closed if missing/short.
+
+    WP-A / F-AUTH-01: no fallback secret. Production and tests must set
+    ``JWT_SECRET`` to at least 32 characters. Never log the value.
+    """
+    try:
+        secret = (os.environ.get("JWT_SECRET") or "").strip()
+    except Exception:  # noqa: BLE001
+        secret = ""
+    if not secret or len(secret) < _MIN_JWT_SECRET_LEN:
+        raise AuthSecretError(
+            "JWT_SECRET missing or shorter than "
+            f"{_MIN_JWT_SECRET_LEN} characters — authentication fail-closed"
+        )
+    return secret
 
 
 def _now():
@@ -73,6 +92,8 @@ def create_refresh_token(user: dict) -> str:
 def decode_token(token: str, expected_type: str) -> dict:
     try:
         payload = jwt.decode(token, _secret(), algorithms=[JWT_ALGORITHM])
+    except AuthSecretError:
+        raise HTTPException(status_code=503, detail="Auth secret not configured")
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
@@ -118,8 +139,13 @@ def clear_auth_cookies(response):
 # ---------- user resolution ----------
 
 def public_user(user: dict) -> dict:
+    # Role must come from the persisted user document — never default to
+    # admin and never trust a role claimed only in an unverified token body.
+    role = user.get("role")
+    if role not in ("admin", "operator"):
+        raise HTTPException(status_code=401, detail="Invalid user role")
     return {"id": user["id"], "username": user["username"],
-            "role": user.get("role", "admin"), "created_at": user.get("created_at")}
+            "role": role, "created_at": user.get("created_at")}
 
 
 async def get_user_by_payload(payload: dict) -> dict:
@@ -204,8 +230,10 @@ async def ensure_provisioned_users() -> dict:
     from core.models import new_id, now_iso
     from pymongo.errors import DuplicateKeyError
 
+    _jwt = (os.environ.get("JWT_SECRET") or "").strip()
     summary: dict = {"collection": db.users_col.name, "created": [], "existed": [],
-                     "skipped": [], "jwt_secret_present": bool(os.environ.get("JWT_SECRET"))}
+                     "skipped": [],
+                     "jwt_secret_present": bool(_jwt) and len(_jwt) >= _MIN_JWT_SECRET_LEN}
 
     # Ensure the uniqueness guard exists before we insert (idempotent).
     try:
@@ -236,8 +264,14 @@ async def ensure_provisioned_users() -> dict:
             summary["existed"].append({"username": username, "role": role})
 
     if not summary["jwt_secret_present"]:
-        _seed_logger.warning("auth provision: JWT_SECRET is not set — login cannot "
-                             "issue tokens until it is configured in the environment")
+        # WP-A: fail closed at provision time — do not boot into a state
+        # where tokens cannot be verified safely.
+        raise AuthSecretError(
+            "JWT_SECRET missing or shorter than "
+            f"{_MIN_JWT_SECRET_LEN} characters — authentication fail-closed"
+        )
+    # Re-validate length even when the key is present (empty/short values).
+    _secret()
     _seed_logger.info("auth provision (canonical `users`): created=%s existed=%s skipped=%s",
                       [c["username"] for c in summary["created"]],
                       [e["username"] for e in summary["existed"]],

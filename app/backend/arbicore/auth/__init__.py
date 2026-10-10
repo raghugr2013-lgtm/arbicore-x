@@ -9,12 +9,11 @@ Default users seeded at startup if the collection is empty:
   * operator (role=operator)  — password from env ARBICORE_OPERATOR_PASSWORD
                                  or fallback ``operator-shadow-2026``
 
-JWT signing key from env ARBICORE_JWT_SECRET (must be >= 32 chars) or a
-deterministic install-scoped fallback (dev only).
+JWT signing key from env ARBICORE_JWT_SECRET (must be >= 32 chars).
+Missing or short secrets fail closed — no deterministic fallback.
 """
 from __future__ import annotations
 
-import hashlib
 import hmac
 import logging
 import os
@@ -31,6 +30,11 @@ USERS_COLL = "auth_users"
 SESSIONS_COLL = "auth_sessions"
 JWT_ALGORITHM = "HS256"
 JWT_TTL_HOURS = 24
+_MIN_JWT_SECRET_LEN = 32
+
+
+class AuthSecretError(RuntimeError):
+    """Raised when the JWT signing secret is missing or too short."""
 
 
 def _now() -> datetime:
@@ -42,15 +46,19 @@ def _iso() -> str:
 
 
 def _jwt_secret() -> str:
+    """Return ARBICORE_JWT_SECRET or raise AuthSecretError (fail-closed).
+
+    WP-A / F-AUTH-01: the previous ``sha256("arbicore-x-dev-"+MONGO_URL)``
+    deterministic fallback is removed. Callers must configure a secret of
+    at least 32 characters. Never log the secret value.
+    """
     secret = os.environ.get("ARBICORE_JWT_SECRET", "").strip()
-    if secret and len(secret) >= 32:
+    if secret and len(secret) >= _MIN_JWT_SECRET_LEN:
         return secret
-    # dev / install fallback — deterministic per install so restarts do not
-    # invalidate every session.  The real secret is written into .env by
-    # the operator during deployment (see docs/V2_MIGRATION_GUIDE.md).
-    mongo_url = os.environ.get("MONGO_URL", "")
-    seed = f"arbicore-x-dev-{mongo_url}"
-    return hashlib.sha256(seed.encode()).hexdigest()
+    raise AuthSecretError(
+        "ARBICORE_JWT_SECRET missing or shorter than "
+        f"{_MIN_JWT_SECRET_LEN} characters — authentication fail-closed"
+    )
 
 
 def _hash_password(password: str) -> str:

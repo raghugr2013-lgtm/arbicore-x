@@ -100,7 +100,18 @@ class KillSwitchRepo:
         return await self.state()
 
     async def disengage(self, reason: str, actor: str = "operator") -> KillSwitchState:
+        """Disengage the persistent kill switch (fail-closed on audit write).
+
+        WP-B / F-AUTH-03: audit is written *before* clearing engaged state so an
+        audit persistence failure cannot leave the switch silently disengaged
+        without a record. ``actor`` must be the server-derived identity — never
+        a client-supplied body field.
+        """
         now = _now_iso()
+        # Audit first — if this fails, state remains unchanged (fail-closed).
+        await self._audit.insert_one({
+            "action": "disengage", "reason": reason, "actor": actor, "at": now,
+        })
         await self._coll.update_one(
             {"key": self.KEY},
             {"$set": {"engaged": False, "reason": None, "actor": None,
@@ -109,9 +120,6 @@ class KillSwitchRepo:
              "$setOnInsert": {"key": self.KEY}},
             upsert=True,
         )
-        await self._audit.insert_one({
-            "action": "disengage", "reason": reason, "actor": actor, "at": now,
-        })
         return await self.state()
 
     async def guard(self) -> None:
