@@ -16,9 +16,9 @@
 | **Canonical remote** | `git@github.com:raghugr2013-lgtm/arbicore-x.git` (`origin`) |
 | **Handoff branch** | `handoff/emergent-arbicore-canonical-1-20261010` |
 | **Verified base before handoff commit** | `9244ebdee6a95188d925084e7e10d4a972cda7ad` (`cert/gate7-dynamic-profitability-20261007` tip; quoter 429 cooldown) |
-| **Local HEAD after handoff commit** | _filled at publish_ → see §8 |
-| **Verified remote SHA after push** | _filled at publish_ → see §8 |
-| **Upstream before publish** | none configured on prior cert branch; handoff branch pushed with `-u` |
+| **Local HEAD after handoff commit** | `f1e9b3f3307f3b839a95067f21157040e70b5037` (plus follow-up publish-verification commit if present — see §8) |
+| **Verified remote SHA after push** | `f1e9b3f3307f3b839a95067f21157040e70b5037` on `origin/handoff/emergent-arbicore-canonical-1-20261010` (content package); see §8 for tip after verification fill-in |
+| **Upstream before publish** | none on prior `cert/gate7-dynamic-profitability-20261007`; handoff branch tracks `origin/handoff/emergent-arbicore-canonical-1-20261010` |
 
 **Authority note:** Sibling trees (`arbicore-x-v2` main worktree on `emergent/arbitrage-engineering-handoff-20260930`, older `arbicore-x`, validation clones) were inspected and **not** treated as the publish source. This cert worktree holds the Oct 2026 security/cert/strategy artifact set and uncommitted product deltas reviewed for this handoff.
 
@@ -170,10 +170,11 @@ Uncommitted work reviewed on base `9244ebd` and staged for this branch (non-exha
 
 | Field | Value |
 |---|---|
-| Handoff commit SHA (local) | `PLACEHOLDER_LOCAL_SHA` |
+| Handoff content commit SHA | `f1e9b3f3307f3b839a95067f21157040e70b5037` |
 | Remote ref | `origin/handoff/emergent-arbicore-canonical-1-20261010` |
-| Remote SHA (verified) | `PLACEHOLDER_REMOTE_SHA` |
-| Push result | `PLACEHOLDER_PUSH_RESULT` |
+| Remote SHA at first push (verified equal) | `f1e9b3f3307f3b839a95067f21157040e70b5037` |
+| Push result | **success** — new branch created; non-fast-forward force **not** used; `main` untouched |
+| Branch URL | https://github.com/raghugr2013-lgtm/arbicore-x/tree/handoff/emergent-arbicore-canonical-1-20261010 |
 
 ---
 
