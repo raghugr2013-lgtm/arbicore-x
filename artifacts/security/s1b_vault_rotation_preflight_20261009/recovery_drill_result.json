@@ -1,0 +1,10 @@
+{
+  "scratch_db": "arbicore_s1b_recovery_drill_20261009T102445Z",
+  "restored_cipher_sha12": "660386c2e939",
+  "decrypt_with_old_escrow_ok": true,
+  "plaintext_sha12": "b4ce2e6143a2",
+  "derived_address": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+  "address_match": true,
+  "old_key_sha12": "a46000441419",
+  "production_untouched_check": "separate"
+}

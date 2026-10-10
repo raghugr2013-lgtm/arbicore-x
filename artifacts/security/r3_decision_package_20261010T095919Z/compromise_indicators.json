@@ -1,0 +1,67 @@
+{
+  "captured_utc": "2026-10-10T10:01:08Z",
+  "ransom_note": {
+    "present": true,
+    "objectid_time_utc": "2026-09-06T22:15:25Z",
+    "classification": "mongodb_ransomware_scare_note",
+    "confidence": "high",
+    "preserved_redacted": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r3_decision_package_20261010T095919Z/incident_note_preserved_redacted.json",
+    "unredacted_restricted": "artifacts/security/r3_ransomdb_triage_20261010T092301Z/readme_db_inspection.json"
+  },
+  "mongo_users": {
+    "admin_users": [
+      {
+        "user": "root",
+        "roles": [
+          {
+            "role": "root",
+            "db": "admin"
+          }
+        ]
+      }
+    ],
+    "arbicore_x_users": [],
+    "unexpected_app_users": false,
+    "note": "Only root@admin observed; no unfamiliar DB users beyond root and empty arbicore_x user list"
+  },
+  "network_exposure_now": {
+    "published_ports": {
+      "27017/tcp": null
+    },
+    "host_27017_listening": false,
+    "assessment": "Not published to host at time of triage/decision package"
+  },
+  "auth_config_current": {
+    "authorization_enabled_at_container_start": true,
+    "evidence": "factory_mongo_logs_head100.json options security.authorization=enabled",
+    "container_started_at": "2026-09-07T05:21:43.251186127Z"
+  },
+  "auth_failures_observed": {
+    "startup_root_mismatch_2026_09_07": true,
+    "detail": "Failed to authenticate user root from 172.18.0.5 shortly after container start \u2014 consistent with stale app password during recreate",
+    "recent_tail5k_failed_authenticate_count": 39,
+    "cannot_attribute_to_internet_attacker_from_retained_logs_alone": true
+  },
+  "data_presence": {
+    "arbicore_x_collections": 62,
+    "discovery_est": 3921188,
+    "strategy_factory_collections": 55,
+    "encryption_or_wipe_of_app_dbs_evident": false
+  },
+  "export_or_dump_evidence": {
+    "found_in_retained_mongo_logs": "not_identified",
+    "limitation": "No mongodump/mongoexport strings searched exhaustively across full multi-week log volume; absence in samples is not proof"
+  },
+  "log_gaps": {
+    "pre_2026_09_07_container_logs": "UNAVAILABLE \u2014 current factory-mongo container started after note ObjectId time",
+    "host_auth_syslog": "EXIST but NOT READABLE to current operator UID (permission denied) \u2014 content not reviewed",
+    "docker_json_log_file_direct": "EXIST but permission denied to operator UID; accessible only via docker logs",
+    "docker_log_config": {
+      "Type": "json-file",
+      "Config": {}
+    },
+    "docker_log_rotation": "LogConfig.Config empty \u2014 rotation/max-size not explicitly set in inspect (retention unbounded or daemon default; not verified)",
+    "critical_statement": "Absence of retained evidence does NOT prove no compromise occurred on or before 2026-09-06."
+  },
+  "backend_digest_now": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313 arbicore-x-backend:s2a-rpc-redact-5bd952568aed"
+}

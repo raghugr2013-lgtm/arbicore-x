@@ -1,0 +1,4 @@
+total 12
+drwx------ 2 raghu raghu 4096 Oct 10 11:09 .
+drwxrwxr-x 9 raghu raghu 4096 Oct 10 11:09 ..
+-rw------- 1 raghu raghu 2533 Oct 10 08:58 backend.env.pre-disable

@@ -1,0 +1,20 @@
+{
+  "utc": "2026-10-10T11:12:20Z",
+  "env_mode": "0o600",
+  "admin": {
+    "present": true,
+    "len": 32,
+    "sha12": "112c88ac69e1"
+  },
+  "jwt": {
+    "present": true,
+    "len": 64,
+    "sha12": "f98650d468b2"
+  },
+  "old_admin_sha12": "6757aa3396d8",
+  "old_jwt_sha12": "066b178751e1",
+  "keys_modified": [
+    "ARBICORE_ADMIN_PASS",
+    "JWT_SECRET"
+  ]
+}

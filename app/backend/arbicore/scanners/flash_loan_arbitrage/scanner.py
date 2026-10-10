@@ -31,6 +31,7 @@ from .sources import build_all_flash_loan_sources
 from .verifier import (
     FlashLoanOpportunityVerifier, QuoteProvider, noop_quote_provider,
 )
+from .capacity_telemetry import CapacityTelemetry
 from .verification_pool import (
     VerificationPoolStats,
     resolve_claim_batch_size,
@@ -40,6 +41,13 @@ from .verification_pool import (
 )
 
 logger = logging.getLogger("arbicore.scanners.flash_loan_arb")
+
+# Hybrid E bounded backlog-drain defaults (Capacity Manager inputs, not autoscaling).
+DEFAULT_MAX_CLAIM_BATCHES_PER_TICK = 6
+DEFAULT_MAX_BACKLOG_DRAIN_S = 60.0
+DEFAULT_BACKLOG_SKIP_DISCOVER_MIN_ELIGIBLE = 64
+DEFAULT_DISCOVER_REFRESH_S = 120.0
+DEFAULT_FRESH_ELIGIBLE_WINDOW_S = 120.0
 
 
 class FlashLoanArbitrageScanner:
@@ -170,8 +178,17 @@ class FlashLoanArbitrageScanner:
             # Shared verification worker pool (capacity only; B2 owns fairness).
             "verification_workers_configured": 0,
             "verification_pool": {},
+            # Hybrid E scheduler observability
+            "discover_skipped": False,
+            "drain_batches": 0,
+            "drain_candidates": 0,
+            "drain_duration_s": None,
+            "last_discover_at": None,
+            "capacity": {},
         }
         self._pool_stats = VerificationPoolStats()
+        self._last_discover_at: float = 0.0
+        self._capacity = CapacityTelemetry()
 
     # -- accessors --------------------------------------------------------
 
@@ -197,6 +214,15 @@ class FlashLoanArbitrageScanner:
                 self._pool_stats.workers_configured
                 or out.get("verification_workers_configured")
                 or 0)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            self._capacity.set_rpc_proxy(
+                verifier_errors=int(out.get("verifier_errors") or 0),
+                denied_venue_unreadable=int(
+                    out.get("denied_venue_unreadable") or 0),
+            )
+            out["capacity"] = self._capacity.snapshot()
         except Exception:  # noqa: BLE001
             pass
         return out
@@ -359,11 +385,39 @@ class FlashLoanArbitrageScanner:
             except asyncio.TimeoutError:
                 pass
 
+    async def _queue_status_safe(self, *, fresh_window_s: float) -> Dict[str, Any]:
+        t0 = time.perf_counter()
+        try:
+            status = await self._queue.queue_status(
+                fresh_window_s=fresh_window_s, include_breakdowns=True)
+            self._capacity.record_mongo((time.perf_counter() - t0) * 1000.0)
+            return status if isinstance(status, dict) else {}
+        except TypeError:
+            # Older / test doubles may not accept kwargs.
+            try:
+                status = await self._queue.queue_status()
+                self._capacity.record_mongo((time.perf_counter() - t0) * 1000.0)
+                return status if isinstance(status, dict) else {}
+            except Exception as exc:  # noqa: BLE001
+                self._capacity.record_mongo(
+                    (time.perf_counter() - t0) * 1000.0, error=True)
+                self._stats["last_error"] = f"queue_status: {exc!r}"
+                return {}
+        except Exception as exc:  # noqa: BLE001
+            self._capacity.record_mongo(
+                (time.perf_counter() - t0) * 1000.0, error=True)
+            self._stats["last_error"] = f"queue_status: {exc!r}"
+            return {}
+
     async def _tick(self) -> None:
-        """Single discover → claim → verify → emit cycle.
+        """Hybrid E: discover (maybe deferred) → bounded claim/verify drain.
 
         This method is the ONLY place in the flash-loan subsystem that
         invokes the EmissionBus for FLASH_LOAN_ARBITRAGE (INV-2).
+
+        Drain is bounded by max_claim_batches_per_tick and max_backlog_drain_s.
+        Never unbounded. Never claims after ``_stop`` is set. B2 fairness is
+        owned exclusively by ``DiscoveryQueue.claim_batch`` (RR cursor persists).
         """
         if not self.is_enabled():
             return
@@ -372,16 +426,11 @@ class FlashLoanArbitrageScanner:
         self._stats["last_run_at"] = time.time()
 
         # ---- 0. Honour authoritative persisted config (C-1) --------------
-        # Rebuild the route engine/gates if route_search/gate_thresholds changed
-        # in the persisted scanner config. No-op when unchanged.
         try:
             self._maybe_rebuild_route_engine()
         except Exception as exc:  # noqa: BLE001 — never let a rebuild abort a tick
             self._stats["last_error"] = f"route_rebuild: {exc!r}"
 
-        # Measured TVL lands on PoolNode before search applies the floor.
-        # Unknown readings stay 0 and remain excluded. Disabled ticks
-        # returned above and never reach this hook.
         refresh = self._pool_tvl_refresh
         if refresh is not None:
             try:
@@ -390,53 +439,148 @@ class FlashLoanArbitrageScanner:
                 self._stats["last_error"] = f"pool_tvl_refresh: {exc!r}"
                 logger.exception("flash_loan pool TVL refresh failed: %s", exc)
 
-        # ---- 1. Discover --------------------------------------------------
-        all_candidates: List[DiscoveryCandidate] = []
-        for source in self._sources:
-            try:
-                cands = await source.discover()
-                all_candidates.extend(cands)
-            except Exception as exc:  # noqa: BLE001
-                self._stats["last_error"] = (
-                    f"discover[{source.source_id}]: {exc!r}")
-        if all_candidates:
-            try:
-                await self._queue.upsert_many(all_candidates)
-            except Exception as exc:  # noqa: BLE001
-                self._stats["last_error"] = f"queue_upsert: {exc!r}"
-
-        # ---- 2. Claim (B2 fair selection — capacity sized to worker pool) --
-        # Fairness is decided HERE by DiscoveryQueue.claim_batch (chain RR).
-        # The shared worker pool below only verifies already-claimed jobs and
-        # MUST NOT re-order or re-select across an unordered global queue.
         cfg_now = self._cfg() or {}
+        max_batches = int(cfg_now.get(
+            "max_claim_batches_per_tick", DEFAULT_MAX_CLAIM_BATCHES_PER_TICK))
+        max_drain_s = float(cfg_now.get(
+            "max_backlog_drain_s", DEFAULT_MAX_BACKLOG_DRAIN_S))
+        skip_min = int(cfg_now.get(
+            "backlog_skip_discover_min_eligible",
+            DEFAULT_BACKLOG_SKIP_DISCOVER_MIN_ELIGIBLE))
+        refresh_s = float(cfg_now.get(
+            "discover_refresh_s", DEFAULT_DISCOVER_REFRESH_S))
+        fresh_window_s = float(cfg_now.get(
+            "fresh_eligible_window_s", DEFAULT_FRESH_ELIGIBLE_WINDOW_S))
+        max_batches = max(1, max_batches)
+        max_drain_s = max(0.0, max_drain_s)
+        skip_min = max(0, skip_min)
+        refresh_s = max(0.0, refresh_s)
+
+        # ---- 1. Queue snapshot (Capacity Manager inputs) -----------------
+        status = await self._queue_status_safe(fresh_window_s=fresh_window_s)
+        self._capacity.update_queue_snapshot(status)
+        unclaimed = int(status.get("unclaimed_eligible") or 0)
+        now = time.time()
+        skip_discover = (
+            unclaimed >= skip_min
+            and self._last_discover_at > 0.0
+            and (now - self._last_discover_at) < refresh_s
+        )
+        self._stats["discover_skipped"] = bool(skip_discover)
+        self._capacity.discover_skipped = bool(skip_discover)
+
+        # ---- 2. Discover (deferred only under explicit caps) -------------
+        if not skip_discover:
+            all_candidates: List[DiscoveryCandidate] = []
+            for source in self._sources:
+                try:
+                    cands = await source.discover()
+                    all_candidates.extend(cands)
+                except Exception as exc:  # noqa: BLE001
+                    self._stats["last_error"] = (
+                        f"discover[{source.source_id}]: {exc!r}")
+            if all_candidates:
+                t_up = time.perf_counter()
+                try:
+                    inserted = await self._queue.upsert_many(all_candidates)
+                    self._capacity.record_mongo(
+                        (time.perf_counter() - t_up) * 1000.0)
+                    # Arrivals ≈ freshly observed hints this discover pass.
+                    self._capacity.record_arrivals(len(all_candidates))
+                    if isinstance(inserted, int) and inserted >= 0:
+                        pass
+                except Exception as exc:  # noqa: BLE001
+                    self._capacity.record_mongo(
+                        (time.perf_counter() - t_up) * 1000.0, error=True)
+                    self._stats["last_error"] = f"queue_upsert: {exc!r}"
+            self._last_discover_at = time.time()
+            self._stats["last_discover_at"] = self._last_discover_at
+
+        if self._stop.is_set():
+            return
+
+        # ---- 3. Bounded backlog drain (claim → verify → repeat) ----------
+        # Fairness is decided HERE by DiscoveryQueue.claim_batch (chain RR).
+        # The shared worker pool only verifies already-claimed jobs.
         workers = resolve_verification_workers(cfg_now)
         batch_size = resolve_claim_batch_size(cfg_now, workers=workers)
         claim_ttl_s = resolve_claim_ttl_s(
             batch_size=batch_size, workers=workers)
         self._stats["verification_workers_configured"] = workers
-        try:
-            batch = await self._queue.claim_batch(
-                self._worker_id,
-                batch_size=batch_size,
-                claim_ttl_s=claim_ttl_s,
-            )
-        except Exception as exc:  # noqa: BLE001
-            self._stats["last_error"] = f"queue_claim: {exc!r}"
-            return
-        self._stats["candidates_claimed"] += len(batch)
 
-        # ---- 3..6. Shared bounded verification pool ----------------------
-        # One canonical path: same verifier / H05 / Gate-7 for every chain.
-        if not batch:
-            return
-        await run_bounded(
-            batch,
-            self._process_claimed_candidate,
+        drain_t0 = time.perf_counter()
+        drain_batches = 0
+        drain_candidates = 0
+        active_before = len(self._pool_stats.verify_durations_s)
+
+        while not self._stop.is_set():
+            if drain_batches >= max_batches:
+                break
+            if (time.perf_counter() - drain_t0) >= max_drain_s:
+                break
+            t_claim = time.perf_counter()
+            try:
+                batch = await self._queue.claim_batch(
+                    self._worker_id,
+                    batch_size=batch_size,
+                    claim_ttl_s=claim_ttl_s,
+                )
+                self._capacity.record_mongo(
+                    (time.perf_counter() - t_claim) * 1000.0)
+            except Exception as exc:  # noqa: BLE001
+                self._capacity.record_mongo(
+                    (time.perf_counter() - t_claim) * 1000.0, error=True)
+                self._stats["last_error"] = f"queue_claim: {exc!r}"
+                break
+            if not batch:
+                break
+            self._stats["candidates_claimed"] += len(batch)
+            drain_candidates += len(batch)
+            self._capacity.record_claims(
+                len(batch),
+                chains=[getattr(c, "chain", None) for c in batch],
+            )
+            await run_bounded(
+                batch,
+                self._process_claimed_candidate,
+                workers=workers,
+                stop_event=self._stop,
+                stats=self._pool_stats,
+            )
+            drain_batches += 1
+
+        drain_wall = time.perf_counter() - drain_t0
+        self._stats["drain_batches"] = drain_batches
+        self._stats["drain_candidates"] = drain_candidates
+        self._stats["drain_duration_s"] = drain_wall
+        self._capacity.drain_batches = drain_batches
+        self._capacity.drain_candidates = drain_candidates
+        self._capacity.drain_duration_s = drain_wall
+
+        new_durs = self._pool_stats.verify_durations_s[active_before:]
+        self._capacity.note_worker_active(
+            sum(new_durs),
             workers=workers,
-            stop_event=self._stop,
-            stats=self._pool_stats,
+            drain_wall_s=drain_wall if drain_batches else None,
         )
+
+    async def _mark_processed_timed(
+            self, candidate_id: str, outcome_tag: str, *,
+            opportunity_id: Optional[str] = None,
+            observed_at: Optional[float] = None) -> None:
+        t0 = time.perf_counter()
+        try:
+            await self._queue.mark_processed(
+                candidate_id, outcome_tag,
+                opportunity_id=opportunity_id,
+                observed_at=observed_at,
+            )
+            self._capacity.record_mongo((time.perf_counter() - t0) * 1000.0)
+        except Exception as exc:  # noqa: BLE001
+            self._capacity.record_mongo(
+                (time.perf_counter() - t0) * 1000.0, error=True)
+            self._stats["last_error"] = f"queue_mark: {exc!r}"
+            raise
 
     async def _process_claimed_candidate(
             self, c: DiscoveryCandidate) -> Optional[str]:
@@ -446,9 +590,16 @@ class FlashLoanArbitrageScanner:
         types, invoke the registered verifier, emit only on CONFIRMED, mark
         processed. Exceptions are isolated per candidate.
         """
+        observed = getattr(c, "hint_observed_at", None)
+        if observed is not None:
+            try:
+                self._capacity.record_candidate_age(time.time() - float(observed))
+            except (TypeError, ValueError):
+                pass
+
         if self._stop.is_set():
             try:
-                await self._queue.mark_processed(
+                await self._mark_processed_timed(
                     c.candidate_id,
                     f"{VerifiedOutcome.ERROR_PREFIX}scanner_shutdown",
                     observed_at=c.hint_observed_at,
@@ -458,28 +609,34 @@ class FlashLoanArbitrageScanner:
             return "shutdown"
 
         if c.opportunity_type != OpportunityType.FLASH_LOAN_ARBITRAGE:
-            await self._queue.mark_processed(
+            await self._mark_processed_timed(
                 c.candidate_id, VerifiedOutcome.DENIED_NO_VERIFIER,
                 observed_at=c.hint_observed_at,
             )
+            self._capacity.record_verifies(1)
             return VerifiedOutcome.DENIED_NO_VERIFIER
         verifier = self._verifier_registry.get(c.opportunity_type)
         if verifier is None:
-            await self._queue.mark_processed(
+            await self._mark_processed_timed(
                 c.candidate_id, VerifiedOutcome.DENIED_NO_VERIFIER,
                 observed_at=c.hint_observed_at,
             )
+            self._capacity.record_verifies(1)
             return VerifiedOutcome.DENIED_NO_VERIFIER
         try:
             opp, outcome = await verifier.verify(c)
         except Exception as exc:  # noqa: BLE001
             self._stats["verifier_errors"] += 1
             self._stats["last_error"] = f"verify: {exc!r}"
-            await self._queue.mark_processed(
-                c.candidate_id,
-                f"{VerifiedOutcome.ERROR_PREFIX}{type(exc).__name__}",
-                observed_at=c.hint_observed_at,
-            )
+            try:
+                await self._mark_processed_timed(
+                    c.candidate_id,
+                    f"{VerifiedOutcome.ERROR_PREFIX}{type(exc).__name__}",
+                    observed_at=c.hint_observed_at,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            self._capacity.record_verifies(1)
             return f"{VerifiedOutcome.ERROR_PREFIX}{type(exc).__name__}"
 
         # ---- Emit (sole FLASH_LOAN_ARBITRAGE emit site) ------------------
@@ -519,11 +676,12 @@ class FlashLoanArbitrageScanner:
 
         # ---- Mark processed ---------------------------------------------
         try:
-            await self._queue.mark_processed(
+            await self._mark_processed_timed(
                 c.candidate_id, outcome,
                 opportunity_id=(opp.opportunity_id if opp else None),
                 observed_at=c.hint_observed_at,
             )
-        except Exception as exc:  # noqa: BLE001
-            self._stats["last_error"] = f"queue_mark: {exc!r}"
+        except Exception:  # noqa: BLE001 — already recorded on timed helper
+            pass
+        self._capacity.record_verifies(1)
         return outcome

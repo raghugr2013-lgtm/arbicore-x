@@ -1,0 +1,45 @@
+{
+  "ts_refresh": "2026-10-02T07:24:47.647553Z",
+  "metrics": {
+    "runner_enabled": true,
+    "metrics_source": "in_memory",
+    "runner": {
+      "is_running": true,
+      "started_at": "2026-10-02T06:19:43.018995+00:00",
+      "last_cycle_at": "2026-10-02T07:24:46.762081+00:00",
+      "cycles_completed": 778,
+      "opportunities_seen": 0,
+      "opportunities_processed": 0,
+      "opportunities_skipped_dup": 0,
+      "exceptions": 0,
+      "last_error": null,
+      "outcome_counts": {}
+    },
+    "generated_at": "2026-10-02T07:24:47.541394+00:00"
+  },
+  "report": {
+    "total": 0,
+    "histogram": {
+      "EXECUTABLE": 0,
+      "REJECTED": 0,
+      "UNPROFITABLE": 0,
+      "LIQUIDITY_FAILURE": 0,
+      "GAS_FAILURE": 0,
+      "ROUTE_FAILURE": 0,
+      "RISK_FAILURE": 0,
+      "SIMULATION_FAILURE": 0
+    },
+    "rates": {
+      "EXECUTABLE": 0.0,
+      "REJECTED": 0.0,
+      "UNPROFITABLE": 0.0,
+      "LIQUIDITY_FAILURE": 0.0,
+      "GAS_FAILURE": 0.0,
+      "ROUTE_FAILURE": 0.0,
+      "RISK_FAILURE": 0.0,
+      "SIMULATION_FAILURE": 0.0
+    },
+    "executable_rate": 0.0,
+    "generated_at": "2026-10-02T07:24:47.619742+00:00"
+  }
+}

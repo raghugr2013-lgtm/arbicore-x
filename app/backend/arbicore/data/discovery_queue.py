@@ -5,7 +5,8 @@ Per PHASE_D_DISCOVERY_LAYER_SPEC.md §5.
 Collection: arbicore_discovery_candidates
 - Idempotency key: candidate_id (unique)
 - TTL 24h on expires_at
-- Cooperative claim lock via (claimed_at, claimed_by, claimed_until)
+- Cooperative claim lock via (claimed_at, claimed_by, claimed_until);
+  claimed_at stays durable after mark_processed (lock fields cleared)
 - B2: additive top-level ``chain`` + chain-fair claim_batch scheduling
 
 No Redis. No Kafka. Pure Mongo + atomic findOneAndUpdate.
@@ -239,23 +240,40 @@ class DiscoveryQueue:
                 "verified_at": now,
                 "verification_latency_ms": latency_ms,
                 "emitted_opportunity_id": opportunity_id,
-                # Release the claim
-                "claimed_at": None, "claimed_by": None, "claimed_until": None,
+                # Release the claim lock only. Keep claimed_at durable so
+                # post-process timing joins (observe→claim) remain possible.
+                "claimed_by": None, "claimed_until": None,
             }},
         )
         return res.modified_count > 0
 
-    async def queue_status(self) -> Dict[str, Any]:
+    async def queue_status(
+        self,
+        *,
+        fresh_window_s: float = 120.0,
+        include_breakdowns: bool = True,
+    ) -> Dict[str, Any]:
+        """Queue depth snapshot for operators / Capacity Manager telemetry.
+
+        Does NOT alter claim eligibility or B2 fairness. Breakdowns are
+        additive observability only.
+        """
         now = time.time()
         total = await self._col.count_documents({})
         unprocessed = await self._col.count_documents({"verified_outcome": None})
         claimed = await self._col.count_documents({
             "verified_outcome": None, "claimed_until": {"$gt": now}
         })
-        unclaimed = await self._col.count_documents({
+        eligible_base = {
             "verified_outcome": None,
             "expires_at": {"$gt": now},
             "$or": [{"claimed_until": None}, {"claimed_until": {"$lt": now}}],
+        }
+        unclaimed = await self._col.count_documents(eligible_base)
+        fresh_cutoff = now - float(fresh_window_s)
+        fresh_eligible = await self._col.count_documents({
+            **eligible_base,
+            "hint_observed_at": {"$gt": fresh_cutoff},
         })
         oldest = await self._col.find(
             {"verified_outcome": None, "expires_at": {"$gt": now}},
@@ -263,13 +281,45 @@ class DiscoveryQueue:
         oldest_age_s = None
         if oldest:
             oldest_age_s = now - float(oldest[0].get("hint_observed_at", now))
-        return {
+        out: Dict[str, Any] = {
             "total": total,
             "unprocessed": unprocessed,
             "claimed_in_flight": claimed,
             "unclaimed_eligible": unclaimed,
+            "fresh_eligible": fresh_eligible,
+            "fresh_window_s": float(fresh_window_s),
             "oldest_unclaimed_age_s": oldest_age_s,
         }
+        if include_breakdowns:
+            per_chain: Dict[str, int] = {}
+            for bucket in DISCOVERY_SUPPORTED_CHAINS:
+                n = await self._col.count_documents(
+                    {"$and": [eligible_base, self._chain_bucket_clause(bucket)]})
+                per_chain[bucket] = int(n)
+            per_chain["legacy"] = await self._col.count_documents(
+                {"$and": [eligible_base, self._chain_bucket_clause(None)]})
+            out["per_chain_backlog"] = per_chain
+            # hint_source is the safe strategy-family attribution on queue rows
+            # (strategy_tagging applies at emit time, not on DiscoveryCandidate).
+            per_source: Dict[str, int] = {}
+            try:
+                cur = self._col.aggregate([
+                    {"$match": eligible_base},
+                    {"$group": {"_id": "$hint_source", "n": {"$sum": 1}}},
+                ])
+                if hasattr(cur, "to_list"):
+                    rows = await cur.to_list(length=64)
+                else:
+                    rows = []
+                    async for row in cur:
+                        rows.append(row)
+                for row in rows:
+                    key = row.get("_id") or "unknown"
+                    per_source[str(key)] = int(row.get("n") or 0)
+            except Exception:  # noqa: BLE001 — breakdown is best-effort
+                pass
+            out["per_strategy_backlog"] = per_source
+        return out
 
     async def list_candidates(self, limit: int = 50,
                               source_id: Optional[str] = None,

@@ -1,0 +1,11 @@
+{
+  "phase_a_delete_secure": {
+    "local_upgrade_backups_old_admin_jwt": 8,
+    "tmp_old_admin_jwt": 9,
+    "total": 17
+  },
+  "phase_a_optional_adjacent_tmp_no_admin_jwt": 9,
+  "phase_b_legacy_containers_docker_rm": 4,
+  "retain_approved_recovery_files": 12,
+  "retain_active_live": 1
+}

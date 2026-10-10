@@ -1,0 +1,53 @@
+diff --git a/app/backend/arbicore/data/mongo/evidence_bundles_repo.py b/app/backend/arbicore/data/mongo/evidence_bundles_repo.py
+index 864b946..a4503e3 100644
+--- a/app/backend/arbicore/data/mongo/evidence_bundles_repo.py
++++ b/app/backend/arbicore/data/mongo/evidence_bundles_repo.py
+@@ -16,6 +16,30 @@ def _now_iso() -> str:
+     return datetime.now(timezone.utc).isoformat()
+ 
+ 
++def _stamp_insert_evidence_persisted(doc: Dict[str, Any]) -> None:
++    """Set confirmed-insert marker without disturbing unrelated diagnostics.
++
++    Missing ``diagnostics`` / ``timing`` are created. Non-dict shapes are
++    left untouched (no stamp) rather than overwritten.
++
++    Marker meaning: this audit row is about to be / was written by insert —
++    not a profitability or opportunity-capture claim.
++    """
++    diagnostics = doc.get("diagnostics")
++    if diagnostics is None:
++        diagnostics = {}
++        doc["diagnostics"] = diagnostics
++    elif not isinstance(diagnostics, dict):
++        return
++    timing = diagnostics.get("timing")
++    if timing is None:
++        timing = {}
++        diagnostics["timing"] = timing
++    elif not isinstance(timing, dict):
++        return
++    timing["evidence_persisted"] = True
++
++
+ class EvidenceBundlesRepo:
+     def __init__(self, db, collection_name: str = "evidence_bundles"):
+         self._db = db
+@@ -38,8 +62,17 @@ class EvidenceBundlesRepo:
+         self._indexes_ready = True
+ 
+     async def insert(self, bundle: Dict[str, Any]) -> Dict[str, Any]:
++        """Append one evidence bundle. Never updates existing rows.
++
++        Immediately before ``insert_one``, stamps
++        ``diagnostics.timing.evidence_persisted = True`` on the document
++        being written. Meaning: this audit row was successfully inserted —
++        not a profitability or capture claim. If ``insert_one`` raises, no
++        row is stored and no success marker is claimed in Mongo.
++        """
+         doc = dict(bundle)
+         doc.setdefault("persisted_at", _now_iso())
++        _stamp_insert_evidence_persisted(doc)
+         await self._collection.insert_one(doc)
+         doc.pop("_id", None)
+         return doc

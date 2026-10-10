@@ -1,0 +1,21 @@
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+# httpx logs full request URLs at INFO; Alchemy (and similar) put API keys in
+# the path (/v2/<key>). Install a URL-aware filter so credentials never reach
+# log handlers. Does not alter RPC endpoints, keys, or request behavior.
+try:
+    from arbicore.log_redaction import install_credential_url_log_redaction
+    install_credential_url_log_redaction()
+except Exception:  # noqa: BLE001
+    pass
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# v2.9.3 — Canonical authentication router (single-admin, cookie-based JWT).
+#
+# Historical context: `routes/auth.py`, `services/auth.py`, and `services/db.py`
+# were introduced as the canonical auth surface in v1.0.0 but were left
+# dormant in the v2.0.0 consolidation (see docs/RELEASE_NOTES_v2.9.3.md §2).

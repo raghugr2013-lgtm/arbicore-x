@@ -1,0 +1,16 @@
+{
+  "window": "docker logs --since 5m (post-recreate)",
+  "window_end_utc": "2026-10-09T11:45:00Z",
+  "log_lines": 1379,
+  "redacted_marker_count": 1148,
+  "unredacted_alchemy_v2_regex_hits": 0,
+  "raw_token_count": 0,
+  "raw_token_fp8": [],
+  "known_primary_fp8_24dab5d1_in_raw": false,
+  "httpx_log_lines": 1183,
+  "sample_redacted_lines": [
+    "2026-10-09 11:42:26,581 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+    "2026-10-09 11:42:26,643 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+    "2026-10-09 11:42:26,672 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\""
+  ]
+}

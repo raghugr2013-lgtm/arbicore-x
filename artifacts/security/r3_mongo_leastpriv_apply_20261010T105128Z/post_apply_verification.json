@@ -1,0 +1,128 @@
+{
+  "utc": "2026-10-10T10:53:18Z",
+  "checks": {
+    "digest": true,
+    "health": true,
+    "mongo_user_arbicore_app": true,
+    "shadow": true,
+    "autoexec_false": true,
+    "runtime_false": true,
+    "bootstrap_absent": true,
+    "alchemy_five_ca6545ba": true,
+    "six_rpc_present": true,
+    "api_local_200": true,
+    "api_public_200": true,
+    "r1_ok": true,
+    "r2_local_503": true,
+    "r2_public_503": true,
+    "admin_login_200": true,
+    "auth_me_200": true,
+    "roles_exact": true,
+    "persistence_discovery": true,
+    "persistence_vs_baseline": true,
+    "ttl_indexes_present": true,
+    "app_ping": true,
+    "app_crud": true,
+    "app_index_ops": true,
+    "app_factory_denied": true,
+    "app_listDB_only_arbicore": true,
+    "factory_still_root": true,
+    "factory_healthy": true,
+    "legacy_stopped": true,
+    "g579_untouched": true,
+    "no_mongo_auth_errors_in_tail": true
+  },
+  "raw": {
+    "image": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "health": "healthy",
+    "mongo_user": "arbicore_app",
+    "alchemy_fps": {
+      "ETHEREUM": "ca6545ba",
+      "ARBITRUM": "ca6545ba",
+      "OPTIMISM": "ca6545ba",
+      "POLYGON": "ca6545ba",
+      "BNB": "ca6545ba",
+      "BASE": null
+    },
+    "api_local": 200,
+    "api_public": 200,
+    "r1": {
+      "https://144-91-78-175.sslip.io/docs": 404,
+      "https://arbicorex.in/docs": 404,
+      "https://api.arbicorex.in/docs": 404
+    },
+    "r2_local": 503,
+    "r2_public": 503,
+    "login_path": "/api/auth/login",
+    "root_usersInfo": {
+      "user": "arbicore_app",
+      "roles": [
+        {
+          "role": "readWrite",
+          "db": "arbicore_x"
+        }
+      ],
+      "discovery": 3921188,
+      "decision": 739992,
+      "ttl_total": 17
+    },
+    "app_live": {
+      "ping": 1,
+      "cols": 63,
+      "write_ok": true,
+      "delete_ok": true,
+      "index_create_ok": true,
+      "index_drop_ok": true,
+      "factory_denied": true,
+      "listDatabases": [
+        "arbicore_x"
+      ],
+      "only_arbicore_x": true
+    },
+    "factory": {
+      "backend_user": "root",
+      "runner_user": "root",
+      "backend_health": "healthy",
+      "runner_health": "healthy"
+    },
+    "legacy": [
+      "arbicore-x-backend-new\tUp About a minute (healthy)",
+      "arbicore-x-backend-h05\tExited (137) 3 days ago",
+      "arbicore-x-backend\tExited (0) 4 weeks ago",
+      "arbicore-x-backend-w1\tExited (137) 3 days ago",
+      "arbicore-x-backend-w1-old\tExited (137) 4 weeks ago",
+      "arbicore-x-backend-pre-provider-rpc\tExited (137) 4 weeks ago",
+      "arbicore-x-backend-rollback-p0-3-6af6534\tExited (137) 4 weeks ago",
+      "arbicore-x-backend-rollback-p0-3-3a7b918\tExited (137) 5 weeks ago"
+    ],
+    "g579": [
+      "arbicore-g5-79-app\tUp 12 days (healthy)\tarbicore-x-backend:g5.79-green-20260927",
+      "arbicore-g5-79-mongo\tUp 12 days\tmongo:4.4"
+    ],
+    "foreman": [
+      "foreman-backend\tUp 2 weeks (healthy)",
+      "foreman-managed-cert-test\tUp 2 weeks (unhealthy)",
+      "foreman-frontend\tUp 2 weeks",
+      "foreman-cert-backend\tUp 5 weeks (healthy)",
+      "foreman-cert-frontend\tUp 5 weeks",
+      "foreman-cert-mongo\tUp 5 weeks",
+      "foreman-mongo\tUp 5 weeks"
+    ],
+    "auth_me_path": "/api/auth/me",
+    "auth_me_body_keys": [
+      "id",
+      "username",
+      "role",
+      "created_at"
+    ]
+  },
+  "failed": [],
+  "all_pass": false,
+  "limitations": [
+    "BASE RPC remains public mainnet.base.org (pre-existing; not modified)",
+    "listDatabases allowed but returns only arbicore_x (MongoDB scoped-user behaviour)",
+    "Factory still uses root (out of R3 scope)",
+    "Historical ransom-note / pre-2026-09-07 log gap residual"
+  ],
+  "r3_verdict": "PASS WITH LIMITATIONS"
+}

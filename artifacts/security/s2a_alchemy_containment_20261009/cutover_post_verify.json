@@ -1,0 +1,276 @@
+{
+    "revision_id": "rev-b968dd529509dea58183fe3de204fbcc",
+    "updated_by": "s2a-alchemy-cutover",
+    "updated_at": "2026-10-10T06:58:04.882524+00:00",
+    "distinct_primary_fps": [
+        "ca6545ba"
+    ],
+    "primary_not_old_24dab5d1": true,
+    "fallbacks_preserved": true,
+    "chains": {
+        "ethereum": {
+            "slots": [
+                {
+                    "index": 0,
+                    "host": "eth-mainnet.g.alchemy.com",
+                    "fp8": "ca6545ba"
+                },
+                {
+                    "index": 1,
+                    "host": "eth-mainnet.g.alchemy.com",
+                    "fp8": "e315c86f"
+                },
+                {
+                    "index": 2,
+                    "host": "eth-mainnet.g.alchemy.com",
+                    "fp8": "dc432a6b"
+                },
+                {
+                    "index": 3,
+                    "host": "eth-mainnet.g.alchemy.com",
+                    "fp8": "6e67e161"
+                },
+                {
+                    "index": 4,
+                    "host": "eth-mainnet.g.alchemy.com",
+                    "fp8": "cd505118"
+                },
+                {
+                    "index": 5,
+                    "host": "eth-mainnet.g.alchemy.com",
+                    "fp8": "124bc59c"
+                }
+            ],
+            "primary_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            },
+            "fallback1_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            }
+        },
+        "arbitrum": {
+            "slots": [
+                {
+                    "index": 0,
+                    "host": "arb-mainnet.g.alchemy.com",
+                    "fp8": "ca6545ba"
+                },
+                {
+                    "index": 1,
+                    "host": "arb-mainnet.g.alchemy.com",
+                    "fp8": "e315c86f"
+                },
+                {
+                    "index": 2,
+                    "host": "arb-mainnet.g.alchemy.com",
+                    "fp8": "dc432a6b"
+                },
+                {
+                    "index": 3,
+                    "host": "arb-mainnet.g.alchemy.com",
+                    "fp8": "6e67e161"
+                },
+                {
+                    "index": 4,
+                    "host": "arb-mainnet.g.alchemy.com",
+                    "fp8": "cd505118"
+                },
+                {
+                    "index": 5,
+                    "host": "arb-mainnet.g.alchemy.com",
+                    "fp8": "124bc59c"
+                }
+            ],
+            "primary_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            },
+            "fallback1_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            }
+        },
+        "base": {
+            "slots": [
+                {
+                    "index": 0,
+                    "host": "base-mainnet.g.alchemy.com",
+                    "fp8": "ca6545ba"
+                },
+                {
+                    "index": 1,
+                    "host": "base-mainnet.g.alchemy.com",
+                    "fp8": "e315c86f"
+                },
+                {
+                    "index": 2,
+                    "host": "base-mainnet.g.alchemy.com",
+                    "fp8": "dc432a6b"
+                },
+                {
+                    "index": 3,
+                    "host": "base-mainnet.g.alchemy.com",
+                    "fp8": "6e67e161"
+                },
+                {
+                    "index": 4,
+                    "host": "base-mainnet.g.alchemy.com",
+                    "fp8": "cd505118"
+                },
+                {
+                    "index": 5,
+                    "host": "base-mainnet.g.alchemy.com",
+                    "fp8": "124bc59c"
+                }
+            ],
+            "primary_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            },
+            "fallback1_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            }
+        },
+        "optimism": {
+            "slots": [
+                {
+                    "index": 0,
+                    "host": "opt-mainnet.g.alchemy.com",
+                    "fp8": "ca6545ba"
+                },
+                {
+                    "index": 1,
+                    "host": "opt-mainnet.g.alchemy.com",
+                    "fp8": "e315c86f"
+                },
+                {
+                    "index": 2,
+                    "host": "opt-mainnet.g.alchemy.com",
+                    "fp8": "dc432a6b"
+                },
+                {
+                    "index": 3,
+                    "host": "opt-mainnet.g.alchemy.com",
+                    "fp8": "6e67e161"
+                },
+                {
+                    "index": 4,
+                    "host": "opt-mainnet.g.alchemy.com",
+                    "fp8": "cd505118"
+                },
+                {
+                    "index": 5,
+                    "host": "opt-mainnet.g.alchemy.com",
+                    "fp8": "124bc59c"
+                }
+            ],
+            "primary_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            },
+            "fallback1_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            }
+        },
+        "polygon": {
+            "slots": [
+                {
+                    "index": 0,
+                    "host": "polygon-mainnet.g.alchemy.com",
+                    "fp8": "ca6545ba"
+                },
+                {
+                    "index": 1,
+                    "host": "polygon-mainnet.g.alchemy.com",
+                    "fp8": "e315c86f"
+                },
+                {
+                    "index": 2,
+                    "host": "polygon-mainnet.g.alchemy.com",
+                    "fp8": "dc432a6b"
+                },
+                {
+                    "index": 3,
+                    "host": "polygon-mainnet.g.alchemy.com",
+                    "fp8": "6e67e161"
+                },
+                {
+                    "index": 4,
+                    "host": "polygon-mainnet.g.alchemy.com",
+                    "fp8": "cd505118"
+                },
+                {
+                    "index": 5,
+                    "host": "polygon-mainnet.g.alchemy.com",
+                    "fp8": "124bc59c"
+                }
+            ],
+            "primary_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            },
+            "fallback1_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            }
+        },
+        "bnb": {
+            "slots": [
+                {
+                    "index": 0,
+                    "host": "bnb-mainnet.g.alchemy.com",
+                    "fp8": "ca6545ba"
+                },
+                {
+                    "index": 1,
+                    "host": "bnb-mainnet.g.alchemy.com",
+                    "fp8": "e315c86f"
+                },
+                {
+                    "index": 2,
+                    "host": "bnb-mainnet.g.alchemy.com",
+                    "fp8": "dc432a6b"
+                },
+                {
+                    "index": 3,
+                    "host": "bnb-mainnet.g.alchemy.com",
+                    "fp8": "6e67e161"
+                },
+                {
+                    "index": 4,
+                    "host": "bnb-mainnet.g.alchemy.com",
+                    "fp8": "cd505118"
+                },
+                {
+                    "index": 5,
+                    "host": "bnb-mainnet.g.alchemy.com",
+                    "fp8": "124bc59c"
+                }
+            ],
+            "primary_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            },
+            "fallback1_health": {
+                "http_status": 200,
+                "ok": true,
+                "body_has_error": false
+            }
+        }
+    }
+}

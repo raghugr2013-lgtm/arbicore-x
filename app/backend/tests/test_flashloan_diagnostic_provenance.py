@@ -116,7 +116,9 @@ def test_bundle_carries_full_diagnostic_provenance():
 
 def test_default_diagnostics_has_candidate_id_when_unwired():
     _opp, _outcome, b = _verify_capture(_mk_verifier(diag_fn=None))
-    assert b["diagnostics"] == {"candidate_id": "cand-diag"}
+    assert b["diagnostics"]["candidate_id"] == "cand-diag"
+    # P2: timing is additive observability; candidate identity unchanged.
+    assert "timing" in b["diagnostics"]
 
 
 def test_diagnostics_failure_never_breaks_verify():
@@ -128,7 +130,7 @@ def test_diagnostics_failure_never_breaks_verify():
     assert opp is not None
     assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
     # And the diagnostics block still identifies the candidate.
-    assert b["diagnostics"] == {"candidate_id": "cand-diag"}
+    assert b["diagnostics"]["candidate_id"] == "cand-diag"
 
 
 def test_diagnostics_isolated_from_verdict():

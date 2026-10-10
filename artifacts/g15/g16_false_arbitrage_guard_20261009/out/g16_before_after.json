@@ -1,0 +1,488 @@
+{
+  "generated_utc": "2026-10-09T05:25:15Z",
+  "elapsed_s": 4.007,
+  "before": {
+    "source": "/home/raghu/projects/arbicore-x-cert/artifacts/g15/core-20261008T2216Z/G1_5_EXPORT_20261008T2216Z/MEV_SCOUT_BASE_BSC_WINNERS_G1_5.jsonl",
+    "source_sha256": "f525083f2ef218ce4532993c1dcc41e8807d0db68824408d9d4675d4ad871714",
+    "base_rows": 6287,
+    "classification_counts": {
+      "A": 1418,
+      "D": 560,
+      "B": 4252,
+      "C": 57
+    },
+    "sum_searcher_kept_net_usd_known": 16589.896323,
+    "rows_with_net": 5670
+  },
+  "after": {
+    "flag_counts": {
+      "NO_FLAG": 6065,
+      "POTENTIAL_CROSS_TX_MIRROR": 118,
+      "REPEATED_POOL_ROUTE": 98,
+      "BOTH_FLAGS": 6
+    },
+    "mirror_link_count": 88,
+    "unique_mirror_pairs": 68,
+    "original_classification_counts": {
+      "A": 1418,
+      "D": 560,
+      "B": 4252,
+      "C": 57
+    },
+    "classification_unchanged": true,
+    "flagged_rows": 222
+  },
+  "params": {
+    "block_window": 3,
+    "amount_tolerance": 0.05,
+    "overlap_policy": "Undirected (tx_a,tx_b,pool) keys; each tx counted once in flag histogram; bundle NET sums member original NETs without dropping negatives"
+  },
+  "sample_flagged": [
+    {
+      "tx_hash": "0xafb93ba12839670bad17b10374e8f252737377eb9fae02c767e3e12d276ce357",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 19.497664,
+      "guard_flag": "BOTH_FLAGS",
+      "repeated_pools": [
+        "0xccfa472815563ff9eb2de95c7b2be1ccf91f7f31",
+        "0x7c7420dd105e2779316423ba3e973f434315efa9",
+        "0xab07de353e15b80fa3b4224d5c8fdf3ac9f50670"
+      ],
+      "mirror_links": [
+        "0x5a5b5fa27149dc5de0e3e9fbefacde62f8ec70cdae1eb799d189894fda316e3a"
+      ],
+      "inferred_bundle_net_usd": 19.874782,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0xbf05083ded82ff5f83699973430600bfcd95dc91b88f981ccb5e7ff385e5be4d",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 6.518886,
+      "guard_flag": "BOTH_FLAGS",
+      "repeated_pools": [
+        "0xe2b3aa806e56603a244bfc111c9474f7dedd03db"
+      ],
+      "mirror_links": [
+        "0xae6c226c41242c3a1343441017bd5cd24dffc3016c1ced78b0e5f373f8b1c34c"
+      ],
+      "inferred_bundle_net_usd": 7.991047,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0xae6c226c41242c3a1343441017bd5cd24dffc3016c1ced78b0e5f373f8b1c34c",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 1.472161,
+      "guard_flag": "BOTH_FLAGS",
+      "repeated_pools": [
+        "0x678f431da2abb9b5726bbf5ccdbaeebb60da9813"
+      ],
+      "mirror_links": [
+        "0xbf05083ded82ff5f83699973430600bfcd95dc91b88f981ccb5e7ff385e5be4d"
+      ],
+      "inferred_bundle_net_usd": 7.991047,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0xbe4333553f191374372c539a14035d6b0971edf0cb44be8cfc5b69aaa633b422",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 0.208399,
+      "guard_flag": "BOTH_FLAGS",
+      "repeated_pools": [
+        "0x72ab388e2e2f6facef59e3c3fa2c4e29011c2d38"
+      ],
+      "mirror_links": [
+        "0xb7f3a0be1e4f2082d555b6c20fcfd459dd9c32ca6207faa1f0eebc46ff4c4c06"
+      ],
+      "inferred_bundle_net_usd": 0.233541,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0x48ca1775b844a6563d46677237ae960e85ac12ce4bc3f85d78f4c83cfa081f9c",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 0.090874,
+      "guard_flag": "BOTH_FLAGS",
+      "repeated_pools": [
+        "0x170b6bfc071426aab7c81ae12383219facbb6b6a"
+      ],
+      "mirror_links": [
+        "0x84472f5f968e58c4188514f0dc0d1b4e7890dff56c5e26c3df05a7347bce7164"
+      ],
+      "inferred_bundle_net_usd": 18.112832,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0x613c32369e21ebc148d1cb1b9aae0543fe342f3e5ad34ed74abf13f11d346770",
+      "original_classification": "D",
+      "original_pipeline_class": "cyclic_v4_unresolved",
+      "original_net_usd": null,
+      "guard_flag": "BOTH_FLAGS",
+      "repeated_pools": [
+        "0x3e31de9d23a1c923e3b60b45c0a30d172f01b659",
+        "0x566bee7ef7b39f29d150ab3be6b6242c17cc5a31",
+        "v4:0xeb30711810ba69e0286d70c1dec2633966f6c9eaa9be0151dae87b3e6dd4bce6"
+      ],
+      "mirror_links": [
+        "0x239678a4cda67eadde3d26cb76c3b7084caa96d4a30ea2b24256e24472d4b74f"
+      ],
+      "inferred_bundle_net_usd": 0.724357,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped",
+        "bundle_net_partial_missing_member_net"
+      ]
+    },
+    {
+      "tx_hash": "0xff34b616ce0db6f588bed48549fa3ff1b85b64ae415afbbc29c685aec7c4c3be",
+      "original_classification": "C",
+      "original_pipeline_class": "cyclic_profit",
+      "original_net_usd": 4797.12786,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xd7338b6f338da54b922bbbc6fbe3efedd5ce35fa"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0x77bb2502032303dc59079ff1d8c6d64f9c38463c7698dc18b732ee66172af3e3",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 284.222727,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xb90fe999be6869af0afc557dccfbe169ea3403d6"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0xab8150fa154f3c49badfa94ca9a1c5e4044e52d1ac019752a98db84c10fcd34c",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 261.754048,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0x4e506648d493c8870f55e870480f92f2f33ece51",
+        "0x3fe04a59ebd38cf06080a6f60a98d124eb59392a"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0x0e87fecc26f646cef361e1136114fbebcf46789f368e28dae8362f77a31aea86",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 244.432083,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xb90fe999be6869af0afc557dccfbe169ea3403d6"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0xc3d35e72da0d6bd245add71b422dcfe88dbd5b887f96374d14aa867643f58c42",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 144.67577,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0x42d4a22cad0f5a49681a5715ce994af73a43b76b",
+        "0x62916b911f2b64d0e3a3b72472d6f8c08c75dcaa",
+        "0xb90fe999be6869af0afc557dccfbe169ea3403d6"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0x9b80fd7dea802ebfa3ac6bf6c72a010abf5e82cb92da59b4c9a20462a43bcbb5",
+      "original_classification": "A",
+      "original_pipeline_class": "cyclic_profit",
+      "original_net_usd": 76.403353,
+      "guard_flag": "POTENTIAL_CROSS_TX_MIRROR",
+      "repeated_pools": [],
+      "mirror_links": [
+        "0x6800a3da2c4872943bf8e2331b541f74780c077527ce333e97bba65e5f13edd0"
+      ],
+      "inferred_bundle_net_usd": 154.408534,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0x6800a3da2c4872943bf8e2331b541f74780c077527ce333e97bba65e5f13edd0",
+      "original_classification": "A",
+      "original_pipeline_class": "cyclic_profit",
+      "original_net_usd": 74.850419,
+      "guard_flag": "POTENTIAL_CROSS_TX_MIRROR",
+      "repeated_pools": [],
+      "mirror_links": [
+        "0x9b80fd7dea802ebfa3ac6bf6c72a010abf5e82cb92da59b4c9a20462a43bcbb5",
+        "0xa50b9ad2a498633415a2165ac777594659ed5e64f3a9802e7099c35ca620004f"
+      ],
+      "inferred_bundle_net_usd": 154.408534,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0x2511dc9797d2408eb786876d184083d1e695baf0c55e89597ae583cd0939b079",
+      "original_classification": "C",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 72.713488,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xe9eed359ef1e600cec91f240768f463ed3c88730",
+        "0x3c589883d42d5d45b50b9fff4f07d990a1242a3f"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0xa4e73bd9cf7e758006da009516fdcc35d64cbfbab2a0f9362ddf6b988ce013c8",
+      "original_classification": "A",
+      "original_pipeline_class": "cyclic_profit",
+      "original_net_usd": 26.297948,
+      "guard_flag": "POTENTIAL_CROSS_TX_MIRROR",
+      "repeated_pools": [],
+      "mirror_links": [
+        "0xe4400f23fc027ea4fe73f243d684cf47d6c2cb8f3adf2f79acb9d59e844cc5bd"
+      ],
+      "inferred_bundle_net_usd": 30.200534,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0xf34b5fa614b351f0ff3eb7e274bf33d52c8e01f742363ac471f4120d1dd5d8dc",
+      "original_classification": "C",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 25.627352,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xd03bc8c7f2faedce2aac81bf0444aea08ea06e9b",
+        "0x4be684f77419999aa3e1162d25d9ae6ff64c05a0",
+        "v4:0xbc94a571767139984504676ec9347f57ca5f9ad10e917f235ef2c88fb1df79bf"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0xf07e3ad7eea2c515ea01916d97c78e6721531dce36b17a9cf4937beb9e9d9c5c",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 22.540317,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xa6da283cf7d06b2279626e787c329d6acf7e2994",
+        "0xb90fe999be6869af0afc557dccfbe169ea3403d6"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0xdeaa523094bf9c83f825eae28507bf08a48682aed6621623ba4e974c8202229e",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 20.754224,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xb90fe999be6869af0afc557dccfbe169ea3403d6"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0xf655cf4ba3077e1f44b101047ec5d6a6c4f9baa209afca1c05872a0e84d61e09",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 16.985783,
+      "guard_flag": "POTENTIAL_CROSS_TX_MIRROR",
+      "repeated_pools": [],
+      "mirror_links": [
+        "0x70ee6a7c4f865ad4fed0b6b86d3bc112df76f3420e18ea18fe3cad186fe03d92",
+        "0xddda35ed9a3881ac1862f3506ce8576d11149dc9440aafa67e2303045df888d0"
+      ],
+      "inferred_bundle_net_usd": 24.208969,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0x1bac41668a90ecfa879cdf5d6d48738f965ee6dd6daa44dcd71492d94c1edb36",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 13.531504,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xc211e1f853a898bd1302385ccde55f33a8c4b3f3",
+        "0xab07de353e15b80fa3b4224d5c8fdf3ac9f50670"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0x5e4893d3f375fa67ae978c7d980cced63fc2699a409ee064765ca7801e507d0f",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 13.245812,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0xb90fe999be6869af0afc557dccfbe169ea3403d6"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    },
+    {
+      "tx_hash": "0x559b6556decde2bcd6b887fc02eb9efad9990de053a59894bbc4184ce1723ed0",
+      "original_classification": "C",
+      "original_pipeline_class": "cyclic_native_leg_unverified",
+      "original_net_usd": 12.204012,
+      "guard_flag": "POTENTIAL_CROSS_TX_MIRROR",
+      "repeated_pools": [],
+      "mirror_links": [
+        "0x84472f5f968e58c4188514f0dc0d1b4e7890dff56c5e26c3df05a7347bce7164",
+        "0xcae68b096d1ac6df693e8d7e66fdb97bb03b24b5c0fc0f8004e23be14c803cef"
+      ],
+      "inferred_bundle_net_usd": 18.112832,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0x6fd5174986867a8e66ca57c4136ab210705f5a55a32b977dd370846991dbf93b",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit",
+      "original_net_usd": 11.469753,
+      "guard_flag": "POTENTIAL_CROSS_TX_MIRROR",
+      "repeated_pools": [],
+      "mirror_links": [
+        "0xff3a5ddbd81a25a18b8f90dffb53aac8bd2a3c4d73aaf9a92f39f55f3a3fa07d"
+      ],
+      "inferred_bundle_net_usd": 17.840027,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0x6e8129d534ad09fac08681028a86a8fe09a6d2e98d4a8418f3e691e51b2fc333",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 10.766236,
+      "guard_flag": "POTENTIAL_CROSS_TX_MIRROR",
+      "repeated_pools": [],
+      "mirror_links": [
+        "0xff78a773e7677d19bbc53e02ca9489c97b707d1b7b8cef213dce4da060aff135"
+      ],
+      "inferred_bundle_net_usd": 12.178421,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved",
+        "inferred_bundle_net_usd = sum of original per-tx NETs in linked component; losses are not dropped"
+      ]
+    },
+    {
+      "tx_hash": "0xb05eefd4676557fac47fc53760a56575e21b88fbaffe92361286a135bc9c3406",
+      "original_classification": "B",
+      "original_pipeline_class": "cyclic_profit_swept",
+      "original_net_usd": 7.295382,
+      "guard_flag": "REPEATED_POOL_ROUTE",
+      "repeated_pools": [
+        "0x377feeed4820b3b28d1ab429509e7a0789824fca"
+      ],
+      "mirror_links": [],
+      "inferred_bundle_net_usd": null,
+      "notes": [
+        "guard_flag is an investigation signal, not proof of fraud or zero profit",
+        "original_classification preserved"
+      ]
+    }
+  ],
+  "notes": [
+    "Frozen source file was not modified.",
+    "guard_flag is additive; original classification preserved.",
+    "Flags are investigation signals, not automatic non-arbitrage verdicts."
+  ]
+}

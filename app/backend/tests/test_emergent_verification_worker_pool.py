@@ -232,11 +232,24 @@ def _make_flash_scanner(*, workers: int = 6, batch: Optional[List] = None):
     state = {"enabled": True}
     queue = MagicMock()
     queue.upsert_many = AsyncMock(return_value=0)
-    claimed = batch if batch is not None else [
+    claimed = list(batch) if batch is not None else [
         _cand(f"c-{ch}", ch) for ch in DISCOVERY_SUPPORTED_CHAINS
     ]
-    queue.claim_batch = AsyncMock(return_value=claimed)
+    # Hybrid E drain: return one fair batch then empty (no infinite re-claim).
+    _claim_n = {"n": 0}
+
+    async def _claim_once(*_a, **_k):
+        _claim_n["n"] += 1
+        return claimed if _claim_n["n"] == 1 else []
+
+    queue.claim_batch = AsyncMock(side_effect=_claim_once)
     queue.mark_processed = AsyncMock(return_value=True)
+    queue.queue_status = AsyncMock(return_value={
+        "unclaimed_eligible": len(claimed),
+        "fresh_eligible": len(claimed),
+        "per_chain_backlog": {},
+        "per_strategy_backlog": {},
+    })
     bus = MagicMock()
     bus.emit = AsyncMock(return_value=None)
 

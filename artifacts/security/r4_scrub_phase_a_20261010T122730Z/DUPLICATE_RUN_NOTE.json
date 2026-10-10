@@ -1,0 +1,5 @@
+{
+  "utc": "2026-10-10T12:31:04Z",
+  "note": "Successful Phase A completed 2026-10-10T12:28:59Z\u201312:29:06Z. A second invocation at 12:29:13Z aborted at precheck because sources were already quarantined. FAILURE.json refers to that no-op duplicate only; quarantine was not altered by it.",
+  "authoritative_verdict_file": "PHASE_A_SUMMARY.json"
+}

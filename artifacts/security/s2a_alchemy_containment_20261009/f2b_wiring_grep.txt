@@ -1,0 +1,5 @@
+6670:# httpx logs full request URLs at INFO; Alchemy (and similar) put API keys in
+6674:    from arbicore.log_redaction import install_credential_url_log_redaction
+6675:    install_credential_url_log_redaction()
+/app/arbicore/certification_orchestrator/engine.py:81:        "reinstall_missing_non_secret_dependency",
+/app/arbicore/log_redaction.py:155:def install_credential_url_log_redaction(

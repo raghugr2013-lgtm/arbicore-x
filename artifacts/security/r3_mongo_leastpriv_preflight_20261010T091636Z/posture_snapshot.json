@@ -1,0 +1,7 @@
+{
+  "digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "image": "arbicore-x-backend:s2a-rpc-redact-5bd952568aed",
+  "docs_sslip": 404,
+  "api_sslip": 200,
+  "setup_local": 503
+}

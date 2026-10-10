@@ -47,6 +47,14 @@ export const v2Api = {
     get("/arbicore/certification/shadow/readiness"),
   opportunitiesList: (filters = {}) =>
     get("/arbicore/opportunities", filters),
+  ledgerRuns: () => get("/arbicore/ledger/runs"),
+  ledgerSummary: (runId) => get(`/arbicore/ledger/runs/${encodeURIComponent(runId)}/summary`),
+  ledgerOpportunities: (filters = {}) => get("/arbicore/ledger/opportunities", filters),
+  ledgerOpportunity: (ledgerId) => get(`/arbicore/ledger/opportunities/${encodeURIComponent(ledgerId)}`),
+  ledgerExport: (runId) => client.get(
+    `${API}/arbicore/ledger/runs/${encodeURIComponent(runId)}/export`,
+    { responseType: "blob" },
+  ).then((res) => res.data),
   opportunityDetail: (id) => get(`/arbicore/opportunities/${id}`),
   opportunityTimeline: (id) => get(`/arbicore/opportunities/${id}/timeline`),
   approveOpportunity: (id) => client.post(`${API}/arbicore/opportunities/${id}/approve`).then((r) => r.data),

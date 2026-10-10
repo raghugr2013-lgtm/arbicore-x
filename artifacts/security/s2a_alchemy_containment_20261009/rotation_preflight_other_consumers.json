@@ -1,0 +1,789 @@
+{
+  "arbicore-g5-79-app": {
+    "status": "running",
+    "unique_fp8": [
+      "a7961b2b"
+    ],
+    "rpc_env_keys": [
+      "PROVIDER_RPC_URLS_BASE"
+    ],
+    "hits": [
+      {
+        "env": "PROVIDER_RPC_URLS_BASE",
+        "endpoints": [
+          {
+            "host": "mainnet.base.org",
+            "fp8": null,
+            "alchemy": false
+          },
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "a7961b2b",
+            "alchemy": true
+          }
+        ]
+      }
+    ]
+  },
+  "arbicore-x-b7-candidate": {
+    "status": "exited",
+    "unique_fp8": [
+      "ce00e63d"
+    ],
+    "rpc_env_keys": [
+      "ALCHEMY_API_KEY",
+      "ARBICORE_RPC_URL",
+      "ARBICORE_RPC_URL_BASE",
+      "ARBICORE_ARCHIVE_RPC_URL",
+      "ARBICORE_RPC_URL_ETHEREUM",
+      "ARBICORE_RPC_URL_ARBITRUM",
+      "ARBICORE_RPC_URL_OPTIMISM",
+      "ARBICORE_RPC_URL_POLYGON",
+      "ARBICORE_RPC_URL_BNB"
+    ],
+    "hits": [
+      {
+        "env": "ALCHEMY_API_KEY",
+        "endpoints": []
+      },
+      {
+        "env": "ARBICORE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_ARCHIVE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ETHEREUM",
+        "endpoints": [
+          {
+            "host": "eth-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ARBITRUM",
+        "endpoints": [
+          {
+            "host": "arb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_OPTIMISM",
+        "endpoints": [
+          {
+            "host": "opt-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_POLYGON",
+        "endpoints": [
+          {
+            "host": "polygon-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BNB",
+        "endpoints": [
+          {
+            "host": "bnb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      }
+    ]
+  },
+  "arbicore-x-backend-h05": {
+    "status": "exited",
+    "unique_fp8": [
+      "ce00e63d"
+    ],
+    "rpc_env_keys": [
+      "ALCHEMY_API_KEY",
+      "ARBICORE_RPC_URL",
+      "ARBICORE_RPC_URL_BASE",
+      "ARBICORE_ARCHIVE_RPC_URL",
+      "PROVIDER_RPC_URL_BASE",
+      "PROVIDER_RPC_URLS_BASE",
+      "ARBICORE_RPC_URL_ETHEREUM",
+      "ARBICORE_RPC_URL_ARBITRUM",
+      "ARBICORE_RPC_URL_OPTIMISM",
+      "ARBICORE_RPC_URL_POLYGON",
+      "ARBICORE_RPC_URL_BNB",
+      "PROVIDER_RPC_URL_ETHEREUM",
+      "PROVIDER_RPC_URL_ARBITRUM",
+      "PROVIDER_RPC_URL_OPTIMISM",
+      "PROVIDER_RPC_URL_POLYGON",
+      "PROVIDER_RPC_URL_BNB"
+    ],
+    "hits": [
+      {
+        "env": "ALCHEMY_API_KEY",
+        "endpoints": []
+      },
+      {
+        "env": "ARBICORE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_ARCHIVE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URLS_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          },
+          {
+            "host": "mainnet.base.org",
+            "fp8": null,
+            "alchemy": false
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ETHEREUM",
+        "endpoints": [
+          {
+            "host": "eth-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ARBITRUM",
+        "endpoints": [
+          {
+            "host": "arb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_OPTIMISM",
+        "endpoints": [
+          {
+            "host": "opt-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_POLYGON",
+        "endpoints": [
+          {
+            "host": "polygon-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BNB",
+        "endpoints": [
+          {
+            "host": "bnb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_ETHEREUM",
+        "endpoints": [
+          {
+            "host": "eth-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_ARBITRUM",
+        "endpoints": [
+          {
+            "host": "arb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_OPTIMISM",
+        "endpoints": [
+          {
+            "host": "opt-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_POLYGON",
+        "endpoints": [
+          {
+            "host": "polygon-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_BNB",
+        "endpoints": [
+          {
+            "host": "bnb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      }
+    ]
+  },
+  "arbicore-x-backend-w1": {
+    "status": "exited",
+    "unique_fp8": [
+      "ce00e63d"
+    ],
+    "rpc_env_keys": [
+      "ALCHEMY_API_KEY",
+      "ARBICORE_RPC_URL",
+      "ARBICORE_RPC_URL_BASE",
+      "ARBICORE_ARCHIVE_RPC_URL",
+      "PROVIDER_RPC_URL_BASE",
+      "PROVIDER_RPC_URLS_BASE",
+      "ARBICORE_RPC_URL_ETHEREUM",
+      "ARBICORE_RPC_URL_ARBITRUM",
+      "ARBICORE_RPC_URL_OPTIMISM",
+      "ARBICORE_RPC_URL_POLYGON",
+      "ARBICORE_RPC_URL_BNB",
+      "PROVIDER_RPC_URL_ETHEREUM",
+      "PROVIDER_RPC_URL_ARBITRUM",
+      "PROVIDER_RPC_URL_OPTIMISM",
+      "PROVIDER_RPC_URL_POLYGON",
+      "PROVIDER_RPC_URL_BNB"
+    ],
+    "hits": [
+      {
+        "env": "ALCHEMY_API_KEY",
+        "endpoints": []
+      },
+      {
+        "env": "ARBICORE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_ARCHIVE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URLS_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          },
+          {
+            "host": "mainnet.base.org",
+            "fp8": null,
+            "alchemy": false
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ETHEREUM",
+        "endpoints": [
+          {
+            "host": "eth-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ARBITRUM",
+        "endpoints": [
+          {
+            "host": "arb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_OPTIMISM",
+        "endpoints": [
+          {
+            "host": "opt-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_POLYGON",
+        "endpoints": [
+          {
+            "host": "polygon-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BNB",
+        "endpoints": [
+          {
+            "host": "bnb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_ETHEREUM",
+        "endpoints": [
+          {
+            "host": "eth-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_ARBITRUM",
+        "endpoints": [
+          {
+            "host": "arb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_OPTIMISM",
+        "endpoints": [
+          {
+            "host": "opt-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_POLYGON",
+        "endpoints": [
+          {
+            "host": "polygon-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_BNB",
+        "endpoints": [
+          {
+            "host": "bnb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      }
+    ]
+  },
+  "arbicore-x-backend": {
+    "status": "exited",
+    "unique_fp8": [
+      "ce00e63d"
+    ],
+    "rpc_env_keys": [
+      "ALCHEMY_API_KEY",
+      "ARBICORE_RPC_URL",
+      "ARBICORE_RPC_URL_BASE",
+      "ARBICORE_ARCHIVE_RPC_URL",
+      "PROVIDER_RPC_URL_BASE",
+      "PROVIDER_RPC_URLS_BASE",
+      "ARBICORE_RPC_URL_ETHEREUM",
+      "ARBICORE_RPC_URL_ARBITRUM",
+      "ARBICORE_RPC_URL_OPTIMISM",
+      "ARBICORE_RPC_URL_POLYGON",
+      "ARBICORE_RPC_URL_BNB",
+      "PROVIDER_RPC_URL_ETHEREUM",
+      "PROVIDER_RPC_URL_ARBITRUM",
+      "PROVIDER_RPC_URL_OPTIMISM",
+      "PROVIDER_RPC_URL_POLYGON",
+      "PROVIDER_RPC_URL_BNB"
+    ],
+    "hits": [
+      {
+        "env": "ALCHEMY_API_KEY",
+        "endpoints": []
+      },
+      {
+        "env": "ARBICORE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_ARCHIVE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URLS_BASE",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          },
+          {
+            "host": "mainnet.base.org",
+            "fp8": null,
+            "alchemy": false
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ETHEREUM",
+        "endpoints": [
+          {
+            "host": "eth-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ARBITRUM",
+        "endpoints": [
+          {
+            "host": "arb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_OPTIMISM",
+        "endpoints": [
+          {
+            "host": "opt-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_POLYGON",
+        "endpoints": [
+          {
+            "host": "polygon-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BNB",
+        "endpoints": [
+          {
+            "host": "bnb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_ETHEREUM",
+        "endpoints": [
+          {
+            "host": "eth-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_ARBITRUM",
+        "endpoints": [
+          {
+            "host": "arb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_OPTIMISM",
+        "endpoints": [
+          {
+            "host": "opt-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_POLYGON",
+        "endpoints": [
+          {
+            "host": "polygon-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "PROVIDER_RPC_URL_BNB",
+        "endpoints": [
+          {
+            "host": "bnb-mainnet.g.alchemy.com",
+            "fp8": "ce00e63d",
+            "alchemy": true
+          }
+        ]
+      }
+    ]
+  },
+  "arbicore-x-backend-new": {
+    "status": "running",
+    "unique_fp8": [
+      "5e5d5bb1"
+    ],
+    "rpc_env_keys": [
+      "ARBICORE_RPC_URL",
+      "ARBICORE_RPC_URL_BNB",
+      "ARBICORE_ARCHIVE_RPC_URL",
+      "ARBICORE_RPC_URL_ETHEREUM",
+      "ARBICORE_RPC_URL_OPTIMISM",
+      "ARBICORE_RPC_URL_POLYGON",
+      "ARBICORE_RPC_URL_ARBITRUM",
+      "ARBICORE_RPC_URL_BASE",
+      "ALCHEMY_API_KEY"
+    ],
+    "hits": [
+      {
+        "env": "ARBICORE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "5e5d5bb1",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BNB",
+        "endpoints": [
+          {
+            "host": "bnb-mainnet.g.alchemy.com",
+            "fp8": "5e5d5bb1",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_ARCHIVE_RPC_URL",
+        "endpoints": [
+          {
+            "host": "base-mainnet.g.alchemy.com",
+            "fp8": "5e5d5bb1",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ETHEREUM",
+        "endpoints": [
+          {
+            "host": "eth-mainnet.g.alchemy.com",
+            "fp8": "5e5d5bb1",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_OPTIMISM",
+        "endpoints": [
+          {
+            "host": "opt-mainnet.g.alchemy.com",
+            "fp8": "5e5d5bb1",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_POLYGON",
+        "endpoints": [
+          {
+            "host": "polygon-mainnet.g.alchemy.com",
+            "fp8": "5e5d5bb1",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_ARBITRUM",
+        "endpoints": [
+          {
+            "host": "arb-mainnet.g.alchemy.com",
+            "fp8": "5e5d5bb1",
+            "alchemy": true
+          }
+        ]
+      },
+      {
+        "env": "ARBICORE_RPC_URL_BASE",
+        "endpoints": [
+          {
+            "host": "mainnet.base.org",
+            "fp8": null,
+            "alchemy": false
+          }
+        ]
+      },
+      {
+        "env": "ALCHEMY_API_KEY",
+        "endpoints": []
+      }
+    ]
+  }
+}

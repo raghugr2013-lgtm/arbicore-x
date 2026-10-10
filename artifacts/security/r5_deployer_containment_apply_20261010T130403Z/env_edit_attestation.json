@@ -1,0 +1,17 @@
+{
+  "utc": "2026-10-10T13:04:04Z",
+  "path": "/home/raghu/projects/arbicore-x-v2/contracts/.env",
+  "mode": "0o600",
+  "size": 199,
+  "file_sha256": "3bd007bb2d92c7d60c07999b931fb57cdeae67bcf3682472d5eabbdbf8b0fa78",
+  "lines_removed": 1,
+  "keys_remaining": [
+    "BASE_RPC_URL",
+    "BASESCAN_API_KEY"
+  ],
+  "DEPLOYER_PRIVATE_KEY_present": false,
+  "pre_file_sha256": "ad88e734f5ab1119f333d39864c48b0ad8d5a12968d0108d42ec5ff94c52e758",
+  "escrow_file_sha256": "ad88e734f5ab1119f333d39864c48b0ad8d5a12968d0108d42ec5ff94c52e758",
+  "address_file_unchanged": true,
+  "keystore_sha256_unchanged": true
+}

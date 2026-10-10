@@ -1,0 +1,413 @@
+{
+  "cert": "POST_PATCH_12H_SHADOW_VALIDATION",
+  "not_official_gate9": true,
+  "not_official_gate10": true,
+  "label": "POST-PATCH VALIDATION \u2014 NOT OFFICIAL GATE 9 \u2014 NOT GATE 10",
+  "ts": "20261003T040326Z",
+  "collected_at": "2026-10-03T04:03:26.776829+00:00",
+  "verdict": "CONDITIONAL",
+  "workstream_a_tip": "befb14e6aa77515daa038e142ff978822a4fab91",
+  "workstream_a_cert_gate": "READY WITH CONDITIONS",
+  "baseline_ref": "reports/shadow_validation/accel_8h_checkpoint_20261002T142017Z.json",
+  "campaign_T0": "2026-10-02T15:08:52.884157323Z",
+  "eta_12h_utc": "2026-10-03T03:08:52Z",
+  "past_12h_eta": true,
+  "window_hours": 12.9094,
+  "image_post": {
+    "tag": "arbicore-x-backend:ws-a-befb14e-20261002",
+    "id": "sha256:12759b11a783619ad25746a030c5bbcc71b83ed64ff05b3316153d6402a594ae",
+    "expected_id": "sha256:12759b11a783619ad25746a030c5bbcc71b83ed64ff05b3316153d6402a594ae",
+    "match": true,
+    "git_sha": "befb14e6aa77515daa038e142ff978822a4fab91",
+    "build_info_git_sha": "befb14e6aa77515daa038e142ff978822a4fab91"
+  },
+  "image_pre": "arbicore-x-backend:g5.79-green-20260927",
+  "container": {
+    "name": "arbicore-x-backend-new",
+    "status": "running",
+    "health": "healthy",
+    "started_at": "2026-10-02T15:08:52.884157323Z",
+    "restart_count": 0,
+    "started_at_unchanged_vs_T0": true
+  },
+  "safety": {
+    "ARBICORE_EXECUTION_MODE": "SHADOW",
+    "ARBICORE_SHADOW_CERT_ENABLED": "true",
+    "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+    "ARBICORE_RUNTIME_AUTOSTART": "false",
+    "ARBICORE_SCANNER_AUTOSTART": "true",
+    "ARBICORE_PAPER_VALIDATION_ENABLED": "true",
+    "ARBICORE_GIT_SHA": "befb14e6aa77515daa038e142ff978822a4fab91",
+    "ARBICORE_GIT_TAG": "ws-a-befb14e-20261002",
+    "ARBICORE_PRICE_FEED_ENABLED": null,
+    "ARBICORE_BORROW_SIZER_ENABLED": null,
+    "live_execution_enabled": false,
+    "effective_kill_engaged": true,
+    "kill": {
+      "engaged": true,
+      "reason": "boot_default",
+      "engaged_at": "2026-10-02T15:09:00.616120Z",
+      "history": []
+    },
+    "flash_loan_mode": "SHADOW",
+    "signing": 0,
+    "broadcast": 0,
+    "funds_movement": 0
+  },
+  "runner": {
+    "is_running": true,
+    "started_at": "2026-10-02T15:09:05.593316+00:00",
+    "last_cycle_at": "2026-10-03T04:03:28.617174+00:00",
+    "cycles_completed": 9229,
+    "opportunities_seen": 0,
+    "opportunities_processed": 0,
+    "opportunities_skipped_dup": 0,
+    "exceptions": 0,
+    "last_error": null,
+    "outcome_counts": {}
+  },
+  "rpc": {
+    "failover_metrics": {
+      "M1_base_failover_events": 15059,
+      "M1_base_failover_events_per_hour": 1170.458,
+      "M2_alchemy_posts_per_failover": 0.067,
+      "M3_alchemy_429_count": 996,
+      "M3_alchemy_429_per_hour": 77.414,
+      "M4_eth_call_volume": null,
+      "M5_successful_quotes": null,
+      "M6_alchemy_request_rate": {
+        "avg_per_s_10s": 0.16584158415841585,
+        "peak_per_s": 5.0,
+        "n": 1010
+      },
+      "M6_public_base_request_rate": {
+        "avg_per_s_10s": 0.7727952797386999,
+        "peak_per_s": 19.0,
+        "n": 9491
+      },
+      "M7_cooldown_log_hits": 14591,
+      "M8_opportunity_impact": null
+    },
+    "failover_counts": {
+      "failover_events_total": 15059,
+      "failover_base_to_alchemy": 15059,
+      "alchemy_base_posts": 1010,
+      "alchemy_base_by_status": {
+        "200": 13,
+        "400": 1,
+        "429": 996
+      },
+      "alchemy_base_200": 13,
+      "alchemy_base_429": 996,
+      "public_base_posts": 9491,
+      "public_base_by_status": {
+        "200": 9473,
+        "429": 16,
+        "503": 2
+      },
+      "http_posts_by_host_status": {
+        "127.0.0.1": {
+          "200": 4
+        },
+        "base-mainnet.g.alchemy.com": {
+          "200": 13,
+          "400": 1,
+          "429": 996
+        },
+        "mainnet.base.org": {
+          "200": 9473,
+          "429": 16,
+          "503": 2
+        }
+      }
+    },
+    "alchemy_by_fp": {
+      "5e5d5bb1": 14,
+      "ce00e63d": 996
+    },
+    "alchemy_by_fp_status": {
+      "5e5d5bb1": {
+        "200": 13,
+        "400": 1
+      },
+      "ce00e63d": {
+        "429": 996
+      }
+    },
+    "public_base_status": {
+      "200": 9473,
+      "429": 16,
+      "503": 2
+    },
+    "failover_reasons": {
+      "soft_rl_-32016": 468,
+      "cooldown": 14591
+    },
+    "amplification_primary_3s": {
+      "primary_non_cooldown_failovers": 468,
+      "alchemy_posts_within_3s_mean": 2.026,
+      "alchemy_posts_within_3s_median": 2.0,
+      "alchemy_posts_within_3s_hist": {
+        "11": 1,
+        "2": 458,
+        "1": 5,
+        "4": 4
+      },
+      "pct_le_2": 98.93,
+      "pct_eq_5ish": 0.85
+    },
+    "m2_naive_all_failovers": 0.067,
+    "m2_primary_posts_within_3s_median": 2.0,
+    "m2_primary_posts_within_3s_mean": 2.026,
+    "cooldown_activations_M7": 14591,
+    "stale_ce00e63d_appeared": true,
+    "docker_key_5e5d5bb1_used": true,
+    "network_config_secondary_fp": "ce00e63d",
+    "network_config_updated_at": "2026-09-27T09:31:23.271601+00:00",
+    "env_sync_at": "2026-10-02T15:09:08.734Z"
+  },
+  "quotes": {
+    "status_ok": 0,
+    "fallback_revert": 15059,
+    "fallback_break_even": 0,
+    "quote_attempts_proxy_failovers": 15059
+  },
+  "opportunities": {
+    "seen": 0,
+    "processed": 0,
+    "exceptions": 0,
+    "cycles_completed": 9229,
+    "is_running": true,
+    "started_at": "2026-10-02T15:09:05.593316+00:00",
+    "last_cycle_at": "2026-10-03T04:03:28.617174+00:00"
+  },
+  "paper": {
+    "report_total": 0,
+    "histogram": {
+      "EXECUTABLE": 0,
+      "REJECTED": 0,
+      "UNPROFITABLE": 0,
+      "LIQUIDITY_FAILURE": 0,
+      "GAS_FAILURE": 0,
+      "ROUTE_FAILURE": 0,
+      "RISK_FAILURE": 0,
+      "SIMULATION_FAILURE": 0
+    },
+    "executable_api_total": 0,
+    "paper_stats": {
+      "available": true,
+      "analyses": 0,
+      "policy_blocked": 0,
+      "ev_positive": 0,
+      "ev_negative": 0,
+      "last_run_at": null,
+      "last_error": null,
+      "generated_at": "2026-10-03T04:03:29.555127+00:00"
+    },
+    "pulse_paper": {
+      "total": 0,
+      "executable_rate": 0.0,
+      "runner_running": true,
+      "outcome_counts": {}
+    }
+  },
+  "pnl": {
+    "method": "A=0 / EXECUTABLE=0 => PnL=$0 drawdown=$0",
+    "paper_pnl_usd": 0.0,
+    "max_drawdown_usd": 0.0
+  },
+  "six_chain": {
+    "ethereum": {
+      "ok": true,
+      "host": "eth-mainnet.g.alchemy.com",
+      "path_fp": "5e5d5bb1",
+      "env_key": "ARBICORE_RPC_URL_ETHEREUM",
+      "eth_chainId": {
+        "http_status": 200,
+        "result": "0x1",
+        "is_429": false,
+        "error": null
+      },
+      "eth_blockNumber": {
+        "http_status": 200,
+        "result": "0x18e656e",
+        "is_429": false,
+        "error": null
+      },
+      "alchemy_429": false
+    },
+    "arbitrum": {
+      "ok": true,
+      "host": "arb-mainnet.g.alchemy.com",
+      "path_fp": "5e5d5bb1",
+      "env_key": "ARBICORE_RPC_URL_ARBITRUM",
+      "eth_chainId": {
+        "http_status": 200,
+        "result": "0xa4b1",
+        "is_429": false,
+        "error": null
+      },
+      "eth_blockNumber": {
+        "http_status": 200,
+        "result": "0x1e782db8",
+        "is_429": false,
+        "error": null
+      },
+      "alchemy_429": false
+    },
+    "optimism": {
+      "ok": true,
+      "host": "opt-mainnet.g.alchemy.com",
+      "path_fp": "5e5d5bb1",
+      "env_key": "ARBICORE_RPC_URL_OPTIMISM",
+      "eth_chainId": {
+        "http_status": 200,
+        "result": "0xa",
+        "is_429": false,
+        "error": null
+      },
+      "eth_blockNumber": {
+        "http_status": 200,
+        "result": "0x966526c",
+        "is_429": false,
+        "error": null
+      },
+      "alchemy_429": false
+    },
+    "polygon": {
+      "ok": true,
+      "host": "polygon-mainnet.g.alchemy.com",
+      "path_fp": "5e5d5bb1",
+      "env_key": "ARBICORE_RPC_URL_POLYGON",
+      "eth_chainId": {
+        "http_status": 200,
+        "result": "0x89",
+        "is_429": false,
+        "error": null
+      },
+      "eth_blockNumber": {
+        "http_status": 200,
+        "result": "0x5a78015",
+        "is_429": false,
+        "error": null
+      },
+      "alchemy_429": false
+    },
+    "bnb": {
+      "ok": true,
+      "host": "bnb-mainnet.g.alchemy.com",
+      "path_fp": "5e5d5bb1",
+      "env_key": "ARBICORE_RPC_URL_BNB",
+      "eth_chainId": {
+        "http_status": 200,
+        "result": "0x38",
+        "is_429": false,
+        "error": null
+      },
+      "eth_blockNumber": {
+        "http_status": 200,
+        "result": "0x779b670",
+        "is_429": false,
+        "error": null
+      },
+      "alchemy_429": false
+    },
+    "base": {
+      "ok": true,
+      "host": "mainnet.base.org",
+      "path_fp": null,
+      "env_key": "ARBICORE_RPC_URL_BASE",
+      "eth_chainId": {
+        "http_status": 200,
+        "result": "0x2105",
+        "is_429": false,
+        "error": null
+      },
+      "eth_blockNumber": {
+        "http_status": 200,
+        "result": "0x31b10de",
+        "is_429": false,
+        "error": null
+      },
+      "alchemy_429": false
+    }
+  },
+  "six_chain_ok_count": 6,
+  "mongo": {
+    "db": "arbicore_x",
+    "arbicore_opportunity_journal": {
+      "count": 0
+    },
+    "arbicore_paper_evidence": {
+      "count": 0,
+      "since_T0": 0,
+      "outcomes": {}
+    },
+    "arbicore_shadow_certifications": {
+      "count": 1
+    },
+    "evidence_bundles": {
+      "count": 543081,
+      "since_T0": 0
+    },
+    "mid_opportunity_lifetime": {
+      "count": 0
+    }
+  },
+  "daily_status": {
+    "available": true,
+    "run_id": "run_20261002_1509",
+    "running": true,
+    "last_summary_at": "2026-10-02T15:09:07.636312Z",
+    "last_anomalies": [],
+    "generated_at": "2026-10-03T04:03:28.949686+00:00"
+  },
+  "compare": {
+    "M2_pre_documented": 5.025,
+    "M2_post_naive_all_failovers": 0.067,
+    "M2_post_primary_3s_median": 2.0,
+    "M2_post_primary_3s_mean": 2.026,
+    "M3_post_429_per_hour": 77.414,
+    "M7_post": 14591,
+    "pre_cycles": 5740,
+    "pre_exceptions": 0,
+    "pre_opportunities": 0,
+    "pre_image": "arbicore-x-backend:g5.79-green-20260927",
+    "pre_elapsed_h": 8.0095
+  },
+  "criteria": {
+    "C1_duration_12h_continuous": true,
+    "C2_M2_le_2": true,
+    "C4_fail_closed_honesty": true,
+    "C5_safety": true,
+    "C6_continuity_restart0": true,
+    "C7_six_chain": true,
+    "product_fix_objectives_met": true
+  },
+  "layers": {
+    "product_fix_validation": "PASS",
+    "rpc_alchemy_infrastructure": "BLOCKED_OBSERVED",
+    "economic_opportunity_evidence": "ABSENT"
+  },
+  "blockers": [
+    "stale_network_config_secondary_fp_ce00e63d_dominates_alchemy_429s",
+    "mainnet.base.org_soft_RL_-32016_drives_primary_failovers",
+    "zero_successful_quotes_status_ok=0",
+    "opportunities_seen=0",
+    "EXECUTABLE=0",
+    "paper_analyses=0"
+  ],
+  "observations": [
+    "StartedAt unchanged from T0; RestartCount=0; elapsed >=12h",
+    "Retry amplification fixed: primary-failover Alchemy POST median=2; 98.93% <=2 within 3s; cooldown gates most failovers (0 Alchemy POST)",
+    "Stale persistent Network Config secondary fp ce00e63d after env_sync; all 996 Alchemy 429s on ce00e63d",
+    "Docker-wired fp 5e5d5bb1 used only at boot (13x200 + 1x400); never appeared in later 429 stream",
+    "0 quoter status=ok; 15059 fallback:revert \u2014 infra/economic, not amplification regression"
+  ],
+  "evidence_gaps": [
+    "LOG_LEVEL limits full eth_call census; quote success inferred from status=ok / fallback lines",
+    "Official Gate9 (>=24h) not claimed by this report",
+    "Alchemy dashboard CU not re-fetched in this stamp"
+  ],
+  "STOP": "Not Gate9/Gate10; no secrets; no invented EXECUTABLE; no deploy/restart"
+}

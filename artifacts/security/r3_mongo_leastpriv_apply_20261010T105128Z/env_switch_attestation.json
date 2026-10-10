@@ -1,0 +1,8 @@
+{
+  "utc": "2026-10-10T10:51:54Z",
+  "old_username": "root",
+  "new_username": "arbicore_app",
+  "password_sha12": "66035544c3c5",
+  "env_mode": "0o600",
+  "url_shape_note": "preserved host:port/ path before query"
+}

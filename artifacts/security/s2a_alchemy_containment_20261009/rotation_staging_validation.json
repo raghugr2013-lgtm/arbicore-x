@@ -1,0 +1,89 @@
+{
+  "verdict": "PASS",
+  "checks": [
+    {
+      "check": "regular_file",
+      "result": "PASS"
+    },
+    {
+      "check": "owner_raghu",
+      "result": "PASS"
+    },
+    {
+      "check": "mode_0600",
+      "result": "PASS"
+    },
+    {
+      "check": "no_malformed_lines",
+      "result": "PASS"
+    },
+    {
+      "check": "no_empty_values",
+      "result": "PASS"
+    },
+    {
+      "check": "no_duplicate_keys",
+      "result": "PASS"
+    },
+    {
+      "check": "all_six_PRIMARY_present",
+      "result": "PASS"
+    },
+    {
+      "check": "each_PRIMARY_exactly_once",
+      "result": "PASS"
+    },
+    {
+      "check": "FALLBACK_POLICY_exactly_once",
+      "result": "PASS"
+    },
+    {
+      "check": "FALLBACK_POLICY_retain_existing",
+      "result": "PASS"
+    },
+    {
+      "check": "PRIMARY_URL_formats_valid",
+      "result": "PASS"
+    },
+    {
+      "check": "PRIMARY_hosts_match_expected_chains",
+      "result": "PASS"
+    },
+    {
+      "check": "credentials_are_new_vs_known_old_set",
+      "result": "PASS"
+    },
+    {
+      "check": "only_allowed_keys",
+      "result": "PASS"
+    }
+  ],
+  "failures": [],
+  "file": {
+    "path": "/tmp/s2a_alchemy_replacements.env",
+    "is_regular": true,
+    "owner": "raghu",
+    "mode_octal": "0o600",
+    "mode_ok": true,
+    "owner_ok": true,
+    "size_bytes": 519
+  },
+  "variable_counts": {
+    "FALLBACK_POLICY": 1,
+    "PRIMARY_ARBITRUM": 1,
+    "PRIMARY_BASE": 1,
+    "PRIMARY_BNB": 1,
+    "PRIMARY_ETHEREUM": 1,
+    "PRIMARY_OPTIMISM": 1,
+    "PRIMARY_POLYGON": 1
+  },
+  "malformed_line_count": 0,
+  "empty_value_keys": [],
+  "credential_identity": {
+    "distinct_key_identities_among_PRIMARY": 1,
+    "any_reused_known_old_or_out_of_scope": false,
+    "reused_variable_names": [],
+    "all_PRIMARY_new_vs_known_set": "NEW"
+  },
+  "failure_count": 0
+}

@@ -6667,6 +6667,14 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
+# httpx logs full request URLs at INFO; Alchemy (and similar) put API keys in
+# the path (/v2/<key>). Install a URL-aware filter so credentials never reach
+# log handlers. Does not alter RPC endpoints, keys, or request behavior.
+try:
+    from arbicore.log_redaction import install_credential_url_log_redaction
+    install_credential_url_log_redaction()
+except Exception:  # noqa: BLE001
+    pass
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -6721,6 +6729,17 @@ try:
 except Exception:  # noqa: BLE001
     logger.exception(
         "strategy IR router failed to import — /api/strategy/* endpoints will be 404"
+    )
+
+# Opportunity Ledger explorer — read-only research. Does not start scanners
+# or change execution, gates, RPC, or signing.
+try:
+    from arbicore.routes.ledger_explorer import router as ledger_explorer_router
+    app.include_router(ledger_explorer_router)
+    logger.info("opportunity ledger explorer mounted (/api/arbicore/ledger/*) — read only")
+except Exception:  # noqa: BLE001
+    logger.exception(
+        "opportunity ledger explorer failed to import — /api/arbicore/ledger/* will be 404"
     )
 
 

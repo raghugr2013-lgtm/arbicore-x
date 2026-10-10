@@ -1,0 +1,41 @@
+{
+  "utc": "2026-10-10T11:12:15Z",
+  "env_mode": "0o600",
+  "admin": {
+    "present": true,
+    "len": 36,
+    "sha12": "6757aa3396d8"
+  },
+  "jwt": {
+    "present": true,
+    "len": 64,
+    "sha12": "066b178751e1"
+  },
+  "admin_user": "admin",
+  "container": {
+    "image_id": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "config_image": "arbicore-x-backend:s2a-rpc-redact-5bd952568aed",
+    "health": "healthy",
+    "status": "running",
+    "env_admin": {
+      "present": true,
+      "len": 36,
+      "sha12": "6757aa3396d8"
+    },
+    "env_jwt": {
+      "present": true,
+      "len": 64,
+      "sha12": "066b178751e1"
+    },
+    "bootstrap_present": false,
+    "private_key_env_present": false,
+    "controls": {
+      "ARBICORE_EXECUTION_MODE": "SHADOW",
+      "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+      "ARBICORE_RUNTIME_AUTOSTART": "false"
+    },
+    "mongo_url_user": "arbicore_app"
+  },
+  "login_ok": true,
+  "me_id": "eeeeb6d9-d1b0-4ff9-9fa1-7fa044b5ef06"
+}

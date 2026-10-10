@@ -1,0 +1,41 @@
+{
+  "utc": "2026-10-10T11:12:52Z",
+  "container": {
+    "image_id": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "config_image": "arbicore-x-backend:s2a-rpc-redact-5bd952568aed",
+    "health": "healthy",
+    "status": "running",
+    "env_admin": {
+      "present": true,
+      "len": 32,
+      "sha12": "112c88ac69e1"
+    },
+    "env_jwt": {
+      "present": true,
+      "len": 64,
+      "sha12": "f98650d468b2"
+    },
+    "bootstrap_present": false,
+    "private_key_env_present": false,
+    "controls": {
+      "ARBICORE_EXECUTION_MODE": "SHADOW",
+      "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+      "ARBICORE_RUNTIME_AUTOSTART": "false"
+    },
+    "mongo_url_user": "arbicore_app"
+  },
+  "mongo_admin_meta": {
+    "found": true,
+    "username": "admin",
+    "role": "admin",
+    "id": "eeeeb6d9-d1b0-4ff9-9fa1-7fa044b5ef06",
+    "session_version": 2,
+    "created_at": "2026-09-07T05:23:52.777829+00:00",
+    "updated_at": "2026-10-07T01:04:47.498878+00:00",
+    "password_hash_present": true,
+    "password_hash_algo_prefix": "$2b$",
+    "password_hash_sha12": "11f3311f9cb0"
+  },
+  "hash_sha12_unchanged": true,
+  "session_version": 2
+}

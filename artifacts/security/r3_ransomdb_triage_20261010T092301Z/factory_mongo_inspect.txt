@@ -1,0 +1,5 @@
+Status=running Started=2026-09-07T05:21:43.251186127Z Image=mongo:7
+Ports={"27017/tcp":null}
+Networks={"strategy-factory-canonical_default":{"IPAMConfig":null,"Links":null,"Aliases":["factory-mongo","factory-mongo"],"DriverOpts":null,"GwPriority":0,"NetworkID":"1cab4285de6e4095044621e4d75bcd4ebfbffa6855ae5deaff60fd95b2e07140","EndpointID":"c48c2c2676b8e9c2dc5e88ea863d40aef8e49ca941ff03ec23f44839618a9204","Gateway":"172.22.0.1","IPAddress":"172.22.0.2","MacAddress":"06:05:af:8a:01:d0","IPPrefixLen":16,"IPv6Gateway":"","GlobalIPv6Address":"","GlobalIPv6PrefixLen":0,"DNSNames":["factory-mongo","c7e7328a9345"]},"vqb-network":{"IPAMConfig":null,"Links":null,"Aliases":["factory-mongo","factory-mongo"],"DriverOpts":null,"GwPriority":0,"NetworkID":"9deb939f38138d04c90e9e1e589029a91400ebdb642a52f03cffafcc93594b93","EndpointID":"fe6967ff10ddd339a44768fcad901615f5abf400f979a0a30f42811340ca7212","Gateway":"172.18.0.1","IPAddress":"172.18.0.9","MacAddress":"7e:be:41:05:c1:58","IPPrefixLen":16,"IPv6Gateway":"","GlobalIPv6Address":"","GlobalIPv6PrefixLen":0,"DNSNames":["factory-mongo","c7e7328a9345"]}}
+Binds=["factory-mongo_factory_mongo_data:/data/db:rw"]
+PublishAll=false

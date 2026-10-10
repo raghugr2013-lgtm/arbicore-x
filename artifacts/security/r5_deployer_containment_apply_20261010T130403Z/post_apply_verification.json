@@ -1,0 +1,54 @@
+{
+  "utc": "2026-10-10T13:04:05Z",
+  "checks": {
+    "V1_key_absent_live_env": true,
+    "V2_env_mode_600": true,
+    "V3_escrow_present_600": true,
+    "V4_escrow_sha_matches_pre": true,
+    "V5_remaining_keys_only_rpc_basescan": true,
+    "V6_address_file_unchanged": true,
+    "V7_keystore_unchanged": true,
+    "V8_digest_healthy_controls": true,
+    "V9_r1_r2": true,
+    "V10_legacy_exited": true,
+    "V11_r4_quarantine_untouched": true,
+    "V12_no_active_forge_consumers": true,
+    "V13_git_env_untracked": true
+  },
+  "all_pass": true,
+  "details": {
+    "live_env_mode": "0o600",
+    "live_env_sha256": "3bd007bb2d92c7d60c07999b931fb57cdeae67bcf3682472d5eabbdbf8b0fa78",
+    "live_keys": [
+      "BASE_RPC_URL",
+      "BASESCAN_API_KEY"
+    ],
+    "escrow": "/home/raghu/arbicore_backups/r5_deployer_containment_20261010T130403Z/contracts.env.pre-r5",
+    "address_file": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003",
+    "address_mismatch_blocker": {
+      "address_file": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003",
+      "preflight_key_derived": "0x3b37a5E124b177fEE30365deb295A5CCF76841Cd",
+      "executor_owner": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+      "correction": "NOT_DONE \u2014 requires verified intended deployment identity + separate auth"
+    },
+    "backend_digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "backend_health": "healthy",
+    "controls": {
+      "ARBICORE_EXECUTION_MODE": "SHADOW",
+      "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+      "ARBICORE_RUNTIME_AUTOSTART": "false"
+    },
+    "legacy": {
+      "arbicore-x-backend-h05": "exited",
+      "arbicore-x-backend-w1": "exited",
+      "arbicore-x-b7-candidate": "exited",
+      "arbicore-x-backend": "exited"
+    },
+    "g5_79_app": "running",
+    "foreman_mongo": "running",
+    "docs_public": "404",
+    "api_public": "200",
+    "setup_status": 503,
+    "r4_quarantine": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z"
+  }
+}

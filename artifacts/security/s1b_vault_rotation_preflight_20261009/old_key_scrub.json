@@ -1,0 +1,150 @@
+{
+  "ts": "2026-10-09T10:44:41.143769+00:00",
+  "scrubbed_count": 30,
+  "scrubbed": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-executor-signer-owner-20260912T094914Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-p2",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-new-alchemy",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-ankr-config",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-h05-flash-scanner-enable-20260911T135033Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-temp-url-20260901-205825",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-7aea7c0-rpc-failover",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-phase3",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-h05-usd-numeraire-20260911T133143Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-base-executor-20260907T101030Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-provider-rpc-20260907T191701Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-alchemy-sync-20260901_154744",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-temp-url-20260901-205630",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore_ctr_all.env",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert-ad64a50.env",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore-x-backend.env",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert.env",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore-x-candidate.env",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore-backend-p0-3.env",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore-production-env.backup",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore-backend.env",
+      "action": "VAULT_KEY_redacted"
+    },
+    {
+      "path": "/tmp/arbicore-x-runtime.env",
+      "action": "VAULT_KEY_redacted"
+    }
+  ],
+  "skipped_count": 5,
+  "skipped": [
+    {
+      "path": "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/backend.env.pre-rotation",
+      "reason": "retained_recovery_material"
+    },
+    {
+      "path": "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/root.env.pre-rotation",
+      "reason": "retained_recovery_material"
+    },
+    {
+      "path": "docker:arbicore-x-b7-candidate:Config.Env",
+      "reason": "legacy_container_Config.Env_requires_remove_or_recreate"
+    },
+    {
+      "path": "docker:arbicore-x-backend-h05:Config.Env",
+      "reason": "legacy_container_Config.Env_requires_remove_or_recreate"
+    },
+    {
+      "path": "docker:arbicore-x-backend-w1:Config.Env",
+      "reason": "legacy_container_Config.Env_requires_remove_or_recreate"
+    }
+  ],
+  "errors": []
+}

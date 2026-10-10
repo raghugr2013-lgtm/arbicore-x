@@ -1,0 +1,8 @@
+befb14e6aa77515daa038e142ff978822a4fab91 8e63f252b599ea97b9f563162ba8c1836a1c9e28 fix(quoter): bound HTTP-429 retries + per-host cooldown in execution/quoter.py::_eth_call
+8e63f252b599ea97b9f563162ba8c1836a1c9e28 5a143a8667484cd9e4a765d55079265936925695 ## Gate 9 parallel workstream — A complete (code, tested), B/C/D complete (audits). Gate 9 VPS untouched.
+5a143a8667484cd9e4a765d55079265936925695 2b86cdab115223d69a48aeefd4d434dd094eee1e docs(audit): Workstream B/C/D delta plans (capability inventory, economic/evidence, promotion architecture)
+2b86cdab115223d69a48aeefd4d434dd094eee1e f0962490c10191ac74677fd0efc60b31df9c4b18 fix(rpc): bound HTTP-429 retries + host cooldown to stop Alchemy 429 amplification
+f0962490c10191ac74677fd0efc60b31df9c4b18 93a20c9222e095bac8c6eae93f161927f7192ae9 chore(tooling): make root ESLint ignore globs location-independent
+93a20c9222e095bac8c6eae93f161927f7192ae9 7c2b1bce4ca97cb3aa753ed9dff6d67a9be168b4 Everything is complete, tested, and committed. Push is blocked by the (unchanged) missing GitHub write credentials; delivered as verified bundles. Full report:
+7c2b1bce4ca97cb3aa753ed9dff6d67a9be168b4 7f45ec2fa17dacb2a8a472573269b1b4c8422faf fix(h06): EVM eth_call seam reuses canonical operator-RPC gate (rpc_explicitly_configured), eliminating the weaker parallel path
+7f45ec2fa17dacb2a8a472573269b1b4c8422faf 8fbe5995c859f16e98953cae3183e0de4e4a5315 feat(h06): six-chain runtime integration on canonical safety line (SP1/SP3/SP4/SP5, multichain providers, exact-size preserved)

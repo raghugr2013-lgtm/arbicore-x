@@ -1,0 +1,3770 @@
+{
+ "overall": {
+  "W_kept": 16951.22,
+  "W_strict": 5823.18,
+  "L_loss": -171.54,
+  "gas_reverted": 1978.33,
+  "gas_nonlogged_noop_admin": 993.34,
+  "gas_other_nonwin": 1926.16,
+  "operator_payouts_in_wins": 11128.04,
+  "s_high_raw": 0.8732,
+  "s_central_raw": 0.7009,
+  "s_low_raw": 0.0445,
+  "s_high": 0.8732,
+  "s_central": 0.7009,
+  "s_low": 0.0445
+ },
+ "per_contract": {
+  "0xb4216537d51576ccdc5df66c9addf7dca0176667": {
+   "counts": {
+    "arb_win": 1315,
+    "reverted": 275,
+    "arb_loss_or_breakeven": 25
+   },
+   "W_kept": 791.38,
+   "W_strict": 791.38,
+   "L_loss": -0.23,
+   "gas_reverted": 2.02,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9972,
+   "s_central_raw": 0.9972,
+   "s_low_raw": 0.9972,
+   "s_high": 0.9972,
+   "s_central": 0.9972,
+   "s_low": 0.9972,
+   "eoas": 87,
+   "top_eoas": [
+    [
+     "0xd928c324780f199c10133f48cb170ad6898be06b",
+     41
+    ],
+    [
+     "0xec7feb5879266c6142c462c3d56a48922b993e4e",
+     39
+    ],
+    [
+     "0xb9ec5bd6376004dac337d21772fce82ce06c032e",
+     37
+    ]
+   ]
+  },
+  "0x7a71a545419a79e234464b7a241eaa87396ecfdc": {
+   "counts": {
+    "arb_win": 3283,
+    "arb_unverified_D": 149,
+    "swap_unclassified": 24,
+    "arb_loss_or_breakeven": 5
+   },
+   "W_kept": 26.59,
+   "W_strict": 26.59,
+   "L_loss": -0.07,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 26.68,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9972,
+   "s_central_raw": -0.0062,
+   "s_low_raw": -0.0062,
+   "s_high": 0.9972,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x3be22b314654c396a12c5e8d79abdd65aac3caaf",
+     3461
+    ]
+   ]
+  },
+  "0x631c92c9f793c8943a2d358674782ae16824514d": {
+   "counts": {
+    "reverted": 4963,
+    "arb_win": 230
+   },
+   "W_kept": 2.7,
+   "W_strict": 2.7,
+   "L_loss": 0.0,
+   "gas_reverted": 3.43,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -0.267,
+   "s_central_raw": -0.267,
+   "s_low_raw": -0.267,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 32,
+   "top_eoas": [
+    [
+     "0xf16a736bdb124a72fcd7162ab7fd06a54c6dc101",
+     1334
+    ],
+    [
+     "0x7e6f07d40f90c3f80e1b803eb32dfbca7b3cd5d5",
+     1297
+    ],
+    [
+     "0x191119a2ed3a9e82a6852a9d99bcef67571c14e1",
+     549
+    ]
+   ]
+  },
+  "0x5a07e25d4fab8472bd257be91eaf13a7a16fb37b": {
+   "counts": {
+    "arb_win": 1435,
+    "reverted": 255,
+    "arb_unverified_D": 826,
+    "agg_nonlogged_txs": 10
+   },
+   "W_kept": 109.47,
+   "W_strict": 109.47,
+   "L_loss": 0.0,
+   "gas_reverted": 1.17,
+   "gas_nonlogged_noop_admin": 0.04,
+   "gas_other_nonwin": 10.79,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9893,
+   "s_central_raw": 0.8904,
+   "s_low_raw": 0.8904,
+   "s_high": 0.9893,
+   "s_central": 0.8904,
+   "s_low": 0.8904,
+   "eoas": 97,
+   "top_eoas": [
+    [
+     "0x26e2fc1ad5c137dc62da1ee2e1ff061dd5834525",
+     232
+    ],
+    [
+     "0xd334f6edbe6adbc7221605c253a5a09f24817bdb",
+     189
+    ],
+    [
+     "0xf48b491457e46508dbc22201f910232392c07fa6",
+     163
+    ]
+   ]
+  },
+  "0xf99881ccd8d80298e4e89da77ea3017ac072b9d1": {
+   "counts": {
+    "arb_win": 116,
+    "arb_unverified_D": 25,
+    "arb_loss_or_breakeven": 29,
+    "agg_nonlogged_txs": 1190,
+    "arb_unverified_C": 2
+   },
+   "W_kept": 1660.45,
+   "W_strict": -147.42,
+   "L_loss": -32.91,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 433.19,
+   "gas_other_nonwin": 76.29,
+   "operator_payouts_in_wins": 1807.87,
+   "s_high_raw": 0.9802,
+   "s_central_raw": 0.6733,
+   "s_low_raw": -0.4154,
+   "s_high": 0.9802,
+   "s_central": 0.6733,
+   "s_low": 0,
+   "eoas": 119,
+   "top_eoas": [
+    [
+     "0x2ed74d486b5995bdcaaa66494ef9b0c19e65f4ad",
+     4
+    ],
+    [
+     "0xc3a0416caae76b3c39f54aac899b8d487860fe50",
+     4
+    ],
+    [
+     "0x4d053d195840e2641348382b9784653bfbcbc016",
+     4
+    ]
+   ]
+  },
+  "0x3ac41d200241877df476aa0815e6492ec50d07d6": {
+   "counts": {
+    "reverted": 8791,
+    "arb_unverified_D": 200,
+    "arb_win": 1114,
+    "swap_unclassified": 58,
+    "arb_unverified_C": 16,
+    "arb_loss_or_breakeven": 4,
+    "agg_nonlogged_txs": 1
+   },
+   "W_kept": 10.86,
+   "W_strict": 10.86,
+   "L_loss": -0.0,
+   "gas_reverted": 12.71,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 1.75,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -0.171,
+   "s_central_raw": -0.3327,
+   "s_low_raw": -0.3327,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 20,
+   "top_eoas": [
+    [
+     "0xd07fba38ce320d7851f2f8368317a8c926c914d1",
+     510
+    ],
+    [
+     "0x39b6bd6570980c7672e50173c200f7b670ee5f68",
+     510
+    ],
+    [
+     "0x3a77a19b9618771a6667fdf1983430d92467193a",
+     510
+    ]
+   ]
+  },
+  "0x9ece562ccf9b9f5b83f44cd50285a9658b55d096": {
+   "counts": {
+    "reverted": 546,
+    "arb_win": 822,
+    "arb_unverified_D": 91,
+    "swap_unclassified": 49,
+    "agg_nonlogged_txs": 2
+   },
+   "W_kept": 175.14,
+   "W_strict": 175.14,
+   "L_loss": 0.0,
+   "gas_reverted": 72.18,
+   "gas_nonlogged_noop_admin": 0.64,
+   "gas_other_nonwin": 43.67,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.5879,
+   "s_central_raw": 0.3349,
+   "s_low_raw": 0.3349,
+   "s_high": 0.5879,
+   "s_central": 0.3349,
+   "s_low": 0.3349,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x000000c557fa9a96d66cd6371abde62d879d0e61",
+     1508
+    ]
+   ]
+  },
+  "0xd7fff5cdd4d56ed5d02dc0f6f01d6ee45877bd34": {
+   "counts": {
+    "reverted": 107,
+    "arb_win": 45,
+    "swap_unclassified": 4,
+    "arb_loss_or_breakeven": 1
+   },
+   "W_kept": 38.52,
+   "W_strict": 38.52,
+   "L_loss": -0.02,
+   "gas_reverted": 4.2,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.97,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.8905,
+   "s_central_raw": 0.8652,
+   "s_low_raw": 0.8652,
+   "s_high": 0.8905,
+   "s_central": 0.8652,
+   "s_low": 0.8652,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x0000208d547a446ba9059cbb2cfcfbaead7d3fa3",
+     157
+    ]
+   ]
+  },
+  "0xcf4fc52743bfc59568bb7cc5b08a06d8f14cf08e": {
+   "counts": {
+    "arb_win": 1725,
+    "swap_unclassified": 10043,
+    "logged_no_swap": 770,
+    "arb_unverified_C": 692,
+    "arb_unverified_D": 419,
+    "arb_loss_or_breakeven": 476,
+    "agg_nonlogged_txs": 61
+   },
+   "W_kept": 4.27,
+   "W_strict": -16.18,
+   "L_loss": -3.22,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.4,
+   "gas_other_nonwin": 108.5,
+   "operator_payouts_in_wins": 20.45,
+   "s_high_raw": 0.2464,
+   "s_central_raw": -25.2345,
+   "s_low_raw": -30.0195,
+   "s_high": 0.2464,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 50,
+   "top_eoas": [
+    [
+     "0x2dec4071f6612ba95d635f081c0554592594046a",
+     335
+    ],
+    [
+     "0x8194de177d06deb8f441d19d2936863434f99325",
+     319
+    ],
+    [
+     "0x7050da8da4603fc3efb6723680016684dffeb3b4",
+     313
+    ]
+   ]
+  },
+  "0xdaa905c0db1222f73388259d9e38788ebd6a2d42": {
+   "counts": {
+    "reverted": 6141,
+    "arb_unverified_D": 722,
+    "logged_no_swap": 124,
+    "swap_unclassified": 1844,
+    "arb_win": 61,
+    "agg_nonlogged_txs": 374,
+    "arb_loss_or_breakeven": 1
+   },
+   "W_kept": 1.22,
+   "W_strict": 1.22,
+   "L_loss": -0.01,
+   "gas_reverted": 27.03,
+   "gas_nonlogged_noop_admin": 10.2,
+   "gas_other_nonwin": 89.07,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -21.1341,
+   "s_central_raw": -102.4103,
+   "s_low_raw": -102.4103,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 12,
+   "top_eoas": [
+    [
+     "0x88888888087563fd32f96962b491c92d9f88fe28",
+     2288
+    ],
+    [
+     "0x8888888812d757c58cea341ea5b79a2c2e1b39a3",
+     1618
+    ],
+    [
+     "0x888888886149499412f5239621c92c410774eb00",
+     1159
+    ]
+   ]
+  },
+  "0xca7de68203acfefce7d796c8c00724cff0a3d6a6": {
+   "counts": {
+    "reverted": 17273,
+    "swap_unclassified": 4151,
+    "arb_loss_or_breakeven": 134,
+    "arb_win": 859,
+    "arb_unverified_C": 8,
+    "arb_unverified_D": 17,
+    "agg_nonlogged_txs": 2020,
+    "logged_no_swap": 3
+   },
+   "W_kept": 15.4,
+   "W_strict": -5.94,
+   "L_loss": -0.77,
+   "gas_reverted": 153.66,
+   "gas_nonlogged_noop_admin": 15.12,
+   "gas_other_nonwin": 39.76,
+   "operator_payouts_in_wins": 21.34,
+   "s_high_raw": -9.0306,
+   "s_central_raw": -12.5947,
+   "s_low_raw": -13.9806,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 25,
+   "top_eoas": [
+    [
+     "0x32a5eb9f1fefd1c6f02a2308e11e398b343b4412",
+     947
+    ],
+    [
+     "0xab1757354147edeb84418a494347ece4af983477",
+     935
+    ],
+    [
+     "0x8ecbee64abc958c157c669b07ea7e197bb37c8fa",
+     924
+    ]
+   ]
+  },
+  "0x913b87c7f2fc4fc76edaab8a7c5f5a4d4a1a35ed": {
+   "counts": {
+    "reverted": 4334,
+    "arb_win": 396,
+    "swap_unclassified": 35,
+    "arb_unverified_D": 39,
+    "arb_loss_or_breakeven": 2,
+    "agg_nonlogged_txs": 2,
+    "arb_unverified_C": 52
+   },
+   "W_kept": 105.98,
+   "W_strict": 99.08,
+   "L_loss": -0.0,
+   "gas_reverted": 20.94,
+   "gas_nonlogged_noop_admin": 0.01,
+   "gas_other_nonwin": 19.91,
+   "operator_payouts_in_wins": 6.9,
+   "s_high_raw": 0.8024,
+   "s_central_raw": 0.6145,
+   "s_low_raw": 0.5494,
+   "s_high": 0.8024,
+   "s_central": 0.6145,
+   "s_low": 0.5494,
+   "eoas": 94,
+   "top_eoas": [
+    [
+     "0x000000006c444d8ef57e12071cac04c3d32c3e6e",
+     55
+    ],
+    [
+     "0x00000000d18277f762086d5252181d85dad1acf5",
+     55
+    ],
+    [
+     "0x00000000e03a60f2364b65515b2584ba12464b99",
+     55
+    ]
+   ]
+  },
+  "0x36af44be44e919adcd7fec0016b3655d0ec3966d": {
+   "counts": {
+    "reverted": 2250,
+    "swap_unclassified": 247,
+    "arb_unverified_C": 2,
+    "arb_win": 18,
+    "arb_unverified_D": 2,
+    "agg_nonlogged_txs": 36
+   },
+   "W_kept": 1.81,
+   "W_strict": -0.45,
+   "L_loss": 0.0,
+   "gas_reverted": 15.34,
+   "gas_nonlogged_noop_admin": 1.87,
+   "gas_other_nonwin": 10.37,
+   "operator_payouts_in_wins": 2.26,
+   "s_high_raw": -7.464,
+   "s_central_raw": -14.2146,
+   "s_low_raw": -15.4612,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 8,
+   "top_eoas": [
+    [
+     "0xe730dc8db96d9233646d9200649c3588dad37f62",
+     679
+    ],
+    [
+     "0x14185f164401271e3891d4e714f635ed919349e0",
+     371
+    ],
+    [
+     "0xab2cece52ee6b7813f9b815710632a59bceb23fb",
+     365
+    ]
+   ]
+  },
+  "0x8407699e359ae158bd7ec0668600cc19a79f17c3": {
+   "counts": {
+    "reverted": 12316,
+    "arb_win": 518,
+    "arb_unverified_D": 145,
+    "arb_unverified_C": 568,
+    "swap_unclassified": 213,
+    "arb_loss_or_breakeven": 40,
+    "excluded_class": 15,
+    "agg_nonlogged_txs": 1
+   },
+   "W_kept": 28.85,
+   "W_strict": -12.78,
+   "L_loss": -2.34,
+   "gas_reverted": 87.45,
+   "gas_nonlogged_noop_admin": 0.01,
+   "gas_other_nonwin": 18.26,
+   "operator_payouts_in_wins": 41.63,
+   "s_high_raw": -2.1125,
+   "s_central_raw": -2.7456,
+   "s_low_raw": -4.1886,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 3,
+   "top_eoas": [
+    [
+     "0x3675abef47fd08915031a1f924cb7f253df51278",
+     8021
+    ],
+    [
+     "0x7372e84887bd82fd9c0433f981c8a75972a59290",
+     4189
+    ],
+    [
+     "0x53881155498cae8660195670591f1e23ae81431f",
+     1605
+    ]
+   ]
+  },
+  "0x9fd9d845eaaf6c84e83774b0e0a90fa1f6ca9758": {
+   "counts": {
+    "reverted": 3372,
+    "swap_unclassified": 1744,
+    "arb_win": 85,
+    "arb_unverified_D": 16,
+    "agg_nonlogged_txs": 1,
+    "arb_loss_or_breakeven": 4
+   },
+   "W_kept": 2.61,
+   "W_strict": -0.7,
+   "L_loss": -0.01,
+   "gas_reverted": 6.92,
+   "gas_nonlogged_noop_admin": 0.01,
+   "gas_other_nonwin": 13.65,
+   "operator_payouts_in_wins": 3.3,
+   "s_high_raw": -1.6617,
+   "s_central_raw": -6.9019,
+   "s_low_raw": -8.1701,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 80,
+   "top_eoas": [
+    [
+     "0x745391b4fc253a77e648ac9b6c22c06ea78f0f7c",
+     590
+    ],
+    [
+     "0x5d7a2fb6ec69f2e1a58e7c5daf35640fc4c85840",
+     582
+    ],
+    [
+     "0xf3fb046f9c0c07eb1dd397fb0087a144c6ba9bc9",
+     540
+    ]
+   ]
+  },
+  "0xab4d27323697b171a332e5599efd9aa062d20dea": {
+   "counts": {
+    "reverted": 2587,
+    "swap_unclassified": 4479,
+    "arb_unverified_C": 542,
+    "arb_win": 832,
+    "arb_unverified_D": 538,
+    "agg_nonlogged_txs": 564
+   },
+   "W_kept": 27.89,
+   "W_strict": 27.89,
+   "L_loss": 0.0,
+   "gas_reverted": 88.01,
+   "gas_nonlogged_noop_admin": 10.89,
+   "gas_other_nonwin": 92.09,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -2.1552,
+   "s_central_raw": -5.8468,
+   "s_low_raw": -5.8468,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 30,
+   "top_eoas": [
+    [
+     "0xaa360f9098aea6ddc631155ddc4b2ecbb0004b5f",
+     1419
+    ],
+    [
+     "0xe8ee00c83216fbda589216ee0c66ee9384d4aef7",
+     948
+    ],
+    [
+     "0x843a3ee90b70c46793c01ee0c7eaf2bed9585d09",
+     578
+    ]
+   ]
+  },
+  "0x86d23b889d0e303c97a7a3401387e06f1db5023b": {
+   "counts": {
+    "reverted": 6111,
+    "arb_loss_or_breakeven": 250,
+    "arb_win": 682,
+    "arb_unverified_D": 66,
+    "swap_unclassified": 326,
+    "arb_unverified_C": 1,
+    "agg_nonlogged_txs": 6
+   },
+   "W_kept": 12.57,
+   "W_strict": -4.93,
+   "L_loss": -1.36,
+   "gas_reverted": 31.63,
+   "gas_nonlogged_noop_admin": 0.03,
+   "gas_other_nonwin": 3.6,
+   "operator_payouts_in_wins": 17.49,
+   "s_high_raw": -1.625,
+   "s_central_raw": -1.9141,
+   "s_low_raw": -3.306,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 25,
+   "top_eoas": [
+    [
+     "0x487bb321b7151385096100c1322a43816c1d4bde",
+     327
+    ],
+    [
+     "0x5a82bfb1ecf8c8019a6bf52b3f45975ba12729b5",
+     325
+    ],
+    [
+     "0x7fb736c5dcf121198e729e0f04cada019d374e82",
+     316
+    ]
+   ]
+  },
+  "0xd8413bf7e7782b536abdeebbcb9e7c4fc481e2e7": {
+   "counts": {
+    "reverted": 2748,
+    "arb_win": 315,
+    "arb_unverified_C": 12,
+    "arb_unverified_D": 39,
+    "swap_unclassified": 61,
+    "arb_loss_or_breakeven": 88,
+    "excluded_class": 16
+   },
+   "W_kept": 66.08,
+   "W_strict": -6.73,
+   "L_loss": -0.63,
+   "gas_reverted": 71.06,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 8.39,
+   "operator_payouts_in_wins": 72.81,
+   "s_high_raw": -0.0848,
+   "s_central_raw": -0.2117,
+   "s_low_raw": -1.3135,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 7,
+   "top_eoas": [
+    [
+     "0x5d7be20eb2101d15538d6f44d4fa64dd92e58e40",
+     472
+    ],
+    [
+     "0x30562d187ab4b27c3c2dd5264ea4bdb133da23a4",
+     471
+    ],
+    [
+     "0x3ef82706e26ec7f1dad6a9786c52e0c8c52484fe",
+     470
+    ]
+   ]
+  },
+  "0x4d4454cfaaa011cc3a8c3527a4d59430860c70e6": {
+   "counts": {
+    "arb_win": 13167,
+    "arb_loss_or_breakeven": 257,
+    "arb_unverified_D": 1292,
+    "reverted": 15,
+    "arb_unverified_C": 76,
+    "swap_unclassified": 15,
+    "agg_nonlogged_txs": 18218
+   },
+   "W_kept": 297.34,
+   "W_strict": 297.34,
+   "L_loss": -0.34,
+   "gas_reverted": 1.23,
+   "gas_nonlogged_noop_admin": 86.48,
+   "gas_other_nonwin": 15.96,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9947,
+   "s_central_raw": 0.6502,
+   "s_low_raw": 0.6502,
+   "s_high": 0.9947,
+   "s_central": 0.6502,
+   "s_low": 0.6502,
+   "eoas": 96,
+   "top_eoas": [
+    [
+     "0x788bf8908573449d56c821bd2077948549ce86f3",
+     11185
+    ],
+    [
+     "0xc8c2c874c300812f05eed6de875d5b5664d050cd",
+     1489
+    ],
+    [
+     "0x248693b220794a1cd6b4d373c38aedcad1e083d2",
+     492
+    ]
+   ]
+  },
+  "0x9c64132e7f82de52817a472e010282cfb154d068": {
+   "counts": {
+    "arb_loss_or_breakeven": 783,
+    "arb_win": 647,
+    "arb_unverified_D": 47,
+    "agg_nonlogged_txs": 94198
+   },
+   "W_kept": 100.56,
+   "W_strict": -11.11,
+   "L_loss": -40.96,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 196.81,
+   "gas_other_nonwin": 2.43,
+   "operator_payouts_in_wins": 111.67,
+   "s_high_raw": 0.5927,
+   "s_central_raw": -1.3885,
+   "s_low_raw": -2.4991,
+   "s_high": 0.5927,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 8,
+   "top_eoas": [
+    [
+     "0xc25d2732335b1762c580081d6ab19d0378f90bc2",
+     246
+    ],
+    [
+     "0xe310b013d550edba480ac06d037911b4d1622385",
+     237
+    ],
+    [
+     "0xd8a64d34b3ca61d8b2dbff6c7a6f7e7c354f62ae",
+     210
+    ]
+   ]
+  },
+  "0xc8a8ea4740729dbeea6725dd50c267159a046570": {
+   "counts": {
+    "arb_win": 2,
+    "reverted": 5
+   },
+   "W_kept": 0.18,
+   "W_strict": -0.07,
+   "L_loss": 0.0,
+   "gas_reverted": 0.01,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.25,
+   "s_high_raw": 0.9652,
+   "s_central_raw": 0.9652,
+   "s_low_raw": -0.4406,
+   "s_high": 0.9652,
+   "s_central": 0.9652,
+   "s_low": 0,
+   "eoas": 6,
+   "top_eoas": [
+    [
+     "0xc0ffee17d520056942531cb6d4d6251ff8163bb1",
+     2
+    ],
+    [
+     "0xc0ffeefd0a8796e967233f5d673853647cf8ca14",
+     1
+    ],
+    [
+     "0xc0ffeeb5141ee829d163e56ab1e1519240d3979c",
+     1
+    ]
+   ]
+  },
+  "0x5e7a29cc305a2c13af8f2777a4287aa38174c745": {
+   "counts": {
+    "arb_unverified_D": 150,
+    "arb_win": 378,
+    "reverted": 931,
+    "arb_loss_or_breakeven": 1,
+    "swap_unclassified": 15,
+    "arb_unverified_C": 5
+   },
+   "W_kept": 17.24,
+   "W_strict": 17.24,
+   "L_loss": -0.0,
+   "gas_reverted": 101.14,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 60.3,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -4.8682,
+   "s_central_raw": -8.3666,
+   "s_low_raw": -8.3666,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x000000c557fa9a96d66cd6371abde62d879d0e61",
+     1480
+    ]
+   ]
+  },
+  "0x2296f24ee0862c59c74dd435c93df6b7a85657f1": {
+   "counts": {
+    "arb_unverified_D": 955,
+    "reverted": 4537,
+    "arb_win": 208,
+    "arb_loss_or_breakeven": 15,
+    "agg_nonlogged_txs": 68
+   },
+   "W_kept": 3.62,
+   "W_strict": 3.62,
+   "L_loss": -0.1,
+   "gas_reverted": 6.41,
+   "gas_nonlogged_noop_admin": 0.59,
+   "gas_other_nonwin": 12.81,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -0.8016,
+   "s_central_raw": -4.5082,
+   "s_low_raw": -4.5082,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 12,
+   "top_eoas": [
+    [
+     "0x88888888087563fd32f96962b491c92d9f88fe28",
+     1415
+    ],
+    [
+     "0x8888888812d757c58cea341ea5b79a2c2e1b39a3",
+     1075
+    ],
+    [
+     "0x888888886149499412f5239621c92c410774eb00",
+     867
+    ]
+   ]
+  },
+  "0xcdd6953666a3780105b62672387e82029cdcd827": {
+   "counts": {
+    "arb_win": 1547,
+    "reverted": 949,
+    "arb_unverified_D": 23,
+    "arb_loss_or_breakeven": 21,
+    "agg_nonlogged_txs": 42
+   },
+   "W_kept": 242.04,
+   "W_strict": 242.04,
+   "L_loss": -5.04,
+   "gas_reverted": 49.37,
+   "gas_nonlogged_noop_admin": 0.05,
+   "gas_other_nonwin": 1.81,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.7752,
+   "s_central_raw": 0.7675,
+   "s_low_raw": 0.7675,
+   "s_high": 0.7752,
+   "s_central": 0.7675,
+   "s_low": 0.7675,
+   "eoas": 230,
+   "top_eoas": [
+    [
+     "0x33d4c85856c242b67b90f856e6dafa83434ca132",
+     174
+    ],
+    [
+     "0xd875eb3f2b5fd8dfb9740eabe72d3b4ec0843419",
+     172
+    ],
+    [
+     "0xe5d106b28a02fa0ffb30e55a1c83b14f32e58fd3",
+     160
+    ]
+   ]
+  },
+  "0xc0269fc72c0138a3a551ccf07f0819adabaa8973": {
+   "counts": {
+    "reverted": 282,
+    "arb_win": 17,
+    "arb_unverified_D": 10,
+    "agg_nonlogged_txs": 4,
+    "arb_unverified_C": 1,
+    "swap_unclassified": 23,
+    "excluded_class": 16
+   },
+   "W_kept": 0.57,
+   "W_strict": 0.57,
+   "L_loss": 0.0,
+   "gas_reverted": 0.66,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 3.54,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -0.1476,
+   "s_central_raw": -6.3134,
+   "s_low_raw": -6.3134,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 31,
+   "top_eoas": [
+    [
+     "0xc0ffeeaf9aadcf05e268383dd2c96466b0ccca59",
+     20
+    ],
+    [
+     "0xc0ffee1d2edbe6dad64af3d05c0421cbecdcb83a",
+     19
+    ],
+    [
+     "0xc0ffee666bdd7f9897c72f9195955a16d63c0ac4",
+     18
+    ]
+   ]
+  },
+  "0xcd447b6011fd53e2888ac81a61cd707ac9e24fdb": {
+   "counts": {
+    "arb_win": 257,
+    "arb_unverified_D": 19,
+    "agg_nonlogged_txs": 7
+   },
+   "W_kept": 2.27,
+   "W_strict": 2.27,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 1.05,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.5368,
+   "s_low_raw": 0.5368,
+   "s_high": 1,
+   "s_central": 0.5368,
+   "s_low": 0.5368,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x0190f008a0118f41b43b3ee13b7162590fd925cc",
+     276
+    ]
+   ]
+  },
+  "0xbe7c06d0417e03fc27e2a28126fd76b97d1c9341": {
+   "counts": {
+    "arb_loss_or_breakeven": 43,
+    "reverted": 2237,
+    "arb_unverified_D": 317,
+    "arb_win": 1249,
+    "swap_unclassified": 15,
+    "arb_unverified_C": 5
+   },
+   "W_kept": 1.53,
+   "W_strict": 1.53,
+   "L_loss": -0.03,
+   "gas_reverted": 7.14,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 3.7,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -3.6866,
+   "s_central_raw": -6.1026,
+   "s_low_raw": -6.1026,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 48,
+   "top_eoas": [
+    [
+     "0x05c6516a09b04230620843ea2b624056658697c6",
+     81
+    ],
+    [
+     "0x062af28251bcde1562f3f358096d54c18d7cef2b",
+     81
+    ],
+    [
+     "0x072e401629ac6cb31516a30be883fa053224d108",
+     81
+    ]
+   ]
+  },
+  "0x31e993f6574674c4fa413d382416e517e7308947": {
+   "counts": {
+    "reverted": 355,
+    "arb_win": 79,
+    "arb_unverified_D": 29,
+    "swap_unclassified": 5
+   },
+   "W_kept": 4.7,
+   "W_strict": 4.7,
+   "L_loss": 0.0,
+   "gas_reverted": 1.39,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.26,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.7038,
+   "s_central_raw": 0.6494,
+   "s_low_raw": 0.6494,
+   "s_high": 0.7038,
+   "s_central": 0.6494,
+   "s_low": 0.6494,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xf65b8f5680543241106e0060f7d85bc5c3f217cf",
+     468
+    ]
+   ]
+  },
+  "0xe80f7fba79a55f165314fee20f05d66efda10524": {
+   "counts": {
+    "arb_win": 534,
+    "reverted": 162,
+    "arb_unverified_D": 18,
+    "arb_loss_or_breakeven": 2,
+    "swap_unclassified": 2,
+    "arb_unverified_C": 111
+   },
+   "W_kept": 6636.05,
+   "W_strict": -988.76,
+   "L_loss": -0.72,
+   "gas_reverted": 265.14,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 44.62,
+   "operator_payouts_in_wins": 7624.81,
+   "s_high_raw": 0.9599,
+   "s_central_raw": 0.9532,
+   "s_low_raw": -0.1958,
+   "s_high": 0.9599,
+   "s_central": 0.9532,
+   "s_low": 0,
+   "eoas": 4,
+   "top_eoas": [
+    [
+     "0xfe68082a448f17a3d1700957b9f63176cecd334e",
+     214
+    ],
+    [
+     "0xc27a2b4bd5b374c3cb3c711e17901628824f8258",
+     210
+    ],
+    [
+     "0xd83e60d273fd0cb3b05c2611db940fecb7b6ca64",
+     208
+    ]
+   ]
+  },
+  "0xcdace49c7de511c6b13ea093ba55ddf2be431838": {
+   "counts": {
+    "arb_win": 45,
+    "arb_loss_or_breakeven": 2,
+    "reverted": 2
+   },
+   "W_kept": 8.02,
+   "W_strict": 8.02,
+   "L_loss": -0.09,
+   "gas_reverted": 0.03,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.985,
+   "s_central_raw": 0.985,
+   "s_low_raw": 0.985,
+   "s_high": 0.985,
+   "s_central": 0.985,
+   "s_low": 0.985,
+   "eoas": 11,
+   "top_eoas": [
+    [
+     "0x4f31a3ca5f298d9334ec43eb8de02549b4b5ecc3",
+     8
+    ],
+    [
+     "0x4621e1ee748742c78d85971b41389bc5f5b5fd6f",
+     8
+    ],
+    [
+     "0x2259b50d7daa1adbccb795dc73ebf66513b31345",
+     7
+    ]
+   ]
+  },
+  "0x4af7087d0e563720eae6aef4fbfb20177c99cd14": {
+   "counts": {
+    "arb_unverified_D": 372,
+    "arb_win": 4155,
+    "arb_loss_or_breakeven": 107,
+    "reverted": 4,
+    "arb_unverified_C": 2,
+    "agg_nonlogged_txs": 2
+   },
+   "W_kept": 21.72,
+   "W_strict": 21.72,
+   "L_loss": -0.16,
+   "gas_reverted": 0.03,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 9.3,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9913,
+   "s_central_raw": 0.5629,
+   "s_low_raw": 0.5629,
+   "s_high": 0.9913,
+   "s_central": 0.5629,
+   "s_low": 0.5629,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x1662fbcff38d3f2c4eed53f88c35eea751603116",
+     4640
+    ]
+   ]
+  },
+  "0x50f7b42c2ad00ab86ed83f830d6f10bc87e5302c": {
+   "counts": {
+    "arb_win": 667,
+    "arb_loss_or_breakeven": 11,
+    "arb_unverified_D": 58,
+    "reverted": 35,
+    "agg_nonlogged_txs": 9
+   },
+   "W_kept": 185.45,
+   "W_strict": 185.45,
+   "L_loss": -0.08,
+   "gas_reverted": 1.33,
+   "gas_nonlogged_noop_admin": 0.09,
+   "gas_other_nonwin": 6.87,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9924,
+   "s_central_raw": 0.9549,
+   "s_low_raw": 0.9549,
+   "s_high": 0.9924,
+   "s_central": 0.9549,
+   "s_low": 0.9549,
+   "eoas": 116,
+   "top_eoas": [
+    [
+     "0x487cf2b1963a4399916751dedbb47ea04ebd3a91",
+     104
+    ],
+    [
+     "0xf2f0ce6c65df829feac196a9e86f84e2efa5019f",
+     57
+    ],
+    [
+     "0x6c08686f807d1449cf4c2c97574c3a22d267aead",
+     51
+    ]
+   ]
+  },
+  "0xe4063f8721ca935a195ba39889e8d42edc16e9a0": {
+   "counts": {
+    "reverted": 492,
+    "arb_win": 44,
+    "arb_loss_or_breakeven": 20,
+    "agg_nonlogged_txs": 2
+   },
+   "W_kept": 17.08,
+   "W_strict": 17.08,
+   "L_loss": -0.03,
+   "gas_reverted": 2.29,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.8647,
+   "s_central_raw": 0.8646,
+   "s_low_raw": 0.8646,
+   "s_high": 0.8647,
+   "s_central": 0.8646,
+   "s_low": 0.8646,
+   "eoas": 4,
+   "top_eoas": [
+    [
+     "0x61734800a52b7c9d761f6fabd359363f44ba1625",
+     189
+    ],
+    [
+     "0x1d823acccaeb23da43d2083617c421e2d9fabaf2",
+     139
+    ],
+    [
+     "0xe37623ce17a44ab82a75c7cb53e27b8d1b29fd25",
+     117
+    ]
+   ]
+  },
+  "0xecd82a4fae2c050d2241284c9b6eca5a17eb66a5": {
+   "counts": {
+    "reverted": 306,
+    "arb_win": 3
+   },
+   "W_kept": 73.57,
+   "W_strict": 73.57,
+   "L_loss": 0.0,
+   "gas_reverted": 21.11,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.7131,
+   "s_central_raw": 0.7131,
+   "s_low_raw": 0.7131,
+   "s_high": 0.7131,
+   "s_central": 0.7131,
+   "s_low": 0.7131,
+   "eoas": 8,
+   "top_eoas": [
+    [
+     "0xdf4f979f473a0a486bfced96a6f46cc4b1e1a5ad",
+     39
+    ],
+    [
+     "0x9d6dc40275a457d35e038ff24b8e2943419583b1",
+     39
+    ],
+    [
+     "0x45f78a1b78c1a4363324ce6799cee2ae3b999893",
+     39
+    ]
+   ]
+  },
+  "0xa05787285256c4ee18d7ed6865de2ddbb949c411": {
+   "counts": {
+    "reverted": 26,
+    "arb_win": 10,
+    "arb_unverified_D": 4,
+    "agg_nonlogged_txs": 16,
+    "swap_unclassified": 1
+   },
+   "W_kept": 1.33,
+   "W_strict": 1.33,
+   "L_loss": 0.0,
+   "gas_reverted": 46.42,
+   "gas_nonlogged_noop_admin": 7.2,
+   "gas_other_nonwin": 8.52,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -33.9114,
+   "s_central_raw": -45.7383,
+   "s_low_raw": -45.7383,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xf0523316cf23ef167d874fa030b2214280e38ee6",
+     41
+    ]
+   ]
+  },
+  "0x0f0a33ee9e1e68b053635522ae531ff88a5ea150": {
+   "counts": {
+    "reverted": 848,
+    "arb_loss_or_breakeven": 1,
+    "arb_unverified_D": 42,
+    "arb_win": 102,
+    "swap_unclassified": 3,
+    "agg_nonlogged_txs": 1,
+    "arb_unverified_C": 4
+   },
+   "W_kept": 6.43,
+   "W_strict": 6.43,
+   "L_loss": -0.02,
+   "gas_reverted": 19.13,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 26.63,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -1.9772,
+   "s_central_raw": -6.1169,
+   "s_low_raw": -6.1169,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x0000208d547a446ba9059cbb2cfcfbaead7d3fa3",
+     1000
+    ]
+   ]
+  },
+  "0x00000000000159b84c6ad83d62b67d5be9e42edb": {
+   "counts": {
+    "reverted": 144,
+    "arb_win": 3,
+    "arb_unverified_C": 6,
+    "agg_nonlogged_txs": 30,
+    "swap_unclassified": 27
+   },
+   "W_kept": 11.72,
+   "W_strict": 11.72,
+   "L_loss": 0.0,
+   "gas_reverted": 5.28,
+   "gas_nonlogged_noop_admin": 0.16,
+   "gas_other_nonwin": 11.12,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.5499,
+   "s_central_raw": -0.4119,
+   "s_low_raw": -0.4119,
+   "s_high": 0.5499,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 10,
+   "top_eoas": [
+    [
+     "0x1111a65d4db9f309e1bd35cd64149bb00dc6a520",
+     23
+    ],
+    [
+     "0xccccdc941602f3e11547ed597f505e55453837d1",
+     21
+    ],
+    [
+     "0xbbbbb0d7d2d23ee6fb0c30ffedb02be37e9eb343",
+     21
+    ]
+   ]
+  },
+  "0xd92a702f54a17bbf278bbe8ab22cb4ba004c9f24": {
+   "counts": {
+    "reverted": 352,
+    "arb_win": 9,
+    "arb_unverified_D": 1
+   },
+   "W_kept": 11.96,
+   "W_strict": 11.96,
+   "L_loss": 0.0,
+   "gas_reverted": 127.19,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.9,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -9.6357,
+   "s_central_raw": -9.7112,
+   "s_low_raw": -9.7112,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xb6cc827f1f87bc8662603f3ac58774b225778a4b",
+     362
+    ]
+   ]
+  },
+  "0xa4b9edb99806bfb8bbee89d13f4c296daf225dee": {
+   "counts": {
+    "arb_loss_or_breakeven": 4,
+    "arb_win": 73,
+    "agg_nonlogged_txs": 2065,
+    "swap_unclassified": 1
+   },
+   "W_kept": 85.39,
+   "W_strict": 85.39,
+   "L_loss": -0.21,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 10.54,
+   "gas_other_nonwin": 0.01,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9976,
+   "s_central_raw": 0.8741,
+   "s_low_raw": 0.8741,
+   "s_high": 0.9976,
+   "s_central": 0.8741,
+   "s_low": 0.8741,
+   "eoas": 35,
+   "top_eoas": [
+    [
+     "0x251649cde4595c165a3c9310758f2633eb23fa7c",
+     5
+    ],
+    [
+     "0xeaf9b447e987641edf3924f6d34c6287038208ea",
+     5
+    ],
+    [
+     "0x7e34ff1662168b31501a5fe523042fd21b00b427",
+     4
+    ]
+   ]
+  },
+  "0x87a67c8054b7a867e1d89ce3e189f171c8b1f658": {
+   "counts": {
+    "reverted": 1449,
+    "swap_unclassified": 236,
+    "arb_unverified_D": 8,
+    "arb_win": 17,
+    "agg_nonlogged_txs": 4,
+    "arb_unverified_C": 1,
+    "arb_loss_or_breakeven": 2,
+    "excluded_class": 26
+   },
+   "W_kept": 68.32,
+   "W_strict": 68.32,
+   "L_loss": -0.1,
+   "gas_reverted": 192.71,
+   "gas_nonlogged_noop_admin": 0.05,
+   "gas_other_nonwin": 46.82,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -1.8222,
+   "s_central_raw": -2.5081,
+   "s_low_raw": -2.5081,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 146,
+   "top_eoas": [
+    [
+     "0xdaae4a993ae346b278fdddf51b29c103455bc51d",
+     31
+    ],
+    [
+     "0x9e6998e1c8b799d7395b74f537c7c40164afe6d0",
+     27
+    ],
+    [
+     "0x42f15a929dd652af59632c3a9e7f5bd50c411587",
+     26
+    ]
+   ]
+  },
+  "0x6cec8e95595a91d669a7c051b9c89780f9e6b886": {
+   "counts": {
+    "reverted": 438,
+    "arb_win": 372,
+    "arb_unverified_D": 19,
+    "arb_loss_or_breakeven": 17,
+    "agg_nonlogged_txs": 317,
+    "arb_unverified_C": 1
+   },
+   "W_kept": 2266.25,
+   "W_strict": 2266.25,
+   "L_loss": -0.62,
+   "gas_reverted": 20.9,
+   "gas_nonlogged_noop_admin": 1.97,
+   "gas_other_nonwin": 5.38,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9905,
+   "s_central_raw": 0.9873,
+   "s_low_raw": 0.9873,
+   "s_high": 0.9905,
+   "s_central": 0.9873,
+   "s_low": 0.9873,
+   "eoas": 460,
+   "top_eoas": [
+    [
+     "0xa3d80cf30983969492a8c0a06858bbe03d0bfe9d",
+     69
+    ],
+    [
+     "0x141859a1f484b964ce176fb9fd901ec9b1cb3bbf",
+     9
+    ],
+    [
+     "0x563ee658a6e464de8367bc5bd2e08cb86d3dcebc",
+     8
+    ]
+   ]
+  },
+  "0x992128aeb99b47bf1b43d36fe4987fe529df5044": {
+   "counts": {
+    "arb_win": 2,
+    "reverted": 8
+   },
+   "W_kept": 0.46,
+   "W_strict": 0.46,
+   "L_loss": 0.0,
+   "gas_reverted": 0.87,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -0.8928,
+   "s_central_raw": -0.8928,
+   "s_low_raw": -0.8928,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x84c8e876355710007cbfcbe4c754a8cd1e063353",
+     10
+    ]
+   ]
+  },
+  "0x67f4a6f57bf5ed1c2aad9857c1e168f88857fd9c": {
+   "counts": {
+    "arb_win": 55,
+    "reverted": 123,
+    "arb_unverified_D": 30,
+    "agg_nonlogged_txs": 7
+   },
+   "W_kept": 6.77,
+   "W_strict": 6.77,
+   "L_loss": 0.0,
+   "gas_reverted": 0.65,
+   "gas_nonlogged_noop_admin": 0.01,
+   "gas_other_nonwin": 0.38,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.904,
+   "s_central_raw": 0.8462,
+   "s_low_raw": 0.8462,
+   "s_high": 0.904,
+   "s_central": 0.8462,
+   "s_low": 0.8462,
+   "eoas": 23,
+   "top_eoas": [
+    [
+     "0x17118f55e7a346adb4b9325c15cec9c2ef849a72",
+     53
+    ],
+    [
+     "0xa0dd73a57fba6b95660f8556e544e7590d790b57",
+     37
+    ],
+    [
+     "0x74ad1ded87985567e03174b56b6f8eb38b603971",
+     36
+    ]
+   ]
+  },
+  "0x4b5b752c896a4e63234f65c7f88d8cce0cc64261": {
+   "counts": {
+    "reverted": 666,
+    "arb_win": 73,
+    "arb_unverified_D": 1,
+    "arb_unverified_C": 2
+   },
+   "W_kept": 25.17,
+   "W_strict": 25.17,
+   "L_loss": 0.0,
+   "gas_reverted": 8.14,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.59,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.6768,
+   "s_central_raw": 0.6533,
+   "s_low_raw": 0.6533,
+   "s_high": 0.6768,
+   "s_central": 0.6533,
+   "s_low": 0.6533,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x025a9c987abc1d04f15335e0d2f8dde3e246a7ae",
+     742
+    ]
+   ]
+  },
+  "0x295e758592a68e2137e77a8471670ce9b93cf1d2": {
+   "counts": {
+    "reverted": 147,
+    "arb_win": 147,
+    "arb_loss_or_breakeven": 5,
+    "agg_nonlogged_txs": 54,
+    "arb_unverified_D": 2
+   },
+   "W_kept": 4.32,
+   "W_strict": 4.32,
+   "L_loss": -0.01,
+   "gas_reverted": 0.51,
+   "gas_nonlogged_noop_admin": 0.04,
+   "gas_other_nonwin": 0.01,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.8802,
+   "s_central_raw": 0.8688,
+   "s_low_raw": 0.8688,
+   "s_high": 0.8802,
+   "s_central": 0.8688,
+   "s_low": 0.8688,
+   "eoas": 41,
+   "top_eoas": [
+    [
+     "0xf873c08d2ccb2855bf35838917e0382dfbc65e27",
+     27
+    ],
+    [
+     "0xbbc875d810476f200dfbce900d591f84cd41fc25",
+     26
+    ],
+    [
+     "0xb320d73f0f8da11c964f889eede0ee9444cde35b",
+     20
+    ]
+   ]
+  },
+  "0x5e29ebdb574cc8e715b35a59306974490d27cc3a": {
+   "counts": {
+    "arb_win": 47,
+    "agg_nonlogged_txs": 203
+   },
+   "W_kept": 1.57,
+   "W_strict": 1.57,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.82,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.4758,
+   "s_low_raw": 0.4758,
+   "s_high": 1,
+   "s_central": 0.4758,
+   "s_low": 0.4758,
+   "eoas": 32,
+   "top_eoas": [
+    [
+     "0xf79d1f5f605fb5e3b434ee0754e02787a8b7e18d",
+     4
+    ],
+    [
+     "0xe4faf15eaa9fda9b9d567d5f82076f67caa3371f",
+     3
+    ],
+    [
+     "0xcfb8ba8af48f41e452ed8cad223dfd456c8dd14e",
+     2
+    ]
+   ]
+  },
+  "0xdf0ff70b124c3e3d9027d8f83c9cc708ff1354ef": {
+   "counts": {
+    "reverted": 217,
+    "arb_win": 104,
+    "arb_unverified_D": 28,
+    "swap_unclassified": 13,
+    "arb_unverified_C": 5
+   },
+   "W_kept": 0.9,
+   "W_strict": -1.59,
+   "L_loss": 0.0,
+   "gas_reverted": 1.23,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.94,
+   "operator_payouts_in_wins": 2.49,
+   "s_high_raw": -0.3645,
+   "s_central_raw": -1.4068,
+   "s_low_raw": -4.1761,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 3,
+   "top_eoas": [
+    [
+     "0x2ff77cd44ccd4eb7d0b51800cddc8512085ec6dc",
+     123
+    ],
+    [
+     "0x3752914977cf53f7ea4d0cd7e9f1d15a3b90c524",
+     122
+    ],
+    [
+     "0x02ab69f610e34211e749bee493fd0138fe5c818f",
+     122
+    ]
+   ]
+  },
+  "0xf0b40bfbdbf10d2803d61adeef42233e3f6d2fc8": {
+   "counts": {
+    "reverted": 26,
+    "arb_win": 1,
+    "agg_nonlogged_txs": 2
+   },
+   "W_kept": 0.1,
+   "W_strict": 0.1,
+   "L_loss": 0.0,
+   "gas_reverted": 0.99,
+   "gas_nonlogged_noop_admin": 0.01,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -9.2263,
+   "s_central_raw": -9.3102,
+   "s_low_raw": -9.3102,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 3,
+   "top_eoas": [
+    [
+     "0xd559c83f9f8dd4cbecd6fdd269e048e67db0cf15",
+     13
+    ],
+    [
+     "0x19746e162ebf6889c40b7697def061ed9f7a7e27",
+     7
+    ],
+    [
+     "0x6229f7f556be30743c077c5cb8d31d037b2df99b",
+     7
+    ]
+   ]
+  },
+  "0xd95675ea2d95b9f50e1cafe117839691c75b8cd5": {
+   "counts": {
+    "reverted": 8,
+    "arb_win": 21,
+    "arb_loss_or_breakeven": 2,
+    "agg_nonlogged_txs": 8
+   },
+   "W_kept": 5.72,
+   "W_strict": 5.72,
+   "L_loss": -1.29,
+   "gas_reverted": 7.33,
+   "gas_nonlogged_noop_admin": 0.02,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -0.5062,
+   "s_central_raw": -0.5096,
+   "s_low_raw": -0.5096,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x6ba9a028d76c13e1bc50a8e583303784af3fc71e",
+     31
+    ]
+   ]
+  },
+  "0x51884b0dcf9adf2d140e5747a67108d80bba872e": {
+   "counts": {
+    "arb_win": 14,
+    "reverted": 21,
+    "arb_unverified_D": 8,
+    "swap_unclassified": 1
+   },
+   "W_kept": 45.6,
+   "W_strict": -3.15,
+   "L_loss": 0.0,
+   "gas_reverted": 0.31,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.27,
+   "operator_payouts_in_wins": 48.75,
+   "s_high_raw": 0.9933,
+   "s_central_raw": 0.9875,
+   "s_low_raw": -0.0816,
+   "s_high": 0.9933,
+   "s_central": 0.9875,
+   "s_low": 0,
+   "eoas": 32,
+   "top_eoas": [
+    [
+     "0x0b629d75d6ff1da73c6865ff911fcd0bb060db38",
+     3
+    ],
+    [
+     "0x0a2654b586bad33c95d510b402e07fda0c34fbb8",
+     3
+    ],
+    [
+     "0x7c7222b3b008bd8ad9ae8b391bab1185250b9450",
+     3
+    ]
+   ]
+  },
+  "0xdb7dfc2091531c5cbb04d4ddc5a630943c9882df": {
+   "counts": {
+    "arb_unverified_C": 37,
+    "arb_unverified_D": 40,
+    "arb_win": 235,
+    "arb_loss_or_breakeven": 8,
+    "swap_unclassified": 1
+   },
+   "W_kept": 10.49,
+   "W_strict": -26.91,
+   "L_loss": -0.13,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 9.86,
+   "operator_payouts_in_wins": 37.4,
+   "s_high_raw": 0.9874,
+   "s_central_raw": 0.0478,
+   "s_low_raw": -3.5175,
+   "s_high": 0.9874,
+   "s_central": 0.0478,
+   "s_low": 0,
+   "eoas": 11,
+   "top_eoas": [
+    [
+     "0xb3050885a417c9acd114721d430bd2391c5bc6e8",
+     41
+    ],
+    [
+     "0xb305b3f6102e08ec667d94c5df35563a5f9c1f1c",
+     38
+    ],
+    [
+     "0xb305fd1b5b05c60e254b03ce6748110b77fc3198",
+     32
+    ]
+   ]
+  },
+  "0x84b39b917b4a82ca83c8d6a3a235341fc77974b0": {
+   "counts": {
+    "reverted": 7,
+    "arb_win": 10,
+    "arb_unverified_C": 5,
+    "arb_unverified_D": 1,
+    "agg_nonlogged_txs": 3
+   },
+   "W_kept": 2.42,
+   "W_strict": 2.42,
+   "L_loss": 0.0,
+   "gas_reverted": 0.27,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.16,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.8867,
+   "s_central_raw": 0.8198,
+   "s_low_raw": 0.8198,
+   "s_high": 0.8867,
+   "s_central": 0.8198,
+   "s_low": 0.8198,
+   "eoas": 20,
+   "top_eoas": [
+    [
+     "0x8726eb7e035ae0eb6113b85da5e5e319405ff8d7",
+     3
+    ],
+    [
+     "0xb2e400e53bc7de32a6a26f21d8b292422f5c5bdd",
+     2
+    ],
+    [
+     "0x031ecbc034e1e82003db6d5d1aefa4fbd90889b1",
+     1
+    ]
+   ]
+  },
+  "0x14a556d2a9e1ddfdba3f42e509f0b8accd809112": {
+   "counts": {
+    "arb_win": 122,
+    "arb_loss_or_breakeven": 5,
+    "arb_unverified_D": 10,
+    "agg_nonlogged_txs": 4,
+    "arb_unverified_C": 2,
+    "reverted": 8
+   },
+   "W_kept": 586.69,
+   "W_strict": 586.69,
+   "L_loss": -2.53,
+   "gas_reverted": 13.21,
+   "gas_nonlogged_noop_admin": 0.01,
+   "gas_other_nonwin": 8.71,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9732,
+   "s_central_raw": 0.9583,
+   "s_low_raw": 0.9583,
+   "s_high": 0.9732,
+   "s_central": 0.9583,
+   "s_low": 0.9583,
+   "eoas": 94,
+   "top_eoas": [
+    [
+     "0xf7af41eaa54b9cf3d6a4a1387e029b432f6b2a79",
+     6
+    ],
+    [
+     "0x0b09e5b3ee6ff40aab450a08ef779f3d7be76ca3",
+     5
+    ],
+    [
+     "0xfe16fd88571215eec744d7a9cb67603d5e8e1a46",
+     4
+    ]
+   ]
+  },
+  "0x676abaf2111cb23a640d1b5962d4d9d73dd7be1c": {
+   "counts": {
+    "excluded_class": 110,
+    "arb_unverified_D": 248,
+    "swap_unclassified": 24,
+    "arb_unverified_C": 3,
+    "arb_win": 3,
+    "agg_nonlogged_txs": 19
+   },
+   "W_kept": 0.28,
+   "W_strict": 0.28,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.07,
+   "gas_other_nonwin": 10.01,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": -35.3332,
+   "s_low_raw": -35.3332,
+   "s_high": 1,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x08eb627cc6945017a7daef55d9c459a2e5b5bea9",
+     388
+    ]
+   ]
+  },
+  "0x867135ae7be4bc52d288c600ceaef978e7d26195": {
+   "counts": {
+    "arb_win": 1050,
+    "swap_unclassified": 54,
+    "reverted": 6603,
+    "arb_unverified_D": 477,
+    "arb_unverified_C": 1
+   },
+   "W_kept": 8.79,
+   "W_strict": 8.79,
+   "L_loss": 0.0,
+   "gas_reverted": 15.13,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 7.8,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -0.7215,
+   "s_central_raw": -1.6092,
+   "s_low_raw": -1.6092,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 34,
+   "top_eoas": [
+    [
+     "0x7e6f07d40f90c3f80e1b803eb32dfbca7b3cd5d5",
+     1420
+    ],
+    [
+     "0xf16a736bdb124a72fcd7162ab7fd06a54c6dc101",
+     1332
+    ],
+    [
+     "0x90fe9c55a5a1c4fad71c57c536728ce9c1888cf2",
+     1020
+    ]
+   ]
+  },
+  "0x95a648ed7a4bfe274dfe6c29e40235efc50a98af": {
+   "counts": {
+    "reverted": 6027,
+    "arb_win": 662,
+    "swap_unclassified": 2,
+    "arb_loss_or_breakeven": 1
+   },
+   "W_kept": 14.23,
+   "W_strict": 14.23,
+   "L_loss": -0.0,
+   "gas_reverted": 15.22,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.09,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -0.0693,
+   "s_central_raw": -0.0757,
+   "s_low_raw": -0.0757,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 40,
+   "top_eoas": [
+    [
+     "0xbbe59c473177c76c94843fdb94e989be3170696c",
+     922
+    ],
+    [
+     "0x90fe9c55a5a1c4fad71c57c536728ce9c1888cf2",
+     790
+    ],
+    [
+     "0xf16a736bdb124a72fcd7162ab7fd06a54c6dc101",
+     655
+    ]
+   ]
+  },
+  "0xb09084a6a1f5d9b16e67cb906ba3bf8b09b87df1": {
+   "counts": {
+    "arb_unverified_D": 94,
+    "swap_unclassified": 5,
+    "arb_win": 103,
+    "agg_nonlogged_txs": 10,
+    "arb_unverified_C": 2
+   },
+   "W_kept": 291.68,
+   "W_strict": 291.68,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.05,
+   "gas_other_nonwin": 7.74,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.9733,
+   "s_low_raw": 0.9733,
+   "s_high": 1,
+   "s_central": 0.9733,
+   "s_low": 0.9733,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x0190f008a0118f41b43b3ee13b7162590fd925cc",
+     204
+    ]
+   ]
+  },
+  "0x62ccd45414622b029e316b45e3f164160b3c5587": {
+   "counts": {
+    "arb_win": 355,
+    "arb_unverified_D": 21,
+    "reverted": 70,
+    "arb_unverified_C": 1,
+    "arb_loss_or_breakeven": 4
+   },
+   "W_kept": 113.14,
+   "W_strict": -12.11,
+   "L_loss": -0.09,
+   "gas_reverted": 1.31,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.69,
+   "operator_payouts_in_wins": 125.26,
+   "s_high_raw": 0.9876,
+   "s_central_raw": 0.9815,
+   "s_low_raw": -0.1255,
+   "s_high": 0.9876,
+   "s_central": 0.9815,
+   "s_low": 0,
+   "eoas": 333,
+   "top_eoas": [
+    [
+     "0x25361f06eef5c5130911a45c347183a2b1f87377",
+     4
+    ],
+    [
+     "0x06d250678d167be89fca6192bce82fcaf4838969",
+     4
+    ],
+    [
+     "0x455d5bd8dd541c5400d650f4eafac72a87d74c84",
+     4
+    ]
+   ]
+  },
+  "0x86631c20314a54e6409c9fc61406f6a86780e4cd": {
+   "counts": {
+    "arb_win": 6,
+    "agg_nonlogged_txs": 3,
+    "swap_unclassified": 1
+   },
+   "W_kept": 183.34,
+   "W_strict": -9.55,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.23,
+   "gas_other_nonwin": 1.67,
+   "operator_payouts_in_wins": 192.9,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.9897,
+   "s_low_raw": -0.0624,
+   "s_high": 1,
+   "s_central": 0.9897,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xa12fa23701f00ad2663e339386d65cd94a144cbc",
+     7
+    ]
+   ]
+  },
+  "0x26e480b26e74e63be576bb932f287bf4583e2ff3": {
+   "counts": {
+    "reverted": 653,
+    "arb_win": 30,
+    "arb_loss_or_breakeven": 17,
+    "swap_unclassified": 4,
+    "arb_unverified_D": 1
+   },
+   "W_kept": 2.96,
+   "W_strict": 2.96,
+   "L_loss": -57.67,
+   "gas_reverted": 48.45,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.29,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -34.8421,
+   "s_central_raw": -34.9394,
+   "s_low_raw": -34.9394,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 74,
+   "top_eoas": [
+    [
+     "0x5e46fe3e0e60f79e8a5aba48aa72d6f414dff504",
+     16
+    ],
+    [
+     "0x3729f91b0289ce7340042b1cb13947915b7ec489",
+     16
+    ],
+    [
+     "0x7d36e3858ad6fde368df00504074352de190a5a7",
+     15
+    ]
+   ]
+  },
+  "0x3736bbeb24fbb40c16311e4ee04ef80c8584cdeb": {
+   "counts": {
+    "arb_win": 123,
+    "reverted": 151,
+    "arb_loss_or_breakeven": 8
+   },
+   "W_kept": 107.23,
+   "W_strict": 107.23,
+   "L_loss": -0.25,
+   "gas_reverted": 7.19,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9307,
+   "s_central_raw": 0.9307,
+   "s_low_raw": 0.9307,
+   "s_high": 0.9307,
+   "s_central": 0.9307,
+   "s_low": 0.9307,
+   "eoas": 14,
+   "top_eoas": [
+    [
+     "0xce666eb01bc27729a4a7774d80fefb0d0fc80d31",
+     93
+    ],
+    [
+     "0xea925cbd29f3031f87e5ba412d5a6a2b815bf65b",
+     85
+    ],
+    [
+     "0x9ec4751f56077a1f625d4755d87a8250095f6ede",
+     39
+    ]
+   ]
+  },
+  "0xb8aa17d5f1ad84019db81e98321444a5c677b6cc": {
+   "counts": {
+    "reverted": 1170,
+    "arb_win": 268,
+    "arb_loss_or_breakeven": 1
+   },
+   "W_kept": 6.48,
+   "W_strict": 6.48,
+   "L_loss": -0.0,
+   "gas_reverted": 2.14,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.67,
+   "s_central_raw": 0.67,
+   "s_low_raw": 0.67,
+   "s_high": 0.67,
+   "s_central": 0.67,
+   "s_low": 0.67,
+   "eoas": 28,
+   "top_eoas": [
+    [
+     "0xbbe59c473177c76c94843fdb94e989be3170696c",
+     298
+    ],
+    [
+     "0x191119a2ed3a9e82a6852a9d99bcef67571c14e1",
+     178
+    ],
+    [
+     "0xf16a736bdb124a72fcd7162ab7fd06a54c6dc101",
+     177
+    ]
+   ]
+  },
+  "0x360f5414d561d23b6e33c97f73c52577e46b43ce": {
+   "counts": {
+    "arb_win": 54,
+    "reverted": 6,
+    "agg_nonlogged_txs": 4
+   },
+   "W_kept": 31.02,
+   "W_strict": 31.02,
+   "L_loss": 0.0,
+   "gas_reverted": 0.22,
+   "gas_nonlogged_noop_admin": 0.09,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9929,
+   "s_central_raw": 0.9899,
+   "s_low_raw": 0.9899,
+   "s_high": 0.9929,
+   "s_central": 0.9899,
+   "s_low": 0.9899,
+   "eoas": 29,
+   "top_eoas": [
+    [
+     "0x60aec2c52090dc38dc0ebef2af4616320892d8f7",
+     6
+    ],
+    [
+     "0xca8d878acc63cf204da26145d69784b02511d968",
+     5
+    ],
+    [
+     "0x604fc78b9ec89da25c133822d3b1870ee3a7407b",
+     4
+    ]
+   ]
+  },
+  "0x7a40d8a97212cb94289e9e9f4e26edd7cd0910d2": {
+   "counts": {
+    "arb_win": 8,
+    "agg_nonlogged_txs": 4
+   },
+   "W_kept": 15.43,
+   "W_strict": 15.43,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.18,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.9882,
+   "s_low_raw": 0.9882,
+   "s_high": 1,
+   "s_central": 0.9882,
+   "s_low": 0.9882,
+   "eoas": 5,
+   "top_eoas": [
+    [
+     "0x344cfd4b8cf881040408e184e2b97a700a0e2f50",
+     3
+    ],
+    [
+     "0x94b781b4e0d8aec35c074a6fcab4eb2296a2d437",
+     2
+    ],
+    [
+     "0xf7e66f8ed0937bd56cdd73b7a45b3ee5a55783bd",
+     1
+    ]
+   ]
+  },
+  "0x3d383b714c7e636825cc4f564c95e5059581c6ae": {
+   "counts": {
+    "reverted": 673,
+    "arb_unverified_C": 8,
+    "agg_nonlogged_txs": 2,
+    "arb_unverified_D": 3,
+    "arb_win": 1
+   },
+   "W_kept": 3.77,
+   "W_strict": 3.77,
+   "L_loss": 0.0,
+   "gas_reverted": 188.41,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 19.66,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -48.9686,
+   "s_central_raw": -54.1834,
+   "s_low_raw": -54.1834,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 29,
+   "top_eoas": [
+    [
+     "0x8d97c52801ee35a63594f864e08e3a35bf6b275f",
+     120
+    ],
+    [
+     "0xc974d2195e076bd5d170e9a3296ef4398f073180",
+     119
+    ],
+    [
+     "0xace000003c87f110c071353da69c7a7a8646d54c",
+     118
+    ]
+   ]
+  },
+  "0x43b46dd61559a540bc54086a3ccae52bda6562ea": {
+   "counts": {
+    "reverted": 14,
+    "arb_win": 2,
+    "swap_unclassified": 2
+   },
+   "W_kept": 0.24,
+   "W_strict": 0.24,
+   "L_loss": 0.0,
+   "gas_reverted": 0.04,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.01,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.8524,
+   "s_central_raw": 0.8224,
+   "s_low_raw": 0.8224,
+   "s_high": 0.8524,
+   "s_central": 0.8224,
+   "s_low": 0.8224,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x6336ffe342d2d38a7e39f91ef6e3514ac539e928",
+     18
+    ]
+   ]
+  },
+  "0x627e9e101a6192bc4f68f553bd6a0982cc3ef07d": {
+   "counts": {
+    "arb_loss_or_breakeven": 2,
+    "swap_unclassified": 20,
+    "reverted": 3,
+    "agg_nonlogged_txs": 13,
+    "arb_win": 5
+   },
+   "W_kept": 0.02,
+   "W_strict": 0.02,
+   "L_loss": -0.09,
+   "gas_reverted": 2.62,
+   "gas_nonlogged_noop_admin": 7.17,
+   "gas_other_nonwin": 27.95,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -163.4798,
+   "s_central_raw": -2297.0016,
+   "s_low_raw": -2297.0016,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xf0523316cf23ef167d874fa030b2214280e38ee6",
+     30
+    ]
+   ]
+  },
+  "0x4d23a3ba8a3847671382e707810a926a43d2a156": {
+   "counts": {
+    "arb_win": 1269,
+    "arb_unverified_D": 56,
+    "arb_loss_or_breakeven": 7,
+    "reverted": 13,
+    "agg_nonlogged_txs": 1202
+   },
+   "W_kept": 841.42,
+   "W_strict": 841.42,
+   "L_loss": -0.92,
+   "gas_reverted": 11.96,
+   "gas_nonlogged_noop_admin": 54.8,
+   "gas_other_nonwin": 1.88,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9847,
+   "s_central_raw": 0.9173,
+   "s_low_raw": 0.9173,
+   "s_high": 0.9847,
+   "s_central": 0.9173,
+   "s_low": 0.9173,
+   "eoas": 19,
+   "top_eoas": [
+    [
+     "0x94b781b4e0d8aec35c074a6fcab4eb2296a2d437",
+     164
+    ],
+    [
+     "0xfdee278b2119298aef29e5db40a3f4e5723cc31d",
+     157
+    ],
+    [
+     "0x3f934c0a691604ce549175d6fa67a8ea6512eee4",
+     130
+    ]
+   ]
+  },
+  "0x54700c55437b8d27f1178eda5fab8429fee93745": {
+   "counts": {
+    "reverted": 16,
+    "arb_win": 2,
+    "arb_unverified_D": 1
+   },
+   "W_kept": 1.58,
+   "W_strict": 1.58,
+   "L_loss": 0.0,
+   "gas_reverted": 0.05,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.01,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9656,
+   "s_central_raw": 0.9575,
+   "s_low_raw": 0.9575,
+   "s_high": 0.9656,
+   "s_central": 0.9575,
+   "s_low": 0.9575,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xf397b9b1eb744c1dbfe090d85fabdb708d64389b",
+     19
+    ]
+   ]
+  },
+  "0x9c7a11bf334ad427a1181694e5f11873d2b8a104": {
+   "counts": {
+    "arb_unverified_C": 6,
+    "reverted": 9,
+    "arb_win": 1,
+    "agg_nonlogged_txs": 2
+   },
+   "W_kept": 0.08,
+   "W_strict": -0.03,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.01,
+   "gas_other_nonwin": 0.09,
+   "operator_payouts_in_wins": 0.11,
+   "s_high_raw": 0.9388,
+   "s_central_raw": -0.33,
+   "s_low_raw": -1.7459,
+   "s_high": 0.9388,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 14,
+   "top_eoas": [
+    [
+     "0xc0ffee90c2cfa398e0af37eeadb39d200e331eec",
+     2
+    ],
+    [
+     "0xc0ffee445a22e6228cfb77ec0483c426fc856161",
+     2
+    ],
+    [
+     "0xc0ffeefb0fc3053c2ca8fda37390cd4cadfe48c7",
+     1
+    ]
+   ]
+  },
+  "0xab1421625a836d5ef2e84dd40d7ccaf1e70a322c": {
+   "counts": {
+    "reverted": 183,
+    "arb_win": 111,
+    "agg_nonlogged_txs": 3
+   },
+   "W_kept": 38.56,
+   "W_strict": 38.56,
+   "L_loss": 0.0,
+   "gas_reverted": 4.05,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.8951,
+   "s_central_raw": 0.895,
+   "s_low_raw": 0.895,
+   "s_high": 0.8951,
+   "s_central": 0.895,
+   "s_low": 0.895,
+   "eoas": 8,
+   "top_eoas": [
+    [
+     "0x9f126da6731e0f39bca32672b2bffe4f15c2b4de",
+     96
+    ],
+    [
+     "0x36d388e8ae069935cec0444370f86ce64f78e13c",
+     66
+    ],
+    [
+     "0x71b43657df1680f92901a6986f462f079113059b",
+     59
+    ]
+   ]
+  },
+  "0x5f424941d8f98e3a8b723f81914ae606ac08e3a9": {
+   "counts": {
+    "reverted": 218,
+    "agg_nonlogged_txs": 4547,
+    "arb_win": 139,
+    "swap_unclassified": 1,
+    "arb_unverified_D": 3,
+    "arb_loss_or_breakeven": 1
+   },
+   "W_kept": 7.03,
+   "W_strict": 7.03,
+   "L_loss": -0.0,
+   "gas_reverted": 0.71,
+   "gas_nonlogged_noop_admin": 8.89,
+   "gas_other_nonwin": 0.08,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.8991,
+   "s_central_raw": -0.3781,
+   "s_low_raw": -0.3781,
+   "s_high": 0.8991,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x6bc5c4a57cb52cd89c5452f04b01413a4e7e3130",
+     362
+    ]
+   ]
+  },
+  "0x60ecc0006f6e7bb2ead33c5a5ad121e791276917": {
+   "counts": {
+    "arb_win": 84,
+    "arb_unverified_D": 14,
+    "reverted": 3,
+    "arb_loss_or_breakeven": 5,
+    "agg_nonlogged_txs": 283,
+    "swap_unclassified": 1
+   },
+   "W_kept": 35.41,
+   "W_strict": 35.41,
+   "L_loss": -0.0,
+   "gas_reverted": 2.28,
+   "gas_nonlogged_noop_admin": 21.36,
+   "gas_other_nonwin": 8.62,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9355,
+   "s_central_raw": 0.0887,
+   "s_low_raw": 0.0887,
+   "s_high": 0.9355,
+   "s_central": 0.0887,
+   "s_low": 0.0887,
+   "eoas": 60,
+   "top_eoas": [
+    [
+     "0xa3d80cf30983969492a8c0a06858bbe03d0bfe9d",
+     40
+    ],
+    [
+     "0x4fce9fd5518c60a7362d30d39c1b686791008b65",
+     4
+    ],
+    [
+     "0xef19974d7234be609d9ebd1fe00d5405c051a0b2",
+     2
+    ]
+   ]
+  },
+  "0x252f9c175852af76637b318afa079f45ccf2eb64": {
+   "counts": {
+    "arb_win": 28,
+    "arb_unverified_D": 1,
+    "arb_loss_or_breakeven": 3,
+    "reverted": 1
+   },
+   "W_kept": 0.85,
+   "W_strict": 0.85,
+   "L_loss": -0.03,
+   "gas_reverted": 0.01,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.04,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9521,
+   "s_central_raw": 0.9075,
+   "s_low_raw": 0.9075,
+   "s_high": 0.9521,
+   "s_central": 0.9075,
+   "s_low": 0.9075,
+   "eoas": 10,
+   "top_eoas": [
+    [
+     "0xf64e5cecf165fe608686c3ae5490d9e742ecb9b6",
+     8
+    ],
+    [
+     "0xfd6ea0c7e956320a209cf6421370cd60364cdfd9",
+     6
+    ],
+    [
+     "0x4cff9023f293a818c00ce68a125dfee17a0755dc",
+     4
+    ]
+   ]
+  },
+  "0xde32fbbee0b9bcf4ea6c0e02022c0d9f4994f6e0": {
+   "counts": {
+    "reverted": 3,
+    "arb_win": 1
+   },
+   "W_kept": 0.07,
+   "W_strict": 0.07,
+   "L_loss": 0.0,
+   "gas_reverted": 0.48,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -5.8803,
+   "s_central_raw": -5.8803,
+   "s_low_raw": -5.8803,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x0000208d547a446ba9059cbb2cfcfbaead7d3fa3",
+     4
+    ]
+   ]
+  },
+  "0xd6a6d418746d743d712b1d376ed91b8a9b76ab1c": {
+   "counts": {
+    "arb_win": 23,
+    "reverted": 130
+   },
+   "W_kept": 3.46,
+   "W_strict": 3.46,
+   "L_loss": 0.0,
+   "gas_reverted": 1.05,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.6954,
+   "s_central_raw": 0.6954,
+   "s_low_raw": 0.6954,
+   "s_high": 0.6954,
+   "s_central": 0.6954,
+   "s_low": 0.6954,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x5c8bac781347668f43df67d14b5ca4a11f32e7c1",
+     153
+    ]
+   ]
+  },
+  "0x1072f9a937fd0a22dd8b96b7bedd0c2b533d7f99": {
+   "counts": {
+    "arb_win": 36,
+    "agg_nonlogged_txs": 147
+   },
+   "W_kept": 0.76,
+   "W_strict": 0.76,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.66,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.1353,
+   "s_low_raw": 0.1353,
+   "s_high": 1,
+   "s_central": 0.1353,
+   "s_low": 0.1353,
+   "eoas": 21,
+   "top_eoas": [
+    [
+     "0xeaf9b447e987641edf3924f6d34c6287038208ea",
+     5
+    ],
+    [
+     "0xa0dda94d846bab6bd2edc7974c1a59c10ca715a3",
+     4
+    ],
+    [
+     "0xcd228fca30d802b67bf97ae767960880d380191c",
+     3
+    ]
+   ]
+  },
+  "0x5c8a9f8c2f9009347d56da5d26747ba89669f7d7": {
+   "counts": {
+    "arb_win": 25,
+    "arb_loss_or_breakeven": 25,
+    "agg_nonlogged_txs": 1018
+   },
+   "W_kept": 1.38,
+   "W_strict": 1.38,
+   "L_loss": -1.32,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 7.45,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.0421,
+   "s_central_raw": -5.3666,
+   "s_low_raw": -5.3666,
+   "s_high": 0.0421,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 31,
+   "top_eoas": [
+    [
+     "0xcfb8ba8af48f41e452ed8cad223dfd456c8dd14e",
+     5
+    ],
+    [
+     "0xa3ee3ae077f498cf3794da465e8c78e433b065a8",
+     5
+    ],
+    [
+     "0x7799f1c8c7b21c59569d96c16066f36cce5044fd",
+     4
+    ]
+   ]
+  },
+  "0x0b224458cd16915df5fd2118806f32d7f2546bf6": {
+   "counts": {
+    "arb_win": 80,
+    "agg_nonlogged_txs": 166
+   },
+   "W_kept": 1.84,
+   "W_strict": -2.71,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 1.04,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 4.55,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.4351,
+   "s_low_raw": -2.0408,
+   "s_high": 1,
+   "s_central": 0.4351,
+   "s_low": 0,
+   "eoas": 3,
+   "top_eoas": [
+    [
+     "0x97309f4d5f241f0b6640a261f4d9633bcf22ad8d",
+     30
+    ],
+    [
+     "0x8ec9ddbfc35199aa83093bdcef3c9c33907c81f6",
+     27
+    ],
+    [
+     "0xd0e010b9db593e25eda21007aae63bb61d68015e",
+     23
+    ]
+   ]
+  },
+  "0x06f51e6887a384a7b7e0566acc5c113a5a8de29f": {
+   "counts": {
+    "reverted": 1,
+    "arb_loss_or_breakeven": 6,
+    "arb_win": 7,
+    "agg_nonlogged_txs": 4,
+    "swap_unclassified": 1
+   },
+   "W_kept": 2.92,
+   "W_strict": 2.92,
+   "L_loss": -1.38,
+   "gas_reverted": 0.08,
+   "gas_nonlogged_noop_admin": 0.01,
+   "gas_other_nonwin": 0.39,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.4978,
+   "s_central_raw": 0.3596,
+   "s_low_raw": 0.3596,
+   "s_high": 0.4978,
+   "s_central": 0.3596,
+   "s_low": 0.3596,
+   "eoas": 7,
+   "top_eoas": [
+    [
+     "0xa8e8a453a95a85e088ee08df3122389e0e05b845",
+     4
+    ],
+    [
+     "0x1d519726a79af3522fdaa46fa0cd6da170c01a8c",
+     3
+    ],
+    [
+     "0xc7198749e4d4cf15640dc612fae3d685653ed1e2",
+     2
+    ]
+   ]
+  },
+  "0xe73cdc1251bbf1981517a3173da5f0de97266f2e": {
+   "counts": {
+    "arb_win": 1,
+    "arb_unverified_C": 1
+   },
+   "W_kept": 0.1,
+   "W_strict": -0.06,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.01,
+   "operator_payouts_in_wins": 0.16,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.9128,
+   "s_low_raw": -0.6503,
+   "s_high": 1,
+   "s_central": 0.9128,
+   "s_low": 0,
+   "eoas": 2,
+   "top_eoas": [
+    [
+     "0xc0ffeea556179ce7a8d01211f4288a8b25f7cf49",
+     1
+    ],
+    [
+     "0xc0ffee26e721b8e0ffeac3176166aad4e599e41d",
+     1
+    ]
+   ]
+  },
+  "0x46b251dc229509e328188305d9c6e5c3c71017c2": {
+   "counts": {
+    "reverted": 11,
+    "arb_win": 1
+   },
+   "W_kept": 0.14,
+   "W_strict": 0.14,
+   "L_loss": 0.0,
+   "gas_reverted": 0.11,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.1682,
+   "s_central_raw": 0.1682,
+   "s_low_raw": 0.1682,
+   "s_high": 0.1682,
+   "s_central": 0.1682,
+   "s_low": 0.1682,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xfff6caefc636d2bae7cb9e54150dd8ae43c63f23",
+     12
+    ]
+   ]
+  },
+  "0xa5fd0f11be1f7e5c653e6d26de08f1783bf1636b": {
+   "counts": {
+    "reverted": 36,
+    "arb_unverified_C": 14,
+    "arb_win": 12
+   },
+   "W_kept": 4.48,
+   "W_strict": -0.6,
+   "L_loss": 0.0,
+   "gas_reverted": 0.14,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.47,
+   "operator_payouts_in_wins": 5.08,
+   "s_high_raw": 0.9688,
+   "s_central_raw": 0.8643,
+   "s_low_raw": -0.2685,
+   "s_high": 0.9688,
+   "s_central": 0.8643,
+   "s_low": 0,
+   "eoas": 38,
+   "top_eoas": [
+    [
+     "0xc0ffee8cae1d4279e42fba7a6cafeb8e1401140f",
+     6
+    ],
+    [
+     "0xc0ffeed0542a56f35cdd67293f7f3723540f988f",
+     5
+    ],
+    [
+     "0xc0ffee5f66a5546b23f5f430dca69df71e32ebf7",
+     4
+    ]
+   ]
+  },
+  "0xfdef9b0c99f68f4bf53244ef09c8716d66af4d7c": {
+   "counts": {
+    "swap_unclassified": 12,
+    "arb_unverified_D": 9,
+    "reverted": 5,
+    "arb_win": 5
+   },
+   "W_kept": 4.24,
+   "W_strict": 4.24,
+   "L_loss": 0.0,
+   "gas_reverted": 0.52,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 1.7,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.8763,
+   "s_central_raw": 0.4761,
+   "s_low_raw": 0.4761,
+   "s_high": 0.8763,
+   "s_central": 0.4761,
+   "s_low": 0.4761,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xc8ea531a1ec869de55905d9bdc0754ddabb338d1",
+     31
+    ]
+   ]
+  },
+  "0xafea234baff4e4bdd426a007b5193f927958fb01": {
+   "counts": {
+    "arb_win": 2,
+    "agg_nonlogged_txs": 4
+   },
+   "W_kept": 0.21,
+   "W_strict": 0.21,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.04,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.8161,
+   "s_low_raw": 0.8161,
+   "s_high": 1,
+   "s_central": 0.8161,
+   "s_low": 0.8161,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x52395379cdabdb6318adb8193e3c6e672c4ab27d",
+     2
+    ]
+   ]
+  },
+  "0x41b729a2416d6eac23cec23f796e2a88cc8861dd": {
+   "counts": {
+    "arb_win": 4,
+    "reverted": 13,
+    "arb_unverified_C": 10
+   },
+   "W_kept": 0.22,
+   "W_strict": -0.11,
+   "L_loss": 0.0,
+   "gas_reverted": 0.03,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.2,
+   "operator_payouts_in_wins": 0.33,
+   "s_high_raw": 0.886,
+   "s_central_raw": 0.0091,
+   "s_low_raw": -1.4797,
+   "s_high": 0.886,
+   "s_central": 0.0091,
+   "s_low": 0,
+   "eoas": 17,
+   "top_eoas": [
+    [
+     "0xc0ffeea556179ce7a8d01211f4288a8b25f7cf49",
+     3
+    ],
+    [
+     "0xc0ffee884426f7c2e6d61b8b6ae8927c4c40ff5e",
+     2
+    ],
+    [
+     "0xc0ffee17d520056942531cb6d4d6251ff8163bb1",
+     2
+    ]
+   ]
+  },
+  "0xadd3708bd1f326b062ce18c010b3935fb96ca55f": {
+   "counts": {
+    "reverted": 7,
+    "arb_win": 2,
+    "arb_unverified_C": 1
+   },
+   "W_kept": 1.4,
+   "W_strict": -0.36,
+   "L_loss": 0.0,
+   "gas_reverted": 0.01,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.02,
+   "operator_payouts_in_wins": 1.76,
+   "s_high_raw": 0.9905,
+   "s_central_raw": 0.9766,
+   "s_low_raw": -0.2785,
+   "s_high": 0.9905,
+   "s_central": 0.9766,
+   "s_low": 0,
+   "eoas": 5,
+   "top_eoas": [
+    [
+     "0xc0ffee90c2cfa398e0af37eeadb39d200e331eec",
+     3
+    ],
+    [
+     "0xc0ffeed83ae71bcc7cb1fb298289a721a2387ff5",
+     3
+    ],
+    [
+     "0xc0ffeefa70c63f3d2adf52222ccdb03ab2e27fd2",
+     2
+    ]
+   ]
+  },
+  "0xff0d97480059fba06880938b36e3409a1f2b25f6": {
+   "counts": {
+    "arb_win": 20,
+    "reverted": 2,
+    "agg_nonlogged_txs": 7578
+   },
+   "W_kept": 0.53,
+   "W_strict": 0.53,
+   "L_loss": 0.0,
+   "gas_reverted": 0.01,
+   "gas_nonlogged_noop_admin": 11.69,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9819,
+   "s_central_raw": -21.2642,
+   "s_low_raw": -21.2642,
+   "s_high": 0.9819,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 15,
+   "top_eoas": [
+    [
+     "0xf89407de12d50b029967913cd582940c0bf1d5e4",
+     3
+    ],
+    [
+     "0xb9c1ceee34e9e6d979c1ea4f4b880c499916a7b7",
+     3
+    ],
+    [
+     "0x5871a765cf576ed267ffef30587e218f1f55f7e1",
+     2
+    ]
+   ]
+  },
+  "0x15cf682f40f703e1bc4da818cb554e7571879f18": {
+   "counts": {
+    "reverted": 7,
+    "arb_win": 1
+   },
+   "W_kept": 0.17,
+   "W_strict": 0.17,
+   "L_loss": 0.0,
+   "gas_reverted": 1.18,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -5.9363,
+   "s_central_raw": -5.9363,
+   "s_low_raw": -5.9363,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x366ff002495ac578b88835540a947183f23ad170",
+     8
+    ]
+   ]
+  },
+  "0xb88bb63113b50ff258138d8349e8521e2bf43654": {
+   "counts": {
+    "swap_unclassified": 30164,
+    "arb_win": 6429,
+    "arb_unverified_D": 1806,
+    "logged_no_swap": 2890,
+    "arb_loss_or_breakeven": 1398,
+    "arb_unverified_C": 2608,
+    "agg_nonlogged_txs": 140,
+    "reverted": 59,
+    "excluded_class": 1
+   },
+   "W_kept": 32.59,
+   "W_strict": -105.72,
+   "L_loss": -14.56,
+   "gas_reverted": 0.69,
+   "gas_nonlogged_noop_admin": 5.64,
+   "gas_other_nonwin": 511.56,
+   "operator_payouts_in_wins": 138.31,
+   "s_high_raw": 0.5322,
+   "s_central_raw": -15.339,
+   "s_low_raw": -19.5831,
+   "s_high": 0.5322,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 50,
+   "top_eoas": [
+    [
+     "0x8533d15566553b8c0f13aa1df38027bdc1bdd246",
+     976
+    ],
+    [
+     "0x0a088626f4ab86b6c90cd39999713d3ae6f4eaa1",
+     971
+    ],
+    [
+     "0xaf9b077bf0f85136bed5c9ff8d6ffec4b349dacf",
+     970
+    ]
+   ]
+  },
+  "0x0c6efa5acd24f319a8c3768fcff30f65ad5ee057": {
+   "counts": {
+    "reverted": 2,
+    "arb_win": 2
+   },
+   "W_kept": 9.06,
+   "W_strict": 9.06,
+   "L_loss": 0.0,
+   "gas_reverted": 0.39,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9575,
+   "s_central_raw": 0.9575,
+   "s_low_raw": 0.9575,
+   "s_high": 0.9575,
+   "s_central": 0.9575,
+   "s_low": 0.9575,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xe3c4cc119253314239a23dd5c9633e4156f51938",
+     4
+    ]
+   ]
+  },
+  "0x57e836f085e42cbc673583ce1c800fc67cf0d503": {
+   "counts": {
+    "agg_nonlogged_txs": 25,
+    "arb_win": 2
+   },
+   "W_kept": 1.36,
+   "W_strict": -0.7,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 18.08,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 2.06,
+   "s_high_raw": 1.0,
+   "s_central_raw": -12.3004,
+   "s_low_raw": -13.8165,
+   "s_high": 1,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 2,
+   "top_eoas": [
+    [
+     "0x068b6c835aa313c2e72b3bd90b669fbfd2df502e",
+     1
+    ],
+    [
+     "0xe4a240e5d4cb7a033db9d982530e2258fa7f5d27",
+     1
+    ]
+   ]
+  },
+  "0x6c4df46f2e9cb6bd856dac4960138123ba19c94b": {
+   "counts": {
+    "agg_nonlogged_txs": 4,
+    "arb_unverified_C": 36,
+    "arb_win": 30,
+    "arb_loss_or_breakeven": 1,
+    "reverted": 17,
+    "arb_unverified_D": 3
+   },
+   "W_kept": 241.67,
+   "W_strict": 241.67,
+   "L_loss": -0.01,
+   "gas_reverted": 22.7,
+   "gas_nonlogged_noop_admin": 0.09,
+   "gas_other_nonwin": 1.49,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9061,
+   "s_central_raw": 0.8996,
+   "s_low_raw": 0.8996,
+   "s_high": 0.9061,
+   "s_central": 0.8996,
+   "s_low": 0.8996,
+   "eoas": 67,
+   "top_eoas": [
+    [
+     "0x8f6d33b8276542dd341e09dea2fb341fa324846e",
+     4
+    ],
+    [
+     "0xd1aeffe6068d05739d13e57014f020b4a93a725d",
+     3
+    ],
+    [
+     "0x3f9abf848e67b34d813256c87cea7780b9c63076",
+     3
+    ]
+   ]
+  },
+  "0x22ba0487b2a48590d03594f390e734cf67a7e6a5": {
+   "counts": {
+    "reverted": 101,
+    "arb_win": 1
+   },
+   "W_kept": 0.11,
+   "W_strict": 0.11,
+   "L_loss": 0.0,
+   "gas_reverted": 4.67,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -43.3743,
+   "s_central_raw": -43.3743,
+   "s_low_raw": -43.3743,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x2a4098ed118c3aae25110fa3eb5f8cb1acd4d3e9",
+     102
+    ]
+   ]
+  },
+  "0x7cea16509ff03878d1eee878724c66e87551c974": {
+   "counts": {
+    "arb_win": 45,
+    "arb_loss_or_breakeven": 1,
+    "agg_nonlogged_txs": 63,
+    "reverted": 6
+   },
+   "W_kept": 1.14,
+   "W_strict": 1.14,
+   "L_loss": -0.0,
+   "gas_reverted": 0.01,
+   "gas_nonlogged_noop_admin": 0.23,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9899,
+   "s_central_raw": 0.7888,
+   "s_low_raw": 0.7888,
+   "s_high": 0.9899,
+   "s_central": 0.7888,
+   "s_low": 0.7888,
+   "eoas": 5,
+   "top_eoas": [
+    [
+     "0x9826658aee8804f12af09962d5051c6b479bd666",
+     31
+    ],
+    [
+     "0xc335328c4c76b9bc36def994e54312b346369861",
+     15
+    ],
+    [
+     "0xd32ab39303af0b2cd5925d785d13b2402ee64d6a",
+     2
+    ]
+   ]
+  },
+  "0x3187aeb1188b23b7063410e622c76469ec153f79": {
+   "counts": {
+    "arb_win": 60,
+    "reverted": 214,
+    "arb_loss_or_breakeven": 6,
+    "arb_unverified_C": 1,
+    "swap_unclassified": 2
+   },
+   "W_kept": 0.2,
+   "W_strict": 0.2,
+   "L_loss": -0.0,
+   "gas_reverted": 9.01,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.21,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -43.7089,
+   "s_central_raw": -44.7377,
+   "s_low_raw": -44.7377,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x4909a0175e769cf1f6ebb15788e8da9e2e363f48",
+     283
+    ]
+   ]
+  },
+  "0x5b162239a5724389a8369b3ac32b9c6e8c393de5": {
+   "counts": {
+    "arb_win": 49,
+    "agg_nonlogged_txs": 1928
+   },
+   "W_kept": 14.17,
+   "W_strict": 14.17,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 4.92,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.6527,
+   "s_low_raw": 0.6527,
+   "s_high": 1,
+   "s_central": 0.6527,
+   "s_low": 0.6527,
+   "eoas": 10,
+   "top_eoas": [
+    [
+     "0x9c0ae1971bb852dff4d552063ae1603302f21c08",
+     7
+    ],
+    [
+     "0x6d4169315e429355ec3c98a6d76ce4a03703ca00",
+     7
+    ],
+    [
+     "0x2e2d90a3eceed94984ea48c9f5c8d32b6e09cb17",
+     6
+    ]
+   ]
+  },
+  "0x6698ec6146ea1f012336d699aea01a8a11ca4a87": {
+   "counts": {
+    "swap_unclassified": 5766,
+    "reverted": 10199,
+    "logged_no_swap": 329,
+    "arb_unverified_D": 2296,
+    "arb_win": 177,
+    "arb_unverified_C": 13,
+    "agg_nonlogged_txs": 1702,
+    "arb_loss_or_breakeven": 1
+   },
+   "W_kept": 6.94,
+   "W_strict": 6.94,
+   "L_loss": -0.0,
+   "gas_reverted": 97.89,
+   "gas_nonlogged_noop_admin": 58.35,
+   "gas_other_nonwin": 387.91,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -13.1156,
+   "s_central_raw": -77.4626,
+   "s_low_raw": -77.4626,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 14,
+   "top_eoas": [
+    [
+     "0x88888888087563fd32f96962b491c92d9f88fe28",
+     5703
+    ],
+    [
+     "0x8888888812d757c58cea341ea5b79a2c2e1b39a3",
+     3445
+    ],
+    [
+     "0x888888886149499412f5239621c92c410774eb00",
+     2381
+    ]
+   ]
+  },
+  "0xa57d193d80d833c4b56cf55a60bcba735b702322": {
+   "counts": {
+    "reverted": 8988,
+    "arb_unverified_D": 3197,
+    "arb_loss_or_breakeven": 13,
+    "arb_win": 481,
+    "agg_nonlogged_txs": 199
+   },
+   "W_kept": 15.84,
+   "W_strict": 15.84,
+   "L_loss": -0.32,
+   "gas_reverted": 33.99,
+   "gas_nonlogged_noop_admin": 3.26,
+   "gas_other_nonwin": 85.51,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -1.165,
+   "s_central_raw": -6.7678,
+   "s_low_raw": -6.7678,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 14,
+   "top_eoas": [
+    [
+     "0x88888888087563fd32f96962b491c92d9f88fe28",
+     4077
+    ],
+    [
+     "0x8888888812d757c58cea341ea5b79a2c2e1b39a3",
+     2523
+    ],
+    [
+     "0x888888886149499412f5239621c92c410774eb00",
+     1859
+    ]
+   ]
+  },
+  "0x5ef2750b1aa98335c44669022c0d9f01c9a9eeaa": {
+   "counts": {
+    "reverted": 4,
+    "arb_win": 2
+   },
+   "W_kept": 0.15,
+   "W_strict": 0.15,
+   "L_loss": 0.0,
+   "gas_reverted": 0.73,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -3.9259,
+   "s_central_raw": -3.9259,
+   "s_low_raw": -3.9259,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x00001734423be0e5a9059cbb5efc5cfb8d942563",
+     6
+    ]
+   ]
+  },
+  "0x2da3617d82ad665be7a085f69c8403575c15e4df": {
+   "counts": {
+    "arb_win": 11,
+    "arb_unverified_D": 3,
+    "reverted": 18,
+    "arb_unverified_C": 6
+   },
+   "W_kept": 728.04,
+   "W_strict": -33.42,
+   "L_loss": 0.0,
+   "gas_reverted": 0.95,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.28,
+   "operator_payouts_in_wins": 761.46,
+   "s_high_raw": 0.9987,
+   "s_central_raw": 0.9983,
+   "s_low_raw": -0.0476,
+   "s_high": 0.9987,
+   "s_central": 0.9983,
+   "s_low": 0,
+   "eoas": 26,
+   "top_eoas": [
+    [
+     "0x0b629d75d6ff1da73c6865ff911fcd0bb060db38",
+     3
+    ],
+    [
+     "0xd6c130afcf157b15db37897ced2f6d33c938ee28",
+     3
+    ],
+    [
+     "0x236d45911284eb213e6b716a4ff4c53085c55a99",
+     2
+    ]
+   ]
+  },
+  "0x615ebb518d37bc52641d0af132ec014ae96f7f79": {
+   "counts": {
+    "arb_win": 1
+   },
+   "W_kept": 2.1,
+   "W_strict": 2.1,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 1.0,
+   "s_low_raw": 1.0,
+   "s_high": 1,
+   "s_central": 1,
+   "s_low": 1,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xb4340b26196745fa648d16eaba72b0fcaeb052fc",
+     1
+    ]
+   ]
+  },
+  "0xd6ec8cf1ef1ab80fda83eaff8862076a8c5ff820": {
+   "counts": {
+    "arb_win": 1,
+    "reverted": 3
+   },
+   "W_kept": 1.26,
+   "W_strict": 1.26,
+   "L_loss": 0.0,
+   "gas_reverted": 0.06,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9537,
+   "s_central_raw": 0.9537,
+   "s_low_raw": 0.9537,
+   "s_high": 0.9537,
+   "s_central": 0.9537,
+   "s_low": 0.9537,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x0000000005f122fdde066942195c10106d490486",
+     4
+    ]
+   ]
+  },
+  "0x465d94b20ff3e2eb948a157f5318e3ac42c6c4ab": {
+   "counts": {
+    "arb_win": 73,
+    "reverted": 8,
+    "arb_unverified_D": 8,
+    "arb_loss_or_breakeven": 3,
+    "swap_unclassified": 3,
+    "arb_unverified_C": 1,
+    "agg_nonlogged_txs": 6
+   },
+   "W_kept": 259.46,
+   "W_strict": 259.46,
+   "L_loss": -0.86,
+   "gas_reverted": 2.54,
+   "gas_nonlogged_noop_admin": 0.03,
+   "gas_other_nonwin": 3.11,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 0.9869,
+   "s_central_raw": 0.9748,
+   "s_low_raw": 0.9748,
+   "s_high": 0.9869,
+   "s_central": 0.9748,
+   "s_low": 0.9748,
+   "eoas": 4,
+   "top_eoas": [
+    [
+     "0x6ba9a028d76c13e1bc50a8e583303784af3fc71e",
+     81
+    ],
+    [
+     "0xcda934b98e85c1933aa4a4b9be1300f1729093ad",
+     6
+    ],
+    [
+     "0xd2bba1d1fb74dbdb8059776d2c3fbc2eda7211d8",
+     5
+    ]
+   ]
+  },
+  "0xe014cc1f884e9db29c05692c0138654b21a8b41d": {
+   "counts": {
+    "reverted": 56,
+    "arb_win": 3
+   },
+   "W_kept": 0.02,
+   "W_strict": 0.02,
+   "L_loss": 0.0,
+   "gas_reverted": 0.74,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -41.8433,
+   "s_central_raw": -41.8433,
+   "s_low_raw": -41.8433,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 2,
+   "top_eoas": [
+    [
+     "0xac6d42b13660fe34ffb1d79e54506530a7878418",
+     58
+    ],
+    [
+     "0x06266984a3d5c7c270aba027005f1e8fe11d5eae",
+     1
+    ]
+   ]
+  },
+  "0x5570240e8eedcdad5fe9b38f62c93236523e5eb4": {
+   "counts": {
+    "arb_win": 24,
+    "arb_loss_or_breakeven": 3,
+    "agg_nonlogged_txs": 4129
+   },
+   "W_kept": 9.2,
+   "W_strict": -0.28,
+   "L_loss": -0.01,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 11.22,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 9.47,
+   "s_high_raw": 0.999,
+   "s_central_raw": -0.2209,
+   "s_low_raw": -1.2509,
+   "s_high": 0.999,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 10,
+   "top_eoas": [
+    [
+     "0x32d143c79cab48683bbe6bbdf140e67624c40bfd",
+     6
+    ],
+    [
+     "0x641bab2a24001d77a2724c33bb601e28f9e13f10",
+     4
+    ],
+    [
+     "0xbc44e11365cb323940cc9fc6c7004d413e8d43b3",
+     4
+    ]
+   ]
+  },
+  "0x3cda1451a95bc1fee0afcd56ef66bbccbebea68e": {
+   "counts": {
+    "arb_win": 1,
+    "agg_nonlogged_txs": 29
+   },
+   "W_kept": 66.97,
+   "W_strict": -0.21,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.28,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 67.18,
+   "s_high_raw": 1.0,
+   "s_central_raw": 0.9958,
+   "s_low_raw": -0.0074,
+   "s_high": 1,
+   "s_central": 0.9958,
+   "s_low": 0,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0x612d68bb623be91f8a1a52ed96395a750d0e4baa",
+     1
+    ]
+   ]
+  },
+  "0x37cb557e0be953fb5f0da929b658947c9d93ecda": {
+   "counts": {
+    "reverted": 12,
+    "arb_win": 1,
+    "agg_nonlogged_txs": 7
+   },
+   "W_kept": 0.03,
+   "W_strict": 0.03,
+   "L_loss": 0.0,
+   "gas_reverted": 0.4,
+   "gas_nonlogged_noop_admin": 0.27,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": -14.4464,
+   "s_central_raw": -24.8939,
+   "s_low_raw": -24.8939,
+   "s_high": 0,
+   "s_central": 0,
+   "s_low": 0,
+   "eoas": 3,
+   "top_eoas": [
+    [
+     "0x6229f7f556be30743c077c5cb8d31d037b2df99b",
+     5
+    ],
+    [
+     "0xd559c83f9f8dd4cbecd6fdd269e048e67db0cf15",
+     4
+    ],
+    [
+     "0x19746e162ebf6889c40b7697def061ed9f7a7e27",
+     4
+    ]
+   ]
+  },
+  "0x4970655071551b944a1653e36e53d04d370d5b26": {
+   "counts": {
+    "arb_win": 1
+   },
+   "W_kept": 0.11,
+   "W_strict": 0.11,
+   "L_loss": 0.0,
+   "gas_reverted": 0.0,
+   "gas_nonlogged_noop_admin": 0.0,
+   "gas_other_nonwin": 0.0,
+   "operator_payouts_in_wins": 0.0,
+   "s_high_raw": 1.0,
+   "s_central_raw": 1.0,
+   "s_low_raw": 1.0,
+   "s_high": 1,
+   "s_central": 1,
+   "s_low": 1,
+   "eoas": 1,
+   "top_eoas": [
+    [
+     "0xa88f2d8943b7436a82a22936ffc25431b7f3811f",
+     1
+    ]
+   ]
+  }
+ },
+ "contracts": 109,
+ "formulas": {
+  "s_high": "(W_kept + L_loss - gas_reverted) / W_kept",
+  "s_central": "(W_kept + L_loss - gas_reverted - gas_nonlogged_noop_admin - gas_other_nonwin) / W_kept",
+  "s_low": "(W_strict + L_loss - gas_reverted - gas_nonlogged_noop_admin - gas_other_nonwin) / W_kept",
+  "W_kept": "sum of searcher_kept_net_usd (A/B rows, >0); operator/owner-EOA payouts are NOT subtracted (counted as kept); winners' own gas+L1 already deducted",
+  "W_strict": "same rows, operator/owner payouts NOT counted as kept (treated as if lost) - conservative bound",
+  "L_loss": "sum of kept NET of A/B rows with NET<=0 (negative)",
+  "gas_other_nonwin": "gas of successful logged txs to the contract that are not A/B arbs (C/D arbs, excluded classes, unclassified swaps)",
+  "clip": "reported raw and clipped to [0,1]"
+ },
+ "variants": {
+  "VERIFIED_ONLY": {
+   "winners": 45884,
+   "W_kept": 7321.17,
+   "W_strict": 7089.61,
+   "L_loss": -1507.1,
+   "payouts_verified_in_W": 231.56,
+   "payouts_inferred_in_W": 0.0,
+   "gas_reverted": 1978.33,
+   "gas_nonlogged_noop_admin": 993.34,
+   "gas_other_nonwin": 1926.16,
+   "s_high": 0.5239,
+   "s_central": 0.1251,
+   "s_low": 0.0935,
+   "s_high_raw": 0.5239,
+   "s_central_raw": 0.1251,
+   "s_low_raw": 0.0935
+  },
+  "VERIFIED_PLUS_INFERRED": {
+   "winners": 50185,
+   "W_kept": 16951.22,
+   "W_strict": 5823.18,
+   "L_loss": -171.54,
+   "payouts_verified_in_W": 231.56,
+   "payouts_inferred_in_W": 10896.48,
+   "gas_reverted": 1978.33,
+   "gas_nonlogged_noop_admin": 993.34,
+   "gas_other_nonwin": 1926.16,
+   "s_high": 0.8732,
+   "s_central": 0.7009,
+   "s_low": 0.0445,
+   "s_high_raw": 0.8732,
+   "s_central_raw": 0.7009,
+   "s_low_raw": 0.0445
+  },
+  "VERIFIED_ONLY_excl_e80f_lumpy": {
+   "winners": 45884,
+   "W_kept": 7321.17,
+   "W_strict": 7089.61,
+   "L_loss": -1290.9,
+   "payouts_verified_in_W": 231.56,
+   "payouts_inferred_in_W": 0.0,
+   "gas_reverted": 1978.33,
+   "gas_nonlogged_noop_admin": 993.34,
+   "gas_other_nonwin": 1926.16,
+   "s_high": 0.5535,
+   "s_central": 0.1547,
+   "s_low": 0.1231,
+   "s_high_raw": 0.5535,
+   "s_central_raw": 0.1547,
+   "s_low_raw": 0.1231
+  },
+  "VERIFIED_PLUS_INFERRED_excl_e80f_lumpy": {
+   "winners": 50183,
+   "W_kept": 14172.38,
+   "W_strict": 6039.38,
+   "L_loss": -171.54,
+   "payouts_verified_in_W": 231.56,
+   "payouts_inferred_in_W": 7901.45,
+   "gas_reverted": 1978.33,
+   "gas_nonlogged_noop_admin": 993.34,
+   "gas_other_nonwin": 1926.16,
+   "s_high": 0.8483,
+   "s_central": 0.6423,
+   "s_low": 0.0684,
+   "s_high_raw": 0.8483,
+   "s_central_raw": 0.6423,
+   "s_low_raw": 0.0684
+  }
+ },
+ "variants_note": "Same contract set and same cost pools in every variant. kept = strict NET + payouts to VERIFIED operator payees (payee is a sender EOA of the contract) [+ payouts to INFERRED payees (fixed EOA payee in >=90% of that contract's payout txs)]. Rows whose kept <= 0 under a variant move from W to L. excl_e80f_lumpy drops 0xe5fe9b91 ($1,670) and 0xeee1ff32 ($1,109). s_low uses W_strict (no payouts) in the numerator."
+}

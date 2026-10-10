@@ -1,0 +1,7 @@
+{"level":"info","ts":1791622460.4307003,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+{"level":"warn","ts":1791622460.4315732,"logger":"caddyfile","msg":"Unnecessary header_up X-Forwarded-For: the reverse proxy's default behavior is to pass headers to the upstream"}
+{"level":"warn","ts":1791622460.4315884,"logger":"caddyfile","msg":"Unnecessary header_up X-Forwarded-Proto: the reverse proxy's default behavior is to pass headers to the upstream"}
+{"level":"warn","ts":1791622460.4442327,"logger":"caddyfile","msg":"Unnecessary header_up X-Forwarded-For: the reverse proxy's default behavior is to pass headers to the upstream"}
+{"level":"warn","ts":1791622460.444299,"logger":"caddyfile","msg":"Unnecessary header_up X-Forwarded-Proto: the reverse proxy's default behavior is to pass headers to the upstream"}
+{"level":"info","ts":1791622460.4489658,"msg":"adapted config to JSON","adapter":"caddyfile"}
+{"level":"warn","ts":1791622460.4490201,"msg":"Caddyfile input is not formatted; run 'caddy fmt --overwrite' to fix inconsistencies","adapter":"caddyfile","file":"/etc/caddy/Caddyfile","line":6}

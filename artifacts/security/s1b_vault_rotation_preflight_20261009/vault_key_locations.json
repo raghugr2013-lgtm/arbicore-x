@@ -1,0 +1,1248 @@
+{
+  "files_scanned_approx": 8001,
+  "files_with_VAULT_KEY_assignment": 73,
+  "hits": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-executor-signer-owner-20260912T094914Z",
+      "mode": "600",
+      "size": 7338,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-p2",
+      "mode": "600",
+      "size": 5877,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre_rpc_config_backup",
+      "mode": "664",
+      "size": 5184,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 64,
+          "sha12": "73c3f6b84882",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "73c3f6b84882"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-new-alchemy",
+      "mode": "600",
+      "size": 5903,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-ankr-config",
+      "mode": "600",
+      "size": 5877,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env",
+      "mode": "600",
+      "size": 7360,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-h05-flash-scanner-enable-20260911T135033Z",
+      "mode": "600",
+      "size": 7302,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-temp-url-20260901-205825",
+      "mode": "600",
+      "size": 6116,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-7aea7c0-rpc-failover",
+      "mode": "600",
+      "size": 5943,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-phase3",
+      "mode": "600",
+      "size": 6116,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-h05-usd-numeraire-20260911T133143Z",
+      "mode": "600",
+      "size": 7273,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre_fernet_fix_20260821_184237",
+      "mode": "664",
+      "size": 5655,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 64,
+          "sha12": "73c3f6b84882",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "73c3f6b84882"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-base-executor-20260907T101030Z",
+      "mode": "600",
+      "size": 6772,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-provider-rpc-20260907T191701Z",
+      "mode": "600",
+      "size": 6772,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-alchemy-sync-20260901_154744",
+      "mode": "600",
+      "size": 5971,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-temp-url-20260901-205630",
+      "mode": "600",
+      "size": 6116,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "mode": "600",
+      "size": 2483,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642",
+      "mode": "600",
+      "size": 2464,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env",
+      "mode": "600",
+      "size": 2533,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z",
+      "mode": "600",
+      "size": 2380,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704",
+      "mode": "600",
+      "size": 2511,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923",
+      "mode": "600",
+      "size": 2551,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913",
+      "mode": "600",
+      "size": 2464,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "mode": "600",
+      "size": 2483,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z",
+      "mode": "600",
+      "size": 2283,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x/.env",
+      "mode": "664",
+      "size": 5086,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 64,
+          "sha12": "73c3f6b84882",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "73c3f6b84882"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x/.env.production.example",
+      "mode": "644",
+      "size": 4997,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 32,
+          "sha12": "9c576e307cac",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "9c576e307cac"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x/.env.development.example",
+      "mode": "644",
+      "size": 4527,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 64,
+          "sha12": "ffe054fe7ae0",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "ffe054fe7ae0"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x/.env.example",
+      "mode": "644",
+      "size": 11039,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 40,
+          "sha12": "e0da5421a165",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "e0da5421a165"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore_ctr_all.env",
+      "mode": "664",
+      "size": 2870,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert-ad64a50.env",
+      "mode": "600",
+      "size": 3076,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/f2b_lite_pre_hashes.txt",
+      "mode": "664",
+      "size": 289,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 15,
+          "sha12": "2cc1a831789a",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "2cc1a831789a"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-x-backend.env",
+      "mode": "664",
+      "size": 4015,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert.env",
+      "mode": "664",
+      "size": 3077,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-x-candidate.env",
+      "mode": "600",
+      "size": 3287,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-backend-p0-3.env",
+      "mode": "600",
+      "size": 3066,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-production-env.backup",
+      "mode": "600",
+      "size": 6312,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-backend.env",
+      "mode": "600",
+      "size": 3065,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-x-runtime.env",
+      "mode": "600",
+      "size": 3514,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 44,
+          "sha12": "a46000441419",
+          "looks_fernet_urlsafe": true
+        }
+      ],
+      "unique_sha12s": [
+        "a46000441419"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-cert-7f45ec2/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "444",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-cert-7f45ec2/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "444",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/p2_final_audit_CpZK/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/p2_final_audit_CpZK/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/p2_patch_apply_aDAl/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/p2_patch_apply_aDAl/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-parent-cert-5bd9525/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "444",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-parent-cert-5bd9525/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "444",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/b1-baseline-fff0d0e/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/b1-baseline-fff0d0e/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-hybrid-e-clean/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/arbicore-hybrid-e-clean/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-cert-3539633/checkout/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-cert-3539633/checkout/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-remediation-cert-7c2b1bc/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-remediation-cert-7c2b1bc/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-fd-9ed2718/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/arbicore-fd-9ed2718/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/ws-a-deploy-prep-freeze-20261002/checkout/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "644",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/ws-a-deploy-prep-freeze-20261002/checkout/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "644",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/ws-a-residual-cert-3664979/tip-checkout/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/ws-a-residual-cert-3664979/tip-checkout/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-m6-shadow-7ec144009b38fd94f7a0a977b41f4a92abdef750/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/arbicore-m6-shadow-7ec144009b38fd94f7a0a977b41f4a92abdef750/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    },
+    {
+      "path": "/tmp/ws-a-befb14e-build-only-20261002/checkout/docs/FLASH_LOAN_OPERATOR_MANUAL.md",
+      "mode": "664",
+      "size": 11924,
+      "assignments": [
+        {
+          "placeholder": true,
+          "len": 24,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        },
+        {
+          "placeholder": true,
+          "len": 0,
+          "sha12": null,
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": []
+    },
+    {
+      "path": "/tmp/ws-a-befb14e-build-only-20261002/checkout/docs/V2_MIGRATION_GUIDE.md",
+      "mode": "664",
+      "size": 10966,
+      "assignments": [
+        {
+          "placeholder": false,
+          "len": 23,
+          "sha12": "4c37428ea946",
+          "looks_fernet_urlsafe": false
+        }
+      ],
+      "unique_sha12s": [
+        "4c37428ea946"
+      ]
+    }
+  ],
+  "compose_or_scripts_referencing_VAULT_KEY_without_literal": [
+    "/home/raghu/projects/arbicore-x-v2/scripts/install.sh",
+    "/home/raghu/projects/arbicore-x-v2/deployment/compose/docker-compose.shared.yml",
+    "/home/raghu/projects/arbicore-x-cert/scripts/install.sh",
+    "/home/raghu/projects/arbicore-x-cert/deployment/compose/docker-compose.shared.yml"
+  ]
+}

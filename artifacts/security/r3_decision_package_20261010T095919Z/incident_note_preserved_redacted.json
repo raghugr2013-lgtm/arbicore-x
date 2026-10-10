@@ -1,0 +1,32 @@
+{
+  "captured_utc": "2026-10-10T09:59:19Z",
+  "source_triage_artifact": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r3_ransomdb_triage_20261010T092301Z/readme_db_inspection.json",
+  "database": "READ_ME_TO_RECOVER_YOUR_DATA",
+  "collection": "README",
+  "object_count": 1,
+  "objectid": "6a9de5fd18cefafbd9b6a63e",
+  "objectid_generation_time_utc": "2026-09-06T22:15:25+00:00",
+  "content_sha256": "571795143f3100d1c615a8a25da215ef16e15504d02e622c27e99dcd5896b738",
+  "content_len": 359,
+  "content_redacted_for_report": "All your data was backed up by us. You must pay 0.0062 bitcoin to [REDACTED_BTC_ADDRESS] or in 48 hours, your data will be publicly disclosed and deleted.  (for more information visit [REDACTED_URL] After payment send mail to [REDACTED_EMAIL] and we will provide a link for you to download your data. Your DATAID is: 1FP2A6",
+  "contact_fields_present": {
+    "btc_address": true,
+    "email": true,
+    "url": true,
+    "dataid_marker": true
+  },
+  "dbStats": {
+    "db": "READ_ME_TO_RECOVER_YOUR_DATA",
+    "collections": 1,
+    "objects": 1,
+    "dataSize": 395.0,
+    "storageSize": 20480.0,
+    "indexes": 1,
+    "indexSize": 20480.0,
+    "avgObjSize": 395.0,
+    "ok": 1.0
+  },
+  "classification": "mongodb_ransomware_scare_note",
+  "confidence": "high",
+  "operator_guidance": "Do not pay, contact, or follow URLs. Full unredacted text only in triage JSON under restricted path."
+}

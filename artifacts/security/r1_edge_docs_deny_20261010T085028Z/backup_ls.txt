@@ -1,0 +1,2 @@
+-rw-r--r--    1 root     root          3265 Sep 28 01:55 /opt/caddy/Caddyfile
+-rw-------    1 root     root          3265 Sep 28 01:55 /opt/caddy/Caddyfile.pre-r1-docs-deny-20261010T085028Z

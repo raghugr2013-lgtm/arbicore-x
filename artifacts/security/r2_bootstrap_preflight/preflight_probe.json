@@ -1,0 +1,113 @@
+{
+  "captured_utc": "2026-10-10T09:01:29Z",
+  "auth_status": {
+    "http://127.0.0.1:8001/api/auth/status": {
+      "status": 200,
+      "content_type": "application/json",
+      "body": "{\"setup_complete\":true,\"auth_required\":true,\"bootstrap_requires_token\":true}"
+    },
+    "https://144-91-78-175.sslip.io/api/auth/status": {
+      "status": 200,
+      "content_type": "application/json",
+      "body": "{\"setup_complete\":true,\"auth_required\":true,\"bootstrap_requires_token\":true}"
+    },
+    "https://api.arbicorex.in/api/auth/status": {
+      "status": 200,
+      "content_type": "application/json",
+      "body": "{\"setup_complete\":true,\"auth_required\":true,\"bootstrap_requires_token\":true}"
+    }
+  },
+  "setup_probes_no_valid_token": {
+    "no_header_local": {
+      "status": 403,
+      "error": "HTTPError",
+      "body": "{\"detail\":\"Invalid or missing bootstrap authorization token\"}"
+    },
+    "no_header_public_api": {
+      "status": 403,
+      "error": "HTTPError",
+      "body": "{\"detail\":\"Invalid or missing bootstrap authorization token\"}"
+    },
+    "wrong_token_local": {
+      "status": 403,
+      "error": "HTTPError",
+      "body": "{\"detail\":\"Invalid or missing bootstrap authorization token\"}"
+    }
+  },
+  "container_bootstrap": {
+    "present": true,
+    "len": 64,
+    "sha12": "d5a682fbe887"
+  },
+  "container_admin_user_env": "admin",
+  "dotenv_inventory": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env",
+      "exists": true,
+      "mode": "0o600",
+      "size": 2533,
+      "bootstrap": {
+        "present": true,
+        "len": 64,
+        "sha12": "d5a682fbe887"
+      }
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/app/backend/.env",
+      "exists": false
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/deployment/upgrade/backend/.env",
+      "exists": false
+    }
+  ],
+  "mongo_users": {
+    "collections_authish": [
+      "users"
+    ],
+    "users_count": 1,
+    "users_safe": [
+      {
+        "_id": "6a9e4a6808a812e37f845717",
+        "username": "admin",
+        "role": "admin",
+        "session_version": 2
+      }
+    ]
+  },
+  "legacy_stopped_bootstrap": {
+    "arbicore-x-b7-candidate": {
+      "status": "exited",
+      "bootstrap_present": true,
+      "sha12": "d5a682fbe887",
+      "len": 64
+    },
+    "arbicore-x-backend-h05": {
+      "status": "exited",
+      "bootstrap_present": true,
+      "sha12": "d5a682fbe887",
+      "len": 64
+    },
+    "arbicore-x-backend-w1": {
+      "status": "exited",
+      "bootstrap_present": true,
+      "sha12": "d5a682fbe887",
+      "len": 64
+    }
+  },
+  "r1_still_held": {
+    "sslip_docs": {
+      "status": 404,
+      "server_or_err": "HTTPError"
+    },
+    "api_docs": {
+      "status": 404,
+      "server_or_err": "HTTPError"
+    },
+    "api_api": {
+      "status": 200,
+      "server_or_err": "{\"message\":\"Hello World\"}"
+    }
+  },
+  "backend_image": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313 arbicore-x-backend:s2a-rpc-redact-5bd952568aed"
+}

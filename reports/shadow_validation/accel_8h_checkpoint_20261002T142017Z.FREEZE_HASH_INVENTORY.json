@@ -1,0 +1,34 @@
+{
+  "kind": "PRE_FIX_8H_BASELINE_FREEZE_HASH_INVENTORY",
+  "freeze_stamp_utc": "2026-10-02T14:44:46Z",
+  "note": "Sidecar only — does NOT alter recorded checkpoint metrics in accel_8h_checkpoint_20261002T142017Z.json or SHADOW_ACCELERATED_8H_CHECKPOINT_20261002.md",
+  "operator_stated_checkpoint": {
+    "verdict": "HEALTHY WITH OBSERVATIONS",
+    "runner_elapsed_h": 8.01,
+    "cycles": 5740,
+    "exceptions": 0,
+    "restart_count": 0,
+    "opportunities": 0,
+    "paper_evidence": 0,
+    "image": "g5.79-green-20260927",
+    "SHADOW": "ON",
+    "AUTOEXEC": "OFF",
+    "RUNTIME": "OFF"
+  },
+  "sha256": {
+    "docs/certification/SHADOW_ACCELERATED_8H_CHECKPOINT_20261002.md": "42305fa1e4e0bf60d29243917ea2b5a800bf0af85e39400bf88f63958879dab7",
+    "reports/shadow_validation/accel_8h_checkpoint_20261002T142017Z.json": "021c5ece36115284e9f8a62d6af8018869febe34b9ce292eb5b61b8e0dd6f54b",
+    "reports/shadow_validation/accel_8h_checkpoint_api_raw_20261002T142017Z.json": "0554b330d5c0ff07fbbec3cf9cf5460b5fc861fecf6f7251d148b4f3e1b2a1c3",
+    "reports/shadow_validation/accel_8h_checkpoint_latest.json": "021c5ece36115284e9f8a62d6af8018869febe34b9ce292eb5b61b8e0dd6f54b"
+  },
+  "latest_equals_timestamped_json": true,
+  "gate9_ro_at_freeze": {
+    "container": "arbicore-x-backend-new",
+    "StartedAt": "2026-10-02T06:19:33.513948555Z",
+    "RestartCount": 0,
+    "Image": "arbicore-x-backend:g5.79-green-20260927",
+    "ImageId": "sha256:aaadc3a9cc78d695a9e7e2d16681babc71c576033ad3764061a918946d8e993a",
+    "Health": "healthy",
+    "action": "READ_ONLY — no restart/rebuild/redeploy"
+  }
+}

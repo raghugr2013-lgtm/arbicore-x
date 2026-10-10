@@ -1,0 +1,37 @@
+commit befb14e6aa77515daa038e142ff978822a4fab91
+Author:     arbicore-eng <eng@arbicore.local>
+AuthorDate: Fri Oct 2 10:48:57 2026 +0000
+Commit:     arbicore-eng <eng@arbicore.local>
+CommitDate: Fri Oct 2 10:48:57 2026 +0000
+
+    fix(quoter): bound HTTP-429 retries + per-host cooldown in execution/quoter.py::_eth_call
+    
+    Re-scoped Workstream A to the PROVEN amplification path Cursor identified:
+      live_quote_provider -> QuoterRegistry.quote_route() -> DEX backend
+          -> execution/quoter.py::_eth_call  (module-level, direct httpx).
+    
+    This path is DISTINCT from providers/rpc.py::EthJsonRpcProvider (hardened in
+    2b86cda, left intact). Root cause: quote_route gives the LAST/only RPC candidate
+    the full _RPC_MAX_RETRIES budget (default 4 -> 5 POSTs) on HTTP 429, with NO
+    per-host cooldown, so a rate-limited host (Alchemy) is hammered and re-hammered
+    across hops/cycles.
+    
+    Minimal targeted change, all inside _eth_call (no refactor, two RPC paths NOT
+    unified, failover/ordering/economic gates/fail-closed preserved):
+      * 429 bounded INDEPENDENTLY via ARBICORE_RPC_MAX_RETRIES_429 (default 1),
+        eff_429 = min(retries, 1) applied to every 429/-32016 branch (single +
+        batch modes); non-429 retry/error semantics unchanged.
+      * each 429 places the host on a cooldown (ARBICORE_RPC_RATE_LIMIT_COOLDOWN_S,
+        default 60s); an entry gate fails fast (NO POST) with a rate-limited error
+        so quote_route fails over promptly to a valid alternate endpoint.
+    
+    Tests: NEW tests/test_quoter_eth_call_429_amplification.py (5) drives the REAL
+    quote_route -> UniV3QuoterV2.quote_hop -> _eth_call chain with a POST-counting
+    fake transport. RED->GREEN: single-candidate 429 bounded (<=2 POSTs, was 5);
+    429 sets host cooldown (no re-POST on next quote); prompt failover to healthy
+    alternate; fail-closed break_even when all rate-limited; healthy single-POST
+    path unchanged. 2b86cda NOT modified.
+
+ app/backend/arbicore/execution/quoter.py           |  63 ++++++--
+ .../test_quoter_eth_call_429_amplification.py      | 174 +++++++++++++++++++++
+ 2 files changed, 226 insertions(+), 11 deletions(-)

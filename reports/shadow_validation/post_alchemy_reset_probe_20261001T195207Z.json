@@ -1,0 +1,784 @@
+{
+  "phase": "post_alchemy_reset_rpc_probe",
+  "note": "Operator endpoints only: single ARBICORE_RPC_URL_<CHAIN> mirrored to PROVIDER_RPC_URLS_<CHAIN>. No invented secondary URLs. No subgraph URLs.",
+  "subgraph_env": {
+    "ARBICORE_BALANCER_SUBGRAPH_URL_ETHEREUM": "UNSET",
+    "ARBICORE_BALANCER_SUBGRAPH_URL_ARBITRUM": "UNSET",
+    "ARBICORE_BALANCER_SUBGRAPH_URL_BASE": "UNSET",
+    "ARBICORE_BALANCER_SUBGRAPH_URL_OPTIMISM": "UNSET",
+    "ARBICORE_BALANCER_SUBGRAPH_URL_POLYGON": "UNSET"
+  },
+  "chains": {
+    "ethereum": {
+      "rpc_host": "https://eth-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://eth-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_chainId": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getBalance": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_call": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getLogs_200blocks": {
+          "skipped": "no_block_number"
+        },
+        "rpc_health": "unhealthy",
+        "failure_type": "alchemy_monthly_capacity_429"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=ethereum: last_error=ProviderError('rpc_ethereum_0_eth-mainnet_g_alchemy_co eth_blockNumber -> 429')",
+          "failure_type": "rate_limited_429"
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": false
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'ethereum' (ARBICORE_BALANCER_SUBGRAPH_URL_ETHEREUM)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "discovery_unavailable",
+        "error": "latest block unresolved: ProviderError",
+        "candidates": 0,
+        "provenance": null
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'ethereum' (ARBICORE_BALANCER_SUBGRAPH_URL_ETHEREUM)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "discovery_unavailable",
+          "error": "latest block unresolved: HTTPStatusError",
+          "candidates": 0,
+          "sample": [],
+          "provenance": null,
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": {
+          "status": "rpc_error",
+          "error": "None",
+          "amount_out_wei": 0,
+          "block_number": null,
+          "pool_id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014",
+          "pool_address": "0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56",
+          "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "token_out": "0xba100000625a3754423978a60c9317c58a424e3D",
+          "amount_in_wei": 1000000000000000,
+          "meta": null
+        },
+        "failures": [],
+        "rpc": "https://eth-mainnet.g.alchemy.com/<redacted>"
+      },
+      "matrix": {
+        "chain": "ethereum",
+        "rpc_health": "unhealthy",
+        "http_status_blockNumber": 429,
+        "eth_call": false,
+        "eth_getLogs": null,
+        "failure_type": "alchemy_monthly_capacity_429",
+        "canonical_block": "error",
+        "p1b_registry": "discovery_unavailable",
+        "harness_p1b": "discovery_unavailable",
+        "harness_p0": "rpc_error"
+      }
+    },
+    "arbitrum": {
+      "rpc_host": "https://arb-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://arb-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_chainId": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getBalance": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_call": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getLogs_200blocks": {
+          "skipped": "no_block_number"
+        },
+        "rpc_health": "unhealthy",
+        "failure_type": "alchemy_monthly_capacity_429"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=arbitrum: last_error=ProviderError('rpc_arbitrum_0_arb-mainnet_g_alchemy_co eth_blockNumber -> 429')",
+          "failure_type": "rate_limited_429"
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": false
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'arbitrum' (ARBICORE_BALANCER_SUBGRAPH_URL_ARBITRUM)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "discovery_unavailable",
+        "error": "latest block unresolved: ProviderError",
+        "candidates": 0,
+        "provenance": null
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'arbitrum' (ARBICORE_BALANCER_SUBGRAPH_URL_ARBITRUM)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "discovery_unavailable",
+          "error": "latest block unresolved: HTTPStatusError",
+          "candidates": 0,
+          "sample": [],
+          "provenance": null,
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": null,
+        "failures": [
+          "no_pool_identity_for_p0"
+        ],
+        "rpc": "https://arb-mainnet.g.alchemy.com/<redacted>"
+      },
+      "matrix": {
+        "chain": "arbitrum",
+        "rpc_health": "unhealthy",
+        "http_status_blockNumber": 429,
+        "eth_call": false,
+        "eth_getLogs": null,
+        "failure_type": "alchemy_monthly_capacity_429",
+        "canonical_block": "error",
+        "p1b_registry": "discovery_unavailable",
+        "harness_p1b": "discovery_unavailable",
+        "harness_p0": null
+      }
+    },
+    "base": {
+      "rpc_host": "https://mainnet.base.org/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://mainnet.base.org/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "block": 52047413
+        },
+        "eth_chainId": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "chain_id": 8453
+        },
+        "eth_getBalance": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_call": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_getLogs_200blocks": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "returned": 0,
+          "from": 52047213,
+          "to": 52047413,
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+        },
+        "rpc_health": "healthy",
+        "failure_type": "none"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "ok",
+          "block": 52047414
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": true
+        },
+        "getLogs_small": {
+          "status": "ok",
+          "returned": 0,
+          "from": 52047214,
+          "to": 52047414
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'base' (ARBICORE_BALANCER_SUBGRAPH_URL_BASE)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "ok",
+        "error": null,
+        "candidates": 0,
+        "provenance": {
+          "chain": "base",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "from_block": 51997414,
+          "to_block": 52047414,
+          "chunks": 26,
+          "chunk_size": 2000,
+          "returned": 0,
+          "event_topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e"
+        }
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'base' (ARBICORE_BALANCER_SUBGRAPH_URL_BASE)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "ok",
+          "error": null,
+          "candidates": 0,
+          "sample": [],
+          "provenance": {
+            "chain": "base",
+            "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+            "from_block": 51997417,
+            "to_block": 52047417,
+            "chunks": 26,
+            "chunk_size": 2000,
+            "returned": 0,
+            "event_topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e"
+          },
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": null,
+        "failures": [
+          "no_pool_identity_for_p0"
+        ],
+        "rpc": "https://mainnet.base.org/<redacted>"
+      },
+      "matrix": {
+        "chain": "base",
+        "rpc_health": "healthy",
+        "http_status_blockNumber": 200,
+        "eth_call": true,
+        "eth_getLogs": true,
+        "failure_type": "none",
+        "canonical_block": "ok",
+        "p1b_registry": "ok",
+        "harness_p1b": "ok",
+        "harness_p0": null
+      }
+    },
+    "optimism": {
+      "rpc_host": "https://opt-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://opt-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_chainId": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getBalance": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_call": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getLogs_200blocks": {
+          "skipped": "no_block_number"
+        },
+        "rpc_health": "unhealthy",
+        "failure_type": "alchemy_monthly_capacity_429"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=optimism: last_error=ProviderError('rpc_optimism_0_opt-mainnet_g_alchemy_co eth_blockNumber -> 429')",
+          "failure_type": "rate_limited_429"
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": false
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'optimism' (ARBICORE_BALANCER_SUBGRAPH_URL_OPTIMISM)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "discovery_unavailable",
+        "error": "latest block unresolved: ProviderError",
+        "candidates": 0,
+        "provenance": null
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'optimism' (ARBICORE_BALANCER_SUBGRAPH_URL_OPTIMISM)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "discovery_unavailable",
+          "error": "latest block unresolved: HTTPStatusError",
+          "candidates": 0,
+          "sample": [],
+          "provenance": null,
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": null,
+        "failures": [
+          "no_pool_identity_for_p0"
+        ],
+        "rpc": "https://opt-mainnet.g.alchemy.com/<redacted>"
+      },
+      "matrix": {
+        "chain": "optimism",
+        "rpc_health": "unhealthy",
+        "http_status_blockNumber": 429,
+        "eth_call": false,
+        "eth_getLogs": null,
+        "failure_type": "alchemy_monthly_capacity_429",
+        "canonical_block": "error",
+        "p1b_registry": "discovery_unavailable",
+        "harness_p1b": "discovery_unavailable",
+        "harness_p0": null
+      }
+    },
+    "polygon": {
+      "rpc_host": "https://polygon-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://polygon-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_chainId": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getBalance": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_call": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getLogs_200blocks": {
+          "skipped": "no_block_number"
+        },
+        "rpc_health": "unhealthy",
+        "failure_type": "alchemy_monthly_capacity_429"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=polygon: last_error=ProviderError('rpc_polygon_0_polygon-mainnet_g_alchem eth_blockNumber -> 429')",
+          "failure_type": "rate_limited_429"
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": false
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'polygon' (ARBICORE_BALANCER_SUBGRAPH_URL_POLYGON)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "discovery_unavailable",
+        "error": "latest block unresolved: ProviderError",
+        "candidates": 0,
+        "provenance": null
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'polygon' (ARBICORE_BALANCER_SUBGRAPH_URL_POLYGON)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "discovery_unavailable",
+          "error": "latest block unresolved: HTTPStatusError",
+          "candidates": 0,
+          "sample": [],
+          "provenance": null,
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": null,
+        "failures": [
+          "no_pool_identity_for_p0"
+        ],
+        "rpc": "https://polygon-mainnet.g.alchemy.com/<redacted>"
+      },
+      "matrix": {
+        "chain": "polygon",
+        "rpc_health": "unhealthy",
+        "http_status_blockNumber": 429,
+        "eth_call": false,
+        "eth_getLogs": null,
+        "failure_type": "alchemy_monthly_capacity_429",
+        "canonical_block": "error",
+        "p1b_registry": "discovery_unavailable",
+        "harness_p1b": "discovery_unavailable",
+        "harness_p0": null
+      }
+    },
+    "bnb": {
+      "rpc_host": "https://bnb-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://bnb-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_chainId": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getBalance": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_call": {
+          "http_status": 429,
+          "ok": false,
+          "rpc_error": {
+            "code": 429,
+            "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+          },
+          "result_present": false
+        },
+        "eth_getLogs_200blocks": {
+          "skipped": "no_balancer_vault_on_chain"
+        },
+        "rpc_health": "unhealthy",
+        "failure_type": "alchemy_monthly_capacity_429"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=bnb: last_error=ProviderError('rpc_bnb_0_bnb-mainnet_g_alchemy_co eth_blockNumber -> 429')",
+          "failure_type": "rate_limited_429"
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": false
+        }
+      },
+      "subgraph": {
+        "status": "unsupported",
+        "note": "Balancer V2 vault map has no BNB"
+      },
+      "p1b_registry": {
+        "status": "unsupported"
+      },
+      "harness_balancer": {
+        "status": "unsupported"
+      },
+      "matrix": {
+        "chain": "bnb",
+        "rpc_health": "unhealthy",
+        "http_status_blockNumber": 429,
+        "eth_call": false,
+        "eth_getLogs": null,
+        "failure_type": "alchemy_monthly_capacity_429",
+        "canonical_block": "error",
+        "p1b_registry": "unsupported",
+        "harness_p1b": null,
+        "harness_p0": null
+      }
+    }
+  },
+  "subgraph_api_key": "UNSET",
+  "ethereum_failure_classification": {
+    "secondary_operator_rpc_configured": false,
+    "subgraph_configured": false,
+    "direct_blockNumber": {
+      "http_status": 429,
+      "ok": false,
+      "rpc_error": {
+        "code": 429,
+        "message": "Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service."
+      },
+      "result_present": false
+    },
+    "direct_getLogs_small": {
+      "skipped": "no_block_number"
+    },
+    "registry_p1b": {
+      "status": "discovery_unavailable",
+      "error": "latest block unresolved: ProviderError",
+      "candidates": 0,
+      "provenance": null
+    },
+    "harness_p1b": {
+      "status": "discovery_unavailable",
+      "error": "latest block unresolved: HTTPStatusError",
+      "candidates": 0,
+      "sample": [],
+      "provenance": null,
+      "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+      "window_blocks": 50000
+    },
+    "harness_p0": {
+      "status": "rpc_error",
+      "error": "None",
+      "amount_out_wei": 0,
+      "block_number": null,
+      "pool_id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014",
+      "pool_address": "0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56",
+      "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "token_out": "0xba100000625a3754423978a60c9317c58a424e3D",
+      "amount_in_wei": 1000000000000000,
+      "meta": null
+    },
+    "precise_failure_mode": "alchemy_monthly_capacity_429",
+    "detail": "{'http_status': 429, 'ok': False, 'rpc_error': {'code': 429, 'message': 'Monthly capacity limit exceeded. Visit https://dashboard.alchemy.com/settings/billing to upgrade your scaling policy for continued service.'}, 'result_present': False}"
+  },
+  "health_matrix": [
+    {
+      "chain": "ethereum",
+      "rpc_health": "unhealthy",
+      "http_status_blockNumber": 429,
+      "eth_call": false,
+      "eth_getLogs": null,
+      "failure_type": "alchemy_monthly_capacity_429",
+      "canonical_block": "error",
+      "p1b_registry": "discovery_unavailable",
+      "harness_p1b": "discovery_unavailable",
+      "harness_p0": "rpc_error"
+    },
+    {
+      "chain": "arbitrum",
+      "rpc_health": "unhealthy",
+      "http_status_blockNumber": 429,
+      "eth_call": false,
+      "eth_getLogs": null,
+      "failure_type": "alchemy_monthly_capacity_429",
+      "canonical_block": "error",
+      "p1b_registry": "discovery_unavailable",
+      "harness_p1b": "discovery_unavailable",
+      "harness_p0": null
+    },
+    {
+      "chain": "base",
+      "rpc_health": "healthy",
+      "http_status_blockNumber": 200,
+      "eth_call": true,
+      "eth_getLogs": true,
+      "failure_type": "none",
+      "canonical_block": "ok",
+      "p1b_registry": "ok",
+      "harness_p1b": "ok",
+      "harness_p0": null
+    },
+    {
+      "chain": "optimism",
+      "rpc_health": "unhealthy",
+      "http_status_blockNumber": 429,
+      "eth_call": false,
+      "eth_getLogs": null,
+      "failure_type": "alchemy_monthly_capacity_429",
+      "canonical_block": "error",
+      "p1b_registry": "discovery_unavailable",
+      "harness_p1b": "discovery_unavailable",
+      "harness_p0": null
+    },
+    {
+      "chain": "polygon",
+      "rpc_health": "unhealthy",
+      "http_status_blockNumber": 429,
+      "eth_call": false,
+      "eth_getLogs": null,
+      "failure_type": "alchemy_monthly_capacity_429",
+      "canonical_block": "error",
+      "p1b_registry": "discovery_unavailable",
+      "harness_p1b": "discovery_unavailable",
+      "harness_p0": null
+    },
+    {
+      "chain": "bnb",
+      "rpc_health": "unhealthy",
+      "http_status_blockNumber": 429,
+      "eth_call": false,
+      "eth_getLogs": null,
+      "failure_type": "alchemy_monthly_capacity_429",
+      "canonical_block": "error",
+      "p1b_registry": "unsupported",
+      "harness_p1b": null,
+      "harness_p0": null
+    }
+  ]
+}

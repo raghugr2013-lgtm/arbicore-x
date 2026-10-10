@@ -1,0 +1,687 @@
+{
+  "captured_utc": "2026-10-10T09:17:01Z",
+  "consumers": [
+    {
+      "name": "arbicore-x-backend-new",
+      "status": "running",
+      "mongo_related": {
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        },
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "factory-runner",
+      "status": "running",
+      "mongo_related": {
+        "DB_NAME": {
+          "present": true,
+          "value": "strategy_factory_v1"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "factory-backend",
+      "status": "running",
+      "mongo_related": {
+        "DB_NAME": {
+          "present": true,
+          "value": "strategy_factory_v1"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "foreman-backend",
+      "status": "running",
+      "mongo_related": {
+        "DB_NAME": {
+          "present": true,
+          "value": "foreman"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": null,
+          "is_root": false,
+          "host": "foreman-mongo",
+          "port": 27017,
+          "auth_source": null,
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://foreman-mongo:27017"
+        }
+      },
+      "networks": [
+        "foreman_foreman-internal",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": false
+    },
+    {
+      "name": "arbicore-x-b7-candidate",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        }
+      },
+      "networks": [
+        "bridge",
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-backend-h05",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        }
+      },
+      "networks": [
+        "arbicore-x-net",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-backend",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        }
+      },
+      "networks": [
+        "arbicore-x-net",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-backend-w1",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        }
+      },
+      "networks": [
+        "arbicore-x-net",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-backend-w1-old",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        }
+      },
+      "networks": [
+        "arbicore-x-net",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-backend-pre-provider-rpc",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        }
+      },
+      "networks": [
+        "arbicore-x-net",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-backend-rollback-p0-3-6af6534",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        }
+      },
+      "networks": [
+        "arbicore-x-net",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "factory-mongo",
+      "status": "running",
+      "mongo_related": {
+        "MONGO_INITDB_ROOT_USERNAME": {
+          "present": true,
+          "value": "root"
+        },
+        "MONGO_INITDB_ROOT_PASSWORD": {
+          "present": true,
+          "len": 64,
+          "sha12": "35d5cacbda3a"
+        },
+        "MONGO_PACKAGE": {
+          "present": true,
+          "username": null,
+          "is_root": false,
+          "host": "mongodb-org",
+          "port": null,
+          "auth_source": null,
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb-org"
+        },
+        "MONGO_REPO": {
+          "present": true,
+          "value": "repo.mongodb.org"
+        },
+        "MONGO_MAJOR": {
+          "present": true,
+          "len": 3
+        },
+        "MONGO_VERSION": {
+          "present": true,
+          "len": 6
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": false
+    },
+    {
+      "name": "arbicore-x-backend-rollback-p0-3-3a7b918",
+      "status": "exited",
+      "mongo_related": {
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "arbicore-x-net",
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-validator-f36d7c9",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "arbicore-validator-net",
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-m30-livehunt-ce041c8",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-m30-livehunt-2c6a099",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-m30-livehunt-69dceba",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-m30-stageconfirm-32d86e6",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-m30-wiring-validator",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-m30-validator",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "arbicore-x-m26-validator",
+      "status": "exited",
+      "mongo_related": {
+        "MONGO_IMAGE": {
+          "present": true,
+          "value": "mongo:4.4"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_x"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": "root",
+          "is_root": true,
+          "host": "factory-mongo",
+          "port": 27017,
+          "auth_source": "admin",
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://root:***@factory-mongo:27017/?\u2026"
+        }
+      },
+      "networks": [
+        "strategy-factory-canonical_default"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": true
+    },
+    {
+      "name": "factory-vie",
+      "status": "running",
+      "mongo_related": {},
+      "networks": [
+        "vqb-network"
+      ],
+      "on_vqb": true,
+      "uses_factory_mongo": false
+    },
+    {
+      "name": "arbicore-g5-79-app",
+      "status": "running",
+      "mongo_related": {
+        "MONGO_URL": {
+          "present": true,
+          "username": null,
+          "is_root": false,
+          "host": "arbicore-g5-79-mongo",
+          "port": 27017,
+          "auth_source": null,
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://arbicore-g5-79-mongo:27017"
+        },
+        "DB_NAME": {
+          "present": true,
+          "value": "arbicore_g579_test"
+        }
+      },
+      "networks": [
+        "arbicore-g579-isolated"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": false
+    },
+    {
+      "name": "foreman-cert-backend",
+      "status": "running",
+      "mongo_related": {
+        "DB_NAME": {
+          "present": true,
+          "value": "foreman_cert"
+        },
+        "MONGO_URL": {
+          "present": true,
+          "username": null,
+          "is_root": false,
+          "host": "foreman-cert-mongo",
+          "port": 27017,
+          "auth_source": null,
+          "db_in_path": null,
+          "redacted_uri_shape": "mongodb://foreman-cert-mongo:27017"
+        }
+      },
+      "networks": [
+        "foreman-cert_cert-internal"
+      ],
+      "on_vqb": false,
+      "uses_factory_mongo": false
+    }
+  ]
+}

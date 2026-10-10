@@ -1,0 +1,70 @@
+{
+  "kind": "WS_A_CONTROLLED_SHADOW_CUTOVER_POST",
+  "not_official_gate9": true,
+  "not_official_gate10": true,
+  "cutover_compose_completed_utc": "2026-10-02T15:08:55Z",
+  "cutover_start_utc": "2026-10-02T15:08:37Z",
+  "stamp": "20261002T150827Z",
+  "override_paths": {
+    "durable_cert_artifact": "/home/raghu/projects/arbicore-x-cert/artifacts/deploy_staging/workstream-a-befb14e/POST_PATCH_OVERRIDE_ws-a-befb14e_20261002T150827Z.yml",
+    "tmp_working_copy": "/tmp/arbicore-ws-a-befb14e-prod-override.yml",
+    "rollback_override_unchanged": "/tmp/arbicore-g579-prod-override.yml"
+  },
+  "compose_workdir": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/compose",
+  "compose_cmd": "docker compose -f docker-compose.prod.yml -f /tmp/arbicore-ws-a-befb14e-prod-override.yml up -d backend",
+  "old_image": {
+    "tag": "arbicore-x-backend:g5.79-green-20260927",
+    "id": "sha256:aaadc3a9cc78d695a9e7e2d16681babc71c576033ad3764061a918946d8e993a",
+    "still_present_locally": true,
+    "not_retagged": true
+  },
+  "new_image": {
+    "tag": "arbicore-x-backend:ws-a-befb14e-20261002",
+    "id": "sha256:12759b11a783619ad25746a030c5bbcc71b83ed64ff05b3316153d6402a594ae",
+    "approved_id": "sha256:12759b11a783619ad25746a030c5bbcc71b83ed64ff05b3316153d6402a594ae",
+    "match": true
+  },
+  "git_sha": "befb14e6aa77515daa038e142ff978822a4fab91",
+  "container": {
+    "name": "arbicore-x-backend-new",
+    "Status": "running",
+    "Health": "healthy",
+    "StartedAt": "2026-10-02T15:08:52.884157323Z",
+    "RestartCount": 0,
+    "Image": "arbicore-x-backend:ws-a-befb14e-20261002"
+  },
+  "safety_env": {
+    "ARBICORE_EXECUTION_MODE": "SHADOW",
+    "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+    "ARBICORE_RUNTIME_AUTOSTART": "false",
+    "ARBICORE_SCANNER_AUTOSTART": "true",
+    "ARBICORE_SHADOW_CERT_ENABLED": "true",
+    "ARBICORE_GIT_SHA": "befb14e6aa77515daa038e142ff978822a4fab91",
+    "ARBICORE_PAPER_VALIDATION_ENABLED": "true",
+    "ARBICORE_GIT_TAG": "ws-a-befb14e-20261002"
+  },
+  "safety_api": {
+    "live_execution_enabled": false,
+    "effective_kill_engaged": true,
+    "require_approval_gate": true,
+    "require_paper_validation": true,
+    "raw_top_keys": [
+      "available",
+      "live_execution_enabled",
+      "require_approval_gate",
+      "require_paper_validation",
+      "kill",
+      "kill_switch_persistent",
+      "effective_kill_engaged",
+      "capital_policy",
+      "generated_at"
+    ]
+  },
+  "metrics_probe": null,
+  "baseline_preserved": true,
+  "anomalies": [
+    "Boot logs mention runtime_config autostart_daily=True (shadow/daily window config) while ARBICORE_RUNTIME_AUTOSTART=false and boot explicitly disabled arbicore_runtime autostart \u2014 expected, not a safety flip.",
+    "FlashLoanArbitrageScanner boot summary shows enabled=False / detection_only=True / mode=SHADOW with readiness.active=True \u2014 observe in campaign; not treated as STOP."
+  ],
+  "STOP_AFTER_THIS": "No further deploy/promotion/Gate9 without another GO"
+}

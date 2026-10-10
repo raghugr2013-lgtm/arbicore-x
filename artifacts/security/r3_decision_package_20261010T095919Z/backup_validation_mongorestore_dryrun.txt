@@ -1,0 +1,3 @@
+2026-10-10T10:16:35.075+0000	preparing collections to restore from
+2026-10-10T10:16:35.079+0000	dry run completed
+2026-10-10T10:16:35.079+0000	0 document(s) restored successfully. 0 document(s) failed to restore.

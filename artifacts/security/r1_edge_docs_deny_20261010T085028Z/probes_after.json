@@ -1,0 +1,167 @@
+{
+  "captured_utc": "2026-10-10T08:55:47Z",
+  "phase": "after",
+  "sslip_docs_blocked": true,
+  "api_host_docs_blocked": true,
+  "all_public_docs_blocked": true,
+  "all_api_healthy": true,
+  "localhost_docs_still_open": true,
+  "results": [
+    {
+      "url": "https://144-91-78-175.sslip.io/docs",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/docs/",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/redoc",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/redoc/",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/openapi.json",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/api/",
+      "expect_docs_blocked": false,
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "{\"message\":\"Hello World\"}",
+      "pass": true
+    },
+    {
+      "url": "https://arbicorex.in/docs",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://arbicorex.in/redoc",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://arbicorex.in/openapi.json",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://arbicorex.in/api/",
+      "expect_docs_blocked": false,
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "{\"message\":\"Hello World\"}",
+      "pass": true
+    },
+    {
+      "url": "https://api.arbicorex.in/docs",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://api.arbicorex.in/docs/",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://api.arbicorex.in/redoc",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://api.arbicorex.in/openapi.json",
+      "expect_docs_blocked": true,
+      "status": 404,
+      "error": "HTTPError",
+      "body_prefix_safe": "Not Found",
+      "pass": true
+    },
+    {
+      "url": "https://api.arbicorex.in/api/",
+      "expect_docs_blocked": false,
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "{\"message\":\"Hello World\"}",
+      "pass": true
+    },
+    {
+      "url": "http://127.0.0.1:8001/docs",
+      "expect_docs_blocked": null,
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "text/html; charset=utf-8",
+      "via": null,
+      "body_prefix_safe": "\n    <!DOCTYPE html>\n    <html>\n    <head>\n    <link type=\"text/css\" rel=\"styles",
+      "pass": null
+    },
+    {
+      "url": "http://127.0.0.1:8001/openapi.json",
+      "expect_docs_blocked": null,
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": null,
+      "body_prefix_safe": "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"FastAPI\",\"version\":\"0.1.0\"},\"paths\":{\"/api/\"",
+      "pass": null
+    },
+    {
+      "url": "http://127.0.0.1:8001/api/",
+      "expect_docs_blocked": null,
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": null,
+      "body_prefix_safe": "{\"message\":\"Hello World\"}",
+      "pass": null
+    }
+  ]
+}

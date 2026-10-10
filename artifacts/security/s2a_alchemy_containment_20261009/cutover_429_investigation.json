@@ -1,0 +1,116 @@
+{
+  "scan_note": "docker logs --since 90m (recreate through post-accept)",
+  "httpx_total": 3348,
+  "httpx_429_count": 5,
+  "httpx_429_rate_per_1000": 1.493,
+  "baseline_60m": {
+    "httpx": 1593,
+    "429": 2,
+    "rate_per_1000": 1.255
+  },
+  "normalized_per_hour": {
+    "httpx": 2232.0,
+    "429": 3.33,
+    "baseline_httpx": 1593.0,
+    "baseline_429": 2.0
+  },
+  "429_by_chain": {
+    "base": 1,
+    "polygon": 4
+  },
+  "429_by_host": {
+    "mainnet.base.org": 1,
+    "polygon-mainnet.g.alchemy.com": 4
+  },
+  "429_by_provider_class": {
+    "public": 1,
+    "alchemy": 4
+  },
+  "429_by_5min_bucket": {
+    "2026-10-10 06:55": 5
+  },
+  "first_429_ts": "2026-10-10 06:58:42.981",
+  "last_429_ts": "2026-10-10 06:59:17.936",
+  "inter_event_gaps_sec": [
+    34.0,
+    1.0,
+    0.0,
+    0.0
+  ],
+  "max_gap_sec": 34.0,
+  "min_gap_sec": 0.0,
+  "clustered": true,
+  "sustained_multi_hour": false,
+  "httpx_status_counts": {
+    "200": 3342,
+    "400": 1,
+    "429": 5
+  },
+  "httpx_by_chain": {
+    "base": 2318,
+    "other": 4,
+    "ethereum": 138,
+    "arbitrum": 276,
+    "optimism": 264,
+    "polygon": 214,
+    "bnb": 134
+  },
+  "related_app_lines_sample": [
+    "2026-10-10 06:58:42,981 - httpx - INFO - HTTP Request: POST https://mainnet.base.org \"HTTP/1.1 429 Too Many Requests\"",
+    "2026-10-10 06:58:42,983 - arbicore.execution.quoter - INFO - rpc_429 host=mainnet.base.org chain=base fp=none kind=http_429 retried=True",
+    "2026-10-10 06:58:43,534 - arbicore.execution.quoter - INFO - rpc_429 host=mainnet.base.org chain=base fp=none kind=cooldown_gate retried=False",
+    "2026-10-10 06:58:43,534 - arbicore.execution.quoter - INFO - quoter: hop 2 failing over from mainnet.base.org to base-mainnet.g.alchemy.com (status=fallback:revert err=code=-32016 HTTP 429 host cooldown (recent rate limit))",
+    "2026-10-10 06:59:16,429 - httpx - INFO - HTTP Request: POST https://polygon-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+    "2026-10-10 06:59:16,756 - httpx - INFO - HTTP Request: POST https://polygon-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 429 Too Many Requests\"",
+    "2026-10-10 06:59:17,033 - httpx - INFO - HTTP Request: POST https://polygon-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 429 Too Many Requests\"",
+    "2026-10-10 06:59:17,700 - httpx - INFO - HTTP Request: POST https://polygon-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 429 Too Many Requests\"",
+    "2026-10-10 06:59:17,936 - httpx - INFO - HTTP Request: POST https://polygon-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 429 Too Many Requests\"",
+    "2026-10-10 06:59:19,429 - httpx - INFO - HTTP Request: POST https://polygon-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+    "2026-10-10 06:59:22,429 - httpx - INFO - HTTP Request: POST https://bnb-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+    "2026-10-10 07:12:56,429 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+    "2026-10-10 08:10:07,429 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+    "2026-10-10 08:16:17,429 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\""
+  ],
+  "events": [
+    {
+      "ts": "2026-10-10 06:58:42.981",
+      "method": "POST",
+      "host": "mainnet.base.org",
+      "chain": "base",
+      "status": 429,
+      "provider_class": "public"
+    },
+    {
+      "ts": "2026-10-10 06:59:16.756",
+      "method": "POST",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "chain": "polygon",
+      "status": 429,
+      "provider_class": "alchemy"
+    },
+    {
+      "ts": "2026-10-10 06:59:17.033",
+      "method": "POST",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "chain": "polygon",
+      "status": 429,
+      "provider_class": "alchemy"
+    },
+    {
+      "ts": "2026-10-10 06:59:17.700",
+      "method": "POST",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "chain": "polygon",
+      "status": 429,
+      "provider_class": "alchemy"
+    },
+    {
+      "ts": "2026-10-10 06:59:17.936",
+      "method": "POST",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "chain": "polygon",
+      "status": 429,
+      "provider_class": "alchemy"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "ts": "2026-10-09T10:36:40.969237+00:00",
+  "count": 1,
+  "handle_id": "sec-3cec159e23d7495ab89140e5452a3d67",
+  "decrypt_ok": true,
+  "plaintext_sha12": "b4ce2e6143a2",
+  "cipher_sha12": "45e7f15ca337",
+  "derived_address": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+  "address_unchanged": true,
+  "vault_key_sha12": "fb5ca619211e",
+  "fields": [
+    "algorithm",
+    "cipher",
+    "created_at",
+    "derived_address",
+    "execution_role",
+    "handle_id",
+    "label",
+    "provider",
+    "scope"
+  ]
+}

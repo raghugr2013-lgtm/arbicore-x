@@ -1,0 +1,211 @@
+{
+  "utc": "2026-10-10T12:31:04Z",
+  "integrity_reverify_pass": true,
+  "move_rows_ok": true,
+  "live_ok": true,
+  "recovery_ok": true,
+  "quarantine_mode": "0o700",
+  "hold_until_utc": "2026-10-24T12:29:00Z",
+  "moved_count": 17,
+  "dest_present_count": 17,
+  "source_absent_count": 17,
+  "live": {
+    "dotenv": {
+      "admin_sha12": "112c88ac69e1",
+      "jwt_sha12": "f98650d468b2"
+    },
+    "ctr_admin": "112c88ac69e1",
+    "ctr_jwt": "f98650d468b2",
+    "digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "health": "healthy"
+  },
+  "rows": [
+    {
+      "source": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/local_upgrade_backups/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/local_upgrade_backups/.env.g5.27-backup-20260927-101642",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/local_upgrade_backups/.env.pre-paper-20260916T112833Z",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/local_upgrade_backups/.env.backup.20261002-081704",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/local_upgrade_backups/.env.g5.62-backup-20260927-105923",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/local_upgrade_backups/.env.bak-20260916-133913",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/local_upgrade_backups/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/local_upgrade_backups/.env.pre-t2-wss-20260911T160217Z",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore_ctr_all.env",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore_ctr_all.env",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore-runtime-cert-ad64a50.env",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore-runtime-cert-ad64a50.env",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore-x-backend.env",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore-x-backend.env",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore-runtime-cert.env",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore-runtime-cert.env",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore-x-candidate.env",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore-x-candidate.env",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore-backend-p0-3.env",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore-backend-p0-3.env",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore-backend.env",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore-backend.env",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore-x-runtime.env",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore-x-runtime.env",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    },
+    {
+      "source": "/tmp/arbicore-production-env.backup",
+      "destination": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z/tmp_ephemeral/arbicore-production-env.backup",
+      "source_absent": true,
+      "dest_present": true,
+      "sha256_match": true,
+      "admin_sha12": "6780d7b21193",
+      "jwt_sha12": "7013ef842946",
+      "generation_ok": true,
+      "dest_mode": "0o600"
+    }
+  ]
+}

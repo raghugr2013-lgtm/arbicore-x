@@ -1,0 +1,18 @@
+services:
+  backend:
+    image: arbicore-x-backend:s2a-rpc-redact-5bd952568aed
+    build: null
+    environment:
+      ARBICORE_GIT_SHA: "5bd952568aeda55bc90702289a9bfbfa9d6ba82c"
+      ARBICORE_GIT_TAG: "s2a-rpc-redact-5bd952568aed"
+      ARBICORE_RUNTIME_ENV: "production"
+      ARBICORE_ENV: "production"
+      ARBICORE_EXECUTION_MODE: "SHADOW"
+      ARBICORE_AUTOEXEC_AUTOSTART: "false"
+      ARBICORE_RUNTIME_AUTOSTART: "false"
+      ARBICORE_SCANNER_AUTOSTART: "true"
+      ARBICORE_SHADOW_CERT_ENABLED: "true"
+      ARBICORE_BORROW_SIZER_ENABLED: "true"
+      ARBICORE_PRICE_FEED_ENABLED: "true"
+      ARBICORE_FLASH_LOAN_SHADOW_ROUTE: "true"
+      ARBICORE_FLASH_LOAN_VERIFICATION_WORKERS: "6"

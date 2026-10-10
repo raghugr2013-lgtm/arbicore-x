@@ -1,0 +1,118 @@
+{
+  "connected_as": "root",
+  "host": "factory-mongo",
+  "authInfo_users": [
+    {
+      "user": "root",
+      "db": "admin"
+    }
+  ],
+  "authInfo_roles_count": 1,
+  "arbicore_x": {
+    "collection_count": 62,
+    "sample_names": [
+      "arbicore_venue_capabilities",
+      "calibration_log",
+      "capital_policy",
+      "arbicore_scanner_config",
+      "calibration_models",
+      "arbicore_config",
+      "arbicore_discovery_source_metrics",
+      "arbicore_research_candidates",
+      "evidence_bundles",
+      "arbicore_provenance_audit"
+    ],
+    "users": 1,
+    "discovery": 3921188,
+    "decision_history": 739524
+  },
+  "strategy_factory_v1": {
+    "collection_count": 55,
+    "sample_names": [
+      "calibration_outcomes",
+      "factory_eval_reports",
+      "advisory_locks",
+      "meta_learning_recommendations",
+      "factory_eval_applications",
+      "autonomous_scheduler_ticks",
+      "meta_learning_applications",
+      "outcome_events",
+      "strategy_lifecycle_history",
+      "mutation_events"
+    ],
+    "first_cols_est": {
+      "calibration_outcomes": 0,
+      "factory_eval_reports": 11,
+      "advisory_locks": 0,
+      "meta_learning_recommendations": 0,
+      "factory_eval_applications": 0
+    }
+  },
+  "strategy_knowledge_base": {
+    "collection_count": 4,
+    "sample_names": [
+      "knowledge_contradiction_events",
+      "connector_events",
+      "knowledge_endorsement_events",
+      "lifecycle_events"
+    ]
+  },
+  "READ_ME_TO_RECOVER_YOUR_DATA": {
+    "collection_count": 1,
+    "sample_names": [
+      "README"
+    ],
+    "README_count": 1
+  },
+  "security": {
+    "authentication": {
+      "saslSupportedMechsReceived": 631298,
+      "mechanisms": {
+        "MONGODB-X509": {
+          "speculativeAuthenticate": {
+            "received": 0,
+            "successful": 0
+          },
+          "clusterAuthenticate": {
+            "received": 0,
+            "successful": 0
+          },
+          "authenticate": {
+            "received": 0,
+            "successful": 0
+          }
+        },
+        "SCRAM-SHA-1": {
+          "speculativeAuthenticate": {
+            "received": 0,
+            "successful": 0
+          },
+          "clusterAuthenticate": {
+            "received": 0,
+            "successful": 0
+          },
+          "authenticate": {
+            "received": 0,
+            "successful": 0
+          }
+        },
+        "SCRAM-SHA-256": {
+          "speculativeAuthenticate": {
+            "received": 631298,
+            "successful": 299509
+          },
+          "clusterAuthenticate": {
+            "received": 0,
+            "successful": 0
+          },
+          "authenticate": {
+            "received": 631298,
+            "successful": 299509
+          }
+        }
+      },
+      "totalAuthenticationTimeMicros": 7245442689
+    }
+  },
+  "version": "7.0.39"
+}

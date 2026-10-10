@@ -1,0 +1,82 @@
+{
+  "backup_dir": "/home/raghu/arbicore_backups/s2a_alchemy_cutover_20261010T065530Z",
+  "env_bytes": 2533,
+  "network_bytes": 4177,
+  "revision_id": "rev-37e7b2123cda4d658fc7f5daf7ceaa81",
+  "primary_fps": {
+    "base": {
+      "host": "base-mainnet.g.alchemy.com",
+      "fp8": "24dab5d1"
+    },
+    "ethereum": {
+      "host": "eth-mainnet.g.alchemy.com",
+      "fp8": "24dab5d1"
+    },
+    "arbitrum": {
+      "host": "arb-mainnet.g.alchemy.com",
+      "fp8": "24dab5d1"
+    },
+    "optimism": {
+      "host": "opt-mainnet.g.alchemy.com",
+      "fp8": "24dab5d1"
+    },
+    "bnb": {
+      "host": "bnb-mainnet.g.alchemy.com",
+      "fp8": "24dab5d1"
+    },
+    "polygon": {
+      "host": "polygon-mainnet.g.alchemy.com",
+      "fp8": "24dab5d1"
+    }
+  },
+  "fallback_fps_sample_base": [
+    "e315c86f",
+    "dc432a6b",
+    "6e67e161",
+    "cd505118",
+    "124bc59c"
+  ],
+  "fallbacks_uniform": true,
+  "dotenv_rpc": [
+    {
+      "env": "ARBICORE_RPC_URL",
+      "host": "base-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BASE",
+      "host": "mainnet.base.org",
+      "fp8": null
+    },
+    {
+      "env": "ARBICORE_ARCHIVE_RPC_URL",
+      "host": "base-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ETHEREUM",
+      "host": "eth-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ARBITRUM",
+      "host": "arb-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_OPTIMISM",
+      "host": "opt-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_POLYGON",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BNB",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1"
+    }
+  ]
+}

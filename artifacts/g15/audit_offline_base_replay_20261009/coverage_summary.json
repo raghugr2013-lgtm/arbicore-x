@@ -1,0 +1,2732 @@
+{
+  "denominator_base_winners": 6287,
+  "g15_classification_ABCD": {
+    "A": 1418,
+    "D": 560,
+    "B": 4252,
+    "C": 57
+  },
+  "match_tiers": {
+    "UNMATCHED": 5260,
+    "PARTIAL_POOL_SET": 624,
+    "PARTIAL_POOL_UNSUPPORTED_VENUE": 57,
+    "UNMATCHABLE": 338,
+    "ROUTE_FAMILY": 1,
+    "EXACT_POOL_AND_VENUE": 7
+  },
+  "match_tiers_by_classification": {
+    "A": {
+      "UNMATCHED": 903,
+      "PARTIAL_POOL_SET": 451,
+      "PARTIAL_POOL_UNSUPPORTED_VENUE": 46,
+      "UNMATCHABLE": 17,
+      "EXACT_POOL_AND_VENUE": 1
+    },
+    "D": {
+      "UNMATCHED": 445,
+      "UNMATCHABLE": 93,
+      "PARTIAL_POOL_UNSUPPORTED_VENUE": 7,
+      "ROUTE_FAMILY": 1,
+      "PARTIAL_POOL_SET": 9,
+      "EXACT_POOL_AND_VENUE": 5
+    },
+    "B": {
+      "UNMATCHED": 3867,
+      "PARTIAL_POOL_SET": 159,
+      "PARTIAL_POOL_UNSUPPORTED_VENUE": 2,
+      "UNMATCHABLE": 223,
+      "EXACT_POOL_AND_VENUE": 1
+    },
+    "C": {
+      "UNMATCHED": 45,
+      "UNMATCHABLE": 5,
+      "PARTIAL_POOL_SET": 5,
+      "PARTIAL_POOL_UNSUPPORTED_VENUE": 2
+    }
+  },
+  "coverage": {
+    "exact_pool_and_venue": 7,
+    "exact_pool_and_venue_pct": "0.11%",
+    "partial_any": 682,
+    "partial_any_pct": "10.85%",
+    "partial_pool_unsupported_venue": 57,
+    "partial_pool_set": 624,
+    "route_family_no_address_proof": 1,
+    "unmatched": 5260,
+    "unmatched_pct": "83.66%",
+    "unmatchable": 338,
+    "unmatchable_pct": "5.38%",
+    "conservative_addressable_exact": 7,
+    "sensitivity_addressable_exact_or_route_family": 8
+  },
+  "kept_net_by_tier_ALL_OWNER_BASIS": {
+    "UNMATCHED": {
+      "n": 4770,
+      "sum": 11245.3298,
+      "median": 0.119327,
+      "ge1": 584,
+      "ge25": 54,
+      "ge100": 15,
+      "ge1000": 2
+    },
+    "PARTIAL_POOL_SET": {
+      "n": 610,
+      "sum": 5207.1131,
+      "median": 0.308965,
+      "ge1": 143,
+      "ge25": 19,
+      "ge100": 7,
+      "ge1000": 2
+    },
+    "PARTIAL_POOL_UNSUPPORTED_VENUE": {
+      "n": 48,
+      "sum": 62.7449,
+      "median": 0.440303,
+      "ge1": 17,
+      "ge25": 0,
+      "ge100": 0,
+      "ge1000": 0
+    },
+    "UNMATCHABLE": {
+      "n": 240,
+      "sum": 38.1334,
+      "median": 0.028559,
+      "ge1": 4,
+      "ge25": 0,
+      "ge100": 0,
+      "ge1000": 0
+    },
+    "EXACT_POOL_AND_VENUE": {
+      "n": 2,
+      "sum": 36.5751,
+      "median": 18.287564,
+      "ge1": 1,
+      "ge25": 1,
+      "ge100": 0,
+      "ge1000": 0
+    }
+  },
+  "kept_net_by_tier_VERIFIED_OWNER_ONLY": {
+    "UNMATCHED": {
+      "n": 306,
+      "sum": 71.7974,
+      "median": 0.048519,
+      "ge1": 6,
+      "ge25": 1,
+      "ge100": 0,
+      "ge1000": 0
+    },
+    "PARTIAL_POOL_SET": {
+      "n": 11,
+      "sum": 3.4295,
+      "median": 0.080111,
+      "ge1": 1,
+      "ge25": 0,
+      "ge100": 0,
+      "ge1000": 0
+    },
+    "UNMATCHABLE": {
+      "n": 11,
+      "sum": 1.3583,
+      "median": 0.116061,
+      "ge1": 0,
+      "ge25": 0,
+      "ge100": 0,
+      "ge1000": 0
+    }
+  },
+  "owner_payout_basis": {
+    "INFERRED": 1330,
+    "MISSING": 4583,
+    "VERIFIED": 374
+  },
+  "families": {
+    "cross-pool": 224,
+    "multi-hop": 1651,
+    "DEX-DEX": 2258,
+    "triangular": 1975,
+    "slow-dislocation(>60s)": 67,
+    "unresolved-shape": 112
+  },
+  "profit_buckets": {
+    "0-1": 4847,
+    "?": 560,
+    "1-3": 413,
+    "5-10": 106,
+    "3-5": 120,
+    "25-100": 63,
+    "<=0": 74,
+    "10-25": 78,
+    "100-1000": 21,
+    ">1000": 5
+  },
+  "leg_venue_atoms": [
+    [
+      "UniswapV3",
+      4439
+    ],
+    [
+      "Aerodrome-Slipstream3",
+      2655
+    ],
+    [
+      "PancakeV3",
+      2267
+    ],
+    [
+      "Aerodrome-Slipstream",
+      2042
+    ],
+    [
+      "Aerodrome-V2",
+      745
+    ],
+    [
+      "UniV4[USDC/USDT f6]",
+      374
+    ],
+    [
+      "Aerodrome-Slipstream2",
+      341
+    ],
+    [
+      "AlgebraIntegral@0x36077d39",
+      336
+    ],
+    [
+      "UniV4[USDC/USDT f5]",
+      211
+    ],
+    [
+      "UniswapV2",
+      207
+    ],
+    [
+      "Curve",
+      156
+    ],
+    [
+      "AlgebraIntegral@0xc5396866",
+      131
+    ],
+    [
+      "UniV4[?]",
+      115
+    ],
+    [
+      "UniV4[USDC/USDT f7]",
+      107
+    ],
+    [
+      "UniV4[XDP/USDC f70]",
+      94
+    ],
+    [
+      "V3-type@0x0fd83557",
+      91
+    ],
+    [
+      "UniV4[USDC/USDT f4]",
+      73
+    ],
+    [
+      "UniV4[XDP/USDC f20]",
+      73
+    ],
+    [
+      "UniV4[USDC/DRV f4900]",
+      63
+    ],
+    [
+      "V3-type@0x70fe4a44",
+      62
+    ],
+    [
+      "UniV4[XDP/USDT f22]",
+      59
+    ],
+    [
+      "V3-type",
+      52
+    ],
+    [
+      "UniV4[XDP/USDC f51]",
+      50
+    ],
+    [
+      "UniV4[XDP/USDC f39]",
+      50
+    ],
+    [
+      "UniV4[XDP/USDT f67]",
+      49
+    ],
+    [
+      "UniV4[USDC/WHUF f20000]",
+      44
+    ],
+    [
+      "UniV4[XDP/USDC f41]",
+      43
+    ],
+    [
+      "UniV4[XDP/USDC f65]",
+      43
+    ],
+    [
+      "UniV4[XDP/USDC f43]",
+      42
+    ],
+    [
+      "UniV4[USDC/DGUY f150000]",
+      41
+    ],
+    [
+      "UniV4[USDC/WHUF f40100]",
+      40
+    ],
+    [
+      "UniV4[XDP/USDC f24]",
+      39
+    ],
+    [
+      "MaverickV2@0x0a7e848a",
+      36
+    ],
+    [
+      "V2-type@0xed8db60a",
+      33
+    ],
+    [
+      "UniV4[XDP/USDC f33]",
+      33
+    ],
+    [
+      "UniV4[XDP/USDC f75]",
+      31
+    ],
+    [
+      "UniV4[XDP/USDT f20]",
+      28
+    ],
+    [
+      "UniV4[tBTC/USDC f3000]",
+      26
+    ],
+    [
+      "UniV4[XDP/USDC f42]",
+      25
+    ],
+    [
+      "V2-type@0x3e84d913",
+      24
+    ],
+    [
+      "UniV4[STONKEX/USDC f9000]",
+      23
+    ],
+    [
+      "V2-type@0x2ee28d1b",
+      23
+    ],
+    [
+      "UniV4[XDP/USDC f52]",
+      23
+    ],
+    [
+      "UniV4[XDP/USDC f22]",
+      23
+    ],
+    [
+      "UniV4[XDP/USDC f18]",
+      23
+    ],
+    [
+      "AlgebraIntegral",
+      22
+    ],
+    [
+      "UniV4[USDC/USDbC f6]",
+      22
+    ],
+    [
+      "UniV4[XDP/USDC f66]",
+      21
+    ],
+    [
+      "UniV4[XDP/USDC f50]",
+      21
+    ],
+    [
+      "UniV4[USDC/WHUF f20010]",
+      21
+    ],
+    [
+      "UniV4[USDC/cbXRP f3000]",
+      21
+    ],
+    [
+      "UniV4[ETH*/USDC f500]",
+      20
+    ],
+    [
+      "V2-type@0x7456837f",
+      17
+    ],
+    [
+      "SushiV3",
+      16
+    ],
+    [
+      "UniV4[USDC/WHUF f18000]",
+      16
+    ],
+    [
+      "UniV4[USDC/USDT f8]",
+      15
+    ],
+    [
+      "PCS-Infinity-CL",
+      15
+    ],
+    [
+      "UniV4[USDC/cbBTC f500]",
+      15
+    ],
+    [
+      "UniV4[XDP/USDC f21]",
+      15
+    ],
+    [
+      "UniV4[ETH*/USDC f5006]",
+      14
+    ],
+    [
+      "UniV4[GIZA/USDC f200000]",
+      14
+    ],
+    [
+      "UniV4[USDC/cbBTC f8388608 hook]",
+      13
+    ],
+    [
+      "UniV4[GULD/GREEN f3000]",
+      12
+    ],
+    [
+      "UniV4[USDC/WHUF f80000]",
+      12
+    ],
+    [
+      "UniV4[GULD/USDC f80000]",
+      11
+    ],
+    [
+      "UniV4[USDC/cbBTC f1500]",
+      11
+    ],
+    [
+      "UniV4[DIEM/kDIEM f10000]",
+      11
+    ],
+    [
+      "UniV4[XDP/USDC f40]",
+      11
+    ],
+    [
+      "UniV4[ETH*/AMZNc f60000]",
+      11
+    ],
+    [
+      "UniV4[USDC/MRVLc f50000]",
+      11
+    ],
+    [
+      "BalancerV2",
+      10
+    ],
+    [
+      "UniV4[ETH*/USDC f3000]",
+      10
+    ],
+    [
+      "V2-type@0xfda619b6",
+      10
+    ],
+    [
+      "V2-type",
+      9
+    ],
+    [
+      "PancakeV2",
+      9
+    ],
+    [
+      "UniV4[XDP/USDT f19]",
+      9
+    ],
+    [
+      "UniV4[XDP/USDC f55]",
+      9
+    ],
+    [
+      "UniV4[USDC/NOCK f15000]",
+      9
+    ],
+    [
+      "SushiV2",
+      9
+    ],
+    [
+      "UniV4[GULD/ELMT f3000]",
+      8
+    ],
+    [
+      "V3-type@0x38015d05",
+      8
+    ],
+    [
+      "UniV4[GULD/SWITCH f3000]",
+      8
+    ],
+    [
+      "UniV4[XDP/USDC f19]",
+      8
+    ],
+    [
+      "V3-type@0x6e606cf9",
+      8
+    ],
+    [
+      "UniV4[USDC/BLUECHIP f10000]",
+      7
+    ],
+    [
+      "UniV4[USDC/GLMR f10000]",
+      7
+    ],
+    [
+      "UniV4[cbBTC/cbDOGE f2500]",
+      7
+    ],
+    [
+      "UniV4[GULD/WIN f3000]",
+      7
+    ],
+    [
+      "BalancerV3",
+      7
+    ],
+    [
+      "UniV4[GULD/RALLY f3000]",
+      7
+    ],
+    [
+      "UniV4[LFI/ETH* f8388608 hook]",
+      7
+    ],
+    [
+      "UniV4[flETH/ODAI f0 hook]",
+      6
+    ],
+    [
+      "UniV4[BSTONK/USDC f3000 hook]",
+      6
+    ],
+    [
+      "UniV4[IPOD/AAPLc f8388608 hook]",
+      6
+    ],
+    [
+      "UniV4[USDC/cbZEC f10000]",
+      6
+    ],
+    [
+      "UniV4[GULD/GIVE f3000]",
+      6
+    ],
+    [
+      "UniV4[cbBTC/DIEM f3000]",
+      6
+    ],
+    [
+      "UniV4[USDC/CAS f0]",
+      6
+    ],
+    [
+      "UniV4[USDC/WHUF f50000]",
+      6
+    ],
+    [
+      "UniV4[USDC/WHUF f16500]",
+      6
+    ],
+    [
+      "UniV4[CAKE/USDC f8388608 hook]",
+      6
+    ],
+    [
+      "UniV4[flETH/TAKEOVER f0 hook]",
+      6
+    ],
+    [
+      "UniV4[USDC/USDbC f100]",
+      5
+    ],
+    [
+      "UniV4[ELMT/USDC f300000]",
+      5
+    ],
+    [
+      "UniV4[XDP/USDC f69]",
+      5
+    ],
+    [
+      "UniV4[BSTONK/$OLIVIA2.0 f40000]",
+      5
+    ],
+    [
+      "AlgebraIntegral@0xefcb993e",
+      5
+    ],
+    [
+      "UniV4[USDC/Basecat f9000]",
+      5
+    ],
+    [
+      "UniV4[USDC/UNI f3000]",
+      5
+    ],
+    [
+      "UniV4[XDP/USDC f82]",
+      5
+    ],
+    [
+      "UniV4[RALLY/USDC f50000]",
+      5
+    ],
+    [
+      "UniV4[ETH*/ETHFI f3000]",
+      5
+    ],
+    [
+      "UniV4[USDC/WHUF f15000]",
+      5
+    ],
+    [
+      "UniV4[REI/USDC f8388608 hook]",
+      5
+    ],
+    [
+      "UniV4[USDC/DOVU[base] f10000]",
+      4
+    ],
+    [
+      "UniV4[ETH*/EDEL f21000]",
+      4
+    ],
+    [
+      "UniV4[ENA/USDC f10000]",
+      4
+    ],
+    [
+      "PancakeV3@0x829ce741",
+      4
+    ],
+    [
+      "UniV4[USDC/IPOD f10000]",
+      4
+    ],
+    [
+      "UniV4[USDC/kDIEM f9000]",
+      4
+    ],
+    [
+      "UniV4[XDP/USDC f71]",
+      4
+    ],
+    [
+      "UniV4[XDP/USDC f44]",
+      4
+    ],
+    [
+      "UniV4[Trenchors/USDC f151300]",
+      4
+    ],
+    [
+      "UniV4[RALLY/GREEN f3000]",
+      4
+    ],
+    [
+      "UniV4[ETH*/NOCK f20000]",
+      4
+    ],
+    [
+      "V3-type@0xe6da85fe",
+      4
+    ],
+    [
+      "UniV4[MOR/VVV f100]",
+      4
+    ],
+    [
+      "UniV4[GIVE/SWITCH f3000]",
+      4
+    ],
+    [
+      "UniV4[XDP/USDT f15]",
+      4
+    ],
+    [
+      "UniV4[USDC/plumber f30000]",
+      4
+    ],
+    [
+      "UniV4[KIBSHI/cbXRP f10000]",
+      4
+    ],
+    [
+      "V3-type@0xb5e5a9e6",
+      4
+    ],
+    [
+      "UniV4[xcn/cbXRP f10000]",
+      4
+    ],
+    [
+      "UniV4[ELMT/GREEN f3000]",
+      3
+    ],
+    [
+      "UniV4[USDC/LLYc f50000]",
+      3
+    ],
+    [
+      "V2-type@0x04c9f118",
+      3
+    ],
+    [
+      "UniV4[ZRO/USDC f9990]",
+      3
+    ],
+    [
+      "UniV4[flETH/BETR f0 hook]",
+      3
+    ],
+    [
+      "V2-type@0x9a9a171c",
+      3
+    ],
+    [
+      "UniV4[GIZA/USDT f770000]",
+      3
+    ],
+    [
+      "UniV4[ETH*/USDC f1000]",
+      3
+    ],
+    [
+      "UniV4[USDC/XPR f2500]",
+      3
+    ],
+    [
+      "UniV4[USDC/AAPLc f2000 hook]",
+      3
+    ],
+    [
+      "Fluid",
+      3
+    ],
+    [
+      "UniV4[ETH*/USDC f5008]",
+      3
+    ],
+    [
+      "UniV4[USDC/SPIKE f28180]",
+      3
+    ],
+    [
+      "UniV4[HYDX/oHYDX f10000]",
+      3
+    ],
+    [
+      "UniV4[USDC/AMZNc f2000 hook]",
+      3
+    ],
+    [
+      "UniV4[ETH*/FLASH f6000 hook]",
+      3
+    ],
+    [
+      "UniV4[WIN/SWITCH f3000]",
+      3
+    ],
+    [
+      "UniV4[XDP/USDT f50]",
+      3
+    ],
+    [
+      "UniV4[GROW/GULD f3000]",
+      3
+    ],
+    [
+      "UniV4[EUR/USDC f3000]",
+      3
+    ],
+    [
+      "UniV4[USDC/PFEc f880000]",
+      3
+    ],
+    [
+      "UniV4[SOSO/USDC f1]",
+      3
+    ],
+    [
+      "UniV4[XDP/USDC f8]",
+      3
+    ],
+    [
+      "UniV4[USDC/WIN f70000]",
+      3
+    ],
+    [
+      "UniV4[bAP3X/cbBTC f2500]",
+      3
+    ],
+    [
+      "UniV4[SI/USDC f350000]",
+      3
+    ],
+    [
+      "UniV4[ETH*/OSAK f10000]",
+      3
+    ],
+    [
+      "UniV4[ETH*/Surplus f8388608 hook]",
+      3
+    ],
+    [
+      "UniV4[USDC/WHUF f70000]",
+      3
+    ],
+    [
+      "UniV4[ETH*/cbXRP f2500]",
+      3
+    ],
+    [
+      "AlgebraIntegral@0xac900f12",
+      3
+    ],
+    [
+      "UniV4[USDC/USDT f1 hook]",
+      3
+    ],
+    [
+      "UniV4[USDC/HTZc f880000]",
+      3
+    ],
+    [
+      "UniV4[MOVR/GLMR f10000]",
+      3
+    ],
+    [
+      "UniV4[FRLZ/VELVET f10000]",
+      2
+    ],
+    [
+      "UniV4[DOVU[base]/USDT f100000]",
+      2
+    ],
+    [
+      "DODO",
+      2
+    ],
+    [
+      "V2-type@0x57592d44",
+      2
+    ],
+    [
+      "UniV4[USDC/NFLXc f50000]",
+      2
+    ],
+    [
+      "UniV4[ETH*/HYBUX f10000]",
+      2
+    ],
+    [
+      "UniV4[USDC/HYBUX f200000]",
+      2
+    ],
+    [
+      "UniV4[USDC/BDAG f250000]",
+      2
+    ],
+    [
+      "UniV4[BSTONK/USDC f25000]",
+      2
+    ],
+    [
+      "UniV4[ETH*/USDC f75]",
+      2
+    ],
+    [
+      "UniV4[USDC/Basecat f24420]",
+      2
+    ],
+    [
+      "UniV4[MILF/USDC f75]",
+      2
+    ],
+    [
+      "UniV4[USDC/NOCK f10000]",
+      2
+    ],
+    [
+      "UniV4[USDC/RIVER f3000]",
+      2
+    ],
+    [
+      "UniV4[XDP/USDT f90]",
+      2
+    ],
+    [
+      "UniV4[USDC/SPIKE f28900]",
+      2
+    ],
+    [
+      "UniV4[USDC/oHYDX f9000]",
+      2
+    ],
+    [
+      "UniV4[GIVE/WIN f3000]",
+      2
+    ],
+    [
+      "UniV4[PF/USDC f400000]",
+      2
+    ],
+    [
+      "V3-type@0x5e168884",
+      2
+    ],
+    [
+      "UniV4[USDC/YUZU f75]",
+      2
+    ],
+    [
+      "UniV4[USDC/YUZU f750000]",
+      2
+    ],
+    [
+      "UniV4[ETH*/GITLAWB f8388608 hook]",
+      2
+    ],
+    [
+      "UniV4[ETH*/cbBTC f500]",
+      2
+    ],
+    [
+      "UniV4[XDP/USDC f38]",
+      2
+    ],
+    [
+      "UniV4[SWITCH/GREEN f3000]",
+      2
+    ],
+    [
+      "UniV4[RALLY/WIN f3000]",
+      2
+    ],
+    [
+      "UniV4[ETH*/USDC f375]",
+      2
+    ],
+    [
+      "UniV4[STONKEX/USDC f20000]",
+      2
+    ],
+    [
+      "TraderJoe-LB",
+      2
+    ],
+    [
+      "UniV4[KAI/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[USDC/KAI f20000]",
+      2
+    ],
+    [
+      "UniV4[ETH*/USDC f2500]",
+      2
+    ],
+    [
+      "UniV4[NVDAc/KAI f20000]",
+      2
+    ],
+    [
+      "UniV4[WOOF/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[USDC/MRVLc f880000]",
+      2
+    ],
+    [
+      "UniV4[USDC/DOJI f250000]",
+      2
+    ],
+    [
+      "UniV4[MILF/STONKEX f20000]",
+      2
+    ],
+    [
+      "V2-type@0xb0c2d8a8",
+      2
+    ],
+    [
+      "UniV4[USDC/WHUF f38880]",
+      2
+    ],
+    [
+      "UniV4[VIRTUAL/USDC f3000]",
+      2
+    ],
+    [
+      "UniV4[USDC/NOCK f30000]",
+      2
+    ],
+    [
+      "UniV4[WORM/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[BASETARD/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[MEOW/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[USDC/MEOW f20000]",
+      2
+    ],
+    [
+      "UniV4[USDC/BRAIN f20000]",
+      2
+    ],
+    [
+      "UniV4[BRAIN/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[MOVR/XPR f9000]",
+      2
+    ],
+    [
+      "UniV4[USDC/DEUS f9900]",
+      2
+    ],
+    [
+      "UniV4[FUN/USDC f9000]",
+      2
+    ],
+    [
+      "UniV4[WIN/GREEN f3000]",
+      2
+    ],
+    [
+      "UniV4[flETH/BEAM f0 hook]",
+      2
+    ],
+    [
+      "V2-type@0x6ae1d7ef",
+      2
+    ],
+    [
+      "UniV4[gKAI/USDC f200000]",
+      2
+    ],
+    [
+      "UniV4[TEL/eUSD f3000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/HYBUX f30000]",
+      1
+    ],
+    [
+      "V3-type@0xdc323d16",
+      1
+    ],
+    [
+      "UniV4[ZRO/USDC f10000]",
+      1
+    ],
+    [
+      "UniV4[CAKE/USDC f500]",
+      1
+    ],
+    [
+      "UniV4[USDC/STONX f50000]",
+      1
+    ],
+    [
+      "UniV4[wtSPYM/STONX f8388608 hook]",
+      1
+    ],
+    [
+      "V2-type@0xdc93aca9",
+      1
+    ],
+    [
+      "UniV4[SPIKE/USDC f50000]",
+      1
+    ],
+    [
+      "UniV4[USDC/QUBTc f50000]",
+      1
+    ],
+    [
+      "UniV4[BSTONK/MILF f20000]",
+      1
+    ],
+    [
+      "UniV4[XPR/GLMR f9000]",
+      1
+    ],
+    [
+      "UniV4[GIZA/USDC f750000]",
+      1
+    ],
+    [
+      "UniV4[USDC/kcj101 f3000]",
+      1
+    ],
+    [
+      "UniV4[GYND/USDC f300000]",
+      1
+    ],
+    [
+      "UniV4[MILF/Basecat f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/REACT f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/GMEc f30000]",
+      1
+    ],
+    [
+      "UniV4[GITLAWB/TWIG f2500]",
+      1
+    ],
+    [
+      "UniV4[ETH*/USDC f1002]",
+      1
+    ],
+    [
+      "UniV4[ETH*/oHYDX f20000]",
+      1
+    ],
+    [
+      "UniV4[XDP/USDC f100]",
+      1
+    ],
+    [
+      "UniV4[gSPEED/GOOGLc f10000]",
+      1
+    ],
+    [
+      "V2-type@0xba34aa64",
+      1
+    ],
+    [
+      "UniV4[MOVE/USDC f10000]",
+      1
+    ],
+    [
+      "UniV4[MOVE/USDC f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/EDEL f3000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/XDP f100]",
+      1
+    ],
+    [
+      "V3-type@0xaa5865dc",
+      1
+    ],
+    [
+      "UniV4[PF/USDC f480000]",
+      1
+    ],
+    [
+      "UniV4[PF/USDC f500000]",
+      1
+    ],
+    [
+      "V2-type@0x7d9d5126",
+      1
+    ],
+    [
+      "UniV4[KSLR/USDC f500]",
+      1
+    ],
+    [
+      "UniV4[KSLR/UNI f500]",
+      1
+    ],
+    [
+      "UniV4[USDC/AAPLc f9000]",
+      1
+    ],
+    [
+      "UniV4[USDC/GMEc f80000]",
+      1
+    ],
+    [
+      "UniV4[USDC/GLMR f37000]",
+      1
+    ],
+    [
+      "UniV4[USDC/GLMR f40003]",
+      1
+    ],
+    [
+      "UniV4[AAVE/UNI f9000]",
+      1
+    ],
+    [
+      "UniV4[GROW/GREEN f3000]",
+      1
+    ],
+    [
+      "UniV4[uPUMP/USDC f150000]",
+      1
+    ],
+    [
+      "UniV4[cbZEC/cbBTC f2500]",
+      1
+    ],
+    [
+      "UniV4[ETH*/EUR f3000]",
+      1
+    ],
+    [
+      "UniV4[RALLY/GIVE f3000]",
+      1
+    ],
+    [
+      "UniV4[Trenchors/USDC f206600]",
+      1
+    ],
+    [
+      "UniV4[USDC/NVAXc f880000]",
+      1
+    ],
+    [
+      "UniV4[XDP/USDC f53]",
+      1
+    ],
+    [
+      "PancakeV3@0xb5620f90",
+      1
+    ],
+    [
+      "UniV4[ELMT/WIN f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/COBIE f100000]",
+      1
+    ],
+    [
+      "UniV4[USDC/AMZNc f59900]",
+      1
+    ],
+    [
+      "UniV4[USDC/SOUNc f880000]",
+      1
+    ],
+    [
+      "UniV4[AVNT/USDC f9000]",
+      1
+    ],
+    [
+      "UniV4[GROW/GIVE f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/ACU f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/GLMR f40001]",
+      1
+    ],
+    [
+      "UniV4[Trenchors/USDC f160000]",
+      1
+    ],
+    [
+      "V2-type@0x1b8128c3",
+      1
+    ],
+    [
+      "V2-type@0x4c1b8d4a",
+      1
+    ],
+    [
+      "UniV4[NVDAc/WOOF f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/NVDAc f8388608 hook]",
+      1
+    ],
+    [
+      "UniV4[USDC/NVDAc f9900]",
+      1
+    ],
+    [
+      "UniV4[PIZZA/USDC f500000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/USDC f5004]",
+      1
+    ],
+    [
+      "UniV4[USDC/plumber f47388]",
+      1
+    ],
+    [
+      "UniV4[GROW/SWITCH f3000]",
+      1
+    ],
+    [
+      "UniV4[HYDX/USDC f9000]",
+      1
+    ],
+    [
+      "UniV4[CAKEc/USDT f320000]",
+      1
+    ],
+    [
+      "UniV4[USDC/PMc f880000]",
+      1
+    ],
+    [
+      "UniV4[USDC/DRV f9000]",
+      1
+    ],
+    [
+      "UniV4[VVV/cbBTC f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/VVV f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/RNBW f9000]",
+      1
+    ],
+    [
+      "UniV4[USDC/AMDc f50000]",
+      1
+    ],
+    [
+      "UniV4[BINU/USDC f480000]",
+      1
+    ],
+    [
+      "UniV4[BINU/USDC f650000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/WHUF f800000]",
+      1
+    ],
+    [
+      "UniV4[USDC/CAKEc f500000]",
+      1
+    ],
+    [
+      "UniV4[RALLY/SWITCH f3000]",
+      1
+    ],
+    [
+      "UniV4[ELMT/SWITCH f3000]",
+      1
+    ],
+    [
+      "UniV4[BSTONK/USDC f22211]",
+      1
+    ],
+    [
+      "UniV4[ETH*/BSTONK f100000]",
+      1
+    ],
+    [
+      "UniV4[USDC/DONSENSE f156800]",
+      1
+    ],
+    [
+      "UniV4[ETH*/AERO f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/SPCXc f30000]",
+      1
+    ],
+    [
+      "UniV4[OMGSUP/USDC f200000]",
+      1
+    ],
+    [
+      "V3-type@0x0e5ab24b",
+      1
+    ],
+    [
+      "UniV4[ETH*/RWAGMI f20000 hook]",
+      1
+    ],
+    [
+      "UniV4[RWAGMI/AAPLc f50000]",
+      1
+    ],
+    [
+      "UniV4[ZORA/chubal f375]",
+      1
+    ],
+    [
+      "UniV4[brett/BRETTINME f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/CRV f3000]",
+      1
+    ],
+    [
+      "UniV4[CAKEc/USDT f770000]",
+      1
+    ],
+    [
+      "UniV4[USDC/USDT f20]",
+      1
+    ],
+    [
+      "UniV4[USDC/USD+ f48]",
+      1
+    ],
+    [
+      "UniV4[KIBSHI/SHIB f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/UNI f9000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/UNI f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/SPIKE f27780]",
+      1
+    ],
+    [
+      "UniV4[WBTC/USDC f3000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/BLOCKTRONICS f8388608 hook]",
+      1
+    ],
+    [
+      "UniV4[ETH*/USDC f20000]",
+      1
+    ],
+    [
+      "UniV4[BNKR/USDC f3000]",
+      1
+    ],
+    [
+      "UniV4[JACK/PEPE f10000]",
+      1
+    ],
+    [
+      "UniV4[TOSHI/BUZ f3000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/NEMESIS f3000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/NEMESIS f10000]",
+      1
+    ],
+    [
+      "UniV4[WORM/AAPLc f20000]",
+      1
+    ],
+    [
+      "UniV4[NVDAc/BASETARD f20000]",
+      1
+    ],
+    [
+      "UniV4[BNKR/LOVE f9000]",
+      1
+    ],
+    [
+      "UniV4[VVV/Surplus f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/HNO f300000]",
+      1
+    ],
+    [
+      "UniV4[USDC/WHUF f48800]",
+      1
+    ],
+    [
+      "UniV4[USDC/Basecat f29998]",
+      1
+    ],
+    [
+      "UniV4[USDC/BASETARD f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/WORM f20000]",
+      1
+    ],
+    [
+      "UniV4[RAWR/kDIEM f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/RAWR f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/WOOF f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/RAWR f38900]",
+      1
+    ],
+    [
+      "UniV4[STONKEX/USDC f33433]",
+      1
+    ],
+    [
+      "UniV4[ETH*/USDC f998]",
+      1
+    ],
+    [
+      "UniV4[USDS/USDC f95]",
+      1
+    ],
+    [
+      "UniV4[USDC/Surplus f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/Surplus f15000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/SI f350000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/MfT f8388608 hook]",
+      1
+    ],
+    [
+      "UniV4[BTCBR/ETH* f10000 hook]",
+      1
+    ],
+    [
+      "UniV4[USDC/WHUF f88000]",
+      1
+    ],
+    [
+      "UniV4[USDC/FXRP f10000]",
+      1
+    ],
+    [
+      "UniV4[MOVR/USDC f255000]",
+      1
+    ],
+    [
+      "UniV4[GRID/USDC f200000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/WONTON f350000]",
+      1
+    ],
+    [
+      "UniV4[FLOWER/USDC f2500]",
+      1
+    ]
+  ],
+  "unsupported_venue_hits_among_nonexact": [
+    [
+      "PancakeV3",
+      1987
+    ],
+    [
+      "AlgebraIntegral@0x36077d39",
+      332
+    ],
+    [
+      "UniV4[USDC/USDT f6]",
+      330
+    ],
+    [
+      "UniswapV2",
+      187
+    ],
+    [
+      "UniV4[USDC/USDT f5]",
+      186
+    ],
+    [
+      "Curve",
+      143
+    ],
+    [
+      "AlgebraIntegral@0xc5396866",
+      126
+    ],
+    [
+      "UniV4[USDC/USDT f7]",
+      90
+    ],
+    [
+      "V3-type@0x0fd83557",
+      86
+    ],
+    [
+      "UniV4[XDP/USDC f70]",
+      81
+    ],
+    [
+      "UniV4[?]",
+      68
+    ],
+    [
+      "V3-type@0x70fe4a44",
+      62
+    ],
+    [
+      "UniV4[USDC/USDT f4]",
+      62
+    ],
+    [
+      "V3-type",
+      52
+    ],
+    [
+      "UniV4[USDC/WHUF f20000]",
+      43
+    ],
+    [
+      "UniV4[XDP/USDT f67]",
+      42
+    ],
+    [
+      "UniV4[USDC/DGUY f150000]",
+      40
+    ],
+    [
+      "UniV4[USDC/WHUF f40100]",
+      38
+    ],
+    [
+      "MaverickV2@0x0a7e848a",
+      35
+    ],
+    [
+      "UniV4[XDP/USDC f41]",
+      34
+    ],
+    [
+      "UniV4[XDP/USDT f22]",
+      32
+    ],
+    [
+      "V2-type@0xed8db60a",
+      29
+    ],
+    [
+      "UniV4[XDP/USDC f51]",
+      29
+    ],
+    [
+      "UniV4[XDP/USDC f39]",
+      29
+    ],
+    [
+      "UniV4[tBTC/USDC f3000]",
+      26
+    ],
+    [
+      "UniV4[XDP/USDC f20]",
+      24
+    ],
+    [
+      "UniV4[XDP/USDC f75]",
+      23
+    ],
+    [
+      "V2-type@0x2ee28d1b",
+      23
+    ],
+    [
+      "UniV4[STONKEX/USDC f9000]",
+      22
+    ],
+    [
+      "UniV4[USDC/USDbC f6]",
+      22
+    ],
+    [
+      "AlgebraIntegral",
+      21
+    ],
+    [
+      "UniV4[XDP/USDC f65]",
+      21
+    ],
+    [
+      "UniV4[USDC/cbXRP f3000]",
+      21
+    ],
+    [
+      "V2-type@0x3e84d913",
+      19
+    ],
+    [
+      "UniV4[XDP/USDC f43]",
+      18
+    ],
+    [
+      "UniV4[USDC/WHUF f20010]",
+      18
+    ],
+    [
+      "UniV4[XDP/USDC f33]",
+      16
+    ],
+    [
+      "UniV4[USDC/WHUF f18000]",
+      16
+    ],
+    [
+      "UniV4[ETH*/USDC f500]",
+      15
+    ],
+    [
+      "SushiV3",
+      15
+    ],
+    [
+      "UniV4[ETH*/USDC f5006]",
+      14
+    ],
+    [
+      "PCS-Infinity-CL",
+      13
+    ],
+    [
+      "UniV4[GIZA/USDC f200000]",
+      12
+    ],
+    [
+      "V2-type@0x7456837f",
+      12
+    ],
+    [
+      "UniV4[USDC/cbBTC f500]",
+      12
+    ],
+    [
+      "UniV4[XDP/USDC f42]",
+      12
+    ],
+    [
+      "UniV4[USDC/WHUF f80000]",
+      12
+    ],
+    [
+      "UniV4[USDC/USDT f8]",
+      11
+    ],
+    [
+      "UniV4[DIEM/kDIEM f10000]",
+      11
+    ],
+    [
+      "UniV4[ETH*/USDC f3000]",
+      10
+    ],
+    [
+      "UniV4[USDC/cbBTC f8388608 hook]",
+      10
+    ],
+    [
+      "V2-type@0xfda619b6",
+      10
+    ],
+    [
+      "V2-type",
+      9
+    ],
+    [
+      "UniV4[USDC/cbBTC f1500]",
+      9
+    ],
+    [
+      "SushiV2",
+      9
+    ],
+    [
+      "UniV4[XDP/USDC f24]",
+      9
+    ],
+    [
+      "UniV4[XDP/USDC f18]",
+      9
+    ],
+    [
+      "UniV4[USDC/MRVLc f50000]",
+      9
+    ],
+    [
+      "V3-type@0x38015d05",
+      8
+    ],
+    [
+      "BalancerV2",
+      8
+    ],
+    [
+      "UniV4[USDC/DRV f4900]",
+      8
+    ],
+    [
+      "UniV4[XDP/USDC f66]",
+      8
+    ],
+    [
+      "UniV4[USDC/NOCK f15000]",
+      8
+    ],
+    [
+      "V3-type@0x6e606cf9",
+      8
+    ],
+    [
+      "PancakeV2",
+      7
+    ],
+    [
+      "UniV4[USDC/BLUECHIP f10000]",
+      7
+    ],
+    [
+      "UniV4[cbBTC/cbDOGE f2500]",
+      7
+    ],
+    [
+      "UniV4[XDP/USDC f50]",
+      7
+    ],
+    [
+      "UniV4[ETH*/AMZNc f60000]",
+      7
+    ],
+    [
+      "UniV4[BSTONK/USDC f3000 hook]",
+      6
+    ],
+    [
+      "UniV4[USDC/cbZEC f10000]",
+      6
+    ],
+    [
+      "UniV4[cbBTC/DIEM f3000]",
+      6
+    ],
+    [
+      "UniV4[USDC/CAS f0]",
+      6
+    ],
+    [
+      "UniV4[USDC/WHUF f50000]",
+      6
+    ],
+    [
+      "UniV4[USDC/WHUF f16500]",
+      6
+    ],
+    [
+      "UniV4[XDP/USDC f69]",
+      5
+    ],
+    [
+      "UniV4[BSTONK/$OLIVIA2.0 f40000]",
+      5
+    ],
+    [
+      "AlgebraIntegral@0xefcb993e",
+      5
+    ],
+    [
+      "UniV4[USDC/Basecat f9000]",
+      5
+    ],
+    [
+      "BalancerV3",
+      5
+    ],
+    [
+      "UniV4[LFI/ETH* f8388608 hook]",
+      5
+    ],
+    [
+      "UniV4[XDP/USDC f55]",
+      5
+    ],
+    [
+      "UniV4[USDC/WHUF f15000]",
+      5
+    ],
+    [
+      "UniV4[REI/USDC f8388608 hook]",
+      5
+    ],
+    [
+      "UniV4[USDC/USDbC f100]",
+      4
+    ],
+    [
+      "PancakeV3@0x829ce741",
+      4
+    ],
+    [
+      "UniV4[ENA/USDC f10000]",
+      4
+    ],
+    [
+      "UniV4[USDC/UNI f3000]",
+      4
+    ],
+    [
+      "UniV4[XDP/USDC f82]",
+      4
+    ],
+    [
+      "UniV4[ETH*/NOCK f20000]",
+      4
+    ],
+    [
+      "V3-type@0xe6da85fe",
+      4
+    ],
+    [
+      "UniV4[MOR/VVV f100]",
+      4
+    ],
+    [
+      "UniV4[USDC/plumber f30000]",
+      4
+    ],
+    [
+      "UniV4[KIBSHI/cbXRP f10000]",
+      4
+    ],
+    [
+      "V3-type@0xb5e5a9e6",
+      4
+    ],
+    [
+      "UniV4[xcn/cbXRP f10000]",
+      4
+    ],
+    [
+      "UniV4[USDC/DOVU[base] f10000]",
+      3
+    ],
+    [
+      "UniV4[USDC/LLYc f50000]",
+      3
+    ],
+    [
+      "V2-type@0x04c9f118",
+      3
+    ],
+    [
+      "UniV4[ZRO/USDC f9990]",
+      3
+    ],
+    [
+      "V2-type@0x9a9a171c",
+      3
+    ],
+    [
+      "UniV4[ETH*/EDEL f21000]",
+      3
+    ],
+    [
+      "UniV4[ETH*/USDC f1000]",
+      3
+    ],
+    [
+      "Fluid",
+      3
+    ],
+    [
+      "UniV4[ETH*/USDC f5008]",
+      3
+    ],
+    [
+      "UniV4[HYDX/oHYDX f10000]",
+      3
+    ],
+    [
+      "UniV4[USDC/AMZNc f2000 hook]",
+      3
+    ],
+    [
+      "UniV4[XDP/USDC f71]",
+      3
+    ],
+    [
+      "UniV4[XDP/USDC f52]",
+      3
+    ],
+    [
+      "UniV4[EUR/USDC f3000]",
+      3
+    ],
+    [
+      "UniV4[USDC/PFEc f880000]",
+      3
+    ],
+    [
+      "UniV4[SOSO/USDC f1]",
+      3
+    ],
+    [
+      "UniV4[bAP3X/cbBTC f2500]",
+      3
+    ],
+    [
+      "UniV4[SI/USDC f350000]",
+      3
+    ],
+    [
+      "UniV4[ETH*/OSAK f10000]",
+      3
+    ],
+    [
+      "UniV4[ETH*/Surplus f8388608 hook]",
+      3
+    ],
+    [
+      "UniV4[USDC/WHUF f70000]",
+      3
+    ],
+    [
+      "UniV4[ETH*/cbXRP f2500]",
+      3
+    ],
+    [
+      "AlgebraIntegral@0xac900f12",
+      3
+    ],
+    [
+      "UniV4[CAKE/USDC f8388608 hook]",
+      3
+    ],
+    [
+      "UniV4[USDC/HTZc f880000]",
+      3
+    ],
+    [
+      "UniV4[FRLZ/VELVET f10000]",
+      2
+    ],
+    [
+      "DODO",
+      2
+    ],
+    [
+      "V2-type@0x57592d44",
+      2
+    ],
+    [
+      "UniV4[USDC/NFLXc f50000]",
+      2
+    ],
+    [
+      "UniV4[USDC/BDAG f250000]",
+      2
+    ],
+    [
+      "UniV4[BSTONK/USDC f25000]",
+      2
+    ],
+    [
+      "UniV4[ETH*/USDC f75]",
+      2
+    ],
+    [
+      "UniV4[USDC/Basecat f24420]",
+      2
+    ],
+    [
+      "UniV4[MILF/USDC f75]",
+      2
+    ],
+    [
+      "UniV4[USDC/RIVER f3000]",
+      2
+    ],
+    [
+      "UniV4[USDC/SPIKE f28900]",
+      2
+    ],
+    [
+      "UniV4[USDC/oHYDX f9000]",
+      2
+    ],
+    [
+      "UniV4[ETH*/GITLAWB f8388608 hook]",
+      2
+    ],
+    [
+      "UniV4[ETH*/cbBTC f500]",
+      2
+    ],
+    [
+      "UniV4[XDP/USDC f40]",
+      2
+    ],
+    [
+      "UniV4[XDP/USDC f8]",
+      2
+    ],
+    [
+      "UniV4[XDP/USDT f20]",
+      2
+    ],
+    [
+      "UniV4[ETH*/USDC f2500]",
+      2
+    ],
+    [
+      "UniV4[NVDAc/KAI f20000]",
+      2
+    ],
+    [
+      "UniV4[MILF/STONKEX f20000]",
+      2
+    ],
+    [
+      "UniV4[USDC/SPIKE f28180]",
+      2
+    ],
+    [
+      "V2-type@0xb0c2d8a8",
+      2
+    ],
+    [
+      "UniV4[USDC/WHUF f38880]",
+      2
+    ],
+    [
+      "UniV4[VIRTUAL/USDC f3000]",
+      2
+    ],
+    [
+      "UniV4[USDC/NOCK f30000]",
+      2
+    ],
+    [
+      "UniV4[WORM/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[BASETARD/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[MEOW/kDIEM f20000]",
+      2
+    ],
+    [
+      "UniV4[USDC/MEOW f20000]",
+      2
+    ],
+    [
+      "UniV4[USDC/USDT f1 hook]",
+      2
+    ],
+    [
+      "UniV4[USDC/DEUS f9900]",
+      2
+    ],
+    [
+      "UniV4[FUN/USDC f9000]",
+      2
+    ],
+    [
+      "UniV4[gKAI/USDC f200000]",
+      2
+    ],
+    [
+      "UniV4[DOVU[base]/USDT f100000]",
+      1
+    ],
+    [
+      "UniV4[TEL/eUSD f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/HYBUX f200000]",
+      1
+    ],
+    [
+      "V3-type@0xdc323d16",
+      1
+    ],
+    [
+      "UniV4[ZRO/USDC f10000]",
+      1
+    ],
+    [
+      "UniV4[flETH/BETR f0 hook]",
+      1
+    ],
+    [
+      "UniV4[CAKE/USDC f500]",
+      1
+    ],
+    [
+      "UniV4[USDC/STONX f50000]",
+      1
+    ],
+    [
+      "UniV4[wtSPYM/STONX f8388608 hook]",
+      1
+    ],
+    [
+      "V2-type@0xdc93aca9",
+      1
+    ],
+    [
+      "UniV4[GIZA/USDT f770000]",
+      1
+    ],
+    [
+      "UniV4[SPIKE/USDC f50000]",
+      1
+    ],
+    [
+      "UniV4[USDC/QUBTc f50000]",
+      1
+    ],
+    [
+      "UniV4[BSTONK/MILF f20000]",
+      1
+    ],
+    [
+      "UniV4[GIZA/USDC f750000]",
+      1
+    ],
+    [
+      "UniV4[USDC/kcj101 f3000]",
+      1
+    ],
+    [
+      "UniV4[GYND/USDC f300000]",
+      1
+    ],
+    [
+      "UniV4[MILF/Basecat f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/REACT f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/NOCK f10000]",
+      1
+    ],
+    [
+      "UniV4[XDP/USDT f90]",
+      1
+    ],
+    [
+      "UniV4[USDC/GMEc f30000]",
+      1
+    ],
+    [
+      "UniV4[USDC/kDIEM f9000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/oHYDX f20000]",
+      1
+    ],
+    [
+      "UniV4[gSPEED/GOOGLc f10000]",
+      1
+    ],
+    [
+      "V2-type@0xba34aa64",
+      1
+    ],
+    [
+      "UniV4[USDC/EDEL f3000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/XDP f100]",
+      1
+    ],
+    [
+      "V3-type@0xaa5865dc",
+      1
+    ],
+    [
+      "UniV4[ETH*/FLASH f6000 hook]",
+      1
+    ],
+    [
+      "V3-type@0x5e168884",
+      1
+    ],
+    [
+      "V2-type@0x7d9d5126",
+      1
+    ],
+    [
+      "UniV4[USDC/GMEc f80000]",
+      1
+    ],
+    [
+      "UniV4[AAVE/UNI f9000]",
+      1
+    ],
+    [
+      "UniV4[XDP/USDT f50]",
+      1
+    ],
+    [
+      "UniV4[uPUMP/USDC f150000]",
+      1
+    ],
+    [
+      "UniV4[XDP/USDC f44]",
+      1
+    ],
+    [
+      "UniV4[cbZEC/cbBTC f2500]",
+      1
+    ],
+    [
+      "UniV4[ETH*/EUR f3000]",
+      1
+    ],
+    [
+      "UniV4[Trenchors/USDC f151300]",
+      1
+    ],
+    [
+      "UniV4[USDC/NVAXc f880000]",
+      1
+    ],
+    [
+      "PancakeV3@0xb5620f90",
+      1
+    ],
+    [
+      "UniV4[ETH*/USDC f375]",
+      1
+    ],
+    [
+      "UniV4[USDC/COBIE f100000]",
+      1
+    ],
+    [
+      "UniV4[USDC/SOUNc f880000]",
+      1
+    ],
+    [
+      "UniV4[XDP/USDC f22]",
+      1
+    ],
+    [
+      "UniV4[AVNT/USDC f9000]",
+      1
+    ],
+    [
+      "UniV4[USDC/ACU f3000]",
+      1
+    ],
+    [
+      "TraderJoe-LB",
+      1
+    ],
+    [
+      "UniV4[Trenchors/USDC f160000]",
+      1
+    ],
+    [
+      "UniV4[KAI/kDIEM f20000]",
+      1
+    ],
+    [
+      "V2-type@0x1b8128c3",
+      1
+    ],
+    [
+      "V2-type@0x4c1b8d4a",
+      1
+    ],
+    [
+      "UniV4[USDC/NVDAc f9900]",
+      1
+    ],
+    [
+      "UniV4[ETH*/USDC f5004]",
+      1
+    ],
+    [
+      "UniV4[PIZZA/USDC f500000]",
+      1
+    ],
+    [
+      "UniV4[USDC/plumber f47388]",
+      1
+    ],
+    [
+      "UniV4[HYDX/USDC f9000]",
+      1
+    ],
+    [
+      "UniV4[CAKEc/USDT f320000]",
+      1
+    ],
+    [
+      "UniV4[USDC/KAI f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/PMc f880000]",
+      1
+    ],
+    [
+      "UniV4[USDC/DRV f9000]",
+      1
+    ],
+    [
+      "UniV4[VVV/cbBTC f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/VVV f3000]",
+      1
+    ],
+    [
+      "UniV4[USDC/RNBW f9000]",
+      1
+    ],
+    [
+      "UniV4[USDC/AMDc f50000]",
+      1
+    ],
+    [
+      "UniV4[BINU/USDC f480000]",
+      1
+    ],
+    [
+      "UniV4[BINU/USDC f650000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/WHUF f800000]",
+      1
+    ],
+    [
+      "UniV4[USDC/CAKEc f500000]",
+      1
+    ],
+    [
+      "UniV4[STONKEX/USDC f20000]",
+      1
+    ],
+    [
+      "UniV4[BSTONK/USDC f22211]",
+      1
+    ],
+    [
+      "UniV4[ETH*/BSTONK f100000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/AERO f3000]",
+      1
+    ],
+    [
+      "UniV4[OMGSUP/USDC f200000]",
+      1
+    ],
+    [
+      "UniV4[USDC/SPCXc f30000]",
+      1
+    ],
+    [
+      "V3-type@0x0e5ab24b",
+      1
+    ],
+    [
+      "UniV4[ETH*/RWAGMI f20000 hook]",
+      1
+    ],
+    [
+      "UniV4[RWAGMI/AAPLc f50000]",
+      1
+    ],
+    [
+      "UniV4[ZORA/chubal f375]",
+      1
+    ],
+    [
+      "UniV4[USDC/DOJI f250000]",
+      1
+    ],
+    [
+      "UniV4[brett/BRETTINME f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/CRV f3000]",
+      1
+    ],
+    [
+      "UniV4[CAKEc/USDT f770000]",
+      1
+    ],
+    [
+      "UniV4[USDC/USDT f20]",
+      1
+    ],
+    [
+      "UniV4[USDC/USD+ f48]",
+      1
+    ],
+    [
+      "UniV4[KIBSHI/SHIB f10000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/UNI f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/SPIKE f27780]",
+      1
+    ],
+    [
+      "UniV4[WBTC/USDC f3000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/BLOCKTRONICS f8388608 hook]",
+      1
+    ],
+    [
+      "UniV4[ETH*/USDC f20000]",
+      1
+    ],
+    [
+      "UniV4[BNKR/USDC f3000]",
+      1
+    ],
+    [
+      "UniV4[JACK/PEPE f10000]",
+      1
+    ],
+    [
+      "UniV4[TOSHI/BUZ f3000]",
+      1
+    ],
+    [
+      "UniV4[WORM/AAPLc f20000]",
+      1
+    ],
+    [
+      "UniV4[NVDAc/BASETARD f20000]",
+      1
+    ],
+    [
+      "UniV4[BNKR/LOVE f9000]",
+      1
+    ],
+    [
+      "UniV4[VVV/Surplus f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/HNO f300000]",
+      1
+    ],
+    [
+      "UniV4[USDC/WHUF f48800]",
+      1
+    ],
+    [
+      "UniV4[USDC/Basecat f29998]",
+      1
+    ],
+    [
+      "UniV4[USDC/BASETARD f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/WORM f20000]",
+      1
+    ],
+    [
+      "UniV4[RAWR/kDIEM f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/RAWR f20000]",
+      1
+    ],
+    [
+      "UniV4[BRAIN/kDIEM f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/BRAIN f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/WOOF f20000]",
+      1
+    ],
+    [
+      "UniV4[WOOF/kDIEM f20000]",
+      1
+    ],
+    [
+      "UniV4[USDC/RAWR f38900]",
+      1
+    ],
+    [
+      "UniV4[STONKEX/USDC f33433]",
+      1
+    ],
+    [
+      "UniV4[ETH*/USDC f998]",
+      1
+    ],
+    [
+      "UniV4[USDS/USDC f95]",
+      1
+    ],
+    [
+      "UniV4[USDC/Surplus f10000]",
+      1
+    ],
+    [
+      "UniV4[USDC/Surplus f15000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/SI f350000]",
+      1
+    ],
+    [
+      "UniV4[ETH*/MfT f8388608 hook]",
+      1
+    ],
+    [
+      "UniV4[BTCBR/ETH* f10000 hook]",
+      1
+    ],
+    [
+      "UniV4[USDC/WHUF f88000]",
+      1
+    ],
+    [
+      "V2-type@0x6ae1d7ef",
+      1
+    ],
+    [
+      "UniV4[USDC/FXRP f10000]",
+      1
+    ],
+    [
+      "UniV4[GRID/USDC f200000]",
+      1
+    ],
+    [
+      "UniV4[FLOWER/USDC f2500]",
+      1
+    ]
+  ],
+  "universe": {
+    "git_sha": "fff0d0eced5ce3783cff18fb976e55a2a6504504",
+    "git_tag": "hybrid-e-rpc-9244ebd",
+    "build_time": "2026-10-08T07:58:15Z",
+    "n_venues": 30,
+    "n_tokens": 12,
+    "registry_summary": {
+      "chain": "base",
+      "total": 30,
+      "by_resolution": {
+        "deterministic_verified": 19,
+        "runtime_getpool": 11
+      },
+      "univ3_factory": "0x33128a8fC17869897dcE68Ed026d694621f6FDfD",
+      "deterministic_verified": 19,
+      "runtime_getpool": 11,
+      "runtime_resolved": 0,
+      "unresolved": 0
+    },
+    "resolved_pool_addresses": 19
+  },
+  "timing_winner_side_observables": {
+    "note": "route_state_age_s is a G1.5 winner-side observable; NOT proof of ArbiCore discovery/decision latency causality.",
+    "n_with_route_state_age_s": 6287,
+    "median_route_state_age_s": 0.0,
+    "p90_route_state_age_s": 0.0,
+    "same_block_trigger_count": 5753,
+    "route_age_censored_count": 21
+  }
+}

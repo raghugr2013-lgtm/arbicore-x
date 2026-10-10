@@ -1,0 +1,18 @@
+services:
+  backend:
+    image: arbicore-x-backend:hybrid-e-rpc-9244ebd
+    build: null
+    environment:
+      ARBICORE_GIT_SHA: "fff0d0eced5ce3783cff18fb976e55a2a6504504"
+      ARBICORE_GIT_TAG: "hybrid-e-rpc-9244ebd"
+      ARBICORE_RUNTIME_ENV: "production"
+      ARBICORE_ENV: "production"
+      ARBICORE_EXECUTION_MODE: "SHADOW"
+      ARBICORE_AUTOEXEC_AUTOSTART: "false"
+      ARBICORE_RUNTIME_AUTOSTART: "false"
+      ARBICORE_SCANNER_AUTOSTART: "true"
+      ARBICORE_SHADOW_CERT_ENABLED: "true"
+      ARBICORE_BORROW_SIZER_ENABLED: "true"
+      ARBICORE_PRICE_FEED_ENABLED: "true"
+      ARBICORE_FLASH_LOAN_SHADOW_ROUTE: "true"
+      ARBICORE_FLASH_LOAN_VERIFICATION_WORKERS: "6"

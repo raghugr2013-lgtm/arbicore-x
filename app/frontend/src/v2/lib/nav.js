@@ -22,6 +22,7 @@ import {
   Route as RouteIcon,
   ShieldCheck,
   Coins,
+  BookOpen,
 } from "lucide-react";
 
 export const NAV_SECTIONS = [
@@ -72,6 +73,14 @@ export const NAV_SECTIONS = [
     Icon: LayoutGrid,
     shortcut: "O",
     lede: "Universal opportunity feed across all 8 canonical arbitrage families.",
+  },
+  {
+    key: "ledger",
+    label: "Ledger",
+    path: "/dashboard/ledger",
+    Icon: BookOpen,
+    shortcut: "E",
+    lede: "Research view of the opportunity ledger. Read only.",
   },
   {
     key: "portfolio",

@@ -1,0 +1,121 @@
+{
+  "utc": "2026-10-10T11:05:02Z",
+  "prior_count": 17,
+  "current_count": 24,
+  "added": [
+    "/home/raghu/arbicore_backups/r2_bootstrap_disable_20261010T090646Z/backend.env.pre-disable",
+    "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T102900Z/backend.env.pre-r3",
+    "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T104453Z/backend.env.pre-r3",
+    "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T105128Z/backend.env.pre-r3",
+    "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/backend.env.pre-rotation",
+    "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/root.env.pre-rotation",
+    "/home/raghu/arbicore_backups/s2a_alchemy_cutover_20261010T065530Z/backend.env.pre-cutover"
+  ],
+  "removed": [],
+  "by_class_counts": {
+    "local_upgrade_backup_scrub_candidate": 8,
+    "live_dotenv": 1,
+    "ephemeral_tmp_scrub_candidate": 8,
+    "approved_recovery_archive": 7
+  },
+  "by_class_paths": {
+    "local_upgrade_backup_scrub_candidate": [
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z"
+    ],
+    "live_dotenv": [
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env"
+    ],
+    "ephemeral_tmp_scrub_candidate": [
+      "/tmp/arbicore_ctr_all.env",
+      "/tmp/arbicore-runtime-cert-ad64a50.env",
+      "/tmp/arbicore-x-backend.env",
+      "/tmp/arbicore-runtime-cert.env",
+      "/tmp/arbicore-x-candidate.env",
+      "/tmp/arbicore-backend-p0-3.env",
+      "/tmp/arbicore-backend.env",
+      "/tmp/arbicore-x-runtime.env"
+    ],
+    "approved_recovery_archive": [
+      "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T104453Z/backend.env.pre-r3",
+      "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/backend.env.pre-rotation",
+      "/home/raghu/arbicore_backups/s2a_alchemy_cutover_20261010T065530Z/backend.env.pre-cutover",
+      "/home/raghu/arbicore_backups/r2_bootstrap_disable_20261010T090646Z/backend.env.pre-disable",
+      "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T102900Z/backend.env.pre-r3",
+      "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T105128Z/backend.env.pre-r3",
+      "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/root.env.pre-rotation"
+    ]
+  },
+  "legacy": [
+    {
+      "container": "arbicore-x-backend-h05",
+      "status": "exited",
+      "keys": {
+        "JWT_SECRET": {
+          "len": 64,
+          "sha12": "7013ef842946"
+        },
+        "ARBICORE_ADMIN_PASS": {
+          "len": 14,
+          "sha12": "6780d7b21193"
+        }
+      }
+    },
+    {
+      "container": "arbicore-x-backend-w1",
+      "status": "exited",
+      "keys": {
+        "JWT_SECRET": {
+          "len": 64,
+          "sha12": "7013ef842946"
+        },
+        "ARBICORE_ADMIN_PASS": {
+          "len": 14,
+          "sha12": "6780d7b21193"
+        }
+      }
+    },
+    {
+      "container": "arbicore-x-b7-candidate",
+      "status": "exited",
+      "keys": {
+        "JWT_SECRET": {
+          "len": 64,
+          "sha12": "7013ef842946"
+        },
+        "ARBICORE_ADMIN_PASS": {
+          "len": 14,
+          "sha12": "6780d7b21193"
+        }
+      }
+    },
+    {
+      "container": "arbicore-x-backend",
+      "status": "exited",
+      "keys": {
+        "JWT_SECRET": {
+          "len": 64,
+          "sha12": "7013ef842946"
+        },
+        "ARBICORE_ADMIN_PASS": {
+          "len": 14,
+          "sha12": "6780d7b21193"
+        }
+      }
+    }
+  ],
+  "admin_sha12_set": [
+    "6757aa3396d8",
+    "6780d7b21193"
+  ],
+  "jwt_sha12_set": [
+    "066b178751e1",
+    "7013ef842946"
+  ]
+}

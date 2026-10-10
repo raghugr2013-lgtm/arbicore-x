@@ -1,0 +1,6 @@
+tip=befb14e6aa77515daa038e142ff978822a4fab91
+tree=fdd6f7996a4364885fca31d394eeae75d04b379a
+parent=8e63f252b599ea97b9f563162ba8c1836a1c9e28
+subject=fix(quoter): bound HTTP-429 retries + per-host cooldown in execution/quoter.py::_eth_call
+author_date=2026-10-02T10:48:57Z
+committer_date=2026-10-02T10:48:57Z

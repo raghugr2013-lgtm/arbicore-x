@@ -15,6 +15,7 @@ import HomePage from "@/v2/pages/HomePage";
 import OpsCenter from "@/v2/pages/OpsCenter";
 import DiscoveryPage from "@/v2/pages/DiscoveryPage";
 import OpportunitiesPage from "@/v2/pages/OpportunitiesPage";
+import LedgerExplorerPage from "@/v2/pages/LedgerExplorerPage";
 import PortfolioPage from "@/v2/pages/PortfolioPage";
 import IntelligencePage from "@/v2/pages/IntelligencePage";
 import OperationsPage from "@/v2/pages/OperationsPage";
@@ -64,6 +65,7 @@ export function AppShell() {
             <Route path="home" element={<HomePage />} />
             <Route path="discovery/*" element={<DiscoveryPage />} />
             <Route path="opportunities/*" element={<OpportunitiesPage />} />
+            <Route path="ledger/*" element={<LedgerExplorerPage />} />
             <Route path="portfolio/*" element={<PortfolioPage />} />
             <Route path="intelligence/*" element={<IntelligencePage />} />
             <Route path="operations/*" element={<OperationsPage />} />

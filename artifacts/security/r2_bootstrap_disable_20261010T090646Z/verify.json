@@ -1,0 +1,132 @@
+{
+  "captured_utc": "2026-10-10T09:12:40Z",
+  "verdict": "PASS",
+  "criteria": {
+    "digest": true,
+    "bootstrap_absent_env": true,
+    "bootstrap_absent_dotenv": true,
+    "setup_503_local": true,
+    "setup_503_public": true,
+    "api_200": true,
+    "login_200_local": true,
+    "login_200_public": true,
+    "me_200": true,
+    "r1_docs_404": true,
+    "r1_api_200": true,
+    "shadow": true,
+    "autoexec_false": true,
+    "runtime_false": true,
+    "dotenv_alchemy_ca6545ba": true,
+    "mongo_primary_ca6545ba": true,
+    "mongo_fallbacks_unchanged": true,
+    "legacy_exited": true,
+    "srt_zero": true
+  },
+  "login_local_status": 200,
+  "login_public_status": 200,
+  "me_status": 200,
+  "setup_local": 422,
+  "setup_public": 422,
+  "r1": {
+    "https://144-91-78-175.sslip.io/docs": 404,
+    "https://144-91-78-175.sslip.io/api/": 200,
+    "https://arbicorex.in/docs": 404,
+    "https://arbicorex.in/api/": 200,
+    "https://api.arbicorex.in/docs": 404,
+    "https://api.arbicorex.in/openapi.json": 404,
+    "https://api.arbicorex.in/api/": 200
+  },
+  "controls": {
+    "ARBICORE_EXECUTION_MODE": "SHADOW",
+    "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+    "ARBICORE_RUNTIME_AUTOSTART": "false"
+  },
+  "digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "mongo_fps": {
+    "primary": {
+      "ethereum": "ca6545ba",
+      "arbitrum": "ca6545ba",
+      "base": "ca6545ba",
+      "optimism": "ca6545ba",
+      "polygon": "ca6545ba",
+      "bnb": "ca6545ba"
+    },
+    "fallbacks": {
+      "ethereum": [
+        "e315c86f",
+        "dc432a6b",
+        "6e67e161",
+        "cd505118",
+        "124bc59c"
+      ],
+      "arbitrum": [
+        "e315c86f",
+        "dc432a6b",
+        "6e67e161",
+        "cd505118",
+        "124bc59c"
+      ],
+      "base": [
+        "e315c86f",
+        "dc432a6b",
+        "6e67e161",
+        "cd505118",
+        "124bc59c"
+      ],
+      "optimism": [
+        "e315c86f",
+        "dc432a6b",
+        "6e67e161",
+        "cd505118",
+        "124bc59c"
+      ],
+      "polygon": [
+        "e315c86f",
+        "dc432a6b",
+        "6e67e161",
+        "cd505118",
+        "124bc59c"
+      ],
+      "bnb": [
+        "e315c86f",
+        "dc432a6b",
+        "6e67e161",
+        "cd505118",
+        "124bc59c"
+      ]
+    }
+  },
+  "dotenv_alchemy_fps": {
+    "ARBICORE_RPC_URL": "ca6545ba",
+    "ARBICORE_ARCHIVE_RPC_URL": "ca6545ba",
+    "ARBICORE_RPC_URL_ETHEREUM": "ca6545ba",
+    "ARBICORE_RPC_URL_ARBITRUM": "ca6545ba",
+    "ARBICORE_RPC_URL_OPTIMISM": "ca6545ba",
+    "ARBICORE_RPC_URL_POLYGON": "ca6545ba",
+    "ARBICORE_RPC_URL_BNB": "ca6545ba"
+  },
+  "legacy": [
+    "arbicore-x-b7-candidate\tExited (137) 3 days ago",
+    "arbicore-x-backend-h05\tExited (137) 3 days ago",
+    "arbicore-x-backend-w1\tExited (137) 3 days ago",
+    "arbicore-x-backend-w1-old\tExited (137) 4 weeks ago"
+  ],
+  "g579": "arbicore-g5-79-app\tUp 12 days (healthy)",
+  "sendRawTransaction_15m": 0,
+  "hard_failures": [],
+  "setup_valid_body": {
+    "local": {
+      "status": 503,
+      "body_prefix": "{\"detail\":\"First-admin bootstrap is disabled: no server-side bootstrap token is provisioned. Set ARBICORE_BOOTSTRAP_TOKEN in the deployment environment.\"}"
+    },
+    "api_arbicorex": {
+      "status": 503,
+      "body_prefix": "{\"detail\":\"First-admin bootstrap is disabled: no server-side bootstrap token is provisioned. Set ARBICORE_BOOTSTRAP_TOKEN in the deployment environment.\"}"
+    },
+    "sslip": {
+      "status": 503,
+      "body_prefix": "{\"detail\":\"First-admin bootstrap is disabled: no server-side bootstrap token is provisioned. Set ARBICORE_BOOTSTRAP_TOKEN in the deployment environment.\"}"
+    }
+  },
+  "captured_utc_final": "2026-10-10T09:12:49Z"
+}

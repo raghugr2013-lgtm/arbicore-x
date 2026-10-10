@@ -1,0 +1,12 @@
+{
+  "ts": "2026-10-09T11:35:56.286064+00:00",
+  "image_tag": "arbicore-x-backend:s2a-rpc-redact-5bd952568aed",
+  "image_id": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "manifest_list": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "base_tag": "arbicore-x-backend:hybrid-e-rpc-9244ebd",
+  "base_digest": "sha256:40b2116bc01ae999f8ed24cf8bb147533e2bb3c7275f488dccba2de2a3ed8d52",
+  "source_head": "5bd952568aeda55bc90702289a9bfbfa9d6ba82c",
+  "source_dirty_with_s2a_patch": true,
+  "deployed": false,
+  "production_unchanged": true
+}

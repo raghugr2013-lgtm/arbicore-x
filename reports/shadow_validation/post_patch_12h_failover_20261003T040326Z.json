@@ -1,0 +1,84 @@
+{
+  "generated_at_utc": "2026-10-03T04:01:17Z",
+  "window": {
+    "first_ts_utc": "2026-10-02T15:09:00Z",
+    "last_ts_utc": "2026-10-03T04:00:57Z",
+    "seconds": 46317.266,
+    "hours": 12.865907
+  },
+  "metrics": {
+    "M1_base_failover_events": 15059,
+    "M1_base_failover_events_per_hour": 1170.458,
+    "M2_alchemy_posts_per_failover": 0.067,
+    "M3_alchemy_429_count": 996,
+    "M3_alchemy_429_per_hour": 77.414,
+    "M4_eth_call_volume": null,
+    "M5_successful_quotes": null,
+    "M6_alchemy_request_rate": {
+      "avg_per_s_10s": 0.16584158415841585,
+      "peak_per_s": 5.0,
+      "n": 1010
+    },
+    "M6_public_base_request_rate": {
+      "avg_per_s_10s": 0.7727952797386999,
+      "peak_per_s": 19.0,
+      "n": 9491
+    },
+    "M7_cooldown_log_hits": 14591,
+    "M8_opportunity_impact": null
+  },
+  "counts": {
+    "failover_events_total": 15059,
+    "failover_base_to_alchemy": 15059,
+    "alchemy_base_posts": 1010,
+    "alchemy_base_by_status": {
+      "200": 13,
+      "400": 1,
+      "429": 996
+    },
+    "alchemy_base_200": 13,
+    "alchemy_base_429": 996,
+    "public_base_posts": 9491,
+    "public_base_by_status": {
+      "200": 9473,
+      "429": 16,
+      "503": 2
+    },
+    "http_posts_by_host_status": {
+      "127.0.0.1": {
+        "200": 4
+      },
+      "base-mainnet.g.alchemy.com": {
+        "200": 13,
+        "400": 1,
+        "429": 996
+      },
+      "mainnet.base.org": {
+        "200": 9473,
+        "429": 16,
+        "503": 2
+      }
+    }
+  },
+  "identity_redacted": {
+    "alchemy_host_fps": {
+      "base-mainnet.g.alchemy.com": "5e5d5bb1"
+    },
+    "note": "fp8 = sha256(url_path_segment)[:8]; secret never emitted"
+  },
+  "pass_hints": {
+    "C1_alchemy_posts_per_failover_le_2": true,
+    "C7_baseline_amplifier_approx_5": false,
+    "note": "Full PASS/FAIL requires both arms + safety checks in the procedure doc."
+  },
+  "safety": {
+    "gate9_denied": true,
+    "secrets_redacted": true,
+    "mutates_runtime": false
+  },
+  "arm": "treatment",
+  "source": {
+    "type": "log_file",
+    "path": "/tmp/post_fix_12h_logs_raw.txt"
+  }
+}

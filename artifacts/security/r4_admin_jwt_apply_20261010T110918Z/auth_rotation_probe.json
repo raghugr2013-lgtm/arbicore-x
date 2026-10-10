@@ -1,0 +1,17 @@
+{
+  "utc": "2026-10-10T11:12:57Z",
+  "pre_cookie_me_status": 401,
+  "login_old_pass_after_jwt_status": 200,
+  "change_password_status": 200,
+  "change_password_ok": true,
+  "login_new_pass_status": 200,
+  "me_after_new_login_status": 200,
+  "me_username": "admin",
+  "me_id": "eeeeb6d9-d1b0-4ff9-9fa1-7fa044b5ef06",
+  "login_old_pass_after_change_status": 401,
+  "session_version_before": 2,
+  "session_version_after": 3,
+  "password_hash_sha12_before": "11f3311f9cb0",
+  "password_hash_sha12_after": "e8f87bd9285b",
+  "hash_changed": true
+}

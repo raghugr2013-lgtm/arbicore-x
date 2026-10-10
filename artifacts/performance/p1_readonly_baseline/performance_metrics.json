@@ -1,0 +1,357 @@
+{
+  "report_id": "p1_readonly_baseline",
+  "generated_at_utc": "2026-10-09T01:14:00Z",
+  "baseline_quality": "partial_telemetry",
+  "runtime_identity": {
+    "container_name": "arbicore-x-backend-new",
+    "image_tag": "arbicore-x-backend:hybrid-e-rpc-9244ebd",
+    "image_digest": "sha256:40b2116bc01ae999f8ed24cf8bb147533e2bb3c7275f488dccba2de2a3ed8d52",
+    "git_commit": "fff0d0eced5ce3783cff18fb976e55a2a6504504",
+    "git_commit_source": "BUILD_INFO.json + ARBICORE_GIT_SHA",
+    "build_time_utc": "2026-10-08T07:58:15Z",
+    "started_at_utc": "2026-10-08T08:33:43.476717081Z",
+    "restart_count": 0,
+    "health": "healthy",
+    "uvicorn_workers": 1,
+    "verification_workers_configured": 6,
+    "autoexec_autostart": false,
+    "runtime_autostart": false,
+    "execution_mode": "SHADOW",
+    "flash_loan_shadow_route": true,
+    "signing_active_key_version": null,
+    "ready_for_signing": false,
+    "ready_for_broadcast": false,
+    "kill_switch_engaged": true,
+    "kill_reason": "boot_default",
+    "live_execution_enabled": false,
+    "scanner_autostart_env": true,
+    "flash_loan_scanner_enabled": false,
+    "flash_loan_scanner_running": false,
+    "discrepancies": [
+      "compose_label_arbicore.gitsha_stale_2a6fadb8",
+      "ARBICORE_VERSION_env_stale_99059c0",
+      "scanner_autostart_true_but_enabled_false"
+    ]
+  },
+  "windows": {
+    "W0_container_lifetime": {
+      "start_utc": "2026-10-08T08:33:43Z",
+      "end_utc": "2026-10-09T01:14:00Z",
+      "unit": "utc_interval"
+    },
+    "W1_flash_loan_active_verify": {
+      "start_utc": "2026-10-08T08:37:56.153200Z",
+      "end_utc": "2026-10-08T08:54:26.681669Z",
+      "duration_s": 990.5284683704376,
+      "source": "mongo.arbicore_discovery_candidates.first_last_verified_at"
+    },
+    "W2_evidence_correlated": {
+      "sample_count": 383,
+      "source": "mongo.evidence_bundles.source_component=flash_loan_arb_verifier"
+    },
+    "W3_decision_history_continuous": {
+      "start_utc": "2026-10-08T08:33:43Z",
+      "recent_rate_per_hour": 456,
+      "source": "mongo.decision_history.recorded_at"
+    }
+  },
+  "pipeline_stages": {
+    "event_to_decision_s": {
+      "value": null,
+      "unit": "seconds",
+      "sample_count": 0,
+      "explanation": "No mempool/block-event observation timestamps on flash-loan candidate path",
+      "source_ids": []
+    },
+    "discovery_to_decision_wall_s": {
+      "unit": "seconds",
+      "timing_kind": "wall_clock",
+      "sample_count": 672,
+      "window": "W1",
+      "min": 44.7184693813324,
+      "p50": 379.2251173257828,
+      "p95": 716.2276757121086,
+      "p99": 732.7843274807931,
+      "max": 743.6541602611542,
+      "mean": 423.65467432141304,
+      "note": "Mongo verification_latency_ms stores this wall-clock, not active processing time",
+      "source_ids": ["mongo.arbicore_discovery_candidates.hint_observed_at", "mongo.arbicore_discovery_candidates.verified_at"]
+    },
+    "discovery_to_claim_queue_wait_s": {
+      "unit": "seconds",
+      "timing_kind": "queue_wait",
+      "sample_count": 383,
+      "window": "W2",
+      "min": 42.98312544822693,
+      "p50": 375.08213329315186,
+      "p95": 716.8126003026962,
+      "p99": 717.0540629053116,
+      "max": 717.0542657375336,
+      "mean": 408.6696474340504,
+      "source_ids": ["mongo.evidence_bundles.diagnostics.hint_observed_at", "mongo.evidence_bundles.diagnostics.claimed_at"]
+    },
+    "claim_to_stamp_s": {
+      "unit": "seconds",
+      "timing_kind": "processing_plus_finalisation_wall",
+      "sample_count": 383,
+      "window": "W2",
+      "min": 0.674389123916626,
+      "p50": 6.544402122497559,
+      "p95": 12.731439805030822,
+      "p99": 15.756470761299134,
+      "max": 20.67599868774414,
+      "mean": 6.983700541229846,
+      "source_ids": ["mongo.evidence_bundles.diagnostics.claimed_at", "mongo.evidence_bundles.diagnostics.stamped_at"]
+    },
+    "claim_to_decision_s": {
+      "value": null,
+      "unit": "seconds",
+      "sample_count": 0,
+      "explanation": "No explicit decision_finalised_at distinct from stamped_at; use claim_to_stamp_s as best proxy",
+      "source_ids": []
+    },
+    "active_verify_job_s": {
+      "unit": "seconds",
+      "timing_kind": "processing",
+      "sample_count": 672,
+      "window": "W1_scanner_in_memory",
+      "min": 0.011205399874597788,
+      "p50": 1.6355694620870054,
+      "p95": null,
+      "p99": null,
+      "max": 11.072670872788876,
+      "mean": 1.924952907326986,
+      "p50_is_median_field": true,
+      "explanation": "verification_pool exports median/mean/min/max only; p95/p99 unavailable",
+      "source_ids": ["api.scanners.status.canonical_flash_loan_arbitrage.stats.verification_pool"]
+    },
+    "capacity_candidate_age_at_verify_s": {
+      "unit": "seconds",
+      "timing_kind": "wall_clock",
+      "sample_count": 512,
+      "min": 94.30105686187744,
+      "p50": 663.8071947097778,
+      "p95": 718.0935277938843,
+      "p99": null,
+      "max": 732.5999050140381,
+      "mean": 532.1408276758157,
+      "note": "Subset differs from Mongo n=672; do not mix percentiles",
+      "source_ids": ["api.scanners.status.capacity.candidate_age_at_verify"]
+    },
+    "evidence_create_to_persist_s": {
+      "unit": "seconds",
+      "timing_kind": "processing",
+      "sample_count": 383,
+      "min": 0.00012302398681640625,
+      "p50": 0.00026798248291015625,
+      "p95": 0.0013891220092773415,
+      "p99": 0.004954299926757818,
+      "max": 0.013904094696044922,
+      "mean": 0.000537994947508172,
+      "source_ids": ["mongo.evidence_bundles.created_at", "mongo.evidence_bundles.persisted_at"]
+    },
+    "route_match_validation_s": {
+      "value": null,
+      "unit": "seconds",
+      "sample_count": 0,
+      "explanation": "No dedicated stage timer",
+      "source_ids": []
+    },
+    "rpc_quote_retrieval_s": {
+      "value": null,
+      "unit": "seconds",
+      "sample_count": 0,
+      "explanation": "No per-candidate quoter duration histogram on scanner path",
+      "source_ids": []
+    },
+    "mev_classification_s": {
+      "value": null,
+      "unit": "seconds",
+      "sample_count": 0,
+      "explanation": "Gate-9 not evaluated on denied gate-7 path; no duration field",
+      "source_ids": []
+    },
+    "economics_gas_profit_gate_s": {
+      "value": null,
+      "unit": "seconds",
+      "sample_count": 0,
+      "explanation": "Gate-7 outcomes counted but duration not instrumented",
+      "source_ids": ["api.scanners.status.gate_rejections", "api.scanners.status.gate7_profit_distribution"]
+    }
+  },
+  "throughput": {
+    "flash_loan_verifies_per_min_over_W1": {
+      "value": 40.70554384603628,
+      "unit": "per_minute",
+      "sample_count": 672,
+      "window": "W1",
+      "source_ids": ["mongo.verified_at_span"]
+    },
+    "flash_loan_last_batch_jobs_per_min": {
+      "value": 74.35,
+      "unit": "per_minute",
+      "sample_count": 32,
+      "calculation": "32 / 25.8245577220805 * 60",
+      "source_ids": ["verification_pool.last_batch_size", "verification_pool.last_batch_wall_s"]
+    },
+    "live_claims_per_min": {
+      "value": 0.0,
+      "unit": "per_minute",
+      "window": "snapshot_at_report",
+      "source_ids": ["capacity.claims_per_min"]
+    },
+    "live_verifies_per_min": {
+      "value": 0.0,
+      "unit": "per_minute",
+      "window": "snapshot_at_report",
+      "source_ids": ["capacity.verifies_per_min"]
+    },
+    "decision_history_per_hour_recent": {
+      "value": 456,
+      "unit": "per_hour",
+      "sample_count": 456,
+      "window": "last_1h_buckets_stable_6h",
+      "source_ids": ["mongo.decision_history"]
+    }
+  },
+  "queue": {
+    "queue_depth": 7054,
+    "fresh_eligible_depth": 0,
+    "candidate_arrival_rate": 0.0,
+    "worker_utilization": 0.8019174625281055,
+    "worker_active_time_s": 315.94612061884254,
+    "per_chain_backlog": {
+      "ethereum": 1908,
+      "arbitrum": 1824,
+      "base": 744,
+      "optimism": 624,
+      "polygon": 1506,
+      "bnb": 448,
+      "legacy": 0
+    },
+    "per_chain_claims_W1": {
+      "ethereum": 112,
+      "arbitrum": 112,
+      "base": 112,
+      "optimism": 112,
+      "polygon": 112,
+      "bnb": 112
+    },
+    "per_strategy_backlog": {
+      "flash_loan_route_search": 5118,
+      "flash_loan_generic_dex": 352,
+      "flash_loan_triangular": 1584
+    },
+    "source_ids": ["api.scanners.status.canonical_flash_loan_arbitrage.stats.capacity"]
+  },
+  "discovery_coverage_W0": {
+    "candidates_hint_observed": 14108,
+    "claimed_at_populated_on_candidate_doc": 0,
+    "verified": 672,
+    "verify_rate": 0.04763,
+    "unverified_expired": 13436,
+    "evidence_bundles_for_verified": 383,
+    "verified_missing_evidence": 289,
+    "missing_evidence_rate": 0.43006,
+    "by_source": {
+      "flash_loan_route_search": {"hint": 10236, "verified": 635, "verify_rate": 0.062},
+      "flash_loan_generic_dex": {"hint": 704, "verified": 18, "verify_rate": 0.0256},
+      "flash_loan_triangular": {"hint": 3168, "verified": 19, "verify_rate": 0.006}
+    },
+    "source_ids": ["mongo.arbicore_discovery_candidates", "mongo.evidence_bundles"]
+  },
+  "rpc": {
+    "topology": {
+      "chain_count": 6,
+      "endpoint_count": 6,
+      "hosts_by_chain": {
+        "ethereum": ["eth-mainnet.g.alchemy.com"],
+        "arbitrum": ["arb-mainnet.g.alchemy.com"],
+        "base": ["mainnet.base.org"],
+        "polygon": ["polygon-mainnet.g.alchemy.com"],
+        "optimism": ["opt-mainnet.g.alchemy.com"],
+        "bnb": ["bnb-mainnet.g.alchemy.com"]
+      },
+      "secrets_redacted": true,
+      "source_ids": ["api.config.runtime.rpc"]
+    },
+    "provider_ewma_latency_ms_by_chain": {
+      "unit": "milliseconds",
+      "note": "From /api/arbicore/providers/status; last_ok_at clustered near 2026-10-08T08:54Z — not continuous",
+      "arbitrum": {"successes": 5445, "failures": 87, "ewma_min": 81.858, "ewma_max": 486.607},
+      "base": {"successes": 378, "failures": 0, "ewma_min": 186.36, "ewma_max": 441.783},
+      "bnb": {"successes": 3599, "failures": 0, "ewma_min": 72.927, "ewma_max": 727.731},
+      "ethereum": {"successes": 3303, "failures": 71, "ewma_min": 59.061, "ewma_max": 99.744},
+      "optimism": {"successes": 3265, "failures": 73, "ewma_min": 52.262, "ewma_max": 216.152},
+      "polygon": {"successes": 4046, "failures": 76, "ewma_min": 58.78, "ewma_max": 626.666},
+      "source_ids": ["api.providers.status.by_kind.rpc"]
+    },
+    "quoter_429_proxy": {
+      "http_429": 0,
+      "rpc_rate_limit": 2,
+      "cooldown_gate": 1,
+      "retries_attempted": 1,
+      "by_host": {"mainnet.base.org": 3},
+      "by_chain": {"base": 3},
+      "cooldown_hosts_active": 0,
+      "max_retries_429": 1,
+      "cooldown_s": 60.0,
+      "source_ids": ["capacity.rpc.quoter_429"]
+    },
+    "per_candidate_quote_latency_s": {
+      "value": null,
+      "explanation": "Not instrumented on scanner path",
+      "sample_count": 0
+    }
+  },
+  "mongo_scanner_op_latency_ms": {
+    "unit": "milliseconds",
+    "sample_count": 256,
+    "min": 2.482416108250618,
+    "p50": 30.679835937917233,
+    "p95": 232.64414118602872,
+    "p99": null,
+    "max": 34785.266830120236,
+    "mean": 326.04606770655664,
+    "error_count": 0,
+    "source_ids": ["capacity.mongo"]
+  },
+  "economics_flash_loan_W1": {
+    "verifier_confirmed": 0,
+    "verifier_denied": 672,
+    "verifier_errors": 0,
+    "gate_7_atomic_profit_rejects": 657,
+    "denied_venue_unreadable": 15,
+    "gate7_positive_net_count": 0,
+    "gate7_best_net_profit_usd": -59.767994,
+    "gate7_median_net_profit_usd": -262.252796,
+    "gate7_worst_net_profit_usd": -10019.636816,
+    "category": 4,
+    "source_ids": ["api.scanners.status.stats", "gate7_profit_distribution"]
+  },
+  "decision_history_W3_sample": {
+    "decisions_since_start_approx": 7488,
+    "sample_n": 5000,
+    "would_execute_true": 0,
+    "positive_net_profit": 0,
+    "quote_status": {"REAL": 3250, "UNAVAILABLE": 1750},
+    "quote_age_sec": {"n": 5000, "p50": 0.09542, "p95": 0.467336, "max": 2.384134},
+    "chains_recent_2000": {"base": 2000},
+    "source_ids": ["mongo.decision_history"]
+  },
+  "resources": {
+    "backend_cpu_percent": 1.49,
+    "backend_mem_mib": 175.1,
+    "backend_pids": 17,
+    "mongo_mem_gib": 9.317,
+    "source_ids": ["docker.stats"]
+  },
+  "error_retry_timeout_rates": {
+    "verification_jobs_failed": 0,
+    "verification_jobs_cancelled": 0,
+    "claimed_at_missing_on_candidate_docs_for_verified": 1.0,
+    "missing_evidence_rate_for_verified": 0.43006,
+    "http_429_proxy_count": 0,
+    "rpc_rate_limit_proxy_count": 2
+  }
+}

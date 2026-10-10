@@ -1,0 +1,12 @@
+{
+  "window": "60m",
+  "log_bytes": 224702,
+  "httpx_INFO_HTTP_Request_lines": 1523,
+  "alchemy_v2_hits": 1523,
+  "fp8_counts": {
+    "24dab5d1": 1523
+  },
+  "hosts": {
+    "base-mainnet.g.alchemy.com": 1523
+  }
+}

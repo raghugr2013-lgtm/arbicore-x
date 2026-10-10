@@ -1,0 +1,29 @@
+{
+ "n_traced_cycles": 22,
+ "crosstab_paid_vs_wrap": {
+  "paid=True,wrap=True": 20,
+  "paid=True,wrap=False": 0,
+  "paid=False,wrap=True": 2,
+  "paid=False,wrap=False": 0
+ },
+ "no_wrap_no_native_inferred": {
+  "n": 0,
+  "with_builder_payment": 0
+ },
+ "share_paid_given_wrap": 0.9090909090909091,
+ "share_paid_given_nowrap": null,
+ "payee_counts": {
+  "0x4848489f0b2bedd788c696e2d79b6b69d7484848": 10,
+  "0x9997a08cfdb1e1c8d73746adf12e9c5d295c574f": 9,
+  "0x1266c6be60392a8ff346e8d5eccd3e69dd9c5f20": 5,
+  "0x4c5611f7603014f86611257fb0664c5d164576e4": 4,
+  "0x3e49341fdb44c28e0ac2fca517ee99920f411398": 3,
+  "0x000000000076403c099f98973a39018fe4ff2343": 2,
+  "0x956e324dd26941c5626e560a74c71a9d856088f0": 1,
+  "0x8836bb603a983b8fdf36441d3604cd0d523bfc87": 1,
+  "0x05fc09d08aa3d8690e25a3a17b7954e53cde10cd": 1
+ },
+ "contracts": 8,
+ "rule_supported": false,
+ "note": "If no trace-verified cycle without a searcher WBNB unwrap/native leg carries a BNB payment, untraced BSC cycles without wrap could be treated as reconstructable (B). Requires >=30 such traced cycles and 0 counter-examples; otherwise BSC untraced rows stay C."
+}

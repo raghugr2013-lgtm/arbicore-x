@@ -1,0 +1,27 @@
+{
+  "kind": "WS_A_CUTOVER_PRE_STATE",
+  "recorded_at_utc": "2026-10-02T15:08:27Z",
+  "stamp": "20261002T150827Z",
+  "container": "arbicore-x-backend-new",
+  "Status": "running",
+  "Health": "healthy",
+  "StartedAt": "2026-10-02T06:19:33.513948555Z",
+  "RestartCount": 0,
+  "Image": "arbicore-x-backend:g5.79-green-20260927",
+  "ImageID": "sha256:aaadc3a9cc78d695a9e7e2d16681babc71c576033ad3764061a918946d8e993a",
+  "safety_env": {
+    "ARBICORE_SCANNER_AUTOSTART": "true",
+    "ARBICORE_RUNTIME_AUTOSTART": "false",
+    "ARBICORE_GIT_SHA": "4fec11f92fecb7f7ef1f56e39cddf18277845470",
+    "ARBICORE_PAPER_VALIDATION_ENABLED": "true",
+    "ARBICORE_GIT_TAG": "G5.79-green-20260927",
+    "ARBICORE_SHADOW_CERT_ENABLED": "true",
+    "ARBICORE_EXECUTION_MODE": "SHADOW",
+    "ARBICORE_AUTOEXEC_AUTOSTART": "false"
+  },
+  "baseline_hashes_verified": true,
+  "new_image_digest_match": true,
+  "approved_new_digest": "sha256:12759b11a783619ad25746a030c5bbcc71b83ed64ff05b3316153d6402a594ae",
+  "rollback_image": "arbicore-x-backend:g5.79-green-20260927",
+  "rollback_id": "sha256:aaadc3a9cc78d695a9e7e2d16681babc71c576033ad3764061a918946d8e993a"
+}

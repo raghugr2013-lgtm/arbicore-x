@@ -1,0 +1,6 @@
+ancestor_93a20c9=YES
+ancestor_2b86cda=YES
+parent_present=YES
+rpc_tip_blob=28c167a8a00106993a95f66c30012fea216e8287
+rpc_2b86cda_blob=28c167a8a00106993a95f66c30012fea216e8287
+rpc_blob_equal=YES

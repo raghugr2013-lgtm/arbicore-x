@@ -1,0 +1,398 @@
+diff --git a/app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py b/app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py
+index cb1def0..4f1b17d 100644
+--- a/app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py
++++ b/app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py
+@@ -8,12 +8,79 @@ never propagated.
+ """
+ from __future__ import annotations
+ 
++import logging
+ import math
++import time
+ from datetime import datetime, timezone
+ from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+ 
+ import os
+ 
++_LOG = logging.getLogger(__name__)
++
++# Evidence-sink fire-and-forget contract (composition ``make_flash_loan_evidence_sink``):
++# raises on persistence failure; returns ``None`` on success. ``None`` therefore
++# means confirmed success ONLY under that contract (Rev 2); ambiguous returns
++# resolve to ``null`` and are never silently coerced to success.
++_SINK_SUCCESS_TOKENS = frozenset({"ok", "success", "persisted", "true"})
++_SINK_FAILURE_TOKENS = frozenset({"fail", "failed", "error", "false"})
++
++
++def _resolve_sink_persist_result(result: Any) -> Optional[bool]:
++    """Map an evidence-sink return value to ``evidence_persisted``.
++
++    ``True``  — confirmed persistence success
++    ``False`` — confirmed persistence failure
++    ``None``  — genuinely unknown / ambiguous (never treated as success)
++    """
++    if result is None:
++        return True
++    if result is True:
++        return True
++    if result is False:
++        return False
++    if isinstance(result, str):
++        token = result.strip().lower()
++        if token in _SINK_SUCCESS_TOKENS:
++            return True
++        if token in _SINK_FAILURE_TOKENS:
++            return False
++        return None
++    if isinstance(result, dict):
++        if "ok" in result:
++            ok = result.get("ok")
++            if ok is True:
++                return True
++            if ok is False:
++                return False
++            return None
++        if "persisted" in result:
++            persisted = result.get("persisted")
++            if persisted is True:
++                return True
++            if persisted is False:
++                return False
++            return None
++        return None
++    return None
++
++
++def _new_timing_state(candidate: DiscoveryCandidate) -> Dict[str, Any]:
++    return {
++        "hint_observed_at": getattr(candidate, "hint_observed_at", None),
++        "claimed_at": getattr(candidate, "claimed_at", None),
++        "verify_started_at": None,
++        "decided_at": None,
++        "stage_ms": {
++            "quote": None,
++            "economics": None,
++            "gates": None,
++            "finalize": None,
++        },
++        "evidence_persisted": None,
++        "timing_error": None,
++    }
++
+ from ...execution.calldata import (
+     build_user_data_from_hops,
+     encode_executor_execute,
+@@ -245,6 +312,96 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+         # a persisted bundle can be traced back to the exact scan that produced
+         # it. Kept strictly separate from trading logic.
+         self.diagnostic_provenance_fn = diagnostic_provenance_fn
++        # Overridable clock for deterministic timing tests (observability only).
++        self._now: Callable[[], float] = time.time
++
++    # ---- P2 timing helpers (fail-safe; never alter verdicts) ---------------
++
++    def _safe_now(self) -> Optional[float]:
++        try:
++            return float(self._now())
++        except Exception:  # noqa: BLE001
++            return None
++
++    def _note_timing_error(
++        self,
++        timing: Optional[Dict[str, Any]],
++        stage: str,
++        exc: BaseException,
++    ) -> None:
++        """Record a short safe timing_error, or fall back to a warning log."""
++        try:
++            if timing is not None and not timing.get("timing_error"):
++                timing["timing_error"] = (
++                    f"{type(exc).__name__}:{stage}"
++                )[:120]
++                return
++        except Exception:  # noqa: BLE001 — nested fail-safe
++            pass
++        try:
++            _LOG.warning(
++                "timing_instrumentation_failed exception_type=%s stage=%s",
++                type(exc).__name__,
++                stage,
++            )
++        except Exception:  # noqa: BLE001
++            pass
++
++    def _close_stage(
++        self,
++        timing: Optional[Dict[str, Any]],
++        stage: str,
++        t0: Optional[float],
++    ) -> None:
++        """Set stage_ms[stage] to measured ms, or leave null if unmeasured."""
++        try:
++            if timing is None or t0 is None:
++                return
++            now = self._safe_now()
++            if now is None:
++                return
++            timing.setdefault("stage_ms", {})[stage] = max(
++                0, int(round((now - t0) * 1000)))
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, stage, exc)
++
++    def _note_inconsistent_timestamps(
++        self, timing: Optional[Dict[str, Any]],
++    ) -> None:
++        """Flag inconsistent stamps without inventing replacement values."""
++        try:
++            if timing is None:
++                return
++            hint = timing.get("hint_observed_at")
++            claimed = timing.get("claimed_at")
++            if (
++                isinstance(hint, (int, float))
++                and isinstance(claimed, (int, float))
++                and float(claimed) < float(hint)
++                and not timing.get("timing_error")
++            ):
++                timing["timing_error"] = (
++                    "inconsistent_timestamps:claimed_at<hint_observed_at"
++                )
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "ts_consistency", exc)
++
++    def _apply_evidence_persisted(
++        self,
++        bundle: Optional[Dict[str, Any]],
++        timing: Optional[Dict[str, Any]],
++        *,
++        value: Optional[bool],
++    ) -> None:
++        try:
++            if timing is not None:
++                timing["evidence_persisted"] = value
++            if bundle is not None:
++                diag = bundle.setdefault("diagnostics", {})
++                t = diag.setdefault("timing", timing or {})
++                t["evidence_persisted"] = value
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "evidence_persisted", exc)
+ 
+     async def verify(self, candidate: DiscoveryCandidate,
+                      ) -> Tuple[Optional[CanonicalOpportunity], str]:
+@@ -263,20 +420,30 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             "gate_8": {"status": "NOT_EVALUATED", "reason": None},
+             "gate_9": {"status": "NOT_EVALUATED", "reason": None},
+         }
++        timing = _new_timing_state(candidate)
+         ev: Dict[str, Any] = {
+             "candidate": candidate, "hm": hm, "chain": chain,
+             "provider": provider, "borrow_token": borrow_token,
+             "borrow_amount_usd": borrow_amount, "gates": gates,
+             "facts": None, "econ": None, "mev_view": None, "min_tvl": 0.0,
++            "_timing": timing,
+         }
++        try:
++            timing["verify_started_at"] = self._safe_now()
++            self._note_inconsistent_timestamps(timing)
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "verify_started_at", exc)
+ 
++        quote_t0 = self._safe_now()
+         try:
+             facts = await self.quote_provider(hm, borrow_amount)
+         except Exception as exc:  # noqa: BLE001
++            self._close_stage(timing, "quote", quote_t0)
+             return await self._finalize(
+                 ev, status="DENIED", canonical=None, outcome=(
+                     f"{VerifiedOutcome.DENIED_VENUE_UNREADABLE}:"
+                     f"{type(exc).__name__}"))
++        self._close_stage(timing, "quote", quote_t0)
+         if not facts:
+             return await self._finalize(
+                 ev, status="DENIED", canonical=None,
+@@ -326,6 +493,7 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             borrow_amount = float(_q_notional)
+             ev["borrow_amount_usd"] = borrow_amount
+ 
++        econ_t0 = self._safe_now()
+         # Chain congestion read (optional).
+         cong = self._chain_congestion(chain)
+ 
+@@ -371,8 +539,10 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             gross_is_quote_inclusive=True,
+         )
+         ev["econ"] = econ
++        self._close_stage(timing, "economics", econ_t0)
+ 
+         # ---- Gate 7 ---------------------------------------------------------
++        gates_t0 = self._safe_now()
+         if self.gate_7 is not None:
+             g7 = self.gate_7.evaluate(
+                 atomic_profit_usd=econ.atomic_profit_usd,
+@@ -381,6 +551,7 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             gates["gate_7"] = {
+                 "status": "PASS" if g7.passed else "FAIL", "reason": g7.reason}
+             if not g7.passed:
++                self._close_stage(timing, "gates", gates_t0)
+                 return await self._finalize(
+                     ev, status="DENIED", canonical=None, outcome=(
+                         f"{VerifiedOutcome.DENIED_GATE_PREFIX}gate_7:"
+@@ -395,6 +566,7 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             gates["gate_8"] = {
+                 "status": "PASS" if g8.passed else "FAIL", "reason": g8.reason}
+             if not g8.passed:
++                self._close_stage(timing, "gates", gates_t0)
+                 return await self._finalize(
+                     ev, status="DENIED", canonical=None, outcome=(
+                         f"{VerifiedOutcome.DENIED_GATE_PREFIX}gate_8:"
+@@ -410,10 +582,12 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             gates["gate_9"] = {
+                 "status": "PASS" if g9.passed else "FAIL", "reason": g9.reason}
+             if not g9.passed:
++                self._close_stage(timing, "gates", gates_t0)
+                 return await self._finalize(
+                     ev, status="DENIED", canonical=None, outcome=(
+                         f"{VerifiedOutcome.DENIED_GATE_PREFIX}gate_9:"
+                         f"{g9.reason}"))
++        self._close_stage(timing, "gates", gates_t0)
+ 
+         # ---- Build LegEvidence: BORROW + per-hop + REPAY ------------------
+         legs: List[LegEvidence] = [LegEvidence(
+@@ -513,23 +687,80 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+         """Single exit point: persist an auditable evidence bundle for EVERY
+         verified candidate (CONFIRMED and DENIED) and, on CONFIRM, route the
+         canonical into the SHADOW/PAPER sink. Both are side-effects wrapped
+-        fail-safe — they NEVER change the returned ``(canonical, outcome)``."""
+-        if self.evidence_sink is not None:
++        fail-safe — they NEVER change the returned ``(canonical, outcome)``.
++
++        P2 timing / evidence_persisted are observability only and follow the
++        same non-interference rule.
++        """
++        timing = ev.get("_timing")
++        if not isinstance(timing, dict):
++            try:
++                cand = ev.get("candidate")
++                timing = (
++                    _new_timing_state(cand)
++                    if isinstance(cand, DiscoveryCandidate)
++                    else {
++                        "hint_observed_at": None,
++                        "claimed_at": None,
++                        "verify_started_at": None,
++                        "decided_at": None,
++                        "stage_ms": {
++                            "quote": None, "economics": None,
++                            "gates": None, "finalize": None,
++                        },
++                        "evidence_persisted": None,
++                        "timing_error": None,
++                    }
++                )
++                ev["_timing"] = timing
++            except Exception:  # noqa: BLE001
++                timing = None
++        try:
++            if timing is not None:
++                timing["decided_at"] = self._safe_now()
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "decided_at", exc)
++
++        finalize_t0 = self._safe_now()
++        bundle: Optional[Dict[str, Any]] = None
++        try:
++            bundle = self._build_evidence_bundle(
++                ev, status=status, outcome=outcome, canonical=canonical)
++        except Exception as exc:  # noqa: BLE001 — build failure must not alter verdict
++            self._note_timing_error(timing, "bundle_build", exc)
++            bundle = None
++
++        if self.evidence_sink is None:
++            self._apply_evidence_persisted(bundle, timing, value=None)
++        else:
+             try:
+-                await self.evidence_sink(
+-                    self._build_evidence_bundle(ev, status=status,
+-                                                outcome=outcome,
+-                                                canonical=canonical))
++                if bundle is None:
++                    bundle = self._build_evidence_bundle(
++                        ev, status=status, outcome=outcome,
++                        canonical=canonical)
++                result = await self.evidence_sink(bundle)
++                self._apply_evidence_persisted(
++                    bundle, timing,
++                    value=_resolve_sink_persist_result(result))
+             except Exception:  # noqa: BLE001 — audit is best-effort, never fatal
+-                pass
++                self._apply_evidence_persisted(bundle, timing, value=False)
++
++        self._close_stage(timing, "finalize", finalize_t0)
++        try:
++            if bundle is not None and timing is not None:
++                bundle.setdefault("diagnostics", {})["timing"] = timing
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "timing_attach", exc)
++
+         if status == "CONFIRMED" and canonical is not None \
+                 and self.shadow_sink is not None:
+             try:
+-                await self.shadow_sink(
+-                    canonical,
+-                    self._build_evidence_bundle(ev, status=status,
+-                                                outcome=outcome,
+-                                                canonical=canonical))
++                shadow_bundle = bundle
++                if shadow_bundle is None:
++                    shadow_bundle = self._build_evidence_bundle(
++                        ev, status=status, outcome=outcome,
++                        canonical=canonical)
++                await self.shadow_sink(canonical, shadow_bundle)
+             except Exception:  # noqa: BLE001 — SHADOW routing never blocks verify
+                 pass
+         return canonical, outcome
+@@ -604,7 +835,8 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             "provenance": "REAL",
+             "broadcast": False,     # invariant: verification never broadcasts
+             # Diagnostic provenance (observability only; never a verdict input).
+-            "diagnostics": self._diagnostics(candidate),
++            "diagnostics": self._diagnostics(
++                candidate, timing=ev.get("_timing")),
+         }
+ 
+         # B7 → H09: persist the exact unsigned executor call bound to the
+@@ -652,17 +884,26 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             }
+         return bundle
+ 
+-    def _diagnostics(self, candidate: DiscoveryCandidate) -> Dict[str, Any]:
++    def _diagnostics(
++        self,
++        candidate: DiscoveryCandidate,
++        *,
++        timing: Optional[Dict[str, Any]] = None,
++    ) -> Dict[str, Any]:
+         """Fail-safe diagnostic provenance for the audit bundle. Never raises
+         and never influences the returned verdict — pure observability."""
+         base: Dict[str, Any] = {"candidate_id": candidate.candidate_id}
+-        if self.diagnostic_provenance_fn is None:
+-            return base
+-        try:
+-            extra = self.diagnostic_provenance_fn(candidate) or {}
+-            base.update(extra)
+-        except Exception:  # noqa: BLE001 — diagnostics never break verify
+-            pass
++        if self.diagnostic_provenance_fn is not None:
++            try:
++                extra = self.diagnostic_provenance_fn(candidate) or {}
++                base.update(extra)
++            except Exception:  # noqa: BLE001 — diagnostics never break verify
++                pass
++        if timing is not None:
++            try:
++                base["timing"] = timing
++            except Exception as exc:  # noqa: BLE001
++                self._note_timing_error(timing, "diagnostics_attach", exc)
+         return base
+ 
+     def _price_provenance(self, hm: Dict[str, Any]) -> List[Dict[str, Any]]:

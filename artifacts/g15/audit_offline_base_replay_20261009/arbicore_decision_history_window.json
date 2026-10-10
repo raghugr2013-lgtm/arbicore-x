@@ -1,0 +1,17 @@
+{
+  "source": "mongo.decision_history read-only",
+  "window": "2026-10-08T00:00:00 .. 2026-10-08T18:00:00 UTC",
+  "n_decisions": 8136,
+  "would_execute": 0,
+  "positive_net_profit_usd_count": 0,
+  "quote_age_sec_median": 0.0900725,
+  "quote_age_sec_mean": 0.14812815425270404,
+  "quote_age_sec_p90": 0.3080625,
+  "dexes_observed": [
+    "aerodrome",
+    "aerodrome_slipstream",
+    "uniswap_v3"
+  ],
+  "discovery_candidates_in_window": 0,
+  "note": "These are ArbiCore self-scanned route decisions, NOT joined to G1.5 winner tx hashes. Capture of external winners is not evidenced here."
+}

@@ -1,0 +1,112 @@
+{
+  "utc": "2026-10-10T12:56:11Z",
+  "contracts_env": {
+    "exists": true,
+    "path": "/home/raghu/projects/arbicore-x-v2/contracts/.env",
+    "mode": "0o600",
+    "size": 285,
+    "mtime_utc": "2026-09-01T11:39:24Z",
+    "is_symlink": false
+  },
+  "cert_contracts_env": {
+    "exists": false,
+    "path": "/home/raghu/projects/arbicore-x-cert/contracts/.env"
+  },
+  "deployer_address_file": {
+    "exists": true,
+    "path": "/home/raghu/projects/arbicore-x-v2/contracts/.deployer_address.txt",
+    "mode": "0o664",
+    "size": 43,
+    "mtime_utc": "2026-08-07T12:19:45Z",
+    "is_symlink": false
+  },
+  "foundry_keystore": {
+    "exists": true,
+    "path": "/home/raghu/.foundry/keystores/arbicore-base-mainnet-deployer",
+    "mode": "0o600",
+    "size": 436,
+    "mtime_utc": "2026-09-07T07:43:07Z",
+    "is_symlink": false
+  },
+  "contracts_env_keys": [
+    "DEPLOYER_PRIVATE_KEY",
+    "BASE_RPC_URL",
+    "BASESCAN_API_KEY"
+  ],
+  "DEPLOYER_PRIVATE_KEY": {
+    "present": true,
+    "len": 64,
+    "looks_like_64_hex": true,
+    "value_attestation": "OMITTED_BY_POLICY_this_task"
+  },
+  "address_reconcile": {
+    "derived_address": "0x3b37a5E124b177fEE30365deb295A5CCF76841Cd",
+    "documented_address": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003",
+    "match": false,
+    "prior_recon_expected_from_key": "0x3b37a5E124b177fEE30365deb295A5CCF76841Cd",
+    "derived_matches_prior_recon": true
+  },
+  "balances_public_base": {
+    "rpc": "mainnet.base.org",
+    "balances": {
+      "0x3b37a5E124b177fEE30365deb295A5CCF76841Cd": {
+        "wei": 0,
+        "eth": 0.0
+      },
+      "0x65afB0a65Fd22F88022915F53eD48DA34fb02003": {
+        "wei": 0,
+        "eth": 0.0
+      }
+    }
+  },
+  "balances_prior_gate": {
+    "rpc_primary_fp8": "ca6545ba",
+    "balances": {
+      "address_file": {
+        "addr_prefix": "0x65af",
+        "addr_suffix": "2003",
+        "http": 200,
+        "rpc_error": null,
+        "balance_eth": 0.0,
+        "nonzero": false
+      },
+      "prior_derived_s1b": {
+        "addr_prefix": "0x3b37",
+        "addr_suffix": "41Cd",
+        "http": 200,
+        "rpc_error": null,
+        "balance_eth": 0.0,
+        "nonzero": false
+      }
+    }
+  },
+  "r4_closeout": {
+    "quarantine_dir": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z",
+    "quarantine_mode": "0o700",
+    "all_17_ok": true,
+    "dest_ok_count": 17,
+    "src_absent_count": 17,
+    "live_admin_sha12": "112c88ac69e1",
+    "live_jwt_sha12": "f98650d468b2",
+    "live_mode": "0o600",
+    "hold_start_utc": "2026-10-10T12:29:00Z",
+    "hold_until_utc": "2026-10-24T12:29:00Z",
+    "hold_days": 14,
+    "earliest_destroy_review_utc": "2026-10-24T12:29:00Z"
+  },
+  "git": {
+    "contracts_env_tracked": false,
+    "contracts_env_gitignored": true,
+    "contracts_env_in_rev_list_objects": 0,
+    "deployer_address_file_tracked": true
+  },
+  "runtime": {
+    "backend_digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "deployer_key_in_backend_env": false,
+    "forge_cast_processes": false,
+    "executor_owner_onchain": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+    "broadcast_deploy_from": "0x0a43f432681ca5ee053d53b79ae1648fdaabfa89",
+    "flash_loan_receiver": "0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f"
+  },
+  "note_cast_argv": "One local cast wallet address derivation was used for reconcile; value not written to evidence. Prefer keystore-based verify in R5-APPLY."
+}

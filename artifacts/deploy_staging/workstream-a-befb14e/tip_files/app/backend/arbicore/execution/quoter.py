@@ -1,0 +1,1296 @@
+"""ArbiCore X · Phase 10.10.8 — Live On-Chain Quoter.
+
+Canonical production quoter for the profitability pipeline.  Every
+autonomous discovery / certification / broadcast decision routes
+through this module so ``economics.effective_out_wei`` reflects an
+actual on-chain price and not a break-even placeholder.
+
+Design principles
+=================
+
+* **Deterministic when live, transparent when not.**  Every quote
+  carries provenance: the exact contract address queried, the block
+  it resolved against, the RPC host, and the wall-clock timestamp.
+  When any hop fails to quote we surface ``status='fallback:*'`` so
+  the downstream policy engine can decide whether to WAIT or IGNORE.
+
+* **Chain-safe eth_call.**  Uses the same read-only ``ARBICORE_RPC_URL``
+  the broadcaster already validates; never touches a signer path.
+
+* **Cache TTL.**  Public quoter contracts on Base cost ~$0 in trace-
+  credits but they DO add latency (~150-300 ms per hop) — a 5 s TTL
+  cache means a 60 s scanner tick with 40 candidates costs ~40 quote
+  calls the first round then near-zero within-window repeats.
+
+* **Zero break-even fallback in the happy path.**  Only when the RPC
+  is genuinely unreachable or the DEX returns a revert do we degrade
+  to the deterministic estimate — and even then the caller sees
+  ``economics.quote_source == 'fallback:break_even'`` in every
+  downstream report.
+
+* **Adapter registry.**  Adding Curve, Camelot, or Solidly-fork DEXs
+  is an additive act — new adapter class + one line in the registry.
+  Never a rewrite of the profitability engine.
+
+Supported DEXs (Phase 10.10.8)
+------------------------------
+* Uniswap V3 (all fee tiers) via QuoterV2
+* Aerodrome SlipStream (concentrated-liquidity) via QuoterV2
+* Aerodrome (volatile / stable classic AMM) via Router.getAmountsOut
+
+Contract addresses (Base Mainnet, chain_id=8453)
+------------------------------------------------
+* Uniswap V3 QuoterV2         0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a
+* Aerodrome SlipStream Quoter  0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0
+* Aerodrome Classic Router     0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43
+"""
+from __future__ import annotations
+
+import logging
+import os
+import time
+import asyncio
+from dataclasses import dataclass, asdict, field
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Protocol, Tuple
+
+import httpx
+from eth_abi import decode as abi_decode
+from eth_abi import encode as abi_encode
+from eth_utils import function_signature_to_4byte_selector, to_checksum_address
+
+logger = logging.getLogger("arbicore.execution.quoter")
+
+
+# --------------------------------------------------------------------------- #
+# Contract catalog                                                            #
+# --------------------------------------------------------------------------- #
+
+# All addresses checksummed at import so downstream eth_call params are
+# rejected early if a typo slips in.
+BASE_UNIV3_QUOTER_V2       = to_checksum_address("0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a")
+# Base Sepolia (chain_id 84532) — additive; used only by the operator
+# opportunity probe. Does NOT affect mainnet 'base' economics.
+BASE_SEPOLIA_UNIV3_QUOTER_V2 = to_checksum_address("0xC5290058841028F1614F3A6F0F5816cAd0df5E27")
+BASE_AERO_SLIPSTREAM_QUOTER = to_checksum_address("0x254cF9E1E6e233aa1AC962CB9B05b2cfeAaE15b0")
+BASE_AERO_CLASSIC_ROUTER    = to_checksum_address("0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43")
+
+# ── Multichain DEX-FORK quoters (verified public deployments) ───────────────
+# Each address is sourced from the venue's OWN official documentation, NOT
+# invented and NOT reused from Uniswap (a fork quoter is factory-specific — it
+# resolves pools from ITS OWN factory, so the Uniswap quoter would return the
+# WRONG pool). Unverifiable here (no RPC); the quoter fails closed for any chain
+# absent from its map, and every quote is proven live only on the VPS.
+# SushiSwap V3 QuoterV2 · Arbitrum One — docs.sushi.com/contracts/clamm
+#   (SushiV3Factory 0x1af415a1EbA07a4986a52B6f2e7dE7003D82231e — matches registry)
+SUSHI_V3_QUOTER_V2_ARBITRUM = to_checksum_address("0x0524e833cCd057e4d7A296e3aaAb9f7675964Ce1")
+# PancakeSwap V3 QuoterV2 · BNB Chain — developer.pancakeswap.finance/contracts/v3/addresses
+PANCAKE_V3_QUOTER_V2_BNB    = to_checksum_address("0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997")
+# SushiSwap V2 Router02 · Ethereum mainnet — getAmountsOut(uint256,address[])
+SUSHI_V2_ROUTER02_ETHEREUM  = to_checksum_address("0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
+# Algebra (dynamic-fee) quoters — verified against live chain state:
+# Camelot V3 quoter · Arbitrum — docs.algebra.finance / docs.camelot.exchange
+CAMELOT_V3_QUOTER_ARBITRUM  = to_checksum_address("0x0Fc73040b26E9bC8514fA028D998E73A254Fa76E")
+# QuickSwap V3 quoter · Polygon — docs.quickswap.exchange/overview/contracts
+QUICKSWAP_V3_QUOTER_POLYGON = to_checksum_address("0xa15F0D7377B2A0C0c10db057f641beD21028FC89")
+# Uniswap V3 QuoterV2 — canonical public deployment shared by Ethereum, Arbitrum,
+# Optimism and Polygon (identical address). BNB uses its own deployment below.
+UNIV3_QUOTER_V2_CANONICAL   = to_checksum_address("0x61fFE014bA17989E743c5F6cB21bF9697530B21e")
+BNB_UNIV3_QUOTER_V2         = to_checksum_address("0x78D78E420Da98ad378D7799bE8f4AF69033EB077")
+
+
+# Selector cache — computed once at import.
+_SEL = {
+    # Uniswap V3 QuoterV2.quoteExactInputSingle((tokenIn,tokenOut,amountIn,fee,sqrtPriceLimitX96))
+    #   returns (amountOut, sqrtPriceX96After, initializedTicksCrossed, gasEstimate)
+    "univ3_quoteExactInputSingle": "0x" + function_signature_to_4byte_selector(
+        "quoteExactInputSingle((address,address,uint256,uint24,uint160))"
+    ).hex(),
+    # Aerodrome SlipStream QuoterV2 mirrors Uniswap V3 API — same selector but
+    # the tuple takes a tickSpacing instead of fee.  Aerodrome V3 signature:
+    #   quoteExactInputSingle((tokenIn,tokenOut,amountIn,tickSpacing,sqrtPriceLimitX96))
+    "aeroSs_quoteExactInputSingle": "0x" + function_signature_to_4byte_selector(
+        "quoteExactInputSingle((address,address,uint256,int24,uint160))"
+    ).hex(),
+    # Aerodrome classic Router.getAmountsOut(uint256, (address,address,bool,address)[])
+    #   Route = (from, to, stable, factory)
+    "aero_getAmountsOut": "0x" + function_signature_to_4byte_selector(
+        "getAmountsOut(uint256,(address,address,bool,address)[])"
+    ).hex(),
+    # UniswapV2-family Router.getAmountsOut(uint256 amountIn, address[] path)
+    #   returns uint256[] (last element = final output). Sushi V2 shares this ABI.
+    "univ2_getAmountsOut": "0x" + function_signature_to_4byte_selector(
+        "getAmountsOut(uint256,address[])"
+    ).hex(),
+    # Algebra dynamic-fee quoter: quoteExactInputSingle(tokenIn,tokenOut,amountIn,
+    #   limitSqrtPrice) -> (amountOut, uint16 fee).  NO fee-tier argument.
+    "algebra_quoteExactInputSingle": "0x" + function_signature_to_4byte_selector(
+        "quoteExactInputSingle(address,address,uint256,uint160)"
+    ).hex(),
+}
+
+
+# --------------------------------------------------------------------------- #
+# Data model                                                                  #
+# --------------------------------------------------------------------------- #
+
+@dataclass(frozen=True)
+class HopQuote:
+    """Live quote for a single swap hop."""
+    hop_index: int
+    dex: str
+    token_in: str
+    token_out: str
+    amount_in_wei: int
+    amount_out_wei: int
+    sqrt_price_x96_after: Optional[int]
+    gas_estimate_units: Optional[int]
+    price_impact_bps: Optional[int]
+    quoter_contract: str
+    rpc_host: str
+    block_number: Optional[int]
+    status: str                        # 'ok' | 'fallback:revert' | 'fallback:rpc_error' | 'fallback:no_adapter'
+    error: Optional[str]
+    generated_at: str
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        # ``sqrt_price_x96_after`` is a uint160 that can exceed MongoDB's
+        # int64 storage limit — stringify to keep receipts persistable.
+        if isinstance(d.get("sqrt_price_x96_after"), int):
+            d["sqrt_price_x96_after"] = str(d["sqrt_price_x96_after"])
+        return d
+
+
+@dataclass(frozen=True)
+class RouteQuote:
+    """Full-route quote assembled by chaining per-hop quotes."""
+    chain: str
+    hops: List[HopQuote]
+    final_amount_out_wei: int
+    aggregate_price_impact_bps: Optional[int]
+    aggregate_gas_estimate_units: Optional[int]
+    status: str                        # 'ok' | 'partial' | 'fallback:break_even'
+    generated_at: str
+    ttl_seconds: int
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = asdict(self)
+        d["hops"] = [h.to_dict() if isinstance(h, HopQuote) else h for h in self.hops]
+        return d
+
+    @property
+    def is_live(self) -> bool:
+        return self.status == "ok"
+
+
+# --------------------------------------------------------------------------- #
+# Backend protocol + registry                                                 #
+# --------------------------------------------------------------------------- #
+
+class QuoterBackend(Protocol):
+    dex: str
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote: ...
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _redact_host(url: Optional[str]) -> str:
+    if not url:
+        return "unknown"
+    try:
+        from urllib.parse import urlparse as _up
+        return _up(url).hostname or "unknown"
+    except Exception:  # noqa: BLE001
+        return "unknown"
+
+
+# --------------------------------------------------------------------------- #
+# JSON-RPC helper — used by every backend                                     #
+# --------------------------------------------------------------------------- #
+
+# Client-side throttle + retry so a free public RPC does not trip
+# `-32016 over rate limit`. The throttle is scoped PER RPC HOST (provider), so
+# unrelated chains/providers never serialise through one another — each host
+# gets its own lock + pacing clock. Same-host calls remain paced (flood-safe).
+_RPC_MIN_INTERVAL_S = float(os.environ.get("ARBICORE_RPC_MIN_INTERVAL_MS", "140")) / 1000.0
+_RPC_MAX_RETRIES = int(os.environ.get("ARBICORE_RPC_MAX_RETRIES", "4"))
+# host → its own throttle lock; host → last-request monotonic timestamp.
+_RPC_LOCKS: Dict[str, "asyncio.Lock"] = {}
+_RPC_LAST_TS: Dict[str, float] = {}
+
+# Per-host batch-capability cache. Some providers (e.g. Alchemy on certain
+# plans) reject or mishandle JSON-RPC batch arrays even though they answer
+# single requests fine. When we detect a mishandled batch for a host we flip
+# it to single-request mode for the rest of the process. Provenance
+# (block_number) then comes from a separate best-effort eth_blockNumber.
+_HOST_BATCH_OK: Dict[str, bool] = {}
+
+# HTTP-429 (rate-limit) policy for the quoter transport. A 429 means the host
+# asked us to back off; retrying the SAME host aggressively amplifies 429s
+# instead of failing over. 429 is therefore bounded INDEPENDENTLY of the
+# general retry budget, and each 429 places the host on a short cooldown so
+# QuoterRegistry.quote_route fails over promptly to a valid alternate endpoint.
+_RPC_MAX_RETRIES_429 = int(os.environ.get("ARBICORE_RPC_MAX_RETRIES_429", "1"))
+_RPC_RATE_LIMIT_COOLDOWN_S = float(
+    os.environ.get("ARBICORE_RPC_RATE_LIMIT_COOLDOWN_S", "60"))
+_RPC_HOST_COOLDOWN_UNTIL: Dict[str, float] = {}
+
+# ── H06 (P1 defense-in-depth): endpoint chain-identity verification ──────────
+# Every RPC endpoint used for a chain must prove, via ``eth_chainId``, that it
+# actually serves the INTENDED chain. Wrong / ambiguous / unreadable identity
+# fails CLOSED (the endpoint is skipped; a chain with no verifiable endpoint
+# quotes nothing rather than silently using another chain's node). This applies
+# to endpoint selection AND failover, not just diagnostics.
+_EXPECTED_CHAIN_IDS: Dict[str, int] = {
+    "base": 8453,
+    # Base Sepolia testnet — the CERTIFICATION receiver target chain. It is NOT
+    # part of the mainnet CHAIN_REGISTRIES (production six-chain only), so it is
+    # declared explicitly here. ADDITIVE ONLY: mainnet six-chain resolution is
+    # unchanged. Both hyphen/underscore name forms map to 84532 so Base-Sepolia
+    # chain-identity verification stays STRICT (endpoint must prove chainId 84532).
+    "base-sepolia": 84532,
+    "base_sepolia": 84532,
+}
+try:  # non-Base ids from the canonical registry (single source of truth)
+    from ..chains.registries import CHAIN_REGISTRIES as _CR
+    for _cn, _cv in _CR.items():
+        _cid = _cv.get("chain_id")
+        if isinstance(_cid, int):
+            _EXPECTED_CHAIN_IDS[_cn.lower()] = _cid
+except Exception:  # noqa: BLE001 — never let import shape break quoting
+    pass
+
+# host → verified observed chain id (only successful, trustworthy reads cached).
+_HOST_CHAIN_ID: Dict[str, int] = {}
+
+
+def _expected_chain_id(chain: Optional[str]) -> Optional[int]:
+    return _EXPECTED_CHAIN_IDS.get((chain or "").lower())
+
+
+async def _read_chain_id(rpc_url: str, *, timeout: float = 8.0) -> Optional[int]:
+    """READ-ONLY ``eth_chainId``. Returns the int chain id or None (fail-closed)
+    on any error / malformed answer. Never raises, never fabricates."""
+    try:
+        r = await _post_json(
+            rpc_url, {"jsonrpc": "2.0", "id": 1, "method": "eth_chainId",
+                      "params": []}, timeout)
+        body = r.json()
+        if isinstance(body, list):
+            body = body[0] if body else {}
+        res = body.get("result") if isinstance(body, dict) else None
+        if isinstance(res, str) and res.startswith("0x"):
+            return int(res, 16)
+    except Exception:  # noqa: BLE001
+        return None
+    return None
+
+
+async def _endpoint_serves_chain(rpc_url: str, chain: Optional[str]) -> bool:
+    """True only if ``rpc_url`` provably serves ``chain`` (eth_chainId matches
+    the expected id). Fail-closed: unknown expected id, unreadable endpoint, or
+    a mismatch all return False. Observed ids are cached per host (successful
+    reads only, so a transient failure can be re-probed)."""
+    expected = _expected_chain_id(chain)
+    if expected is None:
+        return False  # unknown/ambiguous target chain → fail closed
+    host = _host_key(rpc_url)
+    cached = _HOST_CHAIN_ID.get(host)
+    if cached is not None:
+        return cached == expected
+    scope = _throttle_scope(rpc_url)
+    await _throttle(scope)
+    observed = await _read_chain_id(rpc_url)
+    if observed is None:
+        return False  # unreadable → fail closed (no cache; allow re-probe)
+    _HOST_CHAIN_ID[host] = observed
+    return observed == expected
+
+
+async def _verified_chain_endpoints(
+    candidates: List[str], chain: Optional[str],
+) -> List[str]:
+    """Filter RPC candidates to those that prove they serve ``chain``. Preserves
+    order. Empty result ⇒ the caller fails closed (no fabricated quote)."""
+    out: List[str] = []
+    for cand in candidates:
+        if await _endpoint_serves_chain(cand, chain):
+            out.append(cand)
+        else:
+            logger.warning(
+                "quoter: endpoint %s rejected for chain=%s "
+                "(eth_chainId mismatch/unreadable) — fail-closed skip",
+                _redact_host(cand), chain)
+    return out
+
+
+
+def _host_key(url: str) -> str:
+    try:
+        from urllib.parse import urlparse as _up
+        return (_up(url).hostname or url).lower()
+    except Exception:  # noqa: BLE001
+        return url
+
+
+def _is_rate_limited(err: Optional[Dict[str, Any]]) -> bool:
+    if not err:
+        return False
+    code = err.get("code")
+    msg = str(err.get("message", "")).lower()
+    return code == -32016 or "rate limit" in msg or "too many requests" in msg
+
+
+def _throttle_scope(rpc_url: str) -> str:
+    """Throttle scope key — the RPC host. Independent hosts (⇒ independent
+    chains/providers) throttle independently and can run concurrently."""
+    return _host_key(rpc_url)
+
+
+def _throttle_lock_for(scope: str) -> "asyncio.Lock":
+    lock = _RPC_LOCKS.get(scope)
+    if lock is None:                      # atomic in single-threaded asyncio
+        lock = asyncio.Lock()
+        _RPC_LOCKS[scope] = lock
+    return lock
+
+
+async def _throttle(scope: str) -> None:
+    """Serialise RPC calls to the SAME host with a minimum inter-request
+    interval. Different hosts use different locks ⇒ never block each other."""
+    async with _throttle_lock_for(scope):
+        now = asyncio.get_event_loop().time()
+        wait = _RPC_MIN_INTERVAL_S - (now - _RPC_LAST_TS.get(scope, 0.0))
+        if wait > 0:
+            await asyncio.sleep(wait)
+        _RPC_LAST_TS[scope] = asyncio.get_event_loop().time()
+
+
+async def _post_json(rpc_url: str, payload: Any, timeout: float):
+    async with httpx.AsyncClient(timeout=timeout) as c:
+        return await c.post(rpc_url, json=payload)
+
+
+async def _single_call(
+    rpc_url: str, *, to: str, data: str, block: str, timeout: float,
+    want_block: bool,
+) -> Tuple[Optional[str], Optional[int], Optional[Dict[str, Any]]]:
+    """eth_call as a SINGLE (non-array) request + a separate best-effort
+    eth_blockNumber for provenance. Used for providers that mishandle
+    batch arrays. Never fabricates: a failed block probe just leaves
+    ``block_number=None`` while the quote result stands."""
+    r = await _post_json(
+        rpc_url,
+        {"jsonrpc": "2.0", "id": 1, "method": "eth_call",
+         "params": [{"to": to, "data": data}, block]},
+        timeout,
+    )
+    if getattr(r, "status_code", 200) == 429:
+        return None, None, {"code": -32016, "message": "HTTP 429 rate limited"}
+    r.raise_for_status()
+    body = r.json()
+    if isinstance(body, list):
+        body = body[0] if body else {}
+    if not isinstance(body, dict):
+        return None, None, {"code": -32000, "message": f"unexpected response type {type(body).__name__}"}
+    if "error" in body:
+        return None, None, body["error"]
+    result = body.get("result")
+    block_number: Optional[int] = None
+    if want_block and result is not None:
+        try:
+            rb = await _post_json(
+                rpc_url,
+                {"jsonrpc": "2.0", "id": 1, "method": "eth_blockNumber", "params": []},
+                timeout,
+            )
+            bb = rb.json()
+            if isinstance(bb, list):
+                bb = bb[0] if bb else {}
+            bn_hex = (bb or {}).get("result") if isinstance(bb, dict) else None
+            block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
+        except Exception:  # noqa: BLE001 — provenance is non-critical
+            block_number = None
+    return result, block_number, None
+
+
+async def _eth_call(
+    rpc_url: str, *, to: str, data: str, block: str = "latest", timeout: float = 12.0,
+    with_block_number: bool = True, max_retries: Optional[int] = None,
+) -> Tuple[Optional[str], Optional[int], Optional[Dict[str, Any]]]:
+    """Read-only ``eth_call`` — returns (result_hex, block_number, error_dict).
+
+    Prefers a JSON-RPC batch (eth_call + eth_blockNumber in one round-trip) but
+    AUTO-FALLS BACK to single requests for any host that mishandles batches
+    (e.g. Alchemy plans that answer a batch with a single object or an empty
+    array). Applies a global throttle and retries on rate-limit (-32016 / HTTP
+    429). Fail-closed: on any unrecovered error it returns an ``error_dict`` and
+    never a fabricated quote."""
+    host = _host_key(rpc_url)
+    scope = _throttle_scope(rpc_url)
+    last_err: Optional[Dict[str, Any]] = None
+    retries = _RPC_MAX_RETRIES if max_retries is None else max(0, int(max_retries))
+    # HTTP-429 is bounded INDEPENDENTLY of the general retry budget so a
+    # rate-limited host is not hammered (amplification), and each 429 puts the
+    # host on a short cooldown so later calls fail over to a valid alternate.
+    eff_429 = min(retries, _RPC_MAX_RETRIES_429)
+
+    def _cooldown_host() -> None:
+        _RPC_HOST_COOLDOWN_UNTIL[host] = (
+            asyncio.get_event_loop().time() + _RPC_RATE_LIMIT_COOLDOWN_S)
+
+    # Per-host cooldown gate: fail fast (NO POST) with a rate-limited error so
+    # QuoterRegistry.quote_route fails over to the next candidate endpoint.
+    if _RPC_HOST_COOLDOWN_UNTIL.get(host, 0.0) > asyncio.get_event_loop().time():
+        return None, None, {"code": -32016,
+                            "message": "HTTP 429 host cooldown (recent rate limit)"}
+    for attempt in range(retries + 1):
+        await _throttle(scope)
+        use_batch = with_block_number and _HOST_BATCH_OK.get(host, True)
+
+        # ---- Single-request mode (host known batch-averse, or no block wanted)
+        if not use_batch:
+            try:
+                result, bn, err = await _single_call(
+                    rpc_url, to=to, data=data, block=block, timeout=timeout,
+                    want_block=with_block_number)
+            except httpx.HTTPStatusError as exc:
+                if exc.response is not None and exc.response.status_code == 429:
+                    last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
+                    _cooldown_host()
+                    if attempt < eff_429:
+                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    return None, None, last_err
+                raise
+            if err and _is_rate_limited(err):
+                last_err = err
+                _cooldown_host()
+                if attempt < eff_429:
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+            return result, bn, err
+
+        # ---- Batch mode ------------------------------------------------------
+        payload = [
+            {"jsonrpc": "2.0", "id": 1, "method": "eth_call",
+             "params": [{"to": to, "data": data}, block]},
+            {"jsonrpc": "2.0", "id": 2, "method": "eth_blockNumber", "params": []},
+        ]
+        try:
+            r = await _post_json(rpc_url, payload, timeout)
+            if getattr(r, "status_code", 200) == 429:
+                last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
+                _cooldown_host()
+                if attempt < eff_429:
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                return None, None, last_err
+            r.raise_for_status()
+            body = r.json()
+        except httpx.HTTPStatusError as exc:
+            if exc.response is not None and exc.response.status_code == 429:
+                last_err = {"code": -32016, "message": "HTTP 429 rate limited"}
+                _cooldown_host()
+                if attempt < eff_429:
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                return None, None, last_err
+            raise
+
+        if isinstance(body, list):
+            call_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 1), None)
+            if call_resp is not None:
+                if "error" in call_resp:
+                    err = call_resp["error"]
+                    if _is_rate_limited(err):
+                        last_err = err
+                        _cooldown_host()
+                        if attempt < eff_429:
+                            await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                    return None, None, err
+                block_resp = next((b for b in body if isinstance(b, dict) and b.get("id") == 2), None) or {}
+                bn_hex = (block_resp or {}).get("result")
+                block_number = int(bn_hex, 16) if isinstance(bn_hex, str) and bn_hex.startswith("0x") else None
+                return call_resp.get("result"), block_number, None
+            # Array returned but our id==1 is missing. If it carries a surfaced
+            # error, honour it; otherwise the provider mishandled the batch —
+            # switch this host to single mode and retry.
+            err = next((b.get("error") for b in body if isinstance(b, dict) and "error" in b), None)
+            if err:
+                if _is_rate_limited(err):
+                    last_err = err
+                    _cooldown_host()
+                    if attempt < eff_429:
+                        await asyncio.sleep(0.3 * (2 ** attempt)); continue
+                return None, None, err
+            logger.info("quoter: host %s mishandled JSON-RPC batch (array) — switching to single-request mode", host)
+            _HOST_BATCH_OK[host] = False
+            continue
+        # Non-array response to a batch: a single object. Honour an error, else
+        # mark the host batch-averse and retry in single mode.
+        if isinstance(body, dict) and "error" in body:
+            err = body["error"]
+            if _is_rate_limited(err):
+                last_err = err
+                _cooldown_host()
+                if attempt < eff_429:
+                    await asyncio.sleep(0.3 * (2 ** attempt)); continue
+            # A real auth/other error (e.g. Ankr keyless "Unauthorized"): surface it.
+            return None, None, err
+        logger.info("quoter: host %s answered batch with a non-array — switching to single-request mode", host)
+        _HOST_BATCH_OK[host] = False
+        continue
+    return None, None, (last_err or {"code": -32016, "message": "rate limited (retries exhausted)"})
+
+
+# --------------------------------------------------------------------------- #
+# Uniswap V3 QuoterV2 backend                                                 #
+# --------------------------------------------------------------------------- #
+
+class UniV3QuoterV2:
+    """Live quoter for Uniswap V3 pools — Base + base-sepolia + the registered
+    multichain EVM chains (ethereum, arbitrum, optimism, polygon, bnb), all fee
+    tiers. Chains absent from ``_CONTRACT_BY_CHAIN`` fail closed."""
+    dex = "uniswap_v3"
+
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "base": BASE_UNIV3_QUOTER_V2,
+        "base-sepolia": BASE_SEPOLIA_UNIV3_QUOTER_V2,
+        # Multichain UniV3 QuoterV2 (canonical public addresses — identical to
+        # providers/dex.py::UniswapV3Quoter.QUOTER_ADDRESSES). Additive only;
+        # Base behaviour above is unchanged. A chain absent here fails closed
+        # ('fallback:no_adapter').
+        "ethereum": UNIV3_QUOTER_V2_CANONICAL,
+        "arbitrum": UNIV3_QUOTER_V2_CANONICAL,
+        "optimism": UNIV3_QUOTER_V2_CANONICAL,
+        "polygon":  UNIV3_QUOTER_V2_CANONICAL,
+        "bnb":      BNB_UNIV3_QUOTER_V2,
+    }
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote:
+        contract = self._CONTRACT_BY_CHAIN.get(chain)
+        if not contract:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, "unknown", _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  f"no UniV3 QuoterV2 address for chain '{chain}'")
+        # fee tier — accept either raw ppm (500, 3000, 10000) or bps (5, 30, 100)
+        fee_raw = int(hop_spec.get("fee") or hop_spec.get("fee_tier_ppm")
+                       or (int(hop_spec.get("fee_tier_bps") or 0) * 100))
+        if fee_raw == 0:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, contract, _redact_host(rpc_url),
+                                  "fallback:no_adapter", "fee tier missing / zero")
+        # Encode tuple param: (tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96)
+        params_encoded = abi_encode(
+            ["(address,address,uint256,uint24,uint160)"],
+            [(to_checksum_address(token_in), to_checksum_address(token_out),
+              int(amount_in_wei), int(fee_raw), 0)],
+        )
+        data = _SEL["univ3_quoteExactInputSingle"] + params_encoded.hex()
+
+        try:
+            result_hex, block_number, err = await _eth_call(rpc_url, to=contract, data=data, max_retries=max_retries)
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, contract, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"{type(exc).__name__}: {exc}")
+        if err:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, contract, _redact_host(rpc_url),
+                                  "fallback:revert",
+                                  f"code={err.get('code')} {err.get('message','')[:120]}")
+        try:
+            amount_out, sqrt_after, _ticks, gas_est = abi_decode(
+                ["uint256", "uint160", "uint32", "uint256"],
+                bytes.fromhex(result_hex[2:]),
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, contract, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"decode error: {exc}")
+        # Price impact — informational only (needs pool state to be exact;
+        # here we return None and let higher layers derive from quoted vs
+        # spot if desired).
+        return HopQuote(
+            hop_index=hop_index, dex=self.dex,
+            token_in=to_checksum_address(token_in),
+            token_out=to_checksum_address(token_out),
+            amount_in_wei=int(amount_in_wei),
+            amount_out_wei=int(amount_out),
+            sqrt_price_x96_after=int(sqrt_after),
+            gas_estimate_units=int(gas_est),
+            price_impact_bps=None,
+            quoter_contract=contract,
+            rpc_host=_redact_host(rpc_url),
+            block_number=block_number,
+            status="ok", error=None, generated_at=_now_iso(),
+        )
+
+
+# --------------------------------------------------------------------------- #
+# Aerodrome SlipStream backend (CL — same shape as UniV3 with tickSpacing)   #
+# --------------------------------------------------------------------------- #
+
+class AerodromeSlipStreamQuoter:
+    dex = "aerodrome_slipstream"
+
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "base": BASE_AERO_SLIPSTREAM_QUOTER,
+    }
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote:
+        contract = self._CONTRACT_BY_CHAIN.get(chain)
+        if not contract:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, "unknown", _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  f"no SlipStream quoter for chain '{chain}'")
+        tick_spacing = int(hop_spec.get("tick_spacing") or hop_spec.get("tickSpacing") or 0)
+        if tick_spacing == 0:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, contract, _redact_host(rpc_url),
+                                  "fallback:no_adapter", "tick_spacing missing")
+        params_encoded = abi_encode(
+            ["(address,address,uint256,int24,uint160)"],
+            [(to_checksum_address(token_in), to_checksum_address(token_out),
+              int(amount_in_wei), int(tick_spacing), 0)],
+        )
+        data = _SEL["aeroSs_quoteExactInputSingle"] + params_encoded.hex()
+        try:
+            result_hex, block_number, err = await _eth_call(rpc_url, to=contract, data=data, max_retries=max_retries)
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, contract, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"{type(exc).__name__}: {exc}")
+        if err:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, contract, _redact_host(rpc_url),
+                                  "fallback:revert",
+                                  f"code={err.get('code')} {err.get('message','')[:120]}")
+        try:
+            amount_out, sqrt_after, _ticks, gas_est = abi_decode(
+                ["uint256", "uint160", "uint32", "uint256"],
+                bytes.fromhex(result_hex[2:]),
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, contract, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"decode error: {exc}")
+        return HopQuote(
+            hop_index=hop_index, dex=self.dex,
+            token_in=to_checksum_address(token_in),
+            token_out=to_checksum_address(token_out),
+            amount_in_wei=int(amount_in_wei),
+            amount_out_wei=int(amount_out),
+            sqrt_price_x96_after=int(sqrt_after),
+            gas_estimate_units=int(gas_est),
+            price_impact_bps=None,
+            quoter_contract=contract,
+            rpc_host=_redact_host(rpc_url),
+            block_number=block_number,
+            status="ok", error=None, generated_at=_now_iso(),
+        )
+
+
+# --------------------------------------------------------------------------- #
+# Aerodrome classic AMM backend                                               #
+# --------------------------------------------------------------------------- #
+
+class AerodromeClassicQuoter:
+    dex = "aerodrome"
+
+    _ROUTER_BY_CHAIN: Dict[str, str] = {
+        "base": BASE_AERO_CLASSIC_ROUTER,
+    }
+    # The default factory returned by the Router (needed by the Route tuple).
+    _DEFAULT_FACTORY_BY_CHAIN: Dict[str, str] = {
+        "base": to_checksum_address("0x420DD381b31aEf6683db6B902084cB0FFECe40Da"),
+    }
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote:
+        router = self._ROUTER_BY_CHAIN.get(chain)
+        factory = self._DEFAULT_FACTORY_BY_CHAIN.get(chain)
+        if not router or not factory:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, "unknown", _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  f"no Aerodrome classic router for chain '{chain}'")
+        # Volatile pool by default; hop_spec.stable=True selects the stable pool.
+        is_stable = bool(hop_spec.get("stable") or False)
+        route_tuple = (
+            to_checksum_address(token_in),
+            to_checksum_address(token_out),
+            is_stable,
+            factory,
+        )
+        params_encoded = abi_encode(
+            ["uint256", "(address,address,bool,address)[]"],
+            [int(amount_in_wei), [route_tuple]],
+        )
+        data = _SEL["aero_getAmountsOut"] + params_encoded.hex()
+        try:
+            result_hex, block_number, err = await _eth_call(rpc_url, to=router, data=data, max_retries=max_retries)
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"{type(exc).__name__}: {exc}")
+        if err:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:revert",
+                                  f"code={err.get('code')} {err.get('message','')[:120]}")
+        try:
+            # returns uint256[]; index 0 is input, last is final output
+            (amounts,) = abi_decode(["uint256[]"], bytes.fromhex(result_hex[2:]))
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"decode error: {exc}")
+        amount_out = int(amounts[-1]) if amounts else 0
+        return HopQuote(
+            hop_index=hop_index, dex=self.dex,
+            token_in=to_checksum_address(token_in),
+            token_out=to_checksum_address(token_out),
+            amount_in_wei=int(amount_in_wei),
+            amount_out_wei=amount_out,
+            sqrt_price_x96_after=None,
+            gas_estimate_units=None,
+            price_impact_bps=None,
+            quoter_contract=router,
+            rpc_host=_redact_host(rpc_url),
+            block_number=block_number,
+            status="ok", error=None, generated_at=_now_iso(),
+        )
+
+
+# --------------------------------------------------------------------------- #
+# UniV3-fork QuoterV2 backends (ABI-identical; factory-specific quoter addr)   #
+# --------------------------------------------------------------------------- #
+
+class SushiV3QuoterV2(UniV3QuoterV2):
+    """SushiSwap V3 (clAMM) — a DIRECT Uniswap V3 fork sharing the exact
+    ``QuoterV2.quoteExactInputSingle((address,address,uint256,uint24,uint160))``
+    ABI. Only the quoter ADDRESS differs (it resolves pools from Sushi's OWN
+    factory, so Uniswap's quoter must NOT be reused). Fails closed for any chain
+    absent from the map."""
+    dex = "sushiswap_v3"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "arbitrum": SUSHI_V3_QUOTER_V2_ARBITRUM,
+    }
+
+
+class PancakeV3QuoterV2(UniV3QuoterV2):
+    """PancakeSwap V3 — a DIRECT Uniswap V3 fork; QuoterV2 ABI identical, address
+    from PancakeSwap's official V3 deployment docs. Fails closed off-map."""
+    dex = "pancakeswap_v3"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "bnb": PANCAKE_V3_QUOTER_V2_BNB,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# UniswapV2-family Router backend (getAmountsOut)                              #
+# --------------------------------------------------------------------------- #
+
+class UniV2RouterQuoter:
+    """Live quoter for UniswapV2-family DEXs (SushiSwap V2) via
+    ``Router.getAmountsOut(amountIn, [tokenIn, tokenOut])``. View call, no
+    signer path. Fails closed for any chain without a configured router."""
+    dex = "sushiswap_v2"
+
+    _ROUTER_BY_CHAIN: Dict[str, str] = {
+        "ethereum": SUSHI_V2_ROUTER02_ETHEREUM,
+    }
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote:
+        router = self._ROUTER_BY_CHAIN.get(chain)
+        if not router:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, "unknown", _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  f"no UniV2 router for chain '{chain}'")
+        path = [to_checksum_address(token_in), to_checksum_address(token_out)]
+        params_encoded = abi_encode(["uint256", "address[]"],
+                                    [int(amount_in_wei), path])
+        data = _SEL["univ2_getAmountsOut"] + params_encoded.hex()
+        try:
+            result_hex, block_number, err = await _eth_call(rpc_url, to=router, data=data, max_retries=max_retries)
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"{type(exc).__name__}: {exc}")
+        if err:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:revert",
+                                  f"code={err.get('code')} {err.get('message','')[:120]}")
+        try:
+            (amounts,) = abi_decode(["uint256[]"], bytes.fromhex(result_hex[2:]))
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, router, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"decode error: {exc}")
+        amount_out = int(amounts[-1]) if amounts else 0
+        return HopQuote(
+            hop_index=hop_index, dex=self.dex,
+            token_in=to_checksum_address(token_in),
+            token_out=to_checksum_address(token_out),
+            amount_in_wei=int(amount_in_wei),
+            amount_out_wei=amount_out,
+            sqrt_price_x96_after=None,
+            gas_estimate_units=None,
+            price_impact_bps=None,
+            quoter_contract=router,
+            rpc_host=_redact_host(rpc_url),
+            block_number=block_number,
+            status="ok", error=None, generated_at=_now_iso(),
+        )
+
+
+# --------------------------------------------------------------------------- #
+# Algebra (dynamic-fee) Quoter backends — Camelot V3 / QuickSwap V3            #
+# --------------------------------------------------------------------------- #
+
+class _AlgebraQuoter:
+    """Live quoter for Algebra Integral DEXs (Camelot V3, QuickSwap V3).
+
+    Algebra pools carry a DYNAMIC fee (no fee tier), so the quoter ABI differs
+    from Uniswap V3: ``quoteExactInputSingle(address tokenIn, address tokenOut,
+    uint256 amountIn, uint160 limitSqrtPrice)`` returning ``(uint256 amountOut,
+    uint16 fee)`` (limitSqrtPrice = 0). This is NOT a Uniswap getPool/fee-tier
+    path — never fabricated as one. Fails closed for any chain without a
+    configured Algebra quoter. Address verified against live chain state."""
+    dex = "_algebra"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {}
+
+    async def quote_hop(
+        self, *, hop_index: int, chain: str, token_in: str, token_out: str,
+        amount_in_wei: int, hop_spec: Dict[str, Any], rpc_url: str,
+        max_retries: Optional[int] = None,
+    ) -> HopQuote:
+        quoter = self._CONTRACT_BY_CHAIN.get(chain)
+        if not quoter:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, "unknown", _redact_host(rpc_url),
+                                  "fallback:no_adapter",
+                                  f"no Algebra quoter for chain '{chain}'")
+        params = abi_encode(
+            ["address", "address", "uint256", "uint160"],
+            [to_checksum_address(token_in), to_checksum_address(token_out),
+             int(amount_in_wei), 0])
+        data = _SEL["algebra_quoteExactInputSingle"] + params.hex()
+        try:
+            result_hex, block_number, err = await _eth_call(rpc_url, to=quoter, data=data, max_retries=max_retries)
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, quoter, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"{type(exc).__name__}: {exc}")
+        if err:
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, quoter, _redact_host(rpc_url),
+                                  "fallback:revert",
+                                  f"code={err.get('code')} {err.get('message','')[:120]}")
+        try:
+            amount_out, dyn_fee = abi_decode(["uint256", "uint16"], bytes.fromhex(result_hex[2:]))
+        except Exception as exc:  # noqa: BLE001
+            return _fallback_hop(hop_index, self.dex, token_in, token_out,
+                                  amount_in_wei, quoter, _redact_host(rpc_url),
+                                  "fallback:rpc_error", f"decode error: {exc}")
+        return HopQuote(
+            hop_index=hop_index, dex=self.dex,
+            token_in=to_checksum_address(token_in),
+            token_out=to_checksum_address(token_out),
+            amount_in_wei=int(amount_in_wei),
+            amount_out_wei=int(amount_out),
+            sqrt_price_x96_after=None,
+            gas_estimate_units=None,          # Algebra quoter returns no gas est.
+            price_impact_bps=None,
+            quoter_contract=quoter,
+            rpc_host=_redact_host(rpc_url),
+            block_number=block_number,
+            status="ok", error=None, generated_at=_now_iso(),
+        )
+
+
+class CamelotV3Quoter(_AlgebraQuoter):
+    """Camelot V3 (Algebra) quoter · Arbitrum — verified against live chain."""
+    dex = "camelot_v3"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "arbitrum": CAMELOT_V3_QUOTER_ARBITRUM,
+    }
+
+
+class QuickSwapV3Quoter(_AlgebraQuoter):
+    """QuickSwap V3 (Algebra) quoter · Polygon — verified against live chain."""
+    dex = "quickswap_v3"
+    _CONTRACT_BY_CHAIN: Dict[str, str] = {
+        "polygon": QUICKSWAP_V3_QUOTER_POLYGON,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# Helpers                                                                     #
+# --------------------------------------------------------------------------- #
+
+def _fallback_hop(hop_index: int, dex: str, token_in: str, token_out: str,
+                   amount_in_wei: int, contract: str, rpc_host: str,
+                   status: str, error: str) -> HopQuote:
+    return HopQuote(
+        hop_index=hop_index, dex=dex,
+        token_in=token_in, token_out=token_out,
+        amount_in_wei=int(amount_in_wei), amount_out_wei=0,
+        sqrt_price_x96_after=None, gas_estimate_units=None,
+        price_impact_bps=None, quoter_contract=contract,
+        rpc_host=rpc_host, block_number=None,
+        status=status, error=error, generated_at=_now_iso(),
+    )
+
+
+def _should_failover(q: "HopQuote") -> bool:
+    """Whether a non-ok hop is worth retrying against the NEXT configured RPC.
+
+    Fail over on transient / provider-side faults (rate-limit, transport, empty
+    response). Do NOT fail over on a *genuine DEX execution revert* (another
+    endpoint returns the identical revert — spinning wastes latency) nor on a
+    config/no-adapter miss (another endpoint won't fix a missing adapter)."""
+    if q.status == "ok":
+        return False
+    if q.status == "fallback:no_adapter":
+        return False
+    err = (q.error or "").lower()
+    if "execution reverted" in err:
+        return False
+    return True
+
+
+
+# --------------------------------------------------------------------------- #
+# QuoterRegistry — the object the rest of ArbiCore consumes                   #
+# --------------------------------------------------------------------------- #
+
+class QuoterRegistry:
+    """Route quotes across heterogeneous DEXs with TTL caching.
+
+    Any autonomous component (discovery, certification, auto-pilot,
+    Manual Composer) obtains route quotes through this registry.  It
+    is the single source of truth for live economics inputs.
+    """
+
+    def __init__(
+        self, *,
+        backends: Optional[List[QuoterBackend]] = None,
+        cache_ttl_s: float = 5.0,
+        rpc_url_env: str = "ARBICORE_RPC_URL",
+        verify_chain_identity: Optional[bool] = None,
+    ):
+        default_backends: List[QuoterBackend] = [
+            UniV3QuoterV2(),
+            AerodromeSlipStreamQuoter(),
+            AerodromeClassicQuoter(),
+            SushiV3QuoterV2(),
+            PancakeV3QuoterV2(),
+            UniV2RouterQuoter(),
+            CamelotV3Quoter(),
+            QuickSwapV3Quoter(),
+        ]
+        self._backends: Dict[str, QuoterBackend] = {
+            b.dex: b for b in (backends or default_backends)
+        }
+        self._cache_ttl = float(cache_ttl_s)
+        self._cache: Dict[Tuple, Tuple[float, HopQuote]] = {}
+        self._rpc_url_env = rpc_url_env
+        # H06: verify each endpoint's chain identity (eth_chainId) before use.
+        # ON by default for production (which always uses the DEFAULT network
+        # backends). When a caller injects custom ``backends`` (unit tests that
+        # stub the quoting transport), there is no real remote endpoint to
+        # verify, so the registry-level chain-id probe is skipped unless the
+        # caller explicitly forces it via ``verify_chain_identity=True``.
+        self._verify_chain_identity = (
+            (backends is None) if verify_chain_identity is None
+            else bool(verify_chain_identity))
+
+    # ---- introspection --------------------------------------------------
+
+    def supports(self, dex: str) -> bool:
+        return dex in self._backends
+
+    @property
+    def supported_dexes(self) -> List[str]:
+        return sorted(self._backends)
+
+    def _rpc_url(self, chain: Optional[str] = None) -> Optional[str]:
+        # H06: the bare ``ARBICORE_RPC_URL`` (and the default ``rpc_url_env``)
+        # is a BASE-ONLY global alias. It must NEVER be used to resolve a
+        # non-Base chain's endpoint, or a non-Base quote would silently run
+        # against Base (wrong-chain quote/cache poisoning). For non-Base chains
+        # we defer entirely to the canonical per-chain resolver, which itself
+        # treats the global as a Base-only alias. No fabricated default —
+        # returns None when nothing is configured (⇒ fail-closed fallback hops).
+        chain_l = (chain or "base").lower()
+        if chain_l == "base":
+            v = os.environ.get(self._rpc_url_env)
+            if v:
+                return v
+        try:
+            from ..config.persistent import resolve_rpc_url_from_env
+            return resolve_rpc_url_from_env(chain or "base")
+        except Exception:  # noqa: BLE001
+            return None
+
+    def _rpc_url_candidates(self, chain: Optional[str] = None) -> List[str]:
+        """Ordered, de-duplicated list of RPC endpoints for failover.
+
+        H06 (chain isolation): only CHAIN-SCOPED endpoints are used for the
+        requested chain. The bare global aliases (``ARBICORE_RPC_URL`` /
+        ``rpc_url_env`` / ``PROVIDER_RPC_URLS``) are BASE-ONLY and are added
+        exclusively when the requested chain is Base. This prevents a non-Base
+        quote from failing over onto a Base endpoint and caching/accepting a
+        quote under the wrong intended-chain key. No fabricated default —
+        empty list ⇒ fail-closed (break_even)."""
+        chain_l = (chain or "base").lower()
+        c = chain_l.upper().replace("-", "_")
+        is_base = chain_l == "base"
+        seen: set = set()
+        out: List[str] = []
+
+        def _add(val: Optional[str]) -> None:
+            if not val:
+                return
+            for part in str(val).split(","):
+                u = part.strip()
+                if u and u not in seen:
+                    seen.add(u)
+                    out.append(u)
+
+        # Chain-specific endpoints FIRST (authoritative for this chain).
+        _add(os.environ.get(f"ARBICORE_RPC_URL_{c}"))
+        _add(os.environ.get(f"{c}_RPC_URL"))
+        _add(os.environ.get(f"PROVIDER_RPC_URLS_{c}"))
+        # Global Base-only aliases — ONLY for Base, never for other chains.
+        if is_base:
+            _add(os.environ.get(self._rpc_url_env))
+            _add(os.environ.get("ARBICORE_RPC_URL"))
+            _add(os.environ.get("PROVIDER_RPC_URLS"))
+        if not out:
+            try:
+                from ..config.persistent import resolve_rpc_url_from_env
+                _add(resolve_rpc_url_from_env(chain or "base"))
+            except Exception:  # noqa: BLE001
+                pass
+        return out
+
+    def _cache_key(self, chain: str, hop: Dict[str, Any]) -> Tuple:
+        return (
+            chain, (hop.get("dex") or "").lower(),
+            (hop.get("token_in") or hop.get("tokenIn") or "").lower(),
+            (hop.get("token_out") or hop.get("tokenOut") or "").lower(),
+            int(hop.get("amount_in_wei") or hop.get("amountIn") or 0),
+            int(hop.get("fee") or hop.get("fee_tier_ppm") or 0),
+            int(hop.get("tick_spacing") or hop.get("tickSpacing") or 0),
+            bool(hop.get("stable") or False),
+        )
+
+    # ---- primary entrypoint --------------------------------------------
+
+    async def quote_route(
+        self, *, chain: str, hops: List[Dict[str, Any]],
+        rpc_url: Optional[str] = None,
+    ) -> RouteQuote:
+        """Chain-quote a route: each hop's ``amount_in_wei`` is derived
+        from the previous hop's ``amount_out_wei`` (with the first hop
+        taking ``amount_in_wei`` from the caller).
+
+        A hop can override this pipe by supplying an explicit
+        ``amount_in_wei`` — used by the Manual Composer.
+
+        Returns a :class:`RouteQuote` whose ``final_amount_out_wei`` is
+        the last quoted hop's output.  Status is:
+
+        * ``ok``      — every hop returned a live quote
+        * ``partial`` — at least one hop degraded to fallback but the
+                        overall chain still produced a numeric answer
+                        (fallback hops passthrough amountIn as amountOut)
+        * ``fallback:break_even`` — the route could not be quoted at all
+        """
+        rpc_candidates = [rpc_url] if rpc_url else self._rpc_url_candidates(chain)
+        # H06: only endpoints that PROVE (eth_chainId) they serve `chain` may be
+        # used — for an explicit rpc_url too. Fail-closed: none verified ⇒ empty.
+        if rpc_candidates and self._verify_chain_identity:
+            rpc_candidates = await _verified_chain_endpoints(rpc_candidates, chain)
+        results: List[HopQuote] = []
+        if not rpc_candidates:
+            for i, h in enumerate(hops):
+                results.append(_fallback_hop(
+                    i, h.get("dex") or "?", h.get("token_in") or h.get("tokenIn") or "",
+                    h.get("token_out") or h.get("tokenOut") or "",
+                    int(h.get("amount_in_wei") or h.get("amountIn") or 0),
+                    "n/a", "unknown", "fallback:rpc_error",
+                    "no usable RPC endpoint for chain "
+                    "(ARBICORE_RPC_URL unset or chain-identity unverified)",
+                ))
+            return RouteQuote(
+                chain=chain, hops=results,
+                final_amount_out_wei=0,
+                aggregate_price_impact_bps=None,
+                aggregate_gas_estimate_units=None,
+                status="fallback:break_even",
+                generated_at=_now_iso(), ttl_seconds=int(self._cache_ttl),
+            )
+
+        current_amount_in = None
+        aggregate_gas: Optional[int] = 0
+        any_fallback = False
+
+        for i, h in enumerate(hops):
+            dex = (h.get("dex") or "").lower()
+            token_in  = h.get("token_in")  or h.get("tokenIn")
+            token_out = h.get("token_out") or h.get("tokenOut")
+            explicit_in = h.get("amount_in_wei") or h.get("amountIn")
+            amount_in = int(current_amount_in if current_amount_in is not None
+                             else (explicit_in or 0))
+            backend = self._backends.get(dex)
+            if backend is None:
+                q = _fallback_hop(i, dex or "?", token_in or "", token_out or "",
+                                   amount_in, "n/a", _redact_host(rpc_candidates[0]),
+                                   "fallback:no_adapter",
+                                   f"no adapter registered for dex='{dex}'")
+                results.append(q); any_fallback = True
+                current_amount_in = amount_in
+                continue
+
+            # Cache lookup
+            key = self._cache_key(chain, {**h, "amount_in_wei": amount_in})
+            cached = self._cache.get(key)
+            now = time.time()
+            if cached and (now - cached[0]) < self._cache_ttl:
+                q = cached[1]
+            else:
+                # Try each configured RPC in order; fail over on a transient /
+                # provider-side fault (429, transport, empty) to the next
+                # healthy endpoint. A genuine DEX revert stops the loop (another
+                # RPC returns the same). Non-final candidates get a short retry
+                # budget so a rate-limited primary yields fast to the failover.
+                q = None
+                n = len(rpc_candidates)
+                for ci, cand in enumerate(rpc_candidates):
+                    mr = None if ci == n - 1 else 1  # last: full budget; earlier: 1 retry
+                    q = await backend.quote_hop(
+                        hop_index=i, chain=chain,
+                        token_in=token_in, token_out=token_out,
+                        amount_in_wei=amount_in,
+                        hop_spec=h, rpc_url=cand, max_retries=mr,
+                    )
+                    if q.status == "ok" or not _should_failover(q):
+                        break
+                    if ci < n - 1:
+                        logger.info(
+                            "quoter: hop %d failing over from %s to %s (status=%s err=%s)",
+                            i, _redact_host(cand), _redact_host(rpc_candidates[ci + 1]),
+                            q.status, (q.error or "")[:80],
+                        )
+                # Only cache a clean quote — never pin a transient fallback.
+                if q is not None and q.status == "ok":
+                    self._cache[key] = (now, q)
+
+            results.append(q)
+            if q.status == "ok":
+                current_amount_in = q.amount_out_wei
+                if aggregate_gas is not None and q.gas_estimate_units is not None:
+                    aggregate_gas += q.gas_estimate_units
+                else:
+                    aggregate_gas = None
+            else:
+                any_fallback = True
+                # passthrough so the chain doesn't terminate; downstream
+                # policy sees the fallback marker and can WAIT/IGNORE.
+                current_amount_in = amount_in
+
+        final_amount_out = int(current_amount_in or 0)
+        if all(q.status.startswith("fallback:") for q in results):
+            status = "fallback:break_even"
+        elif any_fallback:
+            status = "partial"
+        else:
+            status = "ok"
+
+        return RouteQuote(
+            chain=chain, hops=results,
+            final_amount_out_wei=final_amount_out,
+            aggregate_price_impact_bps=None,
+            aggregate_gas_estimate_units=aggregate_gas,
+            status=status,
+            generated_at=_now_iso(),
+            ttl_seconds=int(self._cache_ttl),
+        )
+
+    # ---- convenience: quote from a plan-dict ---------------------------
+
+    async def quote_route_strict(
+        self, *, chain: str, hops: List[Dict[str, Any]],
+        rpc_url: Optional[str] = None,
+    ) -> Tuple[bool, RouteQuote]:
+        """Multi-hop route quote for EXECUTION-candidate use. Returns
+        ``(ok, RouteQuote)`` where ``ok`` is True ONLY when EVERY hop returned a
+        live quote (``status == 'ok'``). A ``partial``/``fallback`` route (any hop
+        degraded to the passthrough marker, or any unsupported/unadaptered venue)
+        is FAIL-CLOSED (``ok == False``) — the passthrough amount is never treated
+        as a real quote. Works for any venue family including Algebra multi-hop
+        (each hop is verified independently with its own provenance)."""
+        rq = await self.quote_route(chain=chain, hops=hops, rpc_url=rpc_url)
+        ok = (rq.status == "ok"
+              and all(h.status == "ok" for h in rq.hops)
+              and rq.final_amount_out_wei > 0)
+        return ok, rq
+
+    async def quote_plan(
+        self, plan: Dict[str, Any], *, rpc_url: Optional[str] = None,
+    ) -> RouteQuote:
+        """Extract the swap hops from a plan doc and route-quote them."""
+        chain = plan.get("chain") or "base"
+        steps = plan.get("steps") or []
+        hops: List[Dict[str, Any]] = []
+        for i, s in enumerate(steps):
+            if (s or {}).get("kind") != "swap":
+                continue
+            args = (s or {}).get("args") or []
+            if not args or not isinstance(args[0], dict):
+                continue
+            p = args[0]
+            hops.append({
+                "dex": (s.get("provider") or s.get("dex") or "").lower(),
+                "token_in":  p.get("tokenIn")  or p.get("token_in"),
+                "token_out": p.get("tokenOut") or p.get("token_out"),
+                # first hop uses the plan's borrow amount; subsequent hops
+                # get chained from prior output — quote_route handles both.
+                "amount_in_wei": (int(p.get("amountIn") or p.get("amount_in_wei") or 0)
+                                   if i == 0 or i == 1 else None),
+                "fee": p.get("fee") or p.get("fee_tier_ppm"),
+                "tick_spacing": p.get("tickSpacing") or p.get("tick_spacing"),
+                "stable": p.get("stable"),
+            })
+        # First swap's amount-in: derive from borrow if not explicit
+        if hops and not hops[0].get("amount_in_wei"):
+            hops[0]["amount_in_wei"] = int(plan.get("borrow_amount_wei") or 0)
+        return await self.quote_route(chain=chain, hops=hops, rpc_url=rpc_url)

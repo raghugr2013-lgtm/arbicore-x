@@ -1,0 +1,386 @@
+{
+  "env_rpc_entries": [
+    {
+      "env": "ARBICORE_ARCHIVE_RPC_URL",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "query_sensitive": [],
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "query_sensitive": [],
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ARBITRUM",
+      "host": "arb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "query_sensitive": [],
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BASE",
+      "host": "mainnet.base.org",
+      "scheme": "https",
+      "path_prefix": "",
+      "key_fp8": null,
+      "query_sensitive": [],
+      "is_alchemy": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BNB",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "query_sensitive": [],
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ETHEREUM",
+      "host": "eth-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "query_sensitive": [],
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_OPTIMISM",
+      "host": "opt-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "query_sensitive": [],
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_POLYGON",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "query_sensitive": [],
+      "is_alchemy": true
+    }
+  ],
+  "mongo_network_alchemy_or_keyish": [
+    {
+      "path": "$.rpc_urls.base[0]",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.base[1]",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.base[2]",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.base[3]",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.base[4]",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.base[5]",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.ethereum[0]",
+      "host": "eth-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.ethereum[1]",
+      "host": "eth-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.ethereum[2]",
+      "host": "eth-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.ethereum[3]",
+      "host": "eth-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.ethereum[4]",
+      "host": "eth-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.ethereum[5]",
+      "host": "eth-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.arbitrum[0]",
+      "host": "arb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.arbitrum[1]",
+      "host": "arb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.arbitrum[2]",
+      "host": "arb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.arbitrum[3]",
+      "host": "arb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.arbitrum[4]",
+      "host": "arb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.arbitrum[5]",
+      "host": "arb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.optimism[0]",
+      "host": "opt-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.optimism[1]",
+      "host": "opt-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.optimism[2]",
+      "host": "opt-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.optimism[3]",
+      "host": "opt-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.optimism[4]",
+      "host": "opt-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.optimism[5]",
+      "host": "opt-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.bnb[0]",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.bnb[1]",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.bnb[2]",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.bnb[3]",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.bnb[4]",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.bnb[5]",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.polygon[0]",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.polygon[1]",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.polygon[2]",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.polygon[3]",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.polygon[4]",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "query_sensitive": []
+    },
+    {
+      "path": "$.rpc_urls.polygon[5]",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "query_sensitive": []
+    }
+  ],
+  "unique_key_fp8": [
+    "124bc59c",
+    "24dab5d1",
+    "5e5d5bb1",
+    "6e67e161",
+    "cd505118",
+    "dc432a6b",
+    "e315c86f"
+  ],
+  "env_key_fp8": [
+    "5e5d5bb1"
+  ],
+  "mongo_key_fp8": [
+    "124bc59c",
+    "24dab5d1",
+    "6e67e161",
+    "cd505118",
+    "dc432a6b",
+    "e315c86f"
+  ]
+}

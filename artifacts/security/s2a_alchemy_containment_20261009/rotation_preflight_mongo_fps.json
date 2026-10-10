@@ -1,0 +1,432 @@
+{
+  "uri_env": "MONGO_URL",
+  "uri_redacted": "mongodb://root:***@factory-mongo:27017/?authSource=admin",
+  "db": "arbicore_x",
+  "doc_keys": [
+    "_id",
+    "chains_enabled",
+    "executor_addresses",
+    "gas_settings",
+    "kind",
+    "mev_relay_urls",
+    "native_price_usd",
+    "revision_id",
+    "seeded_from_env",
+    "updated_at",
+    "updated_by"
+  ],
+  "updated_at": "2026-10-08T05:09:17.707897+00:00",
+  "updated_by": "admin",
+  "revision_id": "rev-37e7b2123cda4d658fc7f5daf7ceaa81",
+  "chains": [
+    "arbitrum",
+    "base",
+    "bnb",
+    "ethereum",
+    "optimism",
+    "polygon"
+  ],
+  "entries": [
+    {
+      "chain": "arbitrum",
+      "index": 0,
+      "role": "primary",
+      "host": "arb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "arbitrum",
+      "index": 1,
+      "role": "fallback_1",
+      "host": "arb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "arbitrum",
+      "index": 2,
+      "role": "fallback_2",
+      "host": "arb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "arbitrum",
+      "index": 3,
+      "role": "fallback_3",
+      "host": "arb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "arbitrum",
+      "index": 4,
+      "role": "fallback_4",
+      "host": "arb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "arbitrum",
+      "index": 5,
+      "role": "fallback_5",
+      "host": "arb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "base",
+      "index": 0,
+      "role": "primary",
+      "host": "base-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "base",
+      "index": 1,
+      "role": "fallback_1",
+      "host": "base-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "base",
+      "index": 2,
+      "role": "fallback_2",
+      "host": "base-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "base",
+      "index": 3,
+      "role": "fallback_3",
+      "host": "base-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "base",
+      "index": 4,
+      "role": "fallback_4",
+      "host": "base-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "base",
+      "index": 5,
+      "role": "fallback_5",
+      "host": "base-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "bnb",
+      "index": 0,
+      "role": "primary",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "bnb",
+      "index": 1,
+      "role": "fallback_1",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "bnb",
+      "index": 2,
+      "role": "fallback_2",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "bnb",
+      "index": 3,
+      "role": "fallback_3",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "bnb",
+      "index": 4,
+      "role": "fallback_4",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "bnb",
+      "index": 5,
+      "role": "fallback_5",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "ethereum",
+      "index": 0,
+      "role": "primary",
+      "host": "eth-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "ethereum",
+      "index": 1,
+      "role": "fallback_1",
+      "host": "eth-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "ethereum",
+      "index": 2,
+      "role": "fallback_2",
+      "host": "eth-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "ethereum",
+      "index": 3,
+      "role": "fallback_3",
+      "host": "eth-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "ethereum",
+      "index": 4,
+      "role": "fallback_4",
+      "host": "eth-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "ethereum",
+      "index": 5,
+      "role": "fallback_5",
+      "host": "eth-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "optimism",
+      "index": 0,
+      "role": "primary",
+      "host": "opt-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "optimism",
+      "index": 1,
+      "role": "fallback_1",
+      "host": "opt-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "optimism",
+      "index": 2,
+      "role": "fallback_2",
+      "host": "opt-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "optimism",
+      "index": 3,
+      "role": "fallback_3",
+      "host": "opt-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "optimism",
+      "index": 4,
+      "role": "fallback_4",
+      "host": "opt-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "optimism",
+      "index": 5,
+      "role": "fallback_5",
+      "host": "opt-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "polygon",
+      "index": 0,
+      "role": "primary",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "24dab5d1",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "polygon",
+      "index": 1,
+      "role": "fallback_1",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "e315c86f",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "polygon",
+      "index": 2,
+      "role": "fallback_2",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "dc432a6b",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "polygon",
+      "index": 3,
+      "role": "fallback_3",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "6e67e161",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "polygon",
+      "index": 4,
+      "role": "fallback_4",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "cd505118",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    },
+    {
+      "chain": "polygon",
+      "index": 5,
+      "role": "fallback_5",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "124bc59c",
+      "is_alchemy": true,
+      "is_public_non_key": false
+    }
+  ],
+  "unique_key_fp8": [
+    "124bc59c",
+    "24dab5d1",
+    "6e67e161",
+    "cd505118",
+    "dc432a6b",
+    "e315c86f"
+  ],
+  "primary_by_chain": {
+    "arbitrum": {
+      "fp8": "24dab5d1",
+      "host": "arb-mainnet.g.alchemy.com"
+    },
+    "base": {
+      "fp8": "24dab5d1",
+      "host": "base-mainnet.g.alchemy.com"
+    },
+    "bnb": {
+      "fp8": "24dab5d1",
+      "host": "bnb-mainnet.g.alchemy.com"
+    },
+    "ethereum": {
+      "fp8": "24dab5d1",
+      "host": "eth-mainnet.g.alchemy.com"
+    },
+    "optimism": {
+      "fp8": "24dab5d1",
+      "host": "opt-mainnet.g.alchemy.com"
+    },
+    "polygon": {
+      "fp8": "24dab5d1",
+      "host": "polygon-mainnet.g.alchemy.com"
+    }
+  },
+  "fallback_fp8_set": [
+    "124bc59c",
+    "6e67e161",
+    "cd505118",
+    "dc432a6b",
+    "e315c86f"
+  ]
+}

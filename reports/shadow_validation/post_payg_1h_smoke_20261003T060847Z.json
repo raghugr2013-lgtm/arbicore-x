@@ -1,0 +1,322 @@
+{
+  "cert": "POST_PAYG_1H_SHADOW_SMOKE",
+  "not_official_gate9": true,
+  "not_official_gate10": true,
+  "label": "POST-PAYG 1H SHADOW SMOKE \u2014 READ-ONLY",
+  "ts": "20261003T060847Z",
+  "collected_at": "2026-10-03T06:08:47.390297+00:00",
+  "verdict": "HEALTHY",
+  "verdict_reasons": {
+    "blocked": [],
+    "conditional": []
+  },
+  "window": {
+    "T0_APPLY": "2026-10-03T04:57:17Z",
+    "T1_end": "2026-10-03T05:57:17Z",
+    "hours": 1.0,
+    "collected_at": "2026-10-03T06:08:47.390297+00:00",
+    "minutes_past_T1": 11.51,
+    "log_first_ts": "2026-10-03T04:57:17.902000+00:00",
+    "log_last_ts": "2026-10-03T05:57:06.563000+00:00",
+    "window_lines": 1532,
+    "apply_confirm": [
+      {
+        "ts": null,
+        "snippet": "INFO:     172.18.0.8:59126 - \"POST /api/arbicore/settings/network/apply HTTP/1.1\" 200 OK"
+      }
+    ]
+  },
+  "container": {
+    "name": "arbicore-x-backend-new",
+    "status": "running",
+    "health": "healthy",
+    "started_at": "2026-10-02T15:08:52.884157323Z",
+    "restart_count": 0,
+    "image": "arbicore-x-backend:ws-a-befb14e-20261002",
+    "image_id": "sha256:12759b11a783619ad25746a030c5bbcc71b83ed64ff05b3316153d6402a594ae"
+  },
+  "safety": {
+    "ARBICORE_EXECUTION_MODE": "SHADOW",
+    "ARBICORE_SHADOW_CERT_ENABLED": "true",
+    "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+    "ARBICORE_RUNTIME_AUTOSTART": "false",
+    "ARBICORE_SCANNER_AUTOSTART": "true",
+    "ARBICORE_PAPER_VALIDATION_ENABLED": "true",
+    "ARBICORE_GIT_SHA": "befb14e6aa77515daa038e142ff978822a4fab91",
+    "ARBICORE_GIT_TAG": "ws-a-befb14e-20261002",
+    "live_execution_enabled": false,
+    "auto_execute_enabled": null,
+    "execution_mode_api": {
+      "items": [
+        {
+          "strategy": "cex_arbitrage",
+          "mode": "PAPER",
+          "seeded": true,
+          "created_at": "2026-09-07T05:24:07.936469+00:00",
+          "updated_at": "2026-09-07T05:24:07.936469+00:00"
+        },
+        {
+          "strategy": "cross_chain_arbitrage",
+          "mode": "PAPER",
+          "seeded": true,
+          "created_at": "2026-09-07T05:24:07.960548+00:00",
+          "updated_at": "2026-09-07T05:24:07.960548+00:00"
+        },
+        {
+          "strategy": "dex_capital_arbitrage",
+          "mode": "PAPER",
+          "seeded": true,
+          "created_at": "2026-09-07T05:24:07.949645+00:00",
+          "updated_at": "2026-09-07T05:24:07.949645+00:00"
+        },
+        {
+          "strategy": "flash_loan_arbitrage",
+          "mode": "SHADOW",
+          "seeded": true,
+          "created_at": "2026-09-07T05:24:07.928883+00:00",
+          "updated_at": "2026-09-07T05:24:07.928883+00:00"
+        },
+        {
+          "strategy": "portfolio_rebalance",
+          "mode": "PAPER",
+          "seeded": true,
+          "created_at": "2026-09-07T05:24:07.971337+00:00",
+          "updated_at": "2026-09-07T05:24:07.971337+00:00"
+        },
+        {
+          "strategy": "position_management",
+          "mode": "PAPER",
+          "seeded": true,
+          "created_at": "2026-09-07T05:24:07.991373+00:00",
+          "updated_at": "2026-09-07T05:24:07.991373+00:00"
+        },
+        {
+          "strategy": "treasury_movement",
+          "mode": "PAPER",
+          "seeded": true,
+          "created_at": "2026-09-07T05:24:07.981730+00:00",
+          "updated_at": "2026-09-07T05:24:07.981730+00:00"
+        }
+      ],
+      "ladder": [
+        "OBSERVE",
+        "PAPER",
+        "SHADOW",
+        "LIMITED_LIVE",
+        "FULL_LIVE"
+      ],
+      "trading_strategies": [
+        "flash_loan_arbitrage",
+        "cex_arbitrage",
+        "dex_capital_arbitrage",
+        "cross_chain_arbitrage",
+        "portfolio_rebalance",
+        "treasury_movement",
+        "position_management"
+      ],
+      "defaults": {
+        "flash_loan_arbitrage": "SHADOW",
+        "cex_arbitrage": "PAPER",
+        "dex_capital_arbitrage": "PAPER",
+        "cross_chain_arbitrage": "PAPER",
+        "portfolio_rebalance": "PAPER",
+        "treasury_movement": "PAPER",
+        "position_management": "PAPER"
+      },
+      "generated_at": "2026-10-03T06:08:48.731640+00:00"
+    },
+    "kill": {
+      "engaged": true,
+      "reason": "boot_default",
+      "engaged_at": "2026-10-02T15:09:00.616120Z",
+      "history": []
+    },
+    "effective_kill_engaged": true,
+    "flash_mode": null,
+    "safety_held": true
+  },
+  "runner": {
+    "is_running": true,
+    "started_at": "2026-10-02T15:09:05.593316+00:00",
+    "last_cycle_at": "2026-10-03T06:08:46.930647+00:00",
+    "cycles_completed": 10716,
+    "opportunities_seen": 0,
+    "opportunities_processed": 0,
+    "opportunities_skipped_dup": 0,
+    "exceptions": 0,
+    "last_error": null,
+    "outcome_counts": {}
+  },
+  "rpc_check": {
+    "status": "READY",
+    "chain_id": 8453,
+    "block_number": 52109191,
+    "rpc_url_masked": "base-mainnet.g.alchemy.com",
+    "is_base_mainnet": true
+  },
+  "network_config": {
+    "rpc_urls_base_redacted": [
+      "https://base-mainnet.g.alchemy.com/v2/<REDACTED:fp=cd505118>",
+      "https://mainnet.base.org/"
+    ],
+    "updated_at": "2026-10-03T04:57:17.836236+00:00",
+    "revision_id": "rev-7c93bb93e65b4f5a9b7340bf513437c0",
+    "primary_fp": "cd505118",
+    "fallback_host": "mainnet.base.org"
+  },
+  "base_provider_ids_seen": [],
+  "metrics_1_17": {
+    "1_successful_rpc_calls": 1527,
+    "2_alchemy_http": {
+      "200": 1527,
+      "429": 0,
+      "400": 0,
+      "other": {},
+      "total": 1527,
+      "by_fp": {
+        "cd505118": {
+          "200": 1527
+        }
+      }
+    },
+    "3_base_public_rpc_calls": {
+      "total": 0,
+      "by_status": {}
+    },
+    "4_failovers": {
+      "total": 0,
+      "base_to_alchemy": 0
+    },
+    "5_cooldown_activations": 0,
+    "6_alchemy_requests_per_failover": {
+      "naive_m2": null,
+      "amplification_primary_3s": null,
+      "note": "N/A \u2014 0 failovers; Alchemy is primary (amplification bound checked when Alchemy hit via failover)"
+    },
+    "7_quote_attempts": {
+      "status_ok": 0,
+      "fallback_revert": 0,
+      "fallback_break_even": 0,
+      "failover_proxy": 0
+    },
+    "8_successful_quotes_status_ok": 0,
+    "9_fallback_revert_count": 0,
+    "10_opportunities_detected": 0,
+    "11_executable_opportunities": 0,
+    "12_paper_evidence": {
+      "report_total": 0,
+      "histogram": {
+        "EXECUTABLE": 0,
+        "REJECTED": 0,
+        "UNPROFITABLE": 0,
+        "LIQUIDITY_FAILURE": 0,
+        "GAS_FAILURE": 0,
+        "ROUTE_FAILURE": 0,
+        "RISK_FAILURE": 0,
+        "SIMULATION_FAILURE": 0
+      },
+      "evidence_total": 0,
+      "executable_evidence_total": 0,
+      "paper_stats": {
+        "available": true,
+        "analyses": 0,
+        "policy_blocked": 0,
+        "ev_positive": 0,
+        "ev_negative": 0,
+        "last_run_at": null,
+        "last_error": null,
+        "generated_at": "2026-10-03T06:08:49.742405+00:00"
+      }
+    },
+    "13_exceptions": {
+      "runner_exceptions": 0,
+      "traceback_lines": 0,
+      "error_lines": 0,
+      "last_error": null,
+      "soft_rl_log_hits": 0
+    },
+    "14_container_restarts": {
+      "started_at": "2026-10-02T15:08:52.884157323Z",
+      "restart_count": 0,
+      "started_at_unchanged_vs_cutover": true,
+      "status": "running",
+      "health": "healthy"
+    },
+    "15_cd505118_effective": {
+      "network_config_primary_fp": "cd505118",
+      "logs_fp_posts": {
+        "cd505118": 1527
+      },
+      "rpc_check_masked": "base-mainnet.g.alchemy.com",
+      "effective": true,
+      "note": "logs prove cd505118 is live credential; NC primary parsed separately"
+    },
+    "16_ce00e63d_absent": {
+      "in_logs": false,
+      "in_network_config": false,
+      "absent": true
+    },
+    "17_env_sync_no_overwrite": {
+      "env_sync_events_in_window": [
+        {
+          "ts": "2026-10-03T04:57:17.902000+00:00",
+          "snippet": "2026-10-03 04:57:17,902 - arbicore.config.env_sync - INFO - env_sync: exported 4 var(s) from persistent network config (chain=base)"
+        }
+      ],
+      "env_sync_count": 1,
+      "network_config_updated_at": "2026-10-03T04:57:17.836236+00:00",
+      "network_config_revision": "rev-7c93bb93e65b4f5a9b7340bf513437c0",
+      "primary_still_payg": true,
+      "overwrite_detected": false
+    }
+  },
+  "http_posts_by_host_status": {
+    "base-mainnet.g.alchemy.com": {
+      "200": 1527
+    }
+  },
+  "vs_12h_postfix": {
+    "ref_doc": "docs/certification/POST_FIX_12H_SHADOW_VALIDATION_REPORT_20261002.md",
+    "ref_json": "reports/shadow_validation/post_patch_12h_20261003T040326Z.json",
+    "12h": {
+      "alchemy_200": 13,
+      "alchemy_429": 996,
+      "dominant_fp": "ce00e63d",
+      "status_ok": 0,
+      "failovers": 15059,
+      "cooldown": 14591,
+      "amplification_median_3s": 2.0,
+      "opportunities": 0,
+      "verdict": "CONDITIONAL",
+      "rpc_layer": "BLOCKED_OBSERVED"
+    },
+    "1h_post_payg": {
+      "alchemy_200": 1527,
+      "alchemy_429": 0,
+      "dominant_fp": "cd505118",
+      "status_ok": 0,
+      "failovers": 0,
+      "cooldown": 0,
+      "amplification_median_3s": null,
+      "opportunities": 0,
+      "verdict": "HEALTHY"
+    },
+    "deltas": {
+      "stale_key_eliminated": true,
+      "alchemy_429_storm_cleared": true,
+      "primary_now_payg_cd505118": true,
+      "failover_load_collapsed": true,
+      "ok_quotes_still_zero": true,
+      "opportunities_still_zero": true
+    }
+  },
+  "log_file": "/tmp/post_payg_1h_logs_20261003T060626Z.txt",
+  "mutations": {
+    "config_change": false,
+    "apply": false,
+    "restart": false,
+    "deploy": false,
+    "source_modification": false,
+    "autoexec_runtime_enable": false
+  }
+}

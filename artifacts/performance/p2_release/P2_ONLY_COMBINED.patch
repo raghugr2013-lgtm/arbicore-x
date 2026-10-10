@@ -1,0 +1,1152 @@
+--- /dev/fd/63	2026-10-09 06:47:49.723114135 +0200
++++ b/app/backend/arbicore/data/discovery_queue.py
+@@ -5,7 +5,8 @@
+ Collection: arbicore_discovery_candidates
+ - Idempotency key: candidate_id (unique)
+ - TTL 24h on expires_at
+-- Cooperative claim lock via (claimed_at, claimed_by, claimed_until)
++- Cooperative claim lock via (claimed_at, claimed_by, claimed_until);
++  claimed_at stays durable after mark_processed (lock fields cleared)
+ - B2: additive top-level ``chain`` + chain-fair claim_batch scheduling
+ 
+ No Redis. No Kafka. Pure Mongo + atomic findOneAndUpdate.
+@@ -239,8 +240,9 @@
+                 "verified_at": now,
+                 "verification_latency_ms": latency_ms,
+                 "emitted_opportunity_id": opportunity_id,
+-                # Release the claim
+-                "claimed_at": None, "claimed_by": None, "claimed_until": None,
++                # Release the claim lock only. Keep claimed_at durable so
++                # post-process timing joins (observe→claim) remain possible.
++                "claimed_by": None, "claimed_until": None,
+             }},
+         )
+         return res.modified_count > 0
+diff --git a/app/backend/arbicore/models/discovery.py b/app/backend/arbicore/models/discovery.py
+index 53f8231..ee26a91 100644
+--- a/app/backend/arbicore/models/discovery.py
++++ b/app/backend/arbicore/models/discovery.py
+@@ -94,7 +94,10 @@ class DiscoveryCandidate(BaseModel):
+     # construct from hint_metric.chain when omitted. Does NOT alter filters /
+     # TVL / economics — only enables fair claim scheduling.
+     chain: Optional[str] = None
+-    # Claim-lock fields (cooperative queue — see Spec §5.1)
++    # Claim-lock fields (cooperative queue — see Spec §5.1).
++    # claimed_at is the actual claim timestamp and remains durable after
++    # mark_processed; claimed_by / claimed_until are the live lock and are
++    # cleared when processing completes.
+     claimed_at: Optional[float] = None
+     claimed_by: Optional[str] = None
+     claimed_until: Optional[float] = None
+diff --git a/app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py b/app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py
+index cb1def0..4f1b17d 100644
+--- a/app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py
++++ b/app/backend/arbicore/scanners/flash_loan_arbitrage/verifier.py
+@@ -8,12 +8,79 @@ never propagated.
+ """
+ from __future__ import annotations
+ 
++import logging
+ import math
++import time
+ from datetime import datetime, timezone
+ from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+ 
+ import os
+ 
++_LOG = logging.getLogger(__name__)
++
++# Evidence-sink fire-and-forget contract (composition ``make_flash_loan_evidence_sink``):
++# raises on persistence failure; returns ``None`` on success. ``None`` therefore
++# means confirmed success ONLY under that contract (Rev 2); ambiguous returns
++# resolve to ``null`` and are never silently coerced to success.
++_SINK_SUCCESS_TOKENS = frozenset({"ok", "success", "persisted", "true"})
++_SINK_FAILURE_TOKENS = frozenset({"fail", "failed", "error", "false"})
++
++
++def _resolve_sink_persist_result(result: Any) -> Optional[bool]:
++    """Map an evidence-sink return value to ``evidence_persisted``.
++
++    ``True``  — confirmed persistence success
++    ``False`` — confirmed persistence failure
++    ``None``  — genuinely unknown / ambiguous (never treated as success)
++    """
++    if result is None:
++        return True
++    if result is True:
++        return True
++    if result is False:
++        return False
++    if isinstance(result, str):
++        token = result.strip().lower()
++        if token in _SINK_SUCCESS_TOKENS:
++            return True
++        if token in _SINK_FAILURE_TOKENS:
++            return False
++        return None
++    if isinstance(result, dict):
++        if "ok" in result:
++            ok = result.get("ok")
++            if ok is True:
++                return True
++            if ok is False:
++                return False
++            return None
++        if "persisted" in result:
++            persisted = result.get("persisted")
++            if persisted is True:
++                return True
++            if persisted is False:
++                return False
++            return None
++        return None
++    return None
++
++
++def _new_timing_state(candidate: DiscoveryCandidate) -> Dict[str, Any]:
++    return {
++        "hint_observed_at": getattr(candidate, "hint_observed_at", None),
++        "claimed_at": getattr(candidate, "claimed_at", None),
++        "verify_started_at": None,
++        "decided_at": None,
++        "stage_ms": {
++            "quote": None,
++            "economics": None,
++            "gates": None,
++            "finalize": None,
++        },
++        "evidence_persisted": None,
++        "timing_error": None,
++    }
++
+ from ...execution.calldata import (
+     build_user_data_from_hops,
+     encode_executor_execute,
+@@ -245,6 +312,96 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+         # a persisted bundle can be traced back to the exact scan that produced
+         # it. Kept strictly separate from trading logic.
+         self.diagnostic_provenance_fn = diagnostic_provenance_fn
++        # Overridable clock for deterministic timing tests (observability only).
++        self._now: Callable[[], float] = time.time
++
++    # ---- P2 timing helpers (fail-safe; never alter verdicts) ---------------
++
++    def _safe_now(self) -> Optional[float]:
++        try:
++            return float(self._now())
++        except Exception:  # noqa: BLE001
++            return None
++
++    def _note_timing_error(
++        self,
++        timing: Optional[Dict[str, Any]],
++        stage: str,
++        exc: BaseException,
++    ) -> None:
++        """Record a short safe timing_error, or fall back to a warning log."""
++        try:
++            if timing is not None and not timing.get("timing_error"):
++                timing["timing_error"] = (
++                    f"{type(exc).__name__}:{stage}"
++                )[:120]
++                return
++        except Exception:  # noqa: BLE001 — nested fail-safe
++            pass
++        try:
++            _LOG.warning(
++                "timing_instrumentation_failed exception_type=%s stage=%s",
++                type(exc).__name__,
++                stage,
++            )
++        except Exception:  # noqa: BLE001
++            pass
++
++    def _close_stage(
++        self,
++        timing: Optional[Dict[str, Any]],
++        stage: str,
++        t0: Optional[float],
++    ) -> None:
++        """Set stage_ms[stage] to measured ms, or leave null if unmeasured."""
++        try:
++            if timing is None or t0 is None:
++                return
++            now = self._safe_now()
++            if now is None:
++                return
++            timing.setdefault("stage_ms", {})[stage] = max(
++                0, int(round((now - t0) * 1000)))
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, stage, exc)
++
++    def _note_inconsistent_timestamps(
++        self, timing: Optional[Dict[str, Any]],
++    ) -> None:
++        """Flag inconsistent stamps without inventing replacement values."""
++        try:
++            if timing is None:
++                return
++            hint = timing.get("hint_observed_at")
++            claimed = timing.get("claimed_at")
++            if (
++                isinstance(hint, (int, float))
++                and isinstance(claimed, (int, float))
++                and float(claimed) < float(hint)
++                and not timing.get("timing_error")
++            ):
++                timing["timing_error"] = (
++                    "inconsistent_timestamps:claimed_at<hint_observed_at"
++                )
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "ts_consistency", exc)
++
++    def _apply_evidence_persisted(
++        self,
++        bundle: Optional[Dict[str, Any]],
++        timing: Optional[Dict[str, Any]],
++        *,
++        value: Optional[bool],
++    ) -> None:
++        try:
++            if timing is not None:
++                timing["evidence_persisted"] = value
++            if bundle is not None:
++                diag = bundle.setdefault("diagnostics", {})
++                t = diag.setdefault("timing", timing or {})
++                t["evidence_persisted"] = value
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "evidence_persisted", exc)
+ 
+     async def verify(self, candidate: DiscoveryCandidate,
+                      ) -> Tuple[Optional[CanonicalOpportunity], str]:
+@@ -263,20 +420,30 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             "gate_8": {"status": "NOT_EVALUATED", "reason": None},
+             "gate_9": {"status": "NOT_EVALUATED", "reason": None},
+         }
++        timing = _new_timing_state(candidate)
+         ev: Dict[str, Any] = {
+             "candidate": candidate, "hm": hm, "chain": chain,
+             "provider": provider, "borrow_token": borrow_token,
+             "borrow_amount_usd": borrow_amount, "gates": gates,
+             "facts": None, "econ": None, "mev_view": None, "min_tvl": 0.0,
++            "_timing": timing,
+         }
++        try:
++            timing["verify_started_at"] = self._safe_now()
++            self._note_inconsistent_timestamps(timing)
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "verify_started_at", exc)
+ 
++        quote_t0 = self._safe_now()
+         try:
+             facts = await self.quote_provider(hm, borrow_amount)
+         except Exception as exc:  # noqa: BLE001
++            self._close_stage(timing, "quote", quote_t0)
+             return await self._finalize(
+                 ev, status="DENIED", canonical=None, outcome=(
+                     f"{VerifiedOutcome.DENIED_VENUE_UNREADABLE}:"
+                     f"{type(exc).__name__}"))
++        self._close_stage(timing, "quote", quote_t0)
+         if not facts:
+             return await self._finalize(
+                 ev, status="DENIED", canonical=None,
+@@ -326,6 +493,7 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             borrow_amount = float(_q_notional)
+             ev["borrow_amount_usd"] = borrow_amount
+ 
++        econ_t0 = self._safe_now()
+         # Chain congestion read (optional).
+         cong = self._chain_congestion(chain)
+ 
+@@ -371,8 +539,10 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             gross_is_quote_inclusive=True,
+         )
+         ev["econ"] = econ
++        self._close_stage(timing, "economics", econ_t0)
+ 
+         # ---- Gate 7 ---------------------------------------------------------
++        gates_t0 = self._safe_now()
+         if self.gate_7 is not None:
+             g7 = self.gate_7.evaluate(
+                 atomic_profit_usd=econ.atomic_profit_usd,
+@@ -381,6 +551,7 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             gates["gate_7"] = {
+                 "status": "PASS" if g7.passed else "FAIL", "reason": g7.reason}
+             if not g7.passed:
++                self._close_stage(timing, "gates", gates_t0)
+                 return await self._finalize(
+                     ev, status="DENIED", canonical=None, outcome=(
+                         f"{VerifiedOutcome.DENIED_GATE_PREFIX}gate_7:"
+@@ -395,6 +566,7 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             gates["gate_8"] = {
+                 "status": "PASS" if g8.passed else "FAIL", "reason": g8.reason}
+             if not g8.passed:
++                self._close_stage(timing, "gates", gates_t0)
+                 return await self._finalize(
+                     ev, status="DENIED", canonical=None, outcome=(
+                         f"{VerifiedOutcome.DENIED_GATE_PREFIX}gate_8:"
+@@ -410,10 +582,12 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             gates["gate_9"] = {
+                 "status": "PASS" if g9.passed else "FAIL", "reason": g9.reason}
+             if not g9.passed:
++                self._close_stage(timing, "gates", gates_t0)
+                 return await self._finalize(
+                     ev, status="DENIED", canonical=None, outcome=(
+                         f"{VerifiedOutcome.DENIED_GATE_PREFIX}gate_9:"
+                         f"{g9.reason}"))
++        self._close_stage(timing, "gates", gates_t0)
+ 
+         # ---- Build LegEvidence: BORROW + per-hop + REPAY ------------------
+         legs: List[LegEvidence] = [LegEvidence(
+@@ -513,23 +687,80 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+         """Single exit point: persist an auditable evidence bundle for EVERY
+         verified candidate (CONFIRMED and DENIED) and, on CONFIRM, route the
+         canonical into the SHADOW/PAPER sink. Both are side-effects wrapped
+-        fail-safe — they NEVER change the returned ``(canonical, outcome)``."""
+-        if self.evidence_sink is not None:
++        fail-safe — they NEVER change the returned ``(canonical, outcome)``.
++
++        P2 timing / evidence_persisted are observability only and follow the
++        same non-interference rule.
++        """
++        timing = ev.get("_timing")
++        if not isinstance(timing, dict):
++            try:
++                cand = ev.get("candidate")
++                timing = (
++                    _new_timing_state(cand)
++                    if isinstance(cand, DiscoveryCandidate)
++                    else {
++                        "hint_observed_at": None,
++                        "claimed_at": None,
++                        "verify_started_at": None,
++                        "decided_at": None,
++                        "stage_ms": {
++                            "quote": None, "economics": None,
++                            "gates": None, "finalize": None,
++                        },
++                        "evidence_persisted": None,
++                        "timing_error": None,
++                    }
++                )
++                ev["_timing"] = timing
++            except Exception:  # noqa: BLE001
++                timing = None
++        try:
++            if timing is not None:
++                timing["decided_at"] = self._safe_now()
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "decided_at", exc)
++
++        finalize_t0 = self._safe_now()
++        bundle: Optional[Dict[str, Any]] = None
++        try:
++            bundle = self._build_evidence_bundle(
++                ev, status=status, outcome=outcome, canonical=canonical)
++        except Exception as exc:  # noqa: BLE001 — build failure must not alter verdict
++            self._note_timing_error(timing, "bundle_build", exc)
++            bundle = None
++
++        if self.evidence_sink is None:
++            self._apply_evidence_persisted(bundle, timing, value=None)
++        else:
+             try:
+-                await self.evidence_sink(
+-                    self._build_evidence_bundle(ev, status=status,
+-                                                outcome=outcome,
+-                                                canonical=canonical))
++                if bundle is None:
++                    bundle = self._build_evidence_bundle(
++                        ev, status=status, outcome=outcome,
++                        canonical=canonical)
++                result = await self.evidence_sink(bundle)
++                self._apply_evidence_persisted(
++                    bundle, timing,
++                    value=_resolve_sink_persist_result(result))
+             except Exception:  # noqa: BLE001 — audit is best-effort, never fatal
+-                pass
++                self._apply_evidence_persisted(bundle, timing, value=False)
++
++        self._close_stage(timing, "finalize", finalize_t0)
++        try:
++            if bundle is not None and timing is not None:
++                bundle.setdefault("diagnostics", {})["timing"] = timing
++        except Exception as exc:  # noqa: BLE001
++            self._note_timing_error(timing, "timing_attach", exc)
++
+         if status == "CONFIRMED" and canonical is not None \
+                 and self.shadow_sink is not None:
+             try:
+-                await self.shadow_sink(
+-                    canonical,
+-                    self._build_evidence_bundle(ev, status=status,
+-                                                outcome=outcome,
+-                                                canonical=canonical))
++                shadow_bundle = bundle
++                if shadow_bundle is None:
++                    shadow_bundle = self._build_evidence_bundle(
++                        ev, status=status, outcome=outcome,
++                        canonical=canonical)
++                await self.shadow_sink(canonical, shadow_bundle)
+             except Exception:  # noqa: BLE001 — SHADOW routing never blocks verify
+                 pass
+         return canonical, outcome
+@@ -604,7 +835,8 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             "provenance": "REAL",
+             "broadcast": False,     # invariant: verification never broadcasts
+             # Diagnostic provenance (observability only; never a verdict input).
+-            "diagnostics": self._diagnostics(candidate),
++            "diagnostics": self._diagnostics(
++                candidate, timing=ev.get("_timing")),
+         }
+ 
+         # B7 → H09: persist the exact unsigned executor call bound to the
+@@ -652,17 +884,26 @@ class FlashLoanOpportunityVerifier(OpportunityVerifier):
+             }
+         return bundle
+ 
+-    def _diagnostics(self, candidate: DiscoveryCandidate) -> Dict[str, Any]:
++    def _diagnostics(
++        self,
++        candidate: DiscoveryCandidate,
++        *,
++        timing: Optional[Dict[str, Any]] = None,
++    ) -> Dict[str, Any]:
+         """Fail-safe diagnostic provenance for the audit bundle. Never raises
+         and never influences the returned verdict — pure observability."""
+         base: Dict[str, Any] = {"candidate_id": candidate.candidate_id}
+-        if self.diagnostic_provenance_fn is None:
+-            return base
+-        try:
+-            extra = self.diagnostic_provenance_fn(candidate) or {}
+-            base.update(extra)
+-        except Exception:  # noqa: BLE001 — diagnostics never break verify
+-            pass
++        if self.diagnostic_provenance_fn is not None:
++            try:
++                extra = self.diagnostic_provenance_fn(candidate) or {}
++                base.update(extra)
++            except Exception:  # noqa: BLE001 — diagnostics never break verify
++                pass
++        if timing is not None:
++            try:
++                base["timing"] = timing
++            except Exception as exc:  # noqa: BLE001
++                self._note_timing_error(timing, "diagnostics_attach", exc)
+         return base
+ 
+     def _price_provenance(self, hm: Dict[str, Any]) -> List[Dict[str, Any]]:
+diff --git a/app/backend/arbicore/data/mongo/evidence_bundles_repo.py b/app/backend/arbicore/data/mongo/evidence_bundles_repo.py
+index 864b946..a4503e3 100644
+--- a/app/backend/arbicore/data/mongo/evidence_bundles_repo.py
++++ b/app/backend/arbicore/data/mongo/evidence_bundles_repo.py
+@@ -16,6 +16,30 @@ def _now_iso() -> str:
+     return datetime.now(timezone.utc).isoformat()
+ 
+ 
++def _stamp_insert_evidence_persisted(doc: Dict[str, Any]) -> None:
++    """Set confirmed-insert marker without disturbing unrelated diagnostics.
++
++    Missing ``diagnostics`` / ``timing`` are created. Non-dict shapes are
++    left untouched (no stamp) rather than overwritten.
++
++    Marker meaning: this audit row is about to be / was written by insert —
++    not a profitability or opportunity-capture claim.
++    """
++    diagnostics = doc.get("diagnostics")
++    if diagnostics is None:
++        diagnostics = {}
++        doc["diagnostics"] = diagnostics
++    elif not isinstance(diagnostics, dict):
++        return
++    timing = diagnostics.get("timing")
++    if timing is None:
++        timing = {}
++        diagnostics["timing"] = timing
++    elif not isinstance(timing, dict):
++        return
++    timing["evidence_persisted"] = True
++
++
+ class EvidenceBundlesRepo:
+     def __init__(self, db, collection_name: str = "evidence_bundles"):
+         self._db = db
+@@ -38,8 +62,17 @@ class EvidenceBundlesRepo:
+         self._indexes_ready = True
+ 
+     async def insert(self, bundle: Dict[str, Any]) -> Dict[str, Any]:
++        """Append one evidence bundle. Never updates existing rows.
++
++        Immediately before ``insert_one``, stamps
++        ``diagnostics.timing.evidence_persisted = True`` on the document
++        being written. Meaning: this audit row was successfully inserted —
++        not a profitability or capture claim. If ``insert_one`` raises, no
++        row is stored and no success marker is claimed in Mongo.
++        """
+         doc = dict(bundle)
+         doc.setdefault("persisted_at", _now_iso())
++        _stamp_insert_evidence_persisted(doc)
+         await self._collection.insert_one(doc)
+         doc.pop("_id", None)
+         return doc
+diff --git a/app/backend/tests/test_flashloan_diagnostic_provenance.py b/app/backend/tests/test_flashloan_diagnostic_provenance.py
+index 9341c6c..de18f90 100644
+--- a/app/backend/tests/test_flashloan_diagnostic_provenance.py
++++ b/app/backend/tests/test_flashloan_diagnostic_provenance.py
+@@ -116,7 +116,9 @@ def test_bundle_carries_full_diagnostic_provenance():
+ 
+ def test_default_diagnostics_has_candidate_id_when_unwired():
+     _opp, _outcome, b = _verify_capture(_mk_verifier(diag_fn=None))
+-    assert b["diagnostics"] == {"candidate_id": "cand-diag"}
++    assert b["diagnostics"]["candidate_id"] == "cand-diag"
++    # P2: timing is additive observability; candidate identity unchanged.
++    assert "timing" in b["diagnostics"]
+ 
+ 
+ def test_diagnostics_failure_never_breaks_verify():
+@@ -128,7 +130,7 @@ def test_diagnostics_failure_never_breaks_verify():
+     assert opp is not None
+     assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
+     # And the diagnostics block still identifies the candidate.
+-    assert b["diagnostics"] == {"candidate_id": "cand-diag"}
++    assert b["diagnostics"]["candidate_id"] == "cand-diag"
+ 
+ 
+ def test_diagnostics_isolated_from_verdict():
+--- /dev/null
++++ b/app/backend/tests/test_p2_flashloan_timing_instrumentation.py
+@@ -0,0 +1,324 @@
++"""P2 instrumentation: durable claimed_at + fail-safe stage timings.
++
++Observability only. Never alters verifier verdicts, gate/risk decisions, or
++candidate-processing outcomes. Offline / deterministic where possible.
++"""
++from __future__ import annotations
++
++import asyncio
++import logging
++from unittest.mock import AsyncMock, MagicMock
++
++from arbicore.data.discovery_queue import DiscoveryQueue
++from arbicore.discovery import base_pool_registry as reg
++from arbicore.intelligence.roi_probability import ROIProbabilityEngine
++from arbicore.models.discovery import DiscoveryCandidate, VerifiedOutcome
++from arbicore.models.enums import OpportunityType
++from arbicore.scanners.cross_chain_arbitrage.bridge_intelligence import (
++    MevRiskScorer,
++)
++from arbicore.scanners.flash_loan_arbitrage.economics import (
++    FlashLoanEconomicsAssessor,
++)
++from arbicore.scanners.flash_loan_arbitrage.filter import (
++    FlashLoanGate7AtomicProfit, FlashLoanGate8LiquidityDepth,
++    FlashLoanGate9FlashLoanMev,
++)
++from arbicore.scanners.flash_loan_arbitrage.verifier import (
++    FlashLoanOpportunityVerifier,
++    _resolve_sink_persist_result,
++)
++
++
++def _run(coro):
++    return asyncio.new_event_loop().run_until_complete(coro)
++
++
++def _real_pool_ids():
++    ids = [p.canonical_id for p in reg.get_canonical_pools()
++           if p.address_resolution == reg.DETERMINISTIC_VERIFIED
++           and p.dex == "uniswap_v3"
++           and {"WETH", "USDC"} == {p.token0_symbol, p.token1_symbol}]
++    return ids[:2]
++
++
++def _hm():
++    return {"chain": "base", "provider": "balancer_v2", "borrow_token": "WETH",
++            "borrow_amount_usd": 10_000.0, "route_pools": _real_pool_ids(),
++            "cycle_token_path": ["WETH", "USDC", "WETH"],
++            "route_dex_protocols": ["uniswap_v3", "uniswap_v3"], "hop_count": 2}
++
++
++def _facts(gross_pct=3.0):
++    leg = {"venue_id": "uniswap_v3:base", "source_id": "uniswap_v3_quoter_base",
++           "fee_bps": 5, "depth_usd": 500_000.0, "dex_protocol": "uniswap_v3"}
++    return {"hop_legs": [dict(leg), dict(leg)], "gross_profit_pct": gross_pct,
++            "tx_gas_units": 250_000, "min_pool_tvl_usd_in_route": 500_000.0,
++            "tvl_provenance": "onchain_reserves", "route_quote_status": "ok",
++            "verified_at_ts": 123.0, "quote_block": 999}
++
++
++def _mk_verifier(*, gross_pct=3.0, quote_provider=None, evidence_sink=None):
++    async def _qp(hm, borrow):
++        return _facts(gross_pct)
++
++    return FlashLoanOpportunityVerifier(
++        quote_provider=quote_provider or _qp,
++        economics_assessor=FlashLoanEconomicsAssessor(
++            roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05),
++            default_borrow_amount_usd=10_000.0),
++        mev_scorer=MevRiskScorer(),
++        gate_7=FlashLoanGate7AtomicProfit({}),
++        gate_8=FlashLoanGate8LiquidityDepth({}),
++        gate_9=FlashLoanGate9FlashLoanMev({}),
++        default_borrow_amount_usd=10_000.0,
++        evidence_sink=evidence_sink,
++    )
++
++
++def _candidate(**overrides):
++    data = dict(
++        candidate_id="cand-p2",
++        hint_source="test_source",
++        opportunity_type=OpportunityType.FLASH_LOAN_ARBITRAGE,
++        subject_id="WETH-USDC",
++        asset="WETH",
++        hint_metric=_hm(),
++        hint_observed_at=1000.0,
++        claimed_at=1010.0,
++        claimed_by="worker-p2",
++    )
++    data.update(overrides)
++    return DiscoveryCandidate(**data)
++
++
++def _verify_capture(v, cand=None):
++    captured = []
++
++    async def sink(b):
++        captured.append(b)
++        return None
++
++    v.evidence_sink = sink
++    opp, outcome = _run(v.verify(cand or _candidate()))
++    return opp, outcome, captured[0] if captured else None
++
++
++# ---- sink persist resolution (unit) ---------------------------------------
++
++def test_resolve_sink_none_is_success_under_fire_and_forget_contract():
++    assert _resolve_sink_persist_result(None) is True
++
++
++def test_resolve_sink_explicit_bool_and_ambiguous():
++    assert _resolve_sink_persist_result(True) is True
++    assert _resolve_sink_persist_result(False) is False
++    assert _resolve_sink_persist_result({"weird": 1}) is None
++    assert _resolve_sink_persist_result(123) is None
++
++
++# ---- durable claimed_at ---------------------------------------------------
++
++def test_mark_processed_keeps_claimed_at_clears_lock_fields():
++    q = DiscoveryQueue.__new__(DiscoveryQueue)
++    q._col = MagicMock()
++    q._col.update_one = AsyncMock(
++        return_value=MagicMock(modified_count=1))
++    ok = _run(q.mark_processed(
++        "cand-1", "confirmed_canonical:x", observed_at=1.0))
++    assert ok is True
++    update = q._col.update_one.await_args.args[1]["$set"]
++    assert "claimed_at" not in update
++    assert update["claimed_by"] is None
++    assert update["claimed_until"] is None
++    assert update["verified_outcome"] == "confirmed_canonical:x"
++
++
++# ---- timing semantics -----------------------------------------------------
++
++def test_controlled_clock_timestamp_ordering():
++    clock = {"t": 2000.0}
++
++    def _now():
++        clock["t"] += 1.0
++        return clock["t"]
++
++    v = _mk_verifier()
++    v._now = _now
++    _opp, outcome, b = _verify_capture(v)
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    timing = b["diagnostics"]["timing"]
++    assert timing["hint_observed_at"] == 1000.0
++    assert timing["claimed_at"] == 1010.0
++    assert timing["hint_observed_at"] <= timing["claimed_at"]
++    assert timing["claimed_at"] <= timing["verify_started_at"]
++    assert timing["verify_started_at"] <= timing["decided_at"]
++    for stage in ("quote", "economics", "gates", "finalize"):
++        assert isinstance(timing["stage_ms"][stage], int)
++        assert timing["stage_ms"][stage] >= 0
++
++
++def test_missing_stages_remain_null_on_early_deny():
++    async def _no_quote(hm, borrow):
++        return None
++
++    v = _mk_verifier(quote_provider=_no_quote)
++    _opp, outcome, b = _verify_capture(v)
++    assert outcome == VerifiedOutcome.DENIED_VENUE_UNREADABLE
++    timing = b["diagnostics"]["timing"]
++    assert isinstance(timing["stage_ms"]["quote"], int)
++    assert timing["stage_ms"]["economics"] is None
++    assert timing["stage_ms"]["gates"] is None
++    assert isinstance(timing["stage_ms"]["finalize"], int)
++
++
++def test_genuine_zero_duration_allowed_when_stage_ran():
++    v = _mk_verifier()
++    v._now = lambda: 5000.0
++    _opp, outcome, b = _verify_capture(v)
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    timing = b["diagnostics"]["timing"]
++    assert timing["stage_ms"]["quote"] == 0
++    assert timing["stage_ms"]["economics"] == 0
++    assert timing["stage_ms"]["gates"] == 0
++    assert timing["stage_ms"]["finalize"] == 0
++
++
++def test_inconsistent_timestamps_not_invented():
++    v = _mk_verifier()
++    cand = _candidate(hint_observed_at=2000.0, claimed_at=1000.0)
++    _opp, outcome, b = _verify_capture(v, cand)
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    timing = b["diagnostics"]["timing"]
++    assert timing["hint_observed_at"] == 2000.0
++    assert timing["claimed_at"] == 1000.0
++    assert timing["timing_error"] == (
++        "inconsistent_timestamps:claimed_at<hint_observed_at")
++
++
++def test_missing_claimed_at_stays_null():
++    v = _mk_verifier()
++    cand = _candidate(claimed_at=None)
++    assert cand.claimed_at is None
++    _opp, _outcome, b = _verify_capture(v, cand)
++    assert b["diagnostics"]["timing"]["claimed_at"] is None
++
++
++# ---- evidence_persisted ternary -------------------------------------------
++
++def test_evidence_persisted_null_when_sink_unwired():
++    v = _mk_verifier(evidence_sink=None)
++    bundles = []
++    orig = v._build_evidence_bundle
++
++    def _wrap(*a, **k):
++        b = orig(*a, **k)
++        bundles.append(b)
++        return b
++
++    v._build_evidence_bundle = _wrap  # type: ignore[method-assign]
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert bundles
++    assert bundles[-1]["diagnostics"]["timing"]["evidence_persisted"] is None
++
++
++def test_evidence_persisted_true_on_none_return_fire_and_forget():
++    """Existing sink contract: return None after successful await = success."""
++    captured = []
++
++    async def sink(b):
++        captured.append(b)
++        return None
++
++    v = _mk_verifier(evidence_sink=sink)
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert captured[-1]["diagnostics"]["timing"]["evidence_persisted"] is True
++
++
++def test_evidence_persisted_false_on_sink_raise():
++    async def boom(_b):
++        raise RuntimeError("mongo down")
++
++    v = _mk_verifier(evidence_sink=boom)
++    bundles = []
++    orig = v._build_evidence_bundle
++
++    def _wrap(*a, **k):
++        b = orig(*a, **k)
++        bundles.append(b)
++        return b
++
++    v._build_evidence_bundle = _wrap  # type: ignore[method-assign]
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert bundles[-1]["diagnostics"]["timing"]["evidence_persisted"] is False
++
++
++def test_evidence_persisted_null_on_ambiguous_return():
++    captured = []
++
++    async def sink(b):
++        captured.append(b)
++        return {"unexpected": "shape"}
++
++    v = _mk_verifier(evidence_sink=sink)
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert captured[-1]["diagnostics"]["timing"]["evidence_persisted"] is None
++
++
++def test_evidence_persisted_false_on_explicit_false_return():
++    captured = []
++
++    async def sink(b):
++        captured.append(b)
++        return False
++
++    v = _mk_verifier(evidence_sink=sink)
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert captured[-1]["diagnostics"]["timing"]["evidence_persisted"] is False
++
++
++# ---- fail-safe instrumentation --------------------------------------------
++
++def test_instrumentation_failure_does_not_change_verdict():
++    v = _mk_verifier()
++    v._now = lambda: (_ for _ in ()).throw(RuntimeError("clock exploded"))
++    opp, outcome, b = _verify_capture(v)
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    timing = b["diagnostics"]["timing"]
++    assert timing["stage_ms"]["quote"] is None
++    assert timing["evidence_persisted"] is True
++
++
++def test_timing_error_secondary_failure_emits_safe_warning(caplog):
++    v = _mk_verifier()
++
++    class _BadTiming(dict):
++        def get(self, *a, **k):
++            return None
++
++        def __setitem__(self, key, value):
++            raise RuntimeError("cannot record timing_error")
++
++    with caplog.at_level(logging.WARNING):
++        v._note_timing_error(_BadTiming(), "quote", RuntimeError("clock down"))
++
++    assert any(
++        "timing_instrumentation_failed" in r.message for r in caplog.records
++    )
++    for r in caplog.records:
++        if "timing_instrumentation_failed" in r.message:
++            assert "hop_legs" not in r.message
++            assert "calldata" not in r.message
++            assert "exception_type=RuntimeError" in r.message
++            assert "stage=quote" in r.message
+--- /dev/null
++++ b/app/backend/tests/test_p2_evidence_persisted_mongo.py
+@@ -0,0 +1,307 @@
++"""P2 Option D: Mongo-persisted ``evidence_persisted`` insert stamp.
++
++Append-only: marker is stamped on the document immediately before
++``insert_one``. Tests that need Mongo use a throwaway database and skip
++when no isolated server is reachable (default ``MONGO_URL`` or bridge).
++"""
++from __future__ import annotations
++
++import asyncio
++import os
++import uuid
++from unittest.mock import AsyncMock, MagicMock
++
++import pytest
++
++from arbicore.data.mongo.evidence_bundles_repo import (
++    EvidenceBundlesRepo,
++    _stamp_insert_evidence_persisted,
++)
++from arbicore.discovery import base_pool_registry as reg
++from arbicore.intelligence.roi_probability import ROIProbabilityEngine
++from arbicore.models.discovery import DiscoveryCandidate, VerifiedOutcome
++from arbicore.models.enums import OpportunityType
++from arbicore.scanners.cross_chain_arbitrage.bridge_intelligence import (
++    MevRiskScorer,
++)
++from arbicore.scanners.flash_loan_arbitrage.economics import (
++    FlashLoanEconomicsAssessor,
++)
++from arbicore.scanners.flash_loan_arbitrage.filter import (
++    FlashLoanGate7AtomicProfit, FlashLoanGate8LiquidityDepth,
++    FlashLoanGate9FlashLoanMev,
++)
++from arbicore.scanners.flash_loan_arbitrage.verifier import (
++    FlashLoanOpportunityVerifier,
++)
++
++MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
++
++
++def _run(coro):
++    return asyncio.new_event_loop().run_until_complete(coro)
++
++
++def _mongo_available() -> bool:
++    try:
++        from pymongo import MongoClient
++        client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=1500)
++        client.admin.command("ping")
++        client.close()
++        return True
++    except Exception:
++        return False
++
++
++requires_mongo = pytest.mark.skipif(
++    not _mongo_available(),
++    reason=f"isolated Mongo unavailable at MONGO_URL={MONGO_URL}",
++)
++
++
++# ---- pure stamp helper ----------------------------------------------------
++
++def test_stamp_creates_missing_diagnostics_and_timing():
++    doc: dict = {"bundle_id": "b1"}
++    _stamp_insert_evidence_persisted(doc)
++    assert doc["diagnostics"]["timing"]["evidence_persisted"] is True
++
++
++def test_stamp_preserves_unrelated_diagnostics_fields():
++    doc = {
++        "bundle_id": "b2",
++        "diagnostics": {
++            "candidate_id": "cand-x",
++            "audit_run_id": "run-1",
++            "timing": {"quote": 3, "evidence_persisted": None},
++        },
++    }
++    _stamp_insert_evidence_persisted(doc)
++    d = doc["diagnostics"]
++    assert d["candidate_id"] == "cand-x"
++    assert d["audit_run_id"] == "run-1"
++    assert d["timing"]["quote"] == 3
++    assert d["timing"]["evidence_persisted"] is True
++
++
++def test_stamp_skips_non_dict_diagnostics():
++    doc = {"diagnostics": "bad"}
++    _stamp_insert_evidence_persisted(doc)
++    assert doc["diagnostics"] == "bad"
++
++
++# ---- insert failure (no Mongo row claimed) --------------------------------
++
++def test_insert_failure_does_not_leave_mongo_success_row():
++    coll = MagicMock()
++    coll.insert_one = AsyncMock(side_effect=RuntimeError("disk full"))
++    db = MagicMock()
++    db.__getitem__ = MagicMock(return_value=coll)
++    repo = EvidenceBundlesRepo(db)
++    with pytest.raises(RuntimeError, match="disk full"):
++        _run(repo.insert({
++            "bundle_id": "fail-1",
++            "source_component": "flash_loan_arb_verifier",
++            "diagnostics": {"timing": {"evidence_persisted": None}},
++        }))
++    coll.insert_one.assert_awaited_once()
++
++
++# ---- Mongo round-trip -----------------------------------------------------
++
++@requires_mongo
++def test_mongo_roundtrip_persisted_marker_true():
++    from motor.motor_asyncio import AsyncIOMotorClient
++
++    async def _body():
++        client = AsyncIOMotorClient(MONGO_URL)
++        dbname = f"arbicore_x_p2_evidence_{uuid.uuid4().hex[:8]}"
++        db = client[dbname]
++        repo = EvidenceBundlesRepo(db)
++        try:
++            await repo.ensure_indexes()
++            bundle_id = f"flarb:p2:{uuid.uuid4().hex[:8]}"
++            await repo.insert({
++                "bundle_id": bundle_id,
++                "source_component": "flash_loan_arb_verifier",
++                "source_model_id": "cand-p2-mongo",
++                "created_at": "2026-10-09T00:00:00+00:00",
++                "diagnostics": {
++                    "candidate_id": "cand-p2-mongo",
++                    "timing": {
++                        "stage_ms": {"quote": 1},
++                        "evidence_persisted": None,
++                    },
++                },
++                "verification_status": "DENIED",
++                "broadcast": False,
++            })
++            stored = await repo.find_by_bundle_id(bundle_id)
++            assert stored is not None
++            assert stored["diagnostics"]["candidate_id"] == "cand-p2-mongo"
++            assert stored["diagnostics"]["timing"]["stage_ms"]["quote"] == 1
++            assert stored["diagnostics"]["timing"]["evidence_persisted"] is True
++            assert stored.get("persisted_at")
++            # Append-only: no update API used; single row present.
++            n = await db.evidence_bundles.count_documents(
++                {"bundle_id": bundle_id})
++            assert n == 1
++        finally:
++            await client.drop_database(dbname)
++            client.close()
++
++    _run(_body())
++
++
++@requires_mongo
++def test_mongo_roundtrip_missing_timing_still_stamps_true():
++    from motor.motor_asyncio import AsyncIOMotorClient
++
++    async def _body():
++        client = AsyncIOMotorClient(MONGO_URL)
++        dbname = f"arbicore_x_p2_evidence_{uuid.uuid4().hex[:8]}"
++        db = client[dbname]
++        repo = EvidenceBundlesRepo(db)
++        try:
++            bundle_id = f"flarb:p2-notiming:{uuid.uuid4().hex[:8]}"
++            await repo.insert({
++                "bundle_id": bundle_id,
++                "source_component": "flash_loan_arb_verifier",
++                "source_model_id": "cand-notiming",
++                "created_at": "2026-10-09T00:00:00+00:00",
++                "diagnostics": {"candidate_id": "cand-notiming"},
++            })
++            stored = await repo.find_by_bundle_id(bundle_id)
++            assert stored["diagnostics"]["timing"]["evidence_persisted"] is True
++            assert stored["diagnostics"]["candidate_id"] == "cand-notiming"
++        finally:
++            await client.drop_database(dbname)
++            client.close()
++
++    _run(_body())
++
++
++# ---- verifier path: unwired + repo sink + verdict stability ---------------
++
++def _real_pool_ids():
++    ids = [p.canonical_id for p in reg.get_canonical_pools()
++           if p.address_resolution == reg.DETERMINISTIC_VERIFIED
++           and p.dex == "uniswap_v3"
++           and {"WETH", "USDC"} == {p.token0_symbol, p.token1_symbol}]
++    return ids[:2]
++
++
++def _hm():
++    return {"chain": "base", "provider": "balancer_v2", "borrow_token": "WETH",
++            "borrow_amount_usd": 10_000.0, "route_pools": _real_pool_ids(),
++            "cycle_token_path": ["WETH", "USDC", "WETH"],
++            "route_dex_protocols": ["uniswap_v3", "uniswap_v3"], "hop_count": 2}
++
++
++def _facts(gross_pct=3.0):
++    leg = {"venue_id": "uniswap_v3:base", "source_id": "uniswap_v3_quoter_base",
++           "fee_bps": 5, "depth_usd": 500_000.0, "dex_protocol": "uniswap_v3"}
++    return {"hop_legs": [dict(leg), dict(leg)], "gross_profit_pct": gross_pct,
++            "tx_gas_units": 250_000, "min_pool_tvl_usd_in_route": 500_000.0,
++            "tvl_provenance": "onchain_reserves", "route_quote_status": "ok",
++            "verified_at_ts": 123.0, "quote_block": 999}
++
++
++def _mk_verifier(*, evidence_sink=None):
++    async def _qp(hm, borrow):
++        return _facts(3.0)
++
++    return FlashLoanOpportunityVerifier(
++        quote_provider=_qp,
++        economics_assessor=FlashLoanEconomicsAssessor(
++            roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05),
++            default_borrow_amount_usd=10_000.0),
++        mev_scorer=MevRiskScorer(),
++        gate_7=FlashLoanGate7AtomicProfit({}),
++        gate_8=FlashLoanGate8LiquidityDepth({}),
++        gate_9=FlashLoanGate9FlashLoanMev({}),
++        default_borrow_amount_usd=10_000.0,
++        evidence_sink=evidence_sink,
++    )
++
++
++def _candidate():
++    return DiscoveryCandidate(
++        candidate_id="cand-p2-opt-d",
++        hint_source="test_source",
++        opportunity_type=OpportunityType.FLASH_LOAN_ARBITRAGE,
++        subject_id="WETH-USDC",
++        asset="WETH",
++        hint_metric=_hm(),
++        hint_observed_at=1000.0,
++        claimed_at=1010.0,
++    )
++
++
++def test_unwired_sink_evidence_persisted_remains_null_verdict_unchanged():
++    v = _mk_verifier(evidence_sink=None)
++    bundles = []
++    orig = v._build_evidence_bundle
++
++    def _wrap(*a, **k):
++        b = orig(*a, **k)
++        bundles.append(b)
++        return b
++
++    v._build_evidence_bundle = _wrap  # type: ignore[method-assign]
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert bundles[-1]["diagnostics"]["timing"]["evidence_persisted"] is None
++
++
++@requires_mongo
++def test_verifier_repo_sink_mongo_marker_true_verdict_unchanged():
++    """Production-like path: sink = repo.insert; assert Mongo, not only memory."""
++    from motor.motor_asyncio import AsyncIOMotorClient
++
++    async def _body():
++        client = AsyncIOMotorClient(MONGO_URL)
++        dbname = f"arbicore_x_p2_evidence_{uuid.uuid4().hex[:8]}"
++        db = client[dbname]
++        repo = EvidenceBundlesRepo(db)
++        try:
++            # Match composition fire-and-forget: await insert, return None.
++            async def sink(bundle):
++                await repo.insert(bundle)
++                return None
++
++            v = _mk_verifier(evidence_sink=sink)
++            opp, outcome = await v.verify(_candidate())
++            assert opp is not None
++            assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++            rows = await db.evidence_bundles.find(
++                {}, {"_id": 0}).to_list(10)
++            assert len(rows) == 1
++            timing = rows[0]["diagnostics"]["timing"]
++            assert timing["evidence_persisted"] is True
++        finally:
++            await client.drop_database(dbname)
++            client.close()
++
++    _run(_body())
++
++
++def test_insert_failure_via_sink_keeps_verdict_and_false_marker():
++    async def boom(_b):
++        raise RuntimeError("mongo down")
++
++    v = _mk_verifier(evidence_sink=boom)
++    bundles = []
++    orig = v._build_evidence_bundle
++
++    def _wrap(*a, **k):
++        b = orig(*a, **k)
++        bundles.append(b)
++        return b
++
++    v._build_evidence_bundle = _wrap  # type: ignore[method-assign]
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert bundles[-1]["diagnostics"]["timing"]["evidence_persisted"] is False

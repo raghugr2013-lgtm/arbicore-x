@@ -1,0 +1,6 @@
+{
+  "utc": "2026-10-10T10:51:31Z",
+  "stage": "env_switch",
+  "detail": "bad MONGO_URL shape",
+  "r3_applied": false
+}

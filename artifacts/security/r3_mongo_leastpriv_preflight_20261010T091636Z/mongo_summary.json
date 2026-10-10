@@ -1,0 +1,235 @@
+{
+  "client_username": "root",
+  "is_root": true,
+  "host": "factory-mongo",
+  "auth_source": "admin",
+  "db_name_env": "arbicore_x",
+  "databases": [
+    "READ_ME_TO_RECOVER_YOUR_DATA",
+    "admin",
+    "arbicore_x",
+    "config",
+    "local",
+    "strategy_factory_v1",
+    "strategy_knowledge_base"
+  ],
+  "db_sizes_mb": {
+    "READ_ME_TO_RECOVER_YOUR_DATA": 0.04,
+    "admin": 0.12,
+    "arbicore_x": 1949.97,
+    "config": 0.11,
+    "local": 0.04,
+    "strategy_factory_v1": 2.7,
+    "strategy_knowledge_base": 0.05
+  },
+  "admin_users": [
+    {
+      "user": "root",
+      "roles": [
+        {
+          "role": "root",
+          "db": "admin"
+        }
+      ]
+    }
+  ],
+  "arbicore_x_users": [],
+  "collection_names": [
+    "adaptive_weight_recommendations",
+    "alerts_log",
+    "arbicore_audit_log",
+    "arbicore_config",
+    "arbicore_config_audit",
+    "arbicore_config_drafts",
+    "arbicore_discovery_candidates",
+    "arbicore_discovery_source_metrics",
+    "arbicore_entities",
+    "arbicore_entity_clusters",
+    "arbicore_entity_refs",
+    "arbicore_opportunities",
+    "arbicore_opportunity_journal",
+    "arbicore_opportunity_ledger",
+    "arbicore_outcomes",
+    "arbicore_paper_evidence",
+    "arbicore_provenance_audit",
+    "arbicore_regime_snapshots",
+    "arbicore_research_candidates",
+    "arbicore_route_stats",
+    "arbicore_scanner_config",
+    "arbicore_scanner_state",
+    "arbicore_secrets",
+    "arbicore_sequence_patterns",
+    "arbicore_shadow_certifications",
+    "arbicore_signal_metrics",
+    "arbicore_state_snapshots",
+    "arbicore_temporal_sequences",
+    "arbicore_venue_capabilities",
+    "arbicore_venue_capability_history",
+    "arbicore_wallet_metrics",
+    "calibration_log",
+    "calibration_models",
+    "capital_policy",
+    "capital_policy_audit",
+    "decision_history",
+    "evidence_bundles",
+    "execution_mode_audit",
+    "execution_mode_state",
+    "execution_plans",
+    "kill_switch_audit",
+    "kill_switch_state",
+    "login_attempts",
+    "mid_confidence",
+    "mid_decisions",
+    "mid_enum_warnings",
+    "mid_gas",
+    "mid_liquidity",
+    "mid_market_state",
+    "mid_opportunities",
+    "mid_opportunity_lifetime",
+    "mid_outcomes",
+    "mid_providers",
+    "mid_quotes",
+    "mid_replay",
+    "mid_routes",
+    "profit_alerts",
+    "route_recurrence",
+    "telegram_alerts_log",
+    "users",
+    "wallet_registry",
+    "wallet_registry_audit"
+  ],
+  "collection_count_est": {
+    "adaptive_weight_recommendations": 2711,
+    "alerts_log": 2711,
+    "arbicore_audit_log": 0,
+    "arbicore_config": 12,
+    "arbicore_config_audit": 20,
+    "arbicore_config_drafts": 0,
+    "arbicore_discovery_candidates": 3921188,
+    "arbicore_discovery_source_metrics": 0,
+    "arbicore_entities": 0,
+    "arbicore_entity_clusters": 0,
+    "arbicore_entity_refs": 0,
+    "arbicore_opportunities": 0,
+    "arbicore_opportunity_journal": 0,
+    "arbicore_opportunity_ledger": 288,
+    "arbicore_outcomes": 0,
+    "arbicore_paper_evidence": 0,
+    "arbicore_provenance_audit": 0,
+    "arbicore_regime_snapshots": 0,
+    "arbicore_research_candidates": 1,
+    "arbicore_route_stats": 0,
+    "arbicore_scanner_config": 6,
+    "arbicore_scanner_state": 6,
+    "arbicore_secrets": 1,
+    "arbicore_sequence_patterns": 0,
+    "arbicore_shadow_certifications": 3,
+    "arbicore_signal_metrics": 0,
+    "arbicore_state_snapshots": 0,
+    "arbicore_temporal_sequences": 0,
+    "arbicore_venue_capabilities": 0,
+    "arbicore_venue_capability_history": 0,
+    "arbicore_wallet_metrics": 0,
+    "calibration_log": 0,
+    "calibration_models": 2711,
+    "capital_policy": 7,
+    "capital_policy_audit": 7,
+    "decision_history": 739284,
+    "evidence_bundles": 583511,
+    "execution_mode_audit": 7,
+    "execution_mode_state": 7,
+    "execution_plans": 0,
+    "kill_switch_audit": 2,
+    "kill_switch_state": 1,
+    "login_attempts": 16,
+    "mid_confidence": 0,
+    "mid_decisions": 0,
+    "mid_enum_warnings": 46,
+    "mid_gas": 0,
+    "mid_liquidity": 0,
+    "mid_market_state": 0,
+    "mid_opportunities": 190,
+    "mid_opportunity_lifetime": 0,
+    "mid_outcomes": 0,
+    "mid_providers": 0,
+    "mid_quotes": 0,
+    "mid_replay": 0,
+    "mid_routes": 0,
+    "profit_alerts": 0,
+    "route_recurrence": 134,
+    "telegram_alerts_log": 0,
+    "users": 1,
+    "wallet_registry": 1,
+    "wallet_registry_audit": 1
+  },
+  "ttl_indexes": [
+    {
+      "collection": "adaptive_weight_recommendations",
+      "index": "retired_at_1"
+    },
+    {
+      "collection": "arbicore_audit_log",
+      "index": "ttl_90d"
+    },
+    {
+      "collection": "arbicore_discovery_candidates",
+      "index": "expires_at_1"
+    },
+    {
+      "collection": "arbicore_discovery_source_metrics",
+      "index": "captured_at_ts_1"
+    },
+    {
+      "collection": "arbicore_regime_snapshots",
+      "index": "ttl_90d"
+    },
+    {
+      "collection": "arbicore_state_snapshots",
+      "index": "ttl_30d"
+    },
+    {
+      "collection": "arbicore_temporal_sequences",
+      "index": "ttl_90d"
+    },
+    {
+      "collection": "arbicore_venue_capability_history",
+      "index": "captured_at_ts_1"
+    },
+    {
+      "collection": "calibration_models",
+      "index": "retired_at_1"
+    },
+    {
+      "collection": "mid_confidence",
+      "index": "ttl_ts"
+    },
+    {
+      "collection": "mid_enum_warnings",
+      "index": "ttl_ts"
+    },
+    {
+      "collection": "mid_gas",
+      "index": "ttl_ts"
+    },
+    {
+      "collection": "mid_liquidity",
+      "index": "ttl_ts"
+    },
+    {
+      "collection": "mid_market_state",
+      "index": "ttl_ts"
+    },
+    {
+      "collection": "mid_providers",
+      "index": "ttl_ts"
+    },
+    {
+      "collection": "mid_quotes",
+      "index": "ttl_ts"
+    },
+    {
+      "collection": "mid_replay",
+      "index": "ttl_ts"
+    }
+  ]
+}

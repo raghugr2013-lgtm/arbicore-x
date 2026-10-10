@@ -1,0 +1,14 @@
+services:
+  backend:
+    image: arbicore-x-backend:ws-a-befb14e-20261002
+    build: null
+    environment:
+      ARBICORE_GIT_SHA: "befb14e6aa77515daa038e142ff978822a4fab91"
+      ARBICORE_GIT_TAG: "ws-a-befb14e-20261002"
+      ARBICORE_RUNTIME_ENV: "production"
+      ARBICORE_ENV: "production"
+      ARBICORE_EXECUTION_MODE: "SHADOW"
+      ARBICORE_AUTOEXEC_AUTOSTART: "false"
+      ARBICORE_RUNTIME_AUTOSTART: "false"
+      ARBICORE_SCANNER_AUTOSTART: "true"
+      ARBICORE_SHADOW_CERT_ENABLED: "true"

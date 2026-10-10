@@ -1,0 +1,30 @@
+{
+  "log_path": "/var/lib/docker/containers/c7e7328a93453a518b2ce6ec4bfcd540416a743b7b7630115fb4d77a197b3da6/c7e7328a93453a518b2ce6ec4bfcd540416a743b7b7630115fb4d77a197b3da6-json.log",
+  "stat_error": "PermissionError:[Errno 13] Permission denied: '/var/lib/docker/containers/c7e7328a93453a518b2ce6ec4bfcd540416a743b7b7630115fb4d77a197b3da6/c7e7328a93453a518b2ce6ec4bfcd540416a7",
+  "started": "2026-09-07T05:21:43.251186127Z",
+  "log_config": {
+    "Type": "json-file",
+    "Config": {}
+  },
+  "rotated": [],
+  "host_logs": [
+    {
+      "path": "/var/log/auth.log",
+      "exists": true,
+      "size": 6455012,
+      "mtime": "2026-10-10T10:00:36Z",
+      "readable": false
+    },
+    {
+      "path": "/var/log/syslog",
+      "exists": true,
+      "size": 9090278,
+      "mtime": "2026-10-10T10:00:34Z",
+      "readable": false
+    },
+    {
+      "path": "/var/log/secure",
+      "exists": false
+    }
+  ]
+}

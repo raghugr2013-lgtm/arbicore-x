@@ -1,0 +1,15 @@
+{
+  "target_sha12": "7e792fd2e48f",
+  "scanned_env_like_note": "58 env-like files under v2/cert/backups/tmp",
+  "same_sha12_carriers": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/contracts/.env",
+      "mode": "0o600",
+      "key_sha12": "7e792fd2e48f",
+      "derived_address": "0x3b37a5E124b177fEE30365deb295A5CCF76841Cd"
+    }
+  ],
+  "other_real_64hex_DEPLOYER_PRIVATE_KEY_in_env_like_scan": 0,
+  "docs_mentions_DEPLOYER_PRIVATE_KEY_equals_count": 66,
+  "note": "rg default ignore skipped gitignored .env; primary confirmed by direct read. Docs mentions are placeholders/examples only."
+}

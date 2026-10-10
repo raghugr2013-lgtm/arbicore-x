@@ -1,0 +1,5 @@
+time="2026-10-10T11:10:35+02:00" level=warning msg="Found orphan containers (arbicore-x-frontend, compose-validator-mongo-1, arbicore-x-mongo, arbicore-x-opportunity-center, arbicore-x-nginx, arbicore-x-certbot) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container arbicore-x-backend-new Recreate 
+ Container arbicore-x-backend-new Recreated 
+ Container arbicore-x-backend-new Starting 
+ Container arbicore-x-backend-new Started 

@@ -1,0 +1,86 @@
+{
+  "cert": "ALCHEMY_CU_OBSERVATION",
+  "readonly": true,
+  "campaign_untouched": true,
+  "observed_at_utc": "2026-10-02T08:27:31Z",
+  "campaign_start_utc": "2026-10-02T06:19:43Z",
+  "observation_window_end_utc": "2026-10-02T08:27:31Z",
+  "elapsed_hours": 2.13,
+  "remaining_gate9_hours": 21.87,
+  "obs_window_hours": 2.13,
+  "container": "arbicore-x-backend-new",
+  "image": "arbicore-x-backend:g5.79-green-20260927",
+  "alchemy_domains": [
+    "base-mainnet.g.alchemy.com",
+    "eth-mainnet.g.alchemy.com",
+    "arb-mainnet.g.alchemy.com",
+    "opt-mainnet.g.alchemy.com",
+    "polygon-mainnet.g.alchemy.com",
+    "bnb-mainnet.g.alchemy.com"
+  ],
+  "non_alchemy_rpc_domains": ["mainnet.base.org"],
+  "key_path_fp_sha256_8": "5e5d5bb1",
+  "httpx_alchemy_base": {
+    "http_requests": 2306,
+    "http_200": 4,
+    "http_429": 2294
+  },
+  "httpx_other_alchemy_chains_http_requests": 0,
+  "httpx_base_org": {
+    "note": "primary quoter host; not Alchemy CU",
+    "http_requests_approx": 2457,
+    "http_200_approx": 2347,
+    "http_429_approx": 94
+  },
+  "method_log_counts_campaign": {
+    "eth_call": 15,
+    "eth_getLogs": 0,
+    "eth_blockNumber": 0,
+    "eth_chainId": 0,
+    "debug_trace": 0,
+    "wss_subscribe": 0
+  },
+  "cu_weights_alchemy_public_table": {
+    "eth_blockNumber": 10,
+    "eth_chainId": 10,
+    "eth_call": 26,
+    "eth_getLogs": 75,
+    "debug_traceCall": 309,
+    "source_note": "Alchemy public compute-unit costs table; WebFetch unavailable in this observation agent — verify at https://www.alchemy.com/docs/reference/compute-unit-costs"
+  },
+  "cu_scenarios": {
+    "A_success_only_eth_call": {
+      "cu_in_obs_window": 104,
+      "cu_per_hour": 48.8,
+      "cu_remaining_gate9": 1067,
+      "cu_full_24h_gate9": 1172,
+      "cu_monthly_30d": 35136,
+      "vs_30m_free_pct_monthly": 0.12
+    },
+    "B_all_attempts_eth_call": {
+      "cu_in_obs_window": 59956,
+      "cu_per_hour": 28148,
+      "cu_remaining_gate9": 615600,
+      "cu_full_24h_gate9": 675552,
+      "cu_monthly_30d": 20266560,
+      "vs_30m_free_pct_monthly": 67.56
+    },
+    "C_all_attempts_eth_call_plus_blockNumber": {
+      "cu_in_obs_window": 83016,
+      "cu_per_hour": 38975,
+      "cu_remaining_gate9": 852400,
+      "cu_full_24h_gate9": 935400,
+      "cu_monthly_30d": 28062000,
+      "vs_30m_free_pct_monthly": 93.54
+    }
+  },
+  "free_tier_30m_sufficient": {
+    "if_429_not_billed_A": "YES",
+    "if_attempts_billed_as_eth_call_B": "MARGINAL_YES (~20M/mo under 30M; little headroom)",
+    "if_attempts_billed_as_batch_C": "AT_RISK (~28M/mo near 30M)"
+  },
+  "highest_cu_method_observed": "eth_call (quoter failover to Base Alchemy); eth_getLogs/debug_trace not observed in window",
+  "disproportionate_consumer": "Base Alchemy eth_call retries after mainnet.base.org -32016 rate limit; ~99.8% of Alchemy Base POSTs return HTTP 429",
+  "prometheus_metrics": "none exposed on :8001 (/metrics 404); provider registry counters mostly 0 except early Base RPC eth_call 429",
+  "STOP": "no campaign restart/modify; no secrets in this file"
+}

@@ -94,7 +94,10 @@ class DiscoveryCandidate(BaseModel):
     # construct from hint_metric.chain when omitted. Does NOT alter filters /
     # TVL / economics — only enables fair claim scheduling.
     chain: Optional[str] = None
-    # Claim-lock fields (cooperative queue — see Spec §5.1)
+    # Claim-lock fields (cooperative queue — see Spec §5.1).
+    # claimed_at is the actual claim timestamp and remains durable after
+    # mark_processed; claimed_by / claimed_until are the live lock and are
+    # cleared when processing completes.
     claimed_at: Optional[float] = None
     claimed_by: Optional[str] = None
     claimed_until: Optional[float] = None

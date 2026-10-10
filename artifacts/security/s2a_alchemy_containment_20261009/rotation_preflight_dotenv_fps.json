@@ -1,0 +1,68 @@
+{
+  "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env",
+  "entries": [
+    {
+      "env": "ALCHEMY_API_KEY",
+      "present": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL",
+      "form": "url",
+      "host": "base-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1",
+      "alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BASE",
+      "form": "url",
+      "host": "mainnet.base.org",
+      "fp8": null,
+      "alchemy": false
+    },
+    {
+      "env": "ARBICORE_ARCHIVE_RPC_URL",
+      "form": "url",
+      "host": "base-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1",
+      "alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ETHEREUM",
+      "form": "url",
+      "host": "eth-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1",
+      "alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ARBITRUM",
+      "form": "url",
+      "host": "arb-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1",
+      "alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_OPTIMISM",
+      "form": "url",
+      "host": "opt-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1",
+      "alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_POLYGON",
+      "form": "url",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1",
+      "alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BNB",
+      "form": "url",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "fp8": "5e5d5bb1",
+      "alchemy": true
+    }
+  ],
+  "fps": [
+    "5e5d5bb1"
+  ]
+}

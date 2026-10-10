@@ -1,0 +1,76 @@
+--- /home/raghu/projects/arbicore-x-cert/artifacts/security/r1_edge_docs_deny_20261010T085028Z/Caddyfile.before	2026-09-28 03:55:38.750128161 +0200
++++ /home/raghu/projects/arbicore-x-cert/artifacts/security/r1_edge_docs_deny_20261010T085028Z/Caddyfile.proposed	2026-10-10 10:51:32.304076166 +0200
+@@ -46,6 +46,17 @@
+ 144-91-78-175.sslip.io {
+     encode zstd gzip
+ 
++    # R1: deny public API documentation surfaces (2026-10-10)
++    handle /docs* {
++        respond "Not Found" 404
++    }
++    handle /redoc* {
++        respond "Not Found" 404
++    }
++    handle /openapi.json {
++        respond "Not Found" 404
++    }
++
+     handle /api/* {
+         reverse_proxy arbicore-x-backend:8001 {
+             transport http {
+@@ -92,6 +103,17 @@
+ arbicorex.in, www.arbicorex.in {
+     encode zstd gzip
+ 
++    # R1: deny public API documentation surfaces (2026-10-10)
++    handle /docs* {
++        respond "Not Found" 404
++    }
++    handle /redoc* {
++        respond "Not Found" 404
++    }
++    handle /openapi.json {
++        respond "Not Found" 404
++    }
++
+     handle /api/* {
+         reverse_proxy arbicore-x-backend:8001 {
+             transport http {
+@@ -119,15 +141,29 @@
+ api.arbicorex.in {
+     encode zstd gzip
+ 
+-    reverse_proxy arbicore-x-backend:8001 {
+-        transport http {
+-            dial_timeout 5s
+-            read_timeout 60s
+-            write_timeout 60s
+-        }
++    # R1: deny public API documentation surfaces (2026-10-10)
++    # True FastAPI /docs + /openapi.json were publicly reachable here.
++    handle /docs* {
++        respond "Not Found" 404
++    }
++    handle /redoc* {
++        respond "Not Found" 404
++    }
++    handle /openapi.json {
++        respond "Not Found" 404
++    }
+ 
+-        header_up Host {host}
+-        header_up X-Real-IP {remote}
++    handle {
++        reverse_proxy arbicore-x-backend:8001 {
++            transport http {
++                dial_timeout 5s
++                read_timeout 60s
++                write_timeout 60s
++            }
++
++            header_up Host {host}
++            header_up X-Real-IP {remote}
++        }
+     }
+ 
+     log {

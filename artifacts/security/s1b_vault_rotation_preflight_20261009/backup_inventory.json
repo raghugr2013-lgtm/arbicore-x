@@ -1,0 +1,166 @@
+{
+  "ts": "2026-10-09T05:19:13.636451+00:00",
+  "backup_files": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260914T091112Z.archive.gz",
+      "size": 64840467,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260914T091036Z.archive.gz",
+      "size": 64818092,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260914T090828Z.archive.gz",
+      "size": 64769640,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260911T174649Z.archive.gz",
+      "size": 5843580,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260911T163301Z.archive.gz",
+      "size": 5733273,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260824T024617Z.archive.gz",
+      "size": 2364771,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260823T172636Z.archive.gz",
+      "size": 2088065,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260824T020952Z.archive.gz",
+      "size": 1991759,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260824T135623Z.archive.gz",
+      "size": 1469537,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260822T084845Z.archive.gz",
+      "size": 814533,
+      "mode": "664"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260824T184230Z.archive.gz",
+      "size": 279496,
+      "mode": "664"
+    },
+    {
+      "path": "/var/backups/dpkg.status.1.gz",
+      "size": 195716,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/dpkg.status.3.gz",
+      "size": 195716,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/dpkg.status.2.gz",
+      "size": 195715,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/dpkg.status.5.gz",
+      "size": 195711,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/dpkg.status.4.gz",
+      "size": 195710,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/dpkg.status.6.gz",
+      "size": 195709,
+      "mode": "644"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260824T152227Z.archive.gz",
+      "size": 131826,
+      "mode": "664"
+    },
+    {
+      "path": "/var/backups/apt.extended_states.5.gz",
+      "size": 4622,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/apt.extended_states.4.gz",
+      "size": 4604,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/apt.extended_states.1.gz",
+      "size": 4577,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/apt.extended_states.2.gz",
+      "size": 4577,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/apt.extended_states.3.gz",
+      "size": 4575,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/apt.extended_states.6.gz",
+      "size": 4278,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/alternatives.tar.1.gz",
+      "size": 2585,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/alternatives.tar.2.gz",
+      "size": 2585,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/alternatives.tar.3.gz",
+      "size": 2180,
+      "mode": "644"
+    },
+    {
+      "path": "/var/backups/alternatives.tar.4.gz",
+      "size": 2175,
+      "mode": "644"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/steps/02_backup.sh.pre-stale-mongodump-20260911T163154Z",
+      "size": 2122,
+      "mode": "775"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/steps/02_backup.sh.pre-leftover-mongodump-fix-20260911T162321Z",
+      "size": 2122,
+      "mode": "775"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/steps/02_backup.sh.pre-leftover-mongodump-fix-20260911T162303Z",
+      "size": 2122,
+      "mode": "775"
+    }
+  ],
+  "last_backup_pointers": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.last_backup",
+      "text": "ARCHIVE=/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/preupgrade_arbicore_x_20260914T091112Z.archive.gz\nCOUNTS=/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/counts_pre_20260914T091112Z.tsv\nOPENAPI=/home/raghu/projects/arbicore-x-v2/deployment/upgrade/.state/backups/openapi_pre_20260914T091112Z.json\nTS=20260914T091112Z\n"
+    }
+  ]
+}

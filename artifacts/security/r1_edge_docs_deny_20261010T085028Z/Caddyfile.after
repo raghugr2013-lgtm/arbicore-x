@@ -1,0 +1,173 @@
+# /opt/caddy/Caddyfile
+#
+# Production reverse proxy for Strategy Factory.
+# Matches the reference Caddyfile in infra/caddy/README.md of the
+# canonical repository (raghugr2013-lgtm/strategy-factory-canonical).
+
+{
+    # Global options — set the ACME account email for Let's Encrypt
+    # renewal notifications. Replace the placeholder before deploy.
+    email raghugr2013@gmail.com
+}
+
+strategy.coinnike.com {
+    encode zstd gzip
+
+    # API surface — Phase-1 core + 89 legacy routers all live under /api.
+    handle /api/* {
+        reverse_proxy factory-backend:8001 {
+            transport http {
+                dial_timeout    5s
+                read_timeout   60s
+                write_timeout  60s
+            }
+            # Preserve the client's original host / IP so the backend's
+            # CORS + RBAC + audit-journal logic sees the real caller.
+            header_up Host              {host}
+            header_up X-Real-IP         {remote}
+            header_up X-Forwarded-For   {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # Everything else → static frontend (React SPA behind nginx).
+    handle {
+        reverse_proxy factory-frontend:80
+    }
+
+    # Access log for /api/* — useful for the Production Validation Suite
+    # and Tier 5 latency correlation.
+    log {
+        output file /var/log/caddy/strategy-factory.access.log
+        format json
+    }
+}
+
+144-91-78-175.sslip.io {
+    encode zstd gzip
+
+    # R1: deny public API documentation surfaces (2026-10-10)
+    handle /docs* {
+        respond "Not Found" 404
+    }
+    handle /redoc* {
+        respond "Not Found" 404
+    }
+    handle /openapi.json {
+        respond "Not Found" 404
+    }
+
+    handle /api/* {
+        reverse_proxy arbicore-x-backend:8001 {
+            transport http {
+                dial_timeout 5s
+                read_timeout 60s
+                write_timeout 60s
+            }
+
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up X-Forwarded-For {remote}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    handle {
+        reverse_proxy arbicore-x-frontend:80
+    }
+
+    log {
+        output file /var/log/caddy/arbicorex.access.log
+        format json
+    }
+}
+
+foreman.coinnike.com {
+    encode zstd gzip
+
+    handle /api/* {
+        reverse_proxy foreman-backend:8001
+    }
+
+    handle {
+        reverse_proxy foreman-frontend:3000
+    }
+
+    log {
+        output file /var/log/caddy/foreman.access.log
+        format json
+    }
+}
+
+# ArbiCore new production domain
+arbicorex.in, www.arbicorex.in {
+    encode zstd gzip
+
+    # R1: deny public API documentation surfaces (2026-10-10)
+    handle /docs* {
+        respond "Not Found" 404
+    }
+    handle /redoc* {
+        respond "Not Found" 404
+    }
+    handle /openapi.json {
+        respond "Not Found" 404
+    }
+
+    handle /api/* {
+        reverse_proxy arbicore-x-backend:8001 {
+            transport http {
+                dial_timeout 5s
+                read_timeout 60s
+                write_timeout 60s
+            }
+
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+        }
+    }
+
+    handle {
+        reverse_proxy arbicore-x-frontend:80
+    }
+
+    log {
+        output file /var/log/caddy/arbicorex.in.access.log
+        format json
+    }
+}
+
+# ArbiCore dedicated API hostname
+api.arbicorex.in {
+    encode zstd gzip
+
+    # R1: deny public API documentation surfaces (2026-10-10)
+    # True FastAPI /docs + /openapi.json were publicly reachable here.
+    handle /docs* {
+        respond "Not Found" 404
+    }
+    handle /redoc* {
+        respond "Not Found" 404
+    }
+    handle /openapi.json {
+        respond "Not Found" 404
+    }
+
+    handle {
+        reverse_proxy arbicore-x-backend:8001 {
+            transport http {
+                dial_timeout 5s
+                read_timeout 60s
+                write_timeout 60s
+            }
+
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+        }
+    }
+
+    log {
+        output file /var/log/caddy/arbicorex-api.access.log
+        format json
+    }
+}

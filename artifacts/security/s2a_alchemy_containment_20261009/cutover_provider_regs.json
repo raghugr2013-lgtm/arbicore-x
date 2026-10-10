@@ -1,0 +1,15 @@
+{
+  "env_sync_lines": [
+    "2026-10-10 06:58:43,413 - arbicore.config.env_sync - INFO - env_sync: exported 19 var(s) from persistent network config (chains=base,ethereum,arbitrum,optimism,polygon,bnb)"
+  ],
+  "provider_reg_counts_by_chain": {
+    "base": 7,
+    "ethereum": 6,
+    "arbitrum": 6,
+    "optimism": 6,
+    "polygon": 6,
+    "bnb": 6
+  },
+  "alchemy_provider_reg_mentions": 30,
+  "early_base_public_reg_seen": true
+}

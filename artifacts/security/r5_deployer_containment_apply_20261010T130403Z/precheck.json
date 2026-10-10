@@ -1,0 +1,50 @@
+{
+  "utc": "2026-10-10T13:03:22Z",
+  "target": {
+    "path": "/home/raghu/projects/arbicore-x-v2/contracts/.env",
+    "mode": "0o600",
+    "size": 285,
+    "sha256": "ad88e734f5ab1119f333d39864c48b0ad8d5a12968d0108d42ec5ff94c52e758",
+    "mtime_utc": "2026-09-01T11:39:24Z"
+  },
+  "DEPLOYER_PRIVATE_KEY": {
+    "present": true,
+    "len": 64
+  },
+  "env_keys": [
+    "DEPLOYER_PRIVATE_KEY",
+    "BASE_RPC_URL",
+    "BASESCAN_API_KEY"
+  ],
+  "address_file": {
+    "path": "/home/raghu/projects/arbicore-x-v2/contracts/.deployer_address.txt",
+    "exists": true,
+    "mode": "0o664",
+    "content": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003"
+  },
+  "keystore": {
+    "path": "/home/raghu/.foundry/keystores/arbicore-base-mainnet-deployer",
+    "exists": true,
+    "mode": "0o600",
+    "size": 436
+  },
+  "bk_root": {
+    "path": "/home/raghu/arbicore_backups",
+    "exists": true,
+    "mode": "0o775"
+  },
+  "matching_processes": [],
+  "backend": {
+    "digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "health": "healthy",
+    "controls": {
+      "ARBICORE_EXECUTION_MODE": "SHADOW",
+      "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+      "ARBICORE_RUNTIME_AUTOSTART": "false"
+    },
+    "bootstrap": false,
+    "deployer_or_private_in_env": []
+  },
+  "git_ignore": "contracts/.gitignore:5:.env\tcontracts/.env",
+  "git_tracked": false
+}

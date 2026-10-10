@@ -1,0 +1,56 @@
+{
+  "captured_utc": "2026-10-10T09:59:19Z",
+  "sources": [
+    {
+      "name": "factory-mongo docker json-file",
+      "container_started_at": "2026-09-07T05:21:43.251186127Z",
+      "log_config": {
+        "Type": "json-file",
+        "Config": {}
+      },
+      "json_log_file": {
+        "path": "/var/lib/docker/containers/c7e7328a93453a518b2ce6ec4bfcd540416a743b7b7630115fb4d77a197b3da6/c7e7328a93453a518b2ce6ec4bfcd540416a743b7b7630115fb4d77a197b3da6-json.log",
+        "error": "PermissionError:[Errno 13] Permission denied: '/var/lib/docker/containers/c7e7328a93453a518b2ce6ec4bfcd540416a743b7b7630115fb4d77a197b3d"
+      },
+      "retained_log_first_ts_sample": "2026-09-07T05:21:44.909+00:00",
+      "retained_log_last_ts_sample": "2026-10-10T09:59:05.873+00:00",
+      "covers_2026_09_06_note_creation": false,
+      "gap_note": "Current container started 2026-09-07T05:21:43Z; ransom ObjectId 2026-09-06T22:15:25Z is BEFORE retained container lifetime. Pre-restart mongod logs from prior instance are NOT in this container's docker log stream."
+    },
+    {
+      "name": "host_auth_or_syslog",
+      "path": "/var/log/auth.log",
+      "exists": true,
+      "size_bytes": 6456451,
+      "mtime_utc": "2026-10-10T10:02:25Z",
+      "readable": false
+    },
+    {
+      "name": "host_auth_or_syslog",
+      "path": "/var/log/secure",
+      "exists": false
+    },
+    {
+      "name": "host_auth_or_syslog",
+      "path": "/var/log/syslog",
+      "exists": true,
+      "size_bytes": 9092121,
+      "mtime_utc": "2026-10-10T10:02:53Z",
+      "readable": false
+    },
+    {
+      "name": "systemd_journal_sample_2026-09-06_to_08",
+      "accessible": false,
+      "sample_prefix": "Hint: You are currently not seeing messages from other users and the system.\n      Users in groups 'adm', 'systemd-journal' can see all messages.\n      Pass -q to turn off this notice.\nSep 07 23:39:03 vmi3410070 systemd[566573]: Removed slice app.slice - User Application Slice.\nSep 07 23:39:03 vmi3410070 systemd[566573]: Reached target shutdown.target - Shutdown.\nSep 07 23:39:03 vmi3410070 systemd"
+    },
+    {
+      "name": "docker_events",
+      "note": "docker events is real-time; no durable history unless separately logged"
+    }
+  ],
+  "prior_security_artifacts": [
+    "artifacts/security/r3_mongo_leastpriv_preflight_20261010T091636Z/",
+    "artifacts/security/r3_ransomdb_triage_20261010T092301Z/",
+    "artifacts/security/SECURITY_GATE_RECONCILIATION.md"
+  ]
+}

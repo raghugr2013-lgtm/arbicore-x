@@ -1,0 +1,49 @@
+{
+  "db_name": "arbicore_x",
+  "VAULT_KEY_present": true,
+  "VAULT_KEY_len": 44,
+  "VAULT_KEY_sha12": "a46000441419",
+  "arbicore_secrets_count": 1,
+  "arbicore_secrets": [
+    {
+      "handle_id": "sec-3cec159e23d7495ab89140e5452a3d67",
+      "scope": "evm_sign",
+      "label": "arbicore-executor-owner",
+      "algorithm": "eth_privkey",
+      "provider": "fernet_local",
+      "derived_address": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+      "execution_role": "signer",
+      "created_at": "2026-09-12T11:47:51.888565+00:00",
+      "cipher_len": 184,
+      "cipher_sha12": "660386c2e939",
+      "cipher_prefix4": "gAAA"
+    }
+  ],
+  "decrypt_with_current_key": [
+    {
+      "handle_id": "sec-3cec159e23d7495ab89140e5452a3d67",
+      "decrypt_ok": true,
+      "plaintext_len": 64,
+      "plaintext_sha12": "b4ce2e6143a2",
+      "looks_64hex": true
+    }
+  ],
+  "reencrypt_dryrun_throwaway_key": [
+    {
+      "handle_id": "sec-3cec159e23d7495ab89140e5452a3d67",
+      "roundtrip_ok": true,
+      "new_cipher_len": 184,
+      "plaintext_sha12_unchanged": true
+    }
+  ],
+  "api_keys_count": 0,
+  "wallet_registry": [
+    {
+      "address": "0x998d6efF2b28b72c44f7a334c42678eb4cCaad25",
+      "chain": "base",
+      "label": "Base gas/execution wallet (env-configured)",
+      "secret_handle_id": null
+    }
+  ],
+  "wallet_registry_count": 1
+}

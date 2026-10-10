@@ -1,0 +1,774 @@
+{
+  "utc": "2026-10-10T12:59:26Z",
+  "mode": "READ_ONLY_PREFLIGHT",
+  "r5_apply": "NOT_AUTHORISED",
+  "contracts_env": {
+    "meta": {
+      "exists": true,
+      "path": "/home/raghu/projects/arbicore-x-v2/contracts/.env",
+      "mode": "0o600",
+      "size": 285,
+      "mtime_utc": "2026-09-01T11:39:24Z",
+      "is_symlink": false,
+      "owner_uid": 1001,
+      "owner_gid": 1001
+    },
+    "keys_present": [
+      "BASESCAN_API_KEY",
+      "BASE_RPC_URL",
+      "DEPLOYER_PRIVATE_KEY"
+    ],
+    "DEPLOYER_PRIVATE_KEY": {
+      "present": true,
+      "len": 64,
+      "has_0x_prefix": false,
+      "looks_like_64_hex": true,
+      "value": "OMITTED_BY_POLICY"
+    }
+  },
+  "address_files": {
+    "v2": {
+      "meta": {
+        "exists": true,
+        "path": "/home/raghu/projects/arbicore-x-v2/contracts/.deployer_address.txt",
+        "mode": "0o664",
+        "size": 43,
+        "mtime_utc": "2026-08-07T12:19:45Z",
+        "is_symlink": false,
+        "owner_uid": 1001,
+        "owner_gid": 1001
+      },
+      "address": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003"
+    },
+    "cert": {
+      "meta": {
+        "exists": true,
+        "path": "/home/raghu/projects/arbicore-x-cert/contracts/.deployer_address.txt",
+        "mode": "0o664",
+        "size": 43,
+        "mtime_utc": "2026-10-01T06:12:13Z",
+        "is_symlink": false,
+        "owner_uid": 1001,
+        "owner_gid": 1001
+      },
+      "address": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003"
+    }
+  },
+  "foundry_keystore": {
+    "meta": {
+      "exists": true,
+      "path": "/home/raghu/.foundry/keystores/arbicore-base-mainnet-deployer",
+      "mode": "0o600",
+      "size": 436,
+      "mtime_utc": "2026-09-07T07:43:07Z",
+      "is_symlink": false,
+      "owner_uid": 1001,
+      "owner_gid": 1001
+    },
+    "json_meta": {
+      "json_keys": [
+        "crypto",
+        "id",
+        "version"
+      ],
+      "address_field": null,
+      "id": "9126a38d-8d54-404b-b284-75de09098705",
+      "version": 3,
+      "crypto_present": true,
+      "has_plaintext_private_key_field": false
+    }
+  },
+  "address_reconcile": {
+    "key_material_sha12": "7e792fd2e48f",
+    "derived_from_plaintext_env_key": "0x3b37a5E124b177fEE30365deb295A5CCF76841Cd",
+    "documented_v2_deployer_address_file": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003",
+    "documented_cert_deployer_address_file": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003",
+    "foundry_keystore_address_field": null,
+    "executor_owner_known": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+    "flash_loan_receiver_known": "0x0E3FDb0F0e615A517588Bd44ac6C78Bb7615927f",
+    "match_derived_vs_doc_v2": false,
+    "match_derived_vs_keystore": false,
+    "match_doc_v2_vs_cert": true,
+    "match_derived_vs_executor_owner": false,
+    "prior_probe_derived": "0x3b37a5E124b177fEE30365deb295A5CCF76841Cd",
+    "derived_matches_prior_probe": true
+  },
+  "balances_base_public": {
+    "0x3b37a5E124b177fEE30365deb295A5CCF76841Cd": {
+      "error": "HTTPError",
+      "detail": "HTTP Error 403: Forbidden"
+    },
+    "0x65afB0a65Fd22F88022915F53eD48DA34fb02003": {
+      "error": "HTTPError",
+      "detail": "HTTP Error 403: Forbidden"
+    },
+    "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89": {
+      "error": "HTTPError",
+      "detail": "HTTP Error 403: Forbidden"
+    },
+    "0x0E3FDb0F0e615A517588Bd44ac6C78Bb7615927f": {
+      "error": "HTTPError",
+      "detail": "HTTP Error 403: Forbidden"
+    }
+  },
+  "git": {
+    "v2": {
+      "root": "/home/raghu/projects/arbicore-x-v2",
+      "is_git": true,
+      "contracts/.env": {
+        "exists_now": true,
+        "gitignored": true,
+        "ignore_rule": "contracts/.gitignore:5:.env\tcontracts/.env",
+        "tracked": false,
+        "commit_count_touching_path": 0,
+        "commits_touching_path_sample": [],
+        "pickaxe_DEPLOYER_PRIVATE_KEY_commits": 0,
+        "pickaxe_sample": []
+      },
+      "contracts/.deployer_address.txt": {
+        "exists_now": true,
+        "gitignored": false,
+        "ignore_rule": null,
+        "tracked": true,
+        "commit_count_touching_path": 1,
+        "commits_touching_path_sample": [
+          "4ae70d9a3e432e46aaef18feba2054241dd804c7\t2026-08-07 11:57:51 +0000\tauto-commit for 66d3cd48-8acc-4a70-bb90-2cfda9fe03bb"
+        ],
+        "pickaxe_DEPLOYER_PRIVATE_KEY_commits": 0,
+        "pickaxe_sample": []
+      },
+      "repo_pickaxe_DEPLOYER_PRIVATE_KEY": [
+        "42a439723dd94596d980f1c8b163cd8f14a6bcf5\tBase executor provisioning: read-only registry + readiness report (non-broadcast)",
+        "10f1146ecfe86497621623ef05237d2e42ca398b\t## T2 RevmForkBackend tx_builder wired to canonical execute() ABI \u2014 Complete & verified",
+        "d49a04bd869dda3ac28c235c59d0d9c5c2ea8592\tauto-commit for 84215c03-5fce-46c7-a3f4-8c8e054d4e4a",
+        "e8939ec700d29b96c71c204cec0f3788e2fd6f2f\tauto-commit for 2e77b396-3e32-486c-ac8e-5d8c230ef9c6",
+        "1d556e50ee05ff62519d6b630aa1adfa5c6c679b\tv2.11.7 + v2.11.8: Executor Package + Paper Validation Framework"
+      ],
+      "contracts_env_in_index": false
+    },
+    "cert": {
+      "root": "/home/raghu/projects/arbicore-x-cert",
+      "is_git": true,
+      "contracts/.env": {
+        "exists_now": false,
+        "gitignored": true,
+        "ignore_rule": "contracts/.gitignore:5:.env\tcontracts/.env",
+        "tracked": false,
+        "commit_count_touching_path": 0,
+        "commits_touching_path_sample": [],
+        "pickaxe_DEPLOYER_PRIVATE_KEY_commits": 0,
+        "pickaxe_sample": []
+      },
+      "contracts/.deployer_address.txt": {
+        "exists_now": true,
+        "gitignored": false,
+        "ignore_rule": null,
+        "tracked": true,
+        "commit_count_touching_path": 1,
+        "commits_touching_path_sample": [
+          "4ae70d9a3e432e46aaef18feba2054241dd804c7\t2026-08-07 11:57:51 +0000\tauto-commit for 66d3cd48-8acc-4a70-bb90-2cfda9fe03bb"
+        ],
+        "pickaxe_DEPLOYER_PRIVATE_KEY_commits": 0,
+        "pickaxe_sample": []
+      },
+      "repo_pickaxe_DEPLOYER_PRIVATE_KEY": [
+        "42a439723dd94596d980f1c8b163cd8f14a6bcf5\tBase executor provisioning: read-only registry + readiness report (non-broadcast)",
+        "10f1146ecfe86497621623ef05237d2e42ca398b\t## T2 RevmForkBackend tx_builder wired to canonical execute() ABI \u2014 Complete & verified",
+        "d49a04bd869dda3ac28c235c59d0d9c5c2ea8592\tauto-commit for 84215c03-5fce-46c7-a3f4-8c8e054d4e4a",
+        "e8939ec700d29b96c71c204cec0f3788e2fd6f2f\tauto-commit for 2e77b396-3e32-486c-ac8e-5d8c230ef9c6",
+        "1d556e50ee05ff62519d6b630aa1adfa5c6c679b\tv2.11.7 + v2.11.8: Executor Package + Paper Validation Framework"
+      ],
+      "contracts_env_in_index": false
+    }
+  },
+  "DEPLOYER_PRIVATE_KEY_equals_carriers": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arb-9ed2718-tree/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arb-9ed2718-tree/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-b1b2-reconcile-9ed2718/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-b1b2-reconcile-9ed2718/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-cert-e5767d7/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-cert-e5767d7/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-extract-port-cert-861af4d/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-extract-port-cert-861af4d/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-f2b-lite/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-f2b-lite/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-fd-9ed2718/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-fd-9ed2718/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-gate7-dfa8e0bf/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-gate7-dfa8e0bf/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-hybrid-e-clean/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-hybrid-e-clean/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-m6-shadow-7ec144009b38fd94f7a0a977b41f4a92abdef750/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-m6-shadow-7ec144009b38fd94f7a0a977b41f4a92abdef750/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-network-draft-apply/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-network-draft-apply/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-cert-cc3a9228/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o444",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-cert-cc3a9228/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o444",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-parent-cert-5bd9525/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o444",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-parent-cert-5bd9525/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o444",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-remediation-cert-8fbe5995/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o444",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-remediation-cert-8fbe5995/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o444",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-cert-7f45ec2/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o444",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-cert-7f45ec2/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o444",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-remediation-cert-7c2b1bc/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-remediation-cert-7c2b1bc/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-post-alchemy-remediation-9b196cde0c975d0efe94e94f49de05b4244bdbc6/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-post-alchemy-remediation-9b196cde0c975d0efe94e94f49de05b4244bdbc6/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-post-m6-shadow-aab47f2400b3b80f89a46d957208145bcfc81ad7/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-post-m6-shadow-aab47f2400b3b80f89a46d957208145bcfc81ad7/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-shadow-val-861af4d/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/arbicore-shadow-val-861af4d/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/b1-baseline-fff0d0e/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/b1-baseline-fff0d0e/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/b1-build-1b52d09/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/b1-build-1b52d09/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/build-rpc-429-9244ebd/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/build-rpc-429-9244ebd/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/hybrid-e-rpc-9244ebd-build/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/hybrid-e-rpc-9244ebd-build/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/p2_final_audit_CpZK/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/p2_final_audit_CpZK/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/p2_patch_apply_aDAl/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/p2_patch_apply_aDAl/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-befb14e-build-only-20261002/checkout/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-befb14e-build-only-20261002/checkout/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-deploy-prep-freeze-20261002/checkout/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o644",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-deploy-prep-freeze-20261002/checkout/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o644",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-residual-cert-3664979/tip-checkout/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-residual-cert-3664979/tip-checkout/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-cert-3539633/checkout/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-cert-3539633/checkout/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-parent-8e63f25/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 2743,
+      "is_primary_v2_contracts_env": false
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-parent-8e63f25/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "exists": true,
+      "mode": "0o664",
+      "size": 16985,
+      "is_primary_v2_contracts_env": false
+    }
+  ],
+  "runtime": {
+    "container": "arbicore-x-backend-new",
+    "image_id": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "health": "healthy",
+    "status": "running",
+    "digest_match_expected": true,
+    "controls": {
+      "ARBICORE_EXECUTION_MODE": "SHADOW",
+      "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+      "ARBICORE_RUNTIME_AUTOSTART": "false",
+      "ARBICORE_SCANNER_AUTOSTART": "true"
+    },
+    "bootstrap_present": false,
+    "private_key_or_deployer_env_keys": [],
+    "deployer_private_key_in_backend_env": false,
+    "six_network_rpc_set": {
+      "ETHEREUM": true,
+      "ARBITRUM": true,
+      "BASE": true,
+      "OPTIMISM": true,
+      "POLYGON": true,
+      "BNB": true
+    },
+    "matching_processes": [],
+    "forge_cast_anvil_or_key_argv": false,
+    "untouched_status": {
+      "arbicore-g5-79-app": "running",
+      "foreman-mongo": "running"
+    }
+  },
+  "legacy_containers": [
+    {
+      "container": "arbicore-x-backend-h05",
+      "status": "exited"
+    },
+    {
+      "container": "arbicore-x-backend-w1",
+      "status": "exited"
+    },
+    {
+      "container": "arbicore-x-b7-candidate",
+      "status": "exited"
+    },
+    {
+      "container": "arbicore-x-backend",
+      "status": "exited"
+    }
+  ],
+  "controls_http": {
+    "docs": "404",
+    "api": "200",
+    "setup": 503
+  },
+  "r4_quarantine": {
+    "quarantine_exists": true,
+    "quarantine_mode": "0o700",
+    "hold_until_utc": "2026-10-24T12:29:00Z",
+    "dest_present": 17,
+    "src_absent": 17
+  },
+  "dependencies": {
+    "address_hits": {
+      "derived_or_prior_3b37": [],
+      "doc_65af": [
+        "/home/raghu/projects/arbicore-x-v2/contracts/.deployer_address.txt:1:0x65afB0a65Fd22F88022915F53eD48DA34fb02003",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/84532/run-latest.json:15:        \"from\": \"0x65afb0a65fd22f88022915f53ed48da34fb02003\",",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/84532/run-latest.json:40:      \"from\": \"0x65afb0a65fd22f88022915f53ed48da34fb02003\",",
+        "/home/raghu/projects/arbicore-x-cert/contracts/broadcast/Deploy.s.sol/84532/run-latest.json:15:        \"from\": \"0x65afb0a65fd22f88022915f53ed48da34fb02003\",",
+        "/home/raghu/projects/arbicore-x-cert/contracts/broadcast/Deploy.s.sol/84532/run-latest.json:40:      \"from\": \"0x65afb0a65fd22f88022915f53ed48da34fb02003\",",
+        "/home/raghu/projects/arbicore-x-cert/contracts/.deployer_address.txt:1:0x65afB0a65Fd22F88022915F53eD48DA34fb02003"
+      ],
+      "executor_owner_0a43": [
+        "/home/raghu/projects/arbicore-x-v2/contracts/contracts/tests/B7_3_68_ProfitableForkExecution.t.sol:103:        0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89;",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/dry-run/run-latest.json:15:        \"from\": \"0x0a43f432681ca5ee053d53b79ae1648fdaabfa89\",",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:15:        \"from\": \"0x0a43f432681ca5ee053d53b79ae1648fdaabfa89\",",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:41:      \"from\": \"0x0a43f432681ca5ee053d53b79ae1648fdaabfa89\",",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/dry-run/run-1788773085932.json:15:        \"from\": \"0x0a43f432681ca5ee053d53b79ae1648fdaabfa89\",",
+        "/home/raghu/projects/arbicore-x-cert/contracts/contracts/tests/B7_3_68_ProfitableForkExecution.t.sol:103:        0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89;",
+        "/home/raghu/projects/arbicore-x-cert/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:15:        \"from\": \"0x0a43f432681ca5ee053d53b79ae1648fdaabfa89\",",
+        "/home/raghu/projects/arbicore-x-cert/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:41:      \"from\": \"0x0a43f432681ca5ee053d53b79ae1648fdaabfa89\",",
+        "/home/raghu/projects/arbicore-x-cert/deployment/cert/B7_3_68_PROFITABLE_FORK_EXECUTION.md:22:- Executor owner: `0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89`",
+        "/home/raghu/projects/arbicore-x-v2/deployment/cert/B7_3_68_PROFITABLE_FORK_EXECUTION.md:22:- Executor owner: `0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89`"
+      ],
+      "receiver_0e3f": [
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/dry-run/run-latest.json:7:      \"contractAddress\": \"0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f\",",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/dry-run/run-latest.json:33:      \"value\": \"0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f\"",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/dry-run/run-1788773085932.json:7:      \"contractAddress\": \"0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f\",",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/dry-run/run-1788773085932.json:33:      \"value\": \"0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f\"",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:7:      \"contractAddress\": \"0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f\",",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:43:      \"contractAddress\": \"0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f\",",
+        "/home/raghu/projects/arbicore-x-v2/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:58:      \"value\": \"0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f\"",
+        "/home/raghu/projects/arbicore-x-v2/contracts/contracts/tests/B7_3_68_ProfitableForkExecution.t.sol:100:        0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f;",
+        "/home/raghu/projects/arbicore-x-cert/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:7:      \"contractAddress\": \"0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f\",",
+        "/home/raghu/projects/arbicore-x-cert/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:43:      \"contractAddress\": \"0x0e3fdb0f0e615a517588bd44ac6c78bb7615927f\",",
+        "/home/raghu/projects/arbicore-x-cert/contracts/broadcast/Deploy.s.sol/8453/run-latest.json:58:      \"value\": \"0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f\"",
+        "/home/raghu/projects/arbicore-x-cert/contracts/contracts/tests/B7_3_68_ProfitableForkExecution.t.sol:100:        0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f;",
+        "/home/raghu/projects/arbicore-x-cert/docs/certification/ALCHEMY_PAYG_NETWORK_CONFIG_CHANGE_PLAN_20261003.md:92:| Executor address | `0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f` | **Do not change** |",
+        "/home/raghu/projects/arbicore-x-cert/deployment/cert/B7_3_68_PROFITABLE_FORK_EXECUTION.md:20:- Executor: `0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f`",
+        "/home/raghu/projects/arbicore-x-v2/deployment/cert/B7_3_68_PROFITABLE_FORK_EXECUTION.md:20:- Executor: `0x0E3FDb0F0E615A517588BD44ac6C78Bb7615927f`"
+      ]
+    },
+    "address_hit_counts": {
+      "derived_or_prior_3b37": 0,
+      "doc_65af": 6,
+      "executor_owner_0a43": 10,
+      "receiver_0e3f": 15
+    },
+    "broadcast_from_addresses": [
+      "0x0a43f432681ca5ee053d53b79ae1648fdaabfa89",
+      "0x65afb0a65fd22f88022915f53ed48da34fb02003"
+    ],
+    "script_refs": [
+      "/home/raghu/projects/arbicore-x-v2/contracts/script/Deploy.s.sol:28:///    DEPLOYER_PRIVATE_KEY \u2014 consumed by forge `--private-key` at broadcast.",
+      "/home/raghu/projects/arbicore-x-v2/contracts/script/Deploy.s.sol:64:            balancerVault = vm.envAddress(\"BASE_BALANCER_V2_VAULT\");",
+      "/home/raghu/projects/arbicore-x-v2/contracts/script/Deploy.s.sol:65:            aavePool      = vm.envAddress(\"BASE_AAVE_V3_POOL\");",
+      "/home/raghu/projects/arbicore-x-v2/contracts/script/Deploy.s.sol:66:            uniRouter     = vm.envAddress(\"BASE_UNIV3_ROUTER\");",
+      "/home/raghu/projects/arbicore-x-v2/contracts/script/Deploy.s.sol:93:        try vm.envAddress(key) returns (address a) {",
+      "/home/raghu/projects/arbicore-x-cert/contracts/script/Deploy.s.sol:28:///    DEPLOYER_PRIVATE_KEY \u2014 consumed by forge `--private-key` at broadcast.",
+      "/home/raghu/projects/arbicore-x-cert/contracts/script/Deploy.s.sol:64:            balancerVault = vm.envAddress(\"BASE_BALANCER_V2_VAULT\");",
+      "/home/raghu/projects/arbicore-x-cert/contracts/script/Deploy.s.sol:65:            aavePool      = vm.envAddress(\"BASE_AAVE_V3_POOL\");",
+      "/home/raghu/projects/arbicore-x-cert/contracts/script/Deploy.s.sol:66:            uniRouter     = vm.envAddress(\"BASE_UNIV3_ROUTER\");",
+      "/home/raghu/projects/arbicore-x-cert/contracts/script/Deploy.s.sol:93:        try vm.envAddress(key) returns (address a) {"
+    ],
+    "workflow_hits": []
+  },
+  "prior_probe": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r5_preflight_base_audit_20261010T125526Z/r5_preflight_probe.json"
+}

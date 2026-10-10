@@ -1,0 +1,1 @@
+{"ts":"20261009T102445Z","offhost_feasible":false,"reason":"no rclone; no nfs/cifs/sshfs mounts; /mnt and /media empty","local_backup_verified":true,"escrow_verified":true}

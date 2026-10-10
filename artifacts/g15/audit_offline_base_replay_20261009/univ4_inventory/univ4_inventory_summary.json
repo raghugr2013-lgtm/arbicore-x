@@ -1,0 +1,87 @@
+{
+  "cohort": {
+    "definition": "Base winners whose venue atoms include 'UniswapV4' or start with 'UniV4' (same as BASE_G15_COVERAGE_PRIORITISATION.md)",
+    "n_rows": 2012,
+    "expected_n_rows": 2012,
+    "reconciles_to_coverage_csv": true,
+    "class_counts": {
+      "D": 200,
+      "B": 1229,
+      "A": 556,
+      "C": 27
+    },
+    "owner_counts": {
+      "INFERRED": 563,
+      "MISSING": 1376,
+      "VERIFIED": 73
+    }
+  },
+  "unique_counts": {
+    "pools_full_bytes32": 327,
+    "hooks_with_contract_address": 0,
+    "hooks_tagged_without_address_rows": 14,
+    "tokens_with_observed_address": 171,
+    "tokens_in_arbicore_universe": 7,
+    "tokens_outside_arbicore_universe": 164
+  },
+  "AB_kept_net_signal_not_capture": {
+    "note": "searcher_kept_net_usd on G1.5 A/B rows is an external research signal, not proven ArbiCore-capturable profit.",
+    "AB_rows": 1785,
+    "AB_kept_ge1": 179,
+    "AB_kept_ge25": 9,
+    "AB_kept_sum_ge1": 1355.183,
+    "AB_kept_sum_ge25": 680.3472,
+    "kept_bands_AB": {
+      "0_to_lt1": 1595,
+      "1_to_lt25": 170,
+      "below_0": 11,
+      "ge25": 9
+    }
+  },
+  "verified_owner_separate": {
+    "VERIFIED_AB_rows": 46,
+    "VERIFIED_AB_kept_ge1": 0,
+    "VERIFIED_AB_kept_ge25": 0
+  },
+  "identity_completeness": {
+    "rows_with_ge1_full_pool_id": 2012,
+    "rows_identity_complete_enough_poolid_plus_label_or_leg_tokens": 1956,
+    "share_complete_of_2012": 0.9722,
+    "rows_hook_address_present": 0,
+    "rows_hook_tagged_no_address": 14,
+    "tick_spacing_present_rows": 0
+  },
+  "segments": {
+    "class_A_rows": 556,
+    "class_B_rows": 1229,
+    "adjacent_mapped_only_or_none": 1802,
+    "has_unmapped_adjacent_venue": 210,
+    "has_non_universe_token": 1852,
+    "match_tier_counts": {
+      "UNMATCHED": 1335,
+      "PARTIAL_POOL_UNSUPPORTED_VENUE": 57,
+      "PARTIAL_POOL_SET": 297,
+      "UNMATCHABLE": 323
+    }
+  },
+  "allowlist_assessment": {
+    "pools_with_poolid_and_label_or_leg_tokens": 292,
+    "pools_unresolved_identity_beyond_poolid": 35,
+    "pools_with_identity_and_AB_kept_ge1": 72,
+    "pools_identity_AB_ge1_and_no_nonuniverse_token_rows": 0,
+    "hook_addresses_on_allowlist": 0,
+    "finite_complete_executable_identities": false,
+    "reason_not_complete": "Hook contract addresses missing for every pool; V4 pool key alone is not treated as a complete executable identity in this inventory."
+  },
+  "decision": {
+    "recommendation": "INSUFFICIENT EVIDENCE \u2014 DO NOT IMPLEMENT.",
+    "decisive_reason": "All 2,012 rows expose full bytes32 PoolIds (327 unique), but hook contract addresses are entirely ABSENT from the frozen export (only UniswapV4(hook) tags / label word 'hook' on a small minority of rows). Without hook addresses, a V4 pool cannot be treated as a complete executable identity from this evidence alone. Additionally, verified-owner A/B kept-NET \u2265$1 = 0 and \u2265$25 = 0. Therefore the frozen data does not support a finite, auditable candidate allowlist meeting the stated evidence standard.",
+    "fallback_if_applicable": {
+      "name": "curated-pair gap (Aerodrome Slipstream pairs among existing ArbiCore TOKENS)",
+      "from_prioritisation_rank": 7,
+      "why_more_tractable_if_v4_fails": "Uses dex families and tokens already in ArbiCore; missing pairs are explicitly listed in prioritisation; does not require V4 hook addresses.",
+      "investigation_started": false
+    }
+  },
+  "class_definitions_source": "G1.5 REPORT.md \u00a74 / build_g15.py::classify \u2014 A CONFIRMED_SEARCHER_KEPT; B RECONSTRUCTABLE_SEARCHER_KEPT; C GROSS_ONLY; D UNKNOWN"
+}

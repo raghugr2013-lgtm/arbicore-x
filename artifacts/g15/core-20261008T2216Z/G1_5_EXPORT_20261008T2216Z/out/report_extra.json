@@ -1,0 +1,54 @@
+{
+ "failed": {
+  "base": {
+   "reverted": 2002.7415999999998,
+   "noop": 1560.0819000000001,
+   "all": 11688.363000000001,
+   "net_all": 7128.269999999999
+  },
+  "bnb": {
+   "reverted": 138.2596,
+   "noop": 279.78020000000004,
+   "all": 2399.2925,
+   "net_all": 26055.41
+  }
+ },
+ "decision_notes": [
+  "Base: 18.0 h analysed from the running mev-census tracker (complete 6-h segments only). BSC: 30.0 h analysed (complete ~6-h segments only).",
+  "48-72 h target: Base reaches 48 h of complete 6-h segments at ~2026-10-10 00:05-01:00 UTC (tracker started 2026-10-08 00:00 UTC; runs to 2026-10-12 23:59:59 UTC). BSC: backfill (newest-first, 2026-10-08 ~17:16 UTC down to 2026-10-06 12:00 UTC; skips blocks already in global-census windows) at 15.3 blocks/s, <= 113,200 blocks left -> latest ETA 2026-10-09 00:19 UTC (state/BSC_BACKFILL_DONE marks completion); forward collector continues to 2026-10-11 00:00 UTC. 48 h of complete BSC segments exist once both are joined (backfill done). Re-run /workspace/g15/run_g15.sh to extend.",
+  "BSC rows are mostly class C: public BSC endpoints do not serve historical debug traces, so in-contract BNB payments to builders/validators cannot be observed for backfilled blocks; only a small near-real-time traced sample (keyless nodeflare quota) can reach class A."
+ ],
+ "window_notes": [
+  "Timestamps are block timestamps (UTC). Base block = 2 s; BSC block \u2248 0.45 s.",
+  "Only complete segments are included; no extrapolation to per-day figures is made anywhere in this report."
+ ],
+ "bsc_trace_notes": [
+  "Near-real-time BSC tracer: 273 traced, 53 errors/quota-skips; forward collector stats: {'queued': 26646, 'ok': 287, 'stale': 0, 'err': 38, 'not_traced_budget': 26295, 'quota_pauses': 16}.",
+  "Candidate selection for tracing is a ranking by major-token (WBNB/USDT/USDC/BUSD/BTCB/ETH) delta of the searcher set, one trace per 10.5 s, paused 15 min on quota (403). The traced sample is therefore biased toward larger candidates."
+ ],
+ "survival_notes": [
+  "Non-logged successful txs (no swap/flash/LP logs) are charged as cost in s_central/s_low; they include no-op bail-outs, but may also include admin/withdraw txs; their hashes are not retained (aggregate per block).",
+  "Operator/owner payouts (in-tx transfers of profit to the contract's sender EOAs [VERIFIED] or to a fixed EOA payee set receiving >=90% of that contract's payouts [INFERRED]): counted as kept (not a cost) in W_kept per the task rule; W_strict (used by s_low) does not count them \u2014 this is the main swing item together with non-logged gas.",
+  "Coverage: only contracts with \u22651 A/B winner; reverted txs sent by their EOAs to OTHER addresses are not included."
+ ],
+ "limitations": [
+  "RPC: Base blocks/receipts from base.drpc.org / base-rpc.publicnode.com / mainnet.base.org (mev-census collector, read-only reuse). Base traces: debug_traceTransaction (callTracer) on base.drpc.org (free tier) with rpc.nodeflare.app fallback; trace selection = |prelim value| ranking capped at 1500 per 6-h segment; untraced rows can only reach class B (or C if they have native legs).",
+  "BSC blocks/receipts: bsc-dataseed*.bnbchain.org / defibit / ninicoin / publicnode / meowrpc / blxrbdn / blockrazor / 48club public endpoints (modest rate: \u226420 rps backfill, \u22648 rps forward). BSC traces: only rpc.nodeflare.app keyless, state retained <~100 blocks, 1 req/10 s and ~20 heavy calls per quota period \u2192 tiny sample.",
+  "Chain blind spots: reverted txs carry no logs, so competitor reverts are attributed to pools only when traced (here: counted per block for known searcher contracts, UNVERIFIED pool overlap). Private orderflow / bundles that never landed are invisible. Base Flashblock (200 ms) membership is not observable; only block index position is reported. BSC builder identity is not labelled.",
+  "Collector format: Base successful txs without swap/flash/LP logs are kept only as per-block aggregates (count, gas, priority fee) \u2014 no per-tx hashes for no-op/admin/sweep txs.",
+  "Prices: DefiLlama historical snapshot per segment (timestamp = segment midpoint, searchWidth 6 h) for tokens; native ETH/BNB hourly (coingecko id via DefiLlama chart) for gas; WETH/WBNB-denominated deltas valued at the segment snapshot. Tokens without a DefiLlama price \u2192 class C (implied price) or D (unpriced).",
+  "Operator-payee attribution: VERIFIED = payee is a sender EOA of the contract (on-chain co-use); INFERRED = fixed EOA payee (no code) present in >=90% of that contract's payout txs, not coinbase/fee vault (Base only). Survival is reported under both (section 7); INFERRED payees could be revenue-share/fee wallets rather than the operator.",
+  "VERIFIED: tx status, gasUsed, effectiveGasPrice, l1Fee (Base), token transfer deltas from receipts, traced native flows (A rows). INFERRED: USD values (price snapshots), operator-payee payee rule, trigger tx (heuristic), family labels, incumbent definition. UNKNOWN: kept NET for C/D rows; builder payments on untraced BSC rows.",
+  "Searcher set = {tx.from, tx.to}; profits forwarded inside the tx to other addresses are treated as payouts (kept if the payee is in the operator/owner payee set; Base: other payees -> C; BSC: non-operator payees treated as builder/validator payments = cost).",
+  "Flash-loan principal is excluded by construction (borrow and repay cancel in the searcher-set deltas); flash fees are inside the deltas (reported separately for information, not subtracted twice)."
+ ],
+ "handoff": [
+  "Per-row replay inputs present: chain/chain_id, block, tx_index, tx_hash, searcher_contract, operator_eoa, arbitrage_method_selector, ordered legs (venue, pool, token_in, token_out, raw in/out amounts), tokens (address/symbol/decimals), trade_size_input (raw + human), gross/gas/kept economics, trigger tx + trigger block + tx-index gap, same-block competitors.",
+  "Pre-state for replay: state at block-1 plus all txs with index < tx_index in the same block (the trigger, when identified, is one of them). Rows with timing.trigger_relation = next_block / k_blocks_later had the opportunity visible at the end of block-1 (or earlier: route_state_age_s).",
+  "A/B/C/D/E test mapping: (A unavailable economically) \u2013 replay the winner calldata/route at pre-state with ArbiCore's cost model; (B not discovered) \u2013 check whether ArbiCore's pool/token universe contains every leg pool; (C discovered but too slow) \u2013 compare ArbiCore discovery timestamps with block timestamp; with ~379 s median discovery-to-decision latency vs 0 s same-block triggers, rows with route_state_age_s < 379 are unreachable by construction; (D/E) need ArbiCore-side logs, which are out of scope here.",
+  "BASE verdict: **SUFFICIENT_FOR_REPLAY (partial window)** \u2014 18.0 h analysed, A/B winners in jsonl 5596 (A 1405), with kept NET >= $1: 749; winners with route_state_age_s < 379 s (unreachable at ArbiCore's median discovery-to-decision latency): 5586/5596 (1.00).",
+  "BNB verdict: **PARTIAL: replay possible on the traced A rows; untraced rows (class C) need a trace-capable BSC archive RPC for kept NET** \u2014 30.0 h analysed, A/B winners in jsonl 1 (A 1), with kept NET >= $1: 0; winners with route_state_age_s < 379 s (unreachable at ArbiCore's median discovery-to-decision latency): 1/1 (1.00).",
+  "BSC builder-payment vs WBNB-unwrap check on traced cycles: n=22, crosstab {'paid=True,wrap=True': 20, 'paid=True,wrap=False': 0, 'paid=False,wrap=True': 2, 'paid=False,wrap=False': 0}, rule_supported=False (B eligibility for untraced BSC rows only if supported; currently NOT applied).",
+  "Multi-day re-run: Base 48 h of complete segments at ~2026-10-10 00:05-01:00 UTC, 72 h at ~2026-10-11 00:05-01:00 UTC; BSC 48 h once the backfill completes (see section 1 ETA). `/workspace/g15/run_g15.sh` regenerates every artifact and this report (completed segments are skipped)."
+ ]
+}

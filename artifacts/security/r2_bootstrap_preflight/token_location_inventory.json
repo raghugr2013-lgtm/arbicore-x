@@ -1,0 +1,836 @@
+{
+  "captured_utc": "2026-10-10T09:02:44Z",
+  "file_hits": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/backend.env.pre-rotation",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/root.env.pre-rotation",
+      "line": 131,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/home/raghu/arbicore_backups/s2a_alchemy_cutover_20261010T065530Z/backend.env.pre-cutover",
+      "line": 35,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore_ctr_all.env",
+      "line": 48,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert-ad64a50.env",
+      "line": 29,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore-c1-direct-resolved.yml",
+      "line": 24,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-x-compose.pre-cutover.yml",
+      "line": 24,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-effective-compose.yml",
+      "line": 24,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-upgrade-compose.resolved.yml",
+      "line": 24,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-x-backend.env",
+      "line": 53,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert.env",
+      "line": 29,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore-x-candidate.env",
+      "line": 50,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore-prod-c1-cutover-resolved.yml",
+      "line": 24,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-backend-p0-3.env",
+      "line": 27,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore-production-env.backup",
+      "line": 131,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/current-backend-env-names.txt",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-backend.env",
+      "line": 27,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore-x-runtime.env",
+      "line": 53,
+      "assignment": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-cert-7f45ec2/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-cert-7f45ec2/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-cert-7f45ec2/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/vw_build_8f7e02f/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/p2_final_audit_CpZK/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/p2_final_audit_CpZK/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/p2_final_audit_CpZK/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/p2_patch_apply_aDAl/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/p2_patch_apply_aDAl/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/p2_patch_apply_aDAl/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-parent-cert-5bd9525/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-parent-cert-5bd9525/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-parent-cert-5bd9525/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/b1-baseline-fff0d0e/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/b1-baseline-fff0d0e/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/b1-baseline-fff0d0e/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-hybrid-e-clean/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-hybrid-e-clean/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-hybrid-e-clean/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-cert-3539633/checkout/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-cert-3539633/checkout/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-cert-3539633/checkout/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-remediation-cert-7c2b1bc/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-remediation-cert-7c2b1bc/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-b-h06-remediation-cert-7c2b1bc/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-fd-9ed2718/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-fd-9ed2718/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-fd-9ed2718/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/ws-a-deploy-prep-freeze-20261002/checkout/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-deploy-prep-freeze-20261002/checkout/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-deploy-prep-freeze-20261002/checkout/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/ws-a-residual-cert-3664979/tip-checkout/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-residual-cert-3664979/tip-checkout/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-residual-cert-3664979/tip-checkout/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-m6-shadow-7ec144009b38fd94f7a0a977b41f4a92abdef750/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-m6-shadow-7ec144009b38fd94f7a0a977b41f4a92abdef750/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-m6-shadow-7ec144009b38fd94f7a0a977b41f4a92abdef750/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/b2_claim_build_3c39055/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/ws-a-befb14e-build-only-20261002/checkout/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-befb14e-build-only-20261002/checkout/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-befb14e-build-only-20261002/checkout/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-parent-8e63f25/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-parent-8e63f25/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/ws-a-selfcontained-parent-8e63f25/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-post-m6-shadow-aab47f2400b3b80f89a46d957208145bcfc81ad7/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-post-m6-shadow-aab47f2400b3b80f89a46d957208145bcfc81ad7/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-post-m6-shadow-aab47f2400b3b80f89a46d957208145bcfc81ad7/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-remediation-cert-8fbe5995/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-remediation-cert-8fbe5995/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-remediation-cert-8fbe5995/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-shadow-val-861af4d/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-shadow-val-861af4d/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-shadow-val-861af4d/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arb-9ed2718-tree/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arb-9ed2718-tree/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arb-9ed2718-tree/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-f2b-lite/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-f2b-lite/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-f2b-lite/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-cert-cc3a9228/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-cert-cc3a9228/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-phase-a-cert-cc3a9228/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-cert-e5767d7/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-cert-e5767d7/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-cert-e5767d7/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/g1cmp.rVP3/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/b1-build-1b52d09/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/b1-build-1b52d09/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/b1-build-1b52d09/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-b1b2-reconcile-9ed2718/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-b1b2-reconcile-9ed2718/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-b1b2-reconcile-9ed2718/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/build-rpc-429-9244ebd/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/build-rpc-429-9244ebd/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/build-rpc-429-9244ebd/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/hybrid-e-rpc-9244ebd-build/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/hybrid-e-rpc-9244ebd-build/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/hybrid-e-rpc-9244ebd-build/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/h05_sizer_build_9419d26/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-gate7-dfa8e0bf/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-gate7-dfa8e0bf/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-gate7-dfa8e0bf/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-post-alchemy-remediation-9b196cde0c975d0efe94e94f49de05b4244bdbc6/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-post-alchemy-remediation-9b196cde0c975d0efe94e94f49de05b4244bdbc6/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-post-alchemy-remediation-9b196cde0c975d0efe94e94f49de05b4244bdbc6/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-cert-app-d9345da/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-extract-port-cert-861af4d/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-extract-port-cert-861af4d/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-extract-port-cert-861af4d/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    },
+    {
+      "path": "/tmp/arbicore-network-draft-apply/memory/env_backup_before_cex_funding_1788519777.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-network-draft-apply/memory/env_backup_before_rpc_1788522151.bak",
+      "line": 4,
+      "assignment": true,
+      "len": 43,
+      "sha12": "f5748db3f254"
+    },
+    {
+      "path": "/tmp/arbicore-network-draft-apply/app/backend/tests/_restore_env_state.py",
+      "line": 9,
+      "assignment": false
+    }
+  ],
+  "unique_sha12s": [
+    "d5a682fbe887",
+    "f5748db3f254"
+  ],
+  "compose_info": {
+    "com.docker.compose.config-hash": "6a33cddafe6410165fb645859f1595c2432492c18ecb2a81e530a5369a0d91da",
+    "com.docker.compose.container-number": "1",
+    "com.docker.compose.depends_on": "",
+    "com.docker.compose.image": "sha256:0811b99a398fa97ffca9b9d8f49b9caf2fb4ac4c88ef3a00a7968158494f452e",
+    "com.docker.compose.oneoff": "False",
+    "com.docker.compose.project": "compose",
+    "com.docker.compose.project.config_files": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/compose/docker-compose.prod.yml,/tmp/arbicore-s2a-rpc-redact-override.yml",
+    "com.docker.compose.project.working_dir": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/compose",
+    "com.docker.compose.replace": "arbicore-x-backend-new",
+    "com.docker.compose.service": "backend",
+    "com.docker.compose.version": "5.4.0"
+  },
+  "binds": [
+    "/home/raghu/projects/arbicore-x-v2/app/backend/arbicore/intel/launch/labels.json:/app/arbicore/intel/launch/labels.json:ro",
+    "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/logs:/var/log/arbicore-x:rw"
+  ]
+}

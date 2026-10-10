@@ -1,0 +1,1 @@
+{"rpc_primary_fp8": "ca6545ba", "balances": {"address_file": {"addr_prefix": "0x65af", "addr_suffix": "2003", "http": 200, "rpc_error": null, "balance_eth": 0.0, "nonzero": false}, "prior_derived_s1b": {"addr_prefix": "0x3b37", "addr_suffix": "41Cd", "http": 200, "rpc_error": null, "balance_eth": 0.0, "nonzero": false}}}

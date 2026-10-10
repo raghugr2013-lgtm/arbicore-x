@@ -1,0 +1,25 @@
+{
+  "utc": "2026-10-10T11:12:20Z",
+  "bk": "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z",
+  "bk_mode": "0o700",
+  "env_backup": "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/backend.env.pre-r4",
+  "env_backup_mode": "0o600",
+  "admin_pass_escrow": "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/admin.password.pre-r4",
+  "admin_pass_sha12": "6757aa3396d8",
+  "users_doc_escrow": "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/users_admin_doc.pre-r4.json",
+  "mongodump_users": "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/mongodump_users",
+  "mongo_admin_meta": {
+    "found": true,
+    "username": "admin",
+    "role": "admin",
+    "id": "eeeeb6d9-d1b0-4ff9-9fa1-7fa044b5ef06",
+    "session_version": 2,
+    "created_at": "2026-09-07T05:23:52.777829+00:00",
+    "updated_at": "2026-10-07T01:04:47.498878+00:00",
+    "password_hash_present": true,
+    "password_hash_algo_prefix": "$2b$",
+    "password_hash_sha12": "11f3311f9cb0"
+  },
+  "pre_rotation_cookie_captured": true,
+  "baseline_session_version": 2
+}

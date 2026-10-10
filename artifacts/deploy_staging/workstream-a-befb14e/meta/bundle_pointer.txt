@@ -1,0 +1,5 @@
+authoritative_bundle=/home/raghu/projects/arbicore-x-cert/artifacts/workstream-a-quoter-429-befb14e-selfcontained.bundle
+sha256=b7f3952e29a5664bb6c7a144e7a76c9df7ba207b3f2ee6a430bb84a3a4dff964
+bytes=8199151
+thin_bundle_NOT_for_deploy=/home/raghu/projects/arbicore-x-cert/artifacts/workstream-a-quoter-429-befb14e.bundle
+thin_sha256=12780813f62a67d663a6c58ff0e91719854b0de2ab9935d651fd9a8436a1a6d2

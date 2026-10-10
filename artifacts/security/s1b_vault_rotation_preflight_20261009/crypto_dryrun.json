@@ -1,0 +1,25 @@
+{
+  "decrypt_ok": true,
+  "plaintext_len": 64,
+  "plaintext_sha12": "b4ce2e6143a2",
+  "looks_64hex": true,
+  "derived_address": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+  "derived_matches_doc": true,
+  "doc_derived_address": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+  "all_secret_fields": [
+    "algorithm",
+    "cipher",
+    "created_at",
+    "derived_address",
+    "execution_role",
+    "handle_id",
+    "label",
+    "provider",
+    "scope"
+  ],
+  "reencrypt_throwaway_roundtrip_ok": true,
+  "plaintext_sha12_unchanged": true,
+  "production_cipher_sha12": "660386c2e939",
+  "new_key_stored": false,
+  "signing_or_broadcast": false
+}

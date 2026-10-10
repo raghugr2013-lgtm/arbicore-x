@@ -1,0 +1,234 @@
+{
+  "utc": "2026-10-10T11:19:52Z",
+  "evid": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r4_scrub_preflight_20261010T111949Z",
+  "prior_inventory": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r4_admin_jwt_preflight_20261010T110453Z/r4_preflight_probe.json",
+  "apply_verification": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r4_admin_jwt_apply_20261010T110918Z/post_apply_verification.json",
+  "r4_apply_verdict_unchanged": "PASS WITH LIMITATIONS",
+  "prior_file_count": 24,
+  "prior_paths_still_present": 24,
+  "prior_paths_removed": [],
+  "discovered_new_secret_bearing_or_env": [
+    "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/admin.password.new",
+    "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/admin.password.pre-r4",
+    "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/backend.env.pre-r4",
+    "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/jwt.secret.new",
+    "/home/raghu/arbicore_backups/s2a_alchemy_cutover_20261010T065530Z/s2a_alchemy_replacements.env.used",
+    "/tmp/arbicore-bulk62.env",
+    "/tmp/arbicore-h05-real.env",
+    "/tmp/arbicore-prod-bnb-cutover.env",
+    "/tmp/arbicore-prod-c1-cutover.env",
+    "/tmp/arbicore-prod-c1-cutover.env.pre-provenance",
+    "/tmp/arbicore-production-env.backup",
+    "/tmp/arbicore_post_alchemy_reset.env",
+    "/tmp/arbicore_post_m6.env",
+    "/tmp/arbicore_rpc.env",
+    "/tmp/arbicore_rpc_public.env"
+  ],
+  "files_by_scrub_class_counts": {
+    "active_live_dotenv": 1,
+    "approved_recovery_archive": 12,
+    "redundant_local_upgrade_backup": 8,
+    "redundant_temporary": 18
+  },
+  "files_by_scrub_class_paths": {
+    "active_live_dotenv": [
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env"
+    ],
+    "approved_recovery_archive": [
+      "/home/raghu/arbicore_backups/r2_bootstrap_disable_20261010T090646Z/backend.env.pre-disable",
+      "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T102900Z/backend.env.pre-r3",
+      "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T104453Z/backend.env.pre-r3",
+      "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T105128Z/backend.env.pre-r3",
+      "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/admin.password.new",
+      "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/admin.password.pre-r4",
+      "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/backend.env.pre-r4",
+      "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z/jwt.secret.new",
+      "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/backend.env.pre-rotation",
+      "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/root.env.pre-rotation",
+      "/home/raghu/arbicore_backups/s2a_alchemy_cutover_20261010T065530Z/backend.env.pre-cutover",
+      "/home/raghu/arbicore_backups/s2a_alchemy_cutover_20261010T065530Z/s2a_alchemy_replacements.env.used"
+    ],
+    "redundant_local_upgrade_backup": [
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z",
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z"
+    ],
+    "redundant_temporary": [
+      "/tmp/arbicore-backend-p0-3.env",
+      "/tmp/arbicore-backend.env",
+      "/tmp/arbicore-bulk62.env",
+      "/tmp/arbicore-h05-real.env",
+      "/tmp/arbicore-prod-bnb-cutover.env",
+      "/tmp/arbicore-prod-c1-cutover.env",
+      "/tmp/arbicore-prod-c1-cutover.env.pre-provenance",
+      "/tmp/arbicore-production-env.backup",
+      "/tmp/arbicore-runtime-cert-ad64a50.env",
+      "/tmp/arbicore-runtime-cert.env",
+      "/tmp/arbicore-x-backend.env",
+      "/tmp/arbicore-x-candidate.env",
+      "/tmp/arbicore-x-runtime.env",
+      "/tmp/arbicore_ctr_all.env",
+      "/tmp/arbicore_post_alchemy_reset.env",
+      "/tmp/arbicore_post_m6.env",
+      "/tmp/arbicore_rpc.env",
+      "/tmp/arbicore_rpc_public.env"
+    ]
+  },
+  "admin_sha12_set": [
+    "112c88ac69e1",
+    "6757aa3396d8",
+    "6780d7b21193"
+  ],
+  "jwt_sha12_set": [
+    "066b178751e1",
+    "7013ef842946",
+    "f98650d468b2"
+  ],
+  "old_admin_sha12s_still_present_somewhere": [
+    "6757aa3396d8",
+    "6780d7b21193"
+  ],
+  "old_jwt_sha12s_still_present_somewhere": [
+    "066b178751e1",
+    "7013ef842946"
+  ],
+  "active_runtime": {
+    "live_dotenv_old_admin": false,
+    "live_dotenv_old_jwt": false,
+    "live_ctr_old_admin": false,
+    "live_ctr_old_jwt": false,
+    "live_dotenv_new_admin": true,
+    "live_dotenv_new_jwt": true,
+    "live_ctr_new_admin": true,
+    "live_ctr_new_jwt": true,
+    "dotenv_matches_ctr_admin": true,
+    "dotenv_matches_ctr_jwt": true
+  },
+  "live_dotenv": {
+    "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env",
+    "mode": "0o600",
+    "admin": {
+      "present": true,
+      "len": 32,
+      "sha12": "112c88ac69e1"
+    },
+    "jwt": {
+      "present": true,
+      "len": 64,
+      "sha12": "f98650d468b2"
+    },
+    "bootstrap_present": false
+  },
+  "live_container": {
+    "container": "arbicore-x-backend-new",
+    "status": "running",
+    "health": "healthy",
+    "image_id": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "config_image": "arbicore-x-backend:s2a-rpc-redact-5bd952568aed",
+    "admin": {
+      "present": true,
+      "len": 32,
+      "sha12": "112c88ac69e1"
+    },
+    "jwt": {
+      "present": true,
+      "len": 64,
+      "sha12": "f98650d468b2"
+    },
+    "bootstrap_present": false,
+    "private_key_env_present": false,
+    "controls": {
+      "ARBICORE_EXECUTION_MODE": "SHADOW",
+      "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+      "ARBICORE_RUNTIME_AUTOSTART": "false"
+    },
+    "mongo_url_user": "arbicore_app"
+  },
+  "legacy_containers": [
+    {
+      "container": "arbicore-x-backend-h05",
+      "status": "exited",
+      "running": false,
+      "admin": {
+        "present": true,
+        "len": 14,
+        "sha12": "6780d7b21193"
+      },
+      "jwt": {
+        "present": true,
+        "len": 64,
+        "sha12": "7013ef842946"
+      }
+    },
+    {
+      "container": "arbicore-x-backend-w1",
+      "status": "exited",
+      "running": false,
+      "admin": {
+        "present": true,
+        "len": 14,
+        "sha12": "6780d7b21193"
+      },
+      "jwt": {
+        "present": true,
+        "len": 64,
+        "sha12": "7013ef842946"
+      }
+    },
+    {
+      "container": "arbicore-x-b7-candidate",
+      "status": "exited",
+      "running": false,
+      "admin": {
+        "present": true,
+        "len": 14,
+        "sha12": "6780d7b21193"
+      },
+      "jwt": {
+        "present": true,
+        "len": 64,
+        "sha12": "7013ef842946"
+      }
+    },
+    {
+      "container": "arbicore-x-backend",
+      "status": "exited",
+      "running": false,
+      "admin": {
+        "present": true,
+        "len": 14,
+        "sha12": "6780d7b21193"
+      },
+      "jwt": {
+        "present": true,
+        "len": 64,
+        "sha12": "7013ef842946"
+      }
+    }
+  ],
+  "peers": {
+    "g5_79_app_status": "running",
+    "g5_79_untouched_note": "status-only probe; no config change",
+    "foreman_mongo_status": "running"
+  },
+  "controls_preserved": {
+    "SHADOW": true,
+    "AUTOEXEC_false": true,
+    "RUNTIME_false": true,
+    "digest": true,
+    "healthy": true,
+    "mongo_arbicore_app": true,
+    "no_bootstrap": true,
+    "no_private_key_env": true,
+    "legacy_all_exited": true
+  },
+  "old_secret_file_count": 26,
+  "scrub_candidate_count": 17,
+  "approved_recovery_count": 12,
+  "apply_details_session_version_ref": 3
+}

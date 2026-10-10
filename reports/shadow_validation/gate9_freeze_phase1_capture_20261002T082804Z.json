@@ -1,0 +1,52 @@
+{
+  "cert": "GATE9_FREEZE_PHASE1_CAPTURE",
+  "not_gate9_pass": true,
+  "not_8h_checkpoint": true,
+  "ts": "20261002T082804Z",
+  "collected_at": "2026-10-02T08:28:04.727512+00:00",
+  "campaign_start": "2026-10-02T06:19:43.018995+00:00",
+  "elapsed_hours": 2.1394,
+  "hours_to_8h": 5.8606,
+  "hours_to_gate9_24h": 21.8606,
+  "continuity": {
+    "is_running": true,
+    "started_at": "2026-10-02T06:19:43.018995+00:00",
+    "last_cycle_at": "2026-10-02T08:26:08.280608+00:00",
+    "cycles_completed": 1512,
+    "exceptions": 0,
+    "restart_count": 0,
+    "image": "arbicore-x-backend:g5.79-green-20260927",
+    "container_started_at": "2026-10-02T06:19:33.513948555Z"
+  },
+  "capture": {
+    "paper_runner": "active",
+    "validation_report_total": 0,
+    "paper_evidence_mongo": 0,
+    "opportunity_journal": 0,
+    "evidence_bundles_since_campaign_approx": 275,
+    "evidence_bundles_outcomes_since": {
+      "None": 275
+    },
+    "opportunities_seen": 0,
+    "opportunities_processed": 0,
+    "daily_run_id": "run_20261002_0619",
+    "shadow_cert_engine_active": false
+  },
+  "gaps": [
+    "paper evidence total=0 (pipeline empty)",
+    "opportunities_seen/processed=0",
+    "validation histogram all zeros",
+    "evidence_bundles append with null outcomes (verifier audit sink, not paper EXECUTABLE)"
+  ],
+  "freeze": {
+    "source_app_unchanged": true,
+    "git_head": "9b196cde0c975d0efe94e94f49de05b4244bdbc6",
+    "mode": "SHADOW",
+    "autoexec": false,
+    "runtime": false
+  },
+  "docs": {
+    "checklist": "docs/certification/GATE9_EVIDENCE_CHECKLIST_20261002.md",
+    "template_8h": "docs/certification/SHADOW_ACCELERATED_8H_CHECKPOINT_TEMPLATE_20261002.md"
+  }
+}

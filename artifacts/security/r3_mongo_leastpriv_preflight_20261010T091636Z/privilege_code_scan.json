@@ -1,0 +1,93 @@
+[
+  {
+    "path": "tests/test_wave1b_alpha.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_flashloan_canonical_audit_runner.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_p2_evidence_persisted_mongo.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_auth_v2_1_1.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_wave1b_gamma.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_wave3_memory.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_phases_5_6_7_8.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_scanner_bootstrap_decoupled.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_wave1b_beta.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_flashloan_audit_evidence_filter.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_wave2_lifetime.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "tests/test_flashloan_candidate_progression.py",
+    "class": "test",
+    "hits": [
+      "drop_database"
+    ]
+  },
+  {
+    "path": "arbicore/data/mid/indexes.py",
+    "class": "runtime",
+    "hits": [
+      "collMod"
+    ]
+  }
+]

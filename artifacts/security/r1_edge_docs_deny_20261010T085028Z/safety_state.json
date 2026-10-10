@@ -1,0 +1,40 @@
+{
+  "captured_utc": "2026-10-10T08:56:11Z",
+  "controls": {
+    "ARBICORE_RUNTIME_AUTOSTART": "false",
+    "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+    "ARBICORE_EXECUTION_MODE": "SHADOW",
+    "ARBICORE_SCANNER_AUTOSTART": "true",
+    "ARBICORE_SHADOW_CERT_ENABLED": "true",
+    "ARBICORE_FLASH_LOAN_SHADOW_ROUTE": "true"
+  },
+  "legacy": [
+    "arbicore-x-b7-candidate\tExited (137) 3 days ago",
+    "arbicore-x-backend-h05\tExited (137) 3 days ago",
+    "arbicore-x-backend-w1\tExited (137) 3 days ago",
+    "arbicore-x-backend-w1-old\tExited (137) 4 weeks ago"
+  ],
+  "g579": "arbicore-g5-79-app\tUp 12 days (healthy)",
+  "sendRawTransaction_30m": 0,
+  "digest_before": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "digest_after": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "digest_unchanged": true,
+  "live_dotenv_alchemy_primary_fps_unique": [
+    "ca6545ba"
+  ],
+  "live_dotenv_alchemy_fps": {
+    "ARBICORE_RPC_URL": "ca6545ba",
+    "ARBICORE_ARCHIVE_RPC_URL": "ca6545ba",
+    "ARBICORE_RPC_URL_ETHEREUM": "ca6545ba",
+    "ARBICORE_RPC_URL_ARBITRUM": "ca6545ba",
+    "ARBICORE_RPC_URL_OPTIMISM": "ca6545ba",
+    "ARBICORE_RPC_URL_POLYGON": "ca6545ba",
+    "ARBICORE_RPC_URL_BNB": "ca6545ba"
+  },
+  "checksums_final": [
+    "125d2b721a545aaf3c2b852639ff1ff9bc2f4a79df167a087c244b2409f491ba  /opt/caddy/Caddyfile",
+    "8a1cb3bdca34c181be558304c2c5c351ede4eb5ddf342b39731adc79aa965d47  /opt/caddy/Caddyfile.pre-r1-docs-deny-20261010T085028Z"
+  ],
+  "caddy_host_matches_container": true,
+  "note_recreate": "caddy container force-recreated once to remount replaced bind-mount inode; backend not recreated"
+}

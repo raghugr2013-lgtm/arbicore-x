@@ -1,0 +1,15 @@
+{
+  "utc": "2026-10-10T13:04:05Z",
+  "verdict": "PASS WITH LIMITATIONS",
+  "scope": "local_file_containment_only",
+  "on_chain": "NOT_AUTHORISED_NOT_DONE",
+  "overall_gate_p2": "BLOCKED",
+  "evid": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r5_deployer_containment_apply_20261010T130403Z",
+  "bk": "/home/raghu/arbicore_backups/r5_deployer_containment_20261010T130403Z",
+  "limitations": [
+    "address_inventory_mismatch_unresolved",
+    "escrow_retains_plaintext_key_under_0700",
+    "keystore_identity_vs_address_file_unverified",
+    "executor_owner_0x0a43_untouched"
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "utc": "2026-10-10T12:29:13Z",
+  "rows": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore_ctr_all.env",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert-ad64a50.env",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-x-backend.env",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert.env",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-x-candidate.env",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-backend-p0-3.env",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-backend.env",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-x-runtime.env",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    },
+    {
+      "path": "/tmp/arbicore-production-env.backup",
+      "ok": false,
+      "reasons": [
+        "missing"
+      ]
+    }
+  ]
+}

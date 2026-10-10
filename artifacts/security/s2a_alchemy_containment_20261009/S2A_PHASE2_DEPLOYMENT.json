@@ -1,0 +1,54 @@
+{
+  "completed_utc": "2026-10-09T11:45:01Z",
+  "verdict": "DEPLOYED_VERIFIED",
+  "recreate_started_utc": "2026-10-09T11:42:04Z",
+  "recreate_finished_utc": "2026-10-09T11:42:32Z",
+  "deployed_image_tag": "arbicore-x-backend:s2a-rpc-redact-5bd952568aed",
+  "deployed_image_digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "required_digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "digest_match": true,
+  "rollback_image_tag": "arbicore-x-backend:hybrid-e-rpc-9244ebd",
+  "rollback_image_digest": "sha256:40b2116bc01ae999f8ed24cf8bb147533e2bb3c7275f488dccba2de2a3ed8d52",
+  "rollback_alias": "arbicore-x-backend:rollback-pre-s2a-redact",
+  "health": "healthy",
+  "status": "running",
+  "api_healthcheck": "GET /api/ -> 200",
+  "controls": {
+    "ARBICORE_EXECUTION_MODE": "SHADOW",
+    "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+    "ARBICORE_RUNTIME_AUTOSTART": "false",
+    "ARBICORE_GIT_TAG": "s2a-rpc-redact-5bd952568aed",
+    "ARBICORE_GIT_SHA": "5bd952568aeda55bc90702289a9bfbfa9d6ba82c",
+    "ARBICORE_SCANNER_AUTOSTART": "true",
+    "ARBICORE_FLASH_LOAN_VERIFICATION_WORKERS": "6",
+    "ARBICORE_ENV": "production",
+    "ARBICORE_RUNTIME_ENV": "production"
+  },
+  "legacy_containers": {
+    "arbicore-x-b7-candidate": "exited",
+    "arbicore-x-backend-h05": "exited",
+    "arbicore-x-backend-w1": "exited"
+  },
+  "log_scan": {
+    "window": "docker logs --since 5m (post-recreate)",
+    "window_end_utc": "2026-10-09T11:45:00Z",
+    "log_lines": 1379,
+    "redacted_marker_count": 1148,
+    "unredacted_alchemy_v2_regex_hits": 0,
+    "raw_token_count": 0,
+    "raw_token_fp8": [],
+    "known_primary_fp8_24dab5d1_in_raw": false,
+    "httpx_log_lines": 1183,
+    "sample_redacted_lines": [
+      "2026-10-09 11:42:26,581 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+      "2026-10-09 11:42:26,643 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\"",
+      "2026-10-09 11:42:26,672 - httpx - INFO - HTTP Request: POST https://base-mainnet.g.alchemy.com/v2/[REDACTED] \"HTTP/1.1 200 OK\""
+    ]
+  },
+  "synthetic_regression": "PASS",
+  "key_rotation": "NOT_EXECUTED",
+  "p2": "NOT_DEPLOYED",
+  "rollback_executed": false,
+  "compose_override": "/tmp/arbicore-s2a-rpc-redact-override.yml",
+  "rollback_override": "/tmp/arbicore-hybrid-e-rpc-9244ebd-override.yml"
+}

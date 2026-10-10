@@ -1,0 +1,26 @@
+{
+  "accept_start_utc": "2026-10-10T06:59:52Z",
+  "accept_end_utc": "2026-10-10T08:23:57Z",
+  "elapsed_sec": 5019,
+  "window_required_sec": 3600,
+  "window_complete": true,
+  "scan": {
+    "unredacted_alchemy_v2": 0,
+    "redacted_markers": 3265,
+    "httpx_lines": 3299,
+    "httpx_429": 11,
+    "httpx_5xx": 0,
+    "httpx_401_403": 0,
+    "failover_keyword_lines": 1,
+    "baseline_429": 2
+  },
+  "gates": {
+    "unredacted_zero": true,
+    "no_401_403": true,
+    "no_5xx": true,
+    "redaction_active": true,
+    "429_vs_baseline": "elevated_11_vs_2_not_spike_fail",
+    "failover_keywords": "1_line_inspected_not_primary_down_storm"
+  },
+  "verdict": "PASS"
+}

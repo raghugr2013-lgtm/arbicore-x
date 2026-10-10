@@ -1,0 +1,20 @@
+{
+  "utc": "2026-10-10T13:04:04Z",
+  "bk": "/home/raghu/arbicore_backups/r5_deployer_containment_20261010T130403Z",
+  "bk_mode": "0o700",
+  "escrow_path": "/home/raghu/arbicore_backups/r5_deployer_containment_20261010T130403Z/contracts.env.pre-r5",
+  "escrow_mode": "0o600",
+  "file_sha256": "ad88e734f5ab1119f333d39864c48b0ad8d5a12968d0108d42ec5ff94c52e758",
+  "size": 285,
+  "keys_present_pre": [
+    "DEPLOYER_PRIVATE_KEY",
+    "BASE_RPC_URL",
+    "BASESCAN_API_KEY"
+  ],
+  "DEPLOYER_PRIVATE_KEY_present_pre": true,
+  "DEPLOYER_PRIVATE_KEY_len_pre": 64,
+  "keystore_untouched_path": "/home/raghu/.foundry/keystores/arbicore-base-mainnet-deployer",
+  "keystore_mode": "0o600",
+  "keystore_size": 436,
+  "address_file_untouched": "0x65afB0a65Fd22F88022915F53eD48DA34fb02003"
+}

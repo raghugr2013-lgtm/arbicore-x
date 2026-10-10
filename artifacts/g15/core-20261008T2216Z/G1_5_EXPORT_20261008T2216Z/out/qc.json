@@ -1,0 +1,26 @@
+{
+ "rows": 12312,
+ "duplicates": 0,
+ "chain_ids": {
+  "base:8453": 6287,
+  "bnb:56": 6025
+ },
+ "AB_status_not_1": [],
+ "all_status_counts": {
+  "1": 12312
+ },
+ "gas_recompute_mismatch": [],
+ "gas_recompute_mismatch_n": 0,
+ "AB_null_kept": 0,
+ "CD_nonnull_kept": 0,
+ "kept_identity_violations": [],
+ "A_with_builder_payment": 0,
+ "base_l1_missing": 0,
+ "flash_rows": 692,
+ "flash_fee_unknown": 3,
+ "rpc_reverify": {
+  "n": 25,
+  "all_ok": 25,
+  "fails": []
+ }
+}

@@ -1,0 +1,74 @@
+{
+ "base:b00": {
+  "start_block": 52314127,
+  "end_block": 52324926,
+  "blocks": 10800,
+  "utc_start": "2026-10-08 00:00",
+  "utc_end": "2026-10-08 05:59",
+  "hours": 6.0,
+  "traced_rows": 2684
+ },
+ "base:b01": {
+  "start_block": 52324927,
+  "end_block": 52335726,
+  "blocks": 10800,
+  "utc_start": "2026-10-08 06:00",
+  "utc_end": "2026-10-08 11:59",
+  "hours": 6.0,
+  "traced_rows": 3246
+ },
+ "base:b02": {
+  "start_block": 52335727,
+  "end_block": 52346526,
+  "blocks": 10800,
+  "utc_start": "2026-10-08 12:00",
+  "utc_end": "2026-10-08 17:59",
+  "hours": 6.0,
+  "traced_rows": 1821
+ },
+ "bsc:s04": {
+  "start_block": 126248296,
+  "end_block": 126296295,
+  "blocks": 48000,
+  "utc_start": "2026-10-07 12:00",
+  "utc_end": "2026-10-07 18:00",
+  "hours": 6.0,
+  "traced_rows": 0
+ },
+ "bsc:s05": {
+  "start_block": 126296296,
+  "end_block": 126344295,
+  "blocks": 48000,
+  "utc_start": "2026-10-07 18:00",
+  "utc_end": "2026-10-08 00:00",
+  "hours": 6.0,
+  "traced_rows": 0
+ },
+ "bsc:s06": {
+  "start_block": 126344296,
+  "end_block": 126392295,
+  "blocks": 48000,
+  "utc_start": "2026-10-08 00:00",
+  "utc_end": "2026-10-08 06:00",
+  "hours": 6.0,
+  "traced_rows": 0
+ },
+ "bsc:s07": {
+  "start_block": 126392296,
+  "end_block": 126440295,
+  "blocks": 48000,
+  "utc_start": "2026-10-08 06:00",
+  "utc_end": "2026-10-08 12:00",
+  "hours": 6.0,
+  "traced_rows": 0
+ },
+ "bsc:s08": {
+  "start_block": 126440296,
+  "end_block": 126488295,
+  "blocks": 48000,
+  "utc_start": "2026-10-08 12:00",
+  "utc_end": "2026-10-08 18:01",
+  "hours": 6.01,
+  "traced_rows": 24
+ }
+}

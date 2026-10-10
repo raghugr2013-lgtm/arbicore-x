@@ -1,0 +1,25 @@
+{
+  "utc": "2026-10-10T10:51:28Z",
+  "prior_evid": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r3_mongo_leastpriv_apply_20261010T102900Z",
+  "prior_bk": "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T102900Z",
+  "prior_failure": {
+    "utc": "2026-10-10T10:33:44Z",
+    "stage": "offline_verify",
+    "detail": "listDBs_denied=False full={'ping': 1, 'arbicore_cols': 62, 'discovery': 3921188, 'factory_denied': True, 'factory_err': 'not authorized on strategy_factory_v1 to execute command { listCollections: 1, filter: {}, cursor: {}, nameOnly: true, authorizedCollections: false, lsid: { id:', 'listDBs_denied': False, 'admin_denied': True, 'crud_read': True, 'crud_delete': True, 'ttl_indexes_login_attempts': 0}",
+    "r3_applied": false
+  },
+  "prior_verify": {
+    "ping": 1,
+    "arbicore_cols": 62,
+    "discovery": 3921188,
+    "factory_denied": true,
+    "factory_err": "not authorized on strategy_factory_v1 to execute command { listCollections: 1, filter: {}, cursor: {}, nameOnly: true, authorizedCollections: false, lsid: { id:",
+    "listDBs_denied": false,
+    "admin_denied": true,
+    "crud_read": true,
+    "crud_delete": true,
+    "ttl_indexes_login_attempts": 0
+  },
+  "rationale": "createUser succeeded with exact readWrite@arbicore_x. Offline verify incorrectly treated listDatabases success as failure; MongoDB returns only authorized DBs for scoped users. factory_denied and admin_denied already true. Resuming env switch + recreate. No dropUser; reuse escrowed password.",
+  "password_sha12": "66035544c3c5"
+}

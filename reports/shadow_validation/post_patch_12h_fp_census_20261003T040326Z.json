@@ -1,0 +1,60 @@
+{
+  "log_lines": 27379,
+  "alchemy_by_fp": {
+    "5e5d5bb1": 14,
+    "ce00e63d": 996
+  },
+  "alchemy_by_fp_status": {
+    "5e5d5bb1": {
+      "200": 13,
+      "400": 1
+    },
+    "ce00e63d": {
+      "429": 996
+    }
+  },
+  "public_base_status": {
+    "200": 9473,
+    "429": 16,
+    "503": 2
+  },
+  "failover_reasons": {
+    "soft_rl_-32016": 468,
+    "cooldown": 14591
+  },
+  "cooldown_hits": 14591,
+  "status_ok_any": 0,
+  "status_ok_quoter": 0,
+  "fallback_revert": 15059,
+  "fallback_break_even": 0,
+  "fb_counts_top": [
+    [
+      "fallback:revert",
+      15059
+    ]
+  ],
+  "traceback_blocks": 0,
+  "exceptionish_lines": 0,
+  "exceptions_sample": [],
+  "signing_hits": [
+    "2026-10-02 15:09:05,608 - server - INFO - searcher: T2 Base runtime constructed (SHADOW, no-broadcast, flag ARBICORE_T2_SEARCHER_ENABLED=on)"
+  ],
+  "env_sync_lines": [
+    "2026-10-02 15:09:08,734 - arbicore.config.env_sync - INFO - env_sync: exported 5 var(s) from persistent network config (chain=base)"
+  ],
+  "amplification_primary_3s": {
+    "primary_non_cooldown_failovers": 468,
+    "alchemy_posts_within_3s_mean": 2.026,
+    "alchemy_posts_within_3s_median": 2.0,
+    "alchemy_posts_within_3s_hist": {
+      "11": 1,
+      "2": 458,
+      "1": 5,
+      "4": 4
+    },
+    "pct_le_2": 98.93,
+    "pct_eq_5ish": 0.85
+  },
+  "m2_alchemy_posts_per_primary_failover": 2.158,
+  "scanner_cycle_mentions": 0
+}

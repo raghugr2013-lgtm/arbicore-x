@@ -1,0 +1,227 @@
+{
+  "compose_or_config_env_rpc_related": [
+    {
+      "env": "ALCHEMY_API_KEY",
+      "present": false
+    },
+    {
+      "env": "ARBICORE_ARCHIVE_RPC_URL",
+      "present": true,
+      "form": "url",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL",
+      "present": true,
+      "form": "url",
+      "host": "base-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ARBITRUM",
+      "present": true,
+      "form": "url",
+      "host": "arb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BASE",
+      "present": true,
+      "form": "url",
+      "host": "mainnet.base.org",
+      "scheme": "https",
+      "path_prefix": "",
+      "key_fp8": null,
+      "is_alchemy": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BNB",
+      "present": true,
+      "form": "url",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ETHEREUM",
+      "present": true,
+      "form": "url",
+      "host": "eth-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_OPTIMISM",
+      "present": true,
+      "form": "url",
+      "host": "opt-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true
+    },
+    {
+      "env": "ARBICORE_RPC_URL_POLYGON",
+      "present": true,
+      "form": "url",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "scheme": "https",
+      "path_prefix": "/v2/<key>",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true
+    }
+  ],
+  "live_process_rpc_related": [
+    {
+      "env": "ARBICORE_ARCHIVE_RPC_URL",
+      "form": "url",
+      "host": "base-mainnet.g.alchemy.com",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true,
+      "path_prefix": "/v2/<key>"
+    },
+    {
+      "env": "ARBICORE_RPC_URL",
+      "form": "url",
+      "host": "base-mainnet.g.alchemy.com",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true,
+      "path_prefix": "/v2/<key>"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ARBITRUM",
+      "form": "url",
+      "host": "arb-mainnet.g.alchemy.com",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true,
+      "path_prefix": "/v2/<key>"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BASE",
+      "form": "url",
+      "host": "mainnet.base.org",
+      "key_fp8": null,
+      "is_alchemy": false,
+      "path_prefix": ""
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BNB",
+      "form": "url",
+      "host": "bnb-mainnet.g.alchemy.com",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true,
+      "path_prefix": "/v2/<key>"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ETHEREUM",
+      "form": "url",
+      "host": "eth-mainnet.g.alchemy.com",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true,
+      "path_prefix": "/v2/<key>"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_OPTIMISM",
+      "form": "url",
+      "host": "opt-mainnet.g.alchemy.com",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true,
+      "path_prefix": "/v2/<key>"
+    },
+    {
+      "env": "ARBICORE_RPC_URL_POLYGON",
+      "form": "url",
+      "host": "polygon-mainnet.g.alchemy.com",
+      "key_fp8": "5e5d5bb1",
+      "is_alchemy": true,
+      "path_prefix": "/v2/<key>"
+    }
+  ],
+  "compose_vs_live_chain_rpc": [
+    {
+      "env": "ARBICORE_RPC_URL",
+      "config_fp8": "5e5d5bb1",
+      "config_host": "base-mainnet.g.alchemy.com",
+      "live_fp8": "5e5d5bb1",
+      "live_host": "base-mainnet.g.alchemy.com",
+      "synced_away_from_compose": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BASE",
+      "config_fp8": null,
+      "config_host": "mainnet.base.org",
+      "live_fp8": null,
+      "live_host": "mainnet.base.org",
+      "synced_away_from_compose": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ETHEREUM",
+      "config_fp8": "5e5d5bb1",
+      "config_host": "eth-mainnet.g.alchemy.com",
+      "live_fp8": "5e5d5bb1",
+      "live_host": "eth-mainnet.g.alchemy.com",
+      "synced_away_from_compose": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL_OPTIMISM",
+      "config_fp8": "5e5d5bb1",
+      "config_host": "opt-mainnet.g.alchemy.com",
+      "live_fp8": "5e5d5bb1",
+      "live_host": "opt-mainnet.g.alchemy.com",
+      "synced_away_from_compose": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL_POLYGON",
+      "config_fp8": "5e5d5bb1",
+      "config_host": "polygon-mainnet.g.alchemy.com",
+      "live_fp8": "5e5d5bb1",
+      "live_host": "polygon-mainnet.g.alchemy.com",
+      "synced_away_from_compose": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL_BNB",
+      "config_fp8": "5e5d5bb1",
+      "config_host": "bnb-mainnet.g.alchemy.com",
+      "live_fp8": "5e5d5bb1",
+      "live_host": "bnb-mainnet.g.alchemy.com",
+      "synced_away_from_compose": false
+    },
+    {
+      "env": "ARBICORE_RPC_URL_ARBITRUM",
+      "config_fp8": "5e5d5bb1",
+      "config_host": "arb-mainnet.g.alchemy.com",
+      "live_fp8": "5e5d5bb1",
+      "live_host": "arb-mainnet.g.alchemy.com",
+      "synced_away_from_compose": false
+    },
+    {
+      "env": "ARBICORE_ARCHIVE_RPC_URL",
+      "config_fp8": "5e5d5bb1",
+      "config_host": "base-mainnet.g.alchemy.com",
+      "live_fp8": "5e5d5bb1",
+      "live_host": "base-mainnet.g.alchemy.com",
+      "synced_away_from_compose": false
+    }
+  ],
+  "live_provider_lists": [],
+  "live_unique_fp8": [
+    "5e5d5bb1"
+  ],
+  "config_unique_fp8": [
+    "5e5d5bb1"
+  ]
+}

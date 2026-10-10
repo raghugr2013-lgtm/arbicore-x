@@ -1,0 +1,42 @@
+[
+  {
+    "env": "ARBICORE_RPC_URL",
+    "host": "base-mainnet.g.alchemy.com",
+    "fp8": "ca6545ba"
+  },
+  {
+    "env": "ARBICORE_RPC_URL_BASE",
+    "host": "mainnet.base.org",
+    "fp8": null
+  },
+  {
+    "env": "ARBICORE_ARCHIVE_RPC_URL",
+    "host": "base-mainnet.g.alchemy.com",
+    "fp8": "ca6545ba"
+  },
+  {
+    "env": "ARBICORE_RPC_URL_ETHEREUM",
+    "host": "eth-mainnet.g.alchemy.com",
+    "fp8": "ca6545ba"
+  },
+  {
+    "env": "ARBICORE_RPC_URL_ARBITRUM",
+    "host": "arb-mainnet.g.alchemy.com",
+    "fp8": "ca6545ba"
+  },
+  {
+    "env": "ARBICORE_RPC_URL_OPTIMISM",
+    "host": "opt-mainnet.g.alchemy.com",
+    "fp8": "ca6545ba"
+  },
+  {
+    "env": "ARBICORE_RPC_URL_POLYGON",
+    "host": "polygon-mainnet.g.alchemy.com",
+    "fp8": "ca6545ba"
+  },
+  {
+    "env": "ARBICORE_RPC_URL_BNB",
+    "host": "bnb-mainnet.g.alchemy.com",
+    "fp8": "ca6545ba"
+  }
+]

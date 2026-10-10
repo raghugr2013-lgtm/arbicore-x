@@ -1,0 +1,12 @@
+{
+  "utc": "2026-10-10T12:29:06Z",
+  "verdict": "PASS",
+  "phase": "A_quarantine_only",
+  "moved": 17,
+  "quarantine_dir": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z",
+  "hold_until_utc": "2026-10-24T12:29:00Z",
+  "shred_or_destroy": "NOT_DONE",
+  "phase_b": "NOT_DONE",
+  "r4_live_verdict": "PASS WITH LIMITATIONS",
+  "overall_gate_p2": "BLOCKED"
+}

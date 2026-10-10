@@ -1,0 +1,96 @@
+{
+  "kind": "POST_FIX_12H_SHADOW_CAMPAIGN_IN_PROGRESS",
+  "label": "POST-PATCH 12h SHADOW VALIDATION \u2014 NOT OFFICIAL GATE 9 \u2014 NOT GATE 10",
+  "status": "COMPLETE",
+  "not_official_gate9": true,
+  "not_official_gate10": true,
+  "not_claiming_profitability_from_zero_opportunities": true,
+  "product_sha": "befb14e6aa77515daa038e142ff978822a4fab91",
+  "image": "arbicore-x-backend:ws-a-befb14e-20261002",
+  "image_id": "sha256:12759b11a783619ad25746a030c5bbcc71b83ed64ff05b3316153d6402a594ae",
+  "T0_StartedAt": "2026-10-02T15:08:52.884157323Z",
+  "T0_source": "docker inspect arbicore-x-backend-new State.StartedAt (post-cutover)",
+  "eta_12h_utc": "2026-10-03T03:08:52Z",
+  "pre_fix_8h_baseline": {
+    "freeze_doc": "docs/certification/PRE_FIX_8H_BASELINE_FREEZE_20261002.md",
+    "checkpoint_md_sha256": "42305fa1e4e0bf60d29243917ea2b5a800bf0af85e39400bf88f63958879dab7",
+    "checkpoint_json_sha256": "021c5ece36115284e9f8a62d6af8018869febe34b9ce292eb5b61b8e0dd6f54b",
+    "preserved": true
+  },
+  "override_path": "/home/raghu/projects/arbicore-x-cert/artifacts/deploy_staging/workstream-a-befb14e/POST_PATCH_OVERRIDE_ws-a-befb14e_20261002T150827Z.yml",
+  "rollback": {
+    "image": "arbicore-x-backend:g5.79-green-20260927",
+    "id": "sha256:aaadc3a9cc78d695a9e7e2d16681babc71c576033ad3764061a918946d8e993a",
+    "override": "/tmp/arbicore-g579-prod-override.yml",
+    "auto_rollback": false,
+    "note": "Rollback ONLY if safety STOP; do not retag/overwrite"
+  },
+  "tracking_A_to_O": {
+    "A_continuity": {
+      "status": "TRACKING",
+      "note": "New StartedAt T0; RestartCount=0 at start"
+    },
+    "B_restarts": {
+      "status": "TRACKING",
+      "restart_count_at_T0": 0
+    },
+    "C_exceptions": {
+      "status": "TRACKING"
+    },
+    "D_six_chain": {
+      "status": "TRACKING"
+    },
+    "E_base_failover": {
+      "status": "TRACKING"
+    },
+    "F_alchemy_429": {
+      "status": "TRACKING"
+    },
+    "G_requests_failover": {
+      "status": "TRACKING",
+      "note": "M2 Alchemy POSTs/failover target post \u22642.0"
+    },
+    "H_eth_call_success_fail": {
+      "status": "TRACKING"
+    },
+    "I_host_cooldown": {
+      "status": "TRACKING",
+      "note": "Expect M7 >0 if sustained 429s"
+    },
+    "J_quote_rate": {
+      "status": "TRACKING"
+    },
+    "K_opportunities": {
+      "status": "TRACKING",
+      "note": "Do not invent; 0 is honest"
+    },
+    "L_EXECUTABLE": {
+      "status": "TRACKING"
+    },
+    "M_Gate7_25usd": {
+      "status": "TRACKING",
+      "note": "Floor 5 fail-closed unchanged"
+    },
+    "N_paper_evidence": {
+      "status": "TRACKING"
+    },
+    "O_safety": {
+      "status": "HOLDING_AT_T0",
+      "SHADOW": true,
+      "AUTOEXEC": false,
+      "RUNTIME": false,
+      "live_execution": false,
+      "kill": true
+    }
+  },
+  "runbook": "docs/certification/POST_8H_12H_SHADOW_VALIDATION_PACKAGE_20261002.md",
+  "report_template": "docs/certification/POST_PATCH_12H_SHADOW_REPORT_TEMPLATE_20261002.md",
+  "claim_12h_complete": true,
+  "claim_gate9_pass": false,
+  "recorded_at_utc": "2026-10-02T15:10:41Z",
+  "final_report": "docs/certification/POST_FIX_12H_SHADOW_VALIDATION_REPORT_20261002.md",
+  "final_evidence": "reports/shadow_validation/post_patch_12h_20261003T040326Z.json",
+  "final_verdict": "CONDITIONAL",
+  "completed_at_utc": "2026-10-03T04:04:30Z",
+  "elapsed_hours_at_completion": 12.9094
+}

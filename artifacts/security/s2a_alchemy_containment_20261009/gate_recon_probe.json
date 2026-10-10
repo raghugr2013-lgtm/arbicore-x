@@ -1,0 +1,120 @@
+{
+  "captured_utc": "2026-10-10T08:32:58Z",
+  "checks": {
+    "mongo": {
+      "uri_present": true,
+      "username": "root",
+      "auth_source": "admin",
+      "host": "factory-mongo",
+      "is_root_user": true,
+      "usersInfo": {
+        "admin_users": [
+          "root"
+        ],
+        "arbicore_x_users": []
+      }
+    },
+    "admin_jwt_env": {
+      "admin_user_present": true,
+      "admin_user": "admin",
+      "admin_pass_present": true,
+      "admin_pass_len": 36,
+      "admin_pass_sha12": "6757aa3396d8",
+      "jwt_present": true,
+      "jwt_len": 64,
+      "jwt_sha12": "066b178751e1",
+      "plaintext_in_container_env": true
+    },
+    "dotenv_plaintext": {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env",
+      "exists": true,
+      "admin_pass_sha12": "6757aa3396d8",
+      "admin_pass_len": 36,
+      "jwt_sha12": "066b178751e1",
+      "jwt_len": 64,
+      "bootstrap_sha12": "d5a682fbe887",
+      "bootstrap_len": 64,
+      "matches_container_admin": true,
+      "matches_container_jwt": true
+    },
+    "bootstrap_token": {
+      "in_container_env": true,
+      "len": 64,
+      "sha12": "d5a682fbe887"
+    },
+    "docs_openapi": {
+      "local_docs": {
+        "url_host_path": "127.0.0.1:8001/docs",
+        "http_status": 200
+      },
+      "local_openapi": {
+        "url_host_path": "127.0.0.1:8001/openapi.json",
+        "http_status": 200
+      },
+      "public_sslip_docs": {
+        "url_host_path": "144-91-78-175.sslip.io/docs",
+        "http_status": 200
+      },
+      "public_sslip_openapi": {
+        "url_host_path": "144-91-78-175.sslip.io/openapi.json",
+        "http_status": 200
+      }
+    },
+    "deployer": {
+      "contracts_env_exists": false,
+      "address_file": "0x65af\u20262003",
+      "address_file_len": 42,
+      "foundry_keystore_exists": true,
+      "foundry_keystore_mode": "0o600",
+      "in_backend_container_env": false
+    },
+    "deployer_balance_address_file": {
+      "queried": true,
+      "error": "HTTPError"
+    },
+    "alchemy_old_key": {
+      "post_cutover_primary_fps": [
+        "ca6545ba"
+      ],
+      "fallbacks_preserved": true,
+      "old_primary_24dab5d1_still_primary": false,
+      "dotenv_alchemy_fps": {
+        "ARBICORE_RPC_URL": "ca6545ba",
+        "ARBICORE_ARCHIVE_RPC_URL": "ca6545ba",
+        "ARBICORE_RPC_URL_ETHEREUM": "ca6545ba",
+        "ARBICORE_RPC_URL_ARBITRUM": "ca6545ba",
+        "ARBICORE_RPC_URL_OPTIMISM": "ca6545ba",
+        "ARBICORE_RPC_URL_POLYGON": "ca6545ba",
+        "ARBICORE_RPC_URL_BNB": "ca6545ba"
+      },
+      "old_5e5d5bb1_in_dotenv": false,
+      "old_24dab5d1_in_dotenv": false,
+      "staging_file_present": true,
+      "cutover_backup_path": "/home/raghu/arbicore_backups/s2a_alchemy_cutover_20261010T065530Z"
+    },
+    "vault_s1b": {
+      "report": "artifacts/security/s1b_vault_rotation_preflight_20261009/S1B_POST_ROTATION_VERIFICATION.md",
+      "prior_verdict": "PASS WITH LIMITATIONS"
+    },
+    "legacy_stopped": {
+      "arbicore-x-b7-candidate": {
+        "status": "exited",
+        "admin_pass_sha12": "6780d7b21193",
+        "jwt_sha12": "7013ef842946",
+        "has_alchemy_env": true
+      },
+      "arbicore-x-backend-h05": {
+        "status": "exited",
+        "admin_pass_sha12": "6780d7b21193",
+        "jwt_sha12": "7013ef842946",
+        "has_alchemy_env": true
+      },
+      "arbicore-x-backend-w1": {
+        "status": "exited",
+        "admin_pass_sha12": "6780d7b21193",
+        "jwt_sha12": "7013ef842946",
+        "has_alchemy_env": true
+      }
+    }
+  }
+}

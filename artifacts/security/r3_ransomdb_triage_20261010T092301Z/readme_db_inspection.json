@@ -1,0 +1,49 @@
+{
+  "database": "READ_ME_TO_RECOVER_YOUR_DATA",
+  "dbStats": {
+    "db": "READ_ME_TO_RECOVER_YOUR_DATA",
+    "collections": 1,
+    "objects": 1,
+    "dataSize": 395.0,
+    "storageSize": 20480.0,
+    "indexes": 1,
+    "indexSize": 20480.0,
+    "avgObjSize": 395.0,
+    "ok": 1.0
+  },
+  "collections": [
+    "README"
+  ],
+  "collection_count": 1,
+  "collection_details": [
+    {
+      "name": "README",
+      "estimated_count": 1,
+      "indexes": [
+        {
+          "name": "_id_",
+          "key": {
+            "_id": 1
+          }
+        }
+      ],
+      "sample_docs": [
+        {
+          "_id": {
+            "$oid": "6a9de5fd18cefafbd9b6a63e",
+            "generation_time_utc": "2026-09-06T22:15:25+00:00"
+          },
+          "content": "All your data was backed up by us. You must pay 0.0062 bitcoin to bc1q0l7hr5v220f5qlqhjhg4p3jjqfkgudazzjnlkw or in 48 hours, your data will be publicly disclosed and deleted.  (for more information visit https://is.gd/2mongodb) After payment send mail to ak+1fp2a6@onionmail.org and we will provide a link for you to download your data. Your DATAID is: 1FP2A6"
+        }
+      ],
+      "objectid_timestamps_utc": [
+        "2026-09-06T22:15:25+00:00"
+      ]
+    }
+  ],
+  "listDatabases_entry": {
+    "name": "READ_ME_TO_RECOVER_YOUR_DATA",
+    "sizeOnDisk": 40960,
+    "empty": false
+  }
+}

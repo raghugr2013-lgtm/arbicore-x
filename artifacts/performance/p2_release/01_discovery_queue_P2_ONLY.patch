@@ -1,0 +1,24 @@
+--- /dev/fd/63	2026-10-09 06:47:49.723114135 +0200
++++ b/app/backend/arbicore/data/discovery_queue.py
+@@ -5,7 +5,8 @@
+ Collection: arbicore_discovery_candidates
+ - Idempotency key: candidate_id (unique)
+ - TTL 24h on expires_at
+-- Cooperative claim lock via (claimed_at, claimed_by, claimed_until)
++- Cooperative claim lock via (claimed_at, claimed_by, claimed_until);
++  claimed_at stays durable after mark_processed (lock fields cleared)
+ - B2: additive top-level ``chain`` + chain-fair claim_batch scheduling
+ 
+ No Redis. No Kafka. Pure Mongo + atomic findOneAndUpdate.
+@@ -239,8 +240,9 @@
+                 "verified_at": now,
+                 "verification_latency_ms": latency_ms,
+                 "emitted_opportunity_id": opportunity_id,
+-                # Release the claim
+-                "claimed_at": None, "claimed_by": None, "claimed_until": None,
++                # Release the claim lock only. Keep claimed_at durable so
++                # post-process timing joins (observe→claim) remain possible.
++                "claimed_by": None, "claimed_until": None,
+             }},
+         )
+         return res.modified_count > 0

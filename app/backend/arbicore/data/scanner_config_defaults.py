@@ -465,6 +465,13 @@ DEFAULT_FLASH_LOAN_ARB_CONFIG: Dict[str, Any] = {
     },
     "default_notional_usd": 10_000.0,
     "verifier_concurrency": 2,
+    # Hybrid E bounded backlog drain (Capacity Manager telemetry inputs).
+    # Does NOT auto-scale workers. Does NOT change Gate-7 / H05 / B2.
+    "max_claim_batches_per_tick": 6,
+    "max_backlog_drain_s": 60.0,
+    "backlog_skip_discover_min_eligible": 64,
+    "discover_refresh_s": 120.0,
+    "fresh_eligible_window_s": 120.0,
 }
 
 

@@ -1,0 +1,2737 @@
+{
+  "client_username": "root",
+  "is_root": true,
+  "host": "factory-mongo",
+  "auth_source": "admin",
+  "db_name_env": "arbicore_x",
+  "ping": {
+    "ok": 1.0
+  },
+  "listDatabases": {
+    "ok": true,
+    "names": [
+      "READ_ME_TO_RECOVER_YOUR_DATA",
+      "admin",
+      "arbicore_x",
+      "config",
+      "local",
+      "strategy_factory_v1",
+      "strategy_knowledge_base"
+    ],
+    "sizes_mb": {
+      "READ_ME_TO_RECOVER_YOUR_DATA": 0.04,
+      "admin": 0.12,
+      "arbicore_x": 1949.97,
+      "config": 0.11,
+      "local": 0.04,
+      "strategy_factory_v1": 2.7,
+      "strategy_knowledge_base": 0.05
+    }
+  },
+  "admin_users": [
+    {
+      "user": "root",
+      "roles": [
+        {
+          "role": "root",
+          "db": "admin"
+        }
+      ]
+    }
+  ],
+  "arbicore_x_users": [],
+  "arbicore_x": {
+    "collection_count": 62,
+    "collections": [
+      {
+        "name": "adaptive_weight_recommendations",
+        "count_est": 2711,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "id_1",
+            "key": {
+              "id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "kind_1_state_1",
+            "key": {
+              "kind": 1,
+              "state": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "retired_at_1",
+            "key": {
+              "retired_at": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 2592000
+          }
+        ]
+      },
+      {
+        "name": "alerts_log",
+        "count_est": 2711,
+        "index_count": 1,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_audit_log",
+        "count_est": 0,
+        "index_count": 5,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_idx",
+            "key": {
+              "ts": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "opp_id_idx",
+            "key": {
+              "opportunity_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "actor_idx",
+            "key": {
+              "actor": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_90d",
+            "key": {
+              "ts_dt": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 7776000
+          }
+        ]
+      },
+      {
+        "name": "arbicore_config",
+        "count_est": 12,
+        "index_count": 1,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_config_audit",
+        "count_est": 20,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "kind_1_at_-1",
+            "key": {
+              "kind": 1,
+              "at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "revision_id_1",
+            "key": {
+              "revision_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_config_drafts",
+        "count_est": 0,
+        "index_count": 1,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_discovery_candidates",
+        "count_est": 3921188,
+        "index_count": 6,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "candidate_id_1",
+            "key": {
+              "candidate_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "opportunity_type_1_claimed_until_1_expires_at_1",
+            "key": {
+              "opportunity_type": 1,
+              "claimed_until": 1,
+              "expires_at": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "hint_source_1_hint_observed_at_-1",
+            "key": {
+              "hint_source": 1,
+              "hint_observed_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "expires_at_1",
+            "key": {
+              "expires_at": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 0
+          },
+          {
+            "name": "chain_1_verified_outcome_1_claimed_until_1_expires_at_1",
+            "key": {
+              "chain": 1,
+              "verified_outcome": 1,
+              "claimed_until": 1,
+              "expires_at": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_discovery_source_metrics",
+        "count_est": 0,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "source_id_1_window_1_captured_at_ts_-1",
+            "key": {
+              "source_id": 1,
+              "window": 1,
+              "captured_at_ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "captured_at_ts_1",
+            "key": {
+              "captured_at_ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 7776000
+          }
+        ]
+      },
+      {
+        "name": "arbicore_entities",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "entity_id_unique",
+            "key": {
+              "entity_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "entity_type_idx",
+            "key": {
+              "entity_type": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "last_seen_desc",
+            "key": {
+              "last_seen_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_entity_clusters",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "cluster_id_unique",
+            "key": {
+              "cluster_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "score_desc",
+            "key": {
+              "cluster_score": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "detected_desc",
+            "key": {
+              "detected_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_entity_refs",
+        "count_est": 0,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "ref_unique",
+            "key": {
+              "ref_type": 1,
+              "external_ref": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "entity_id_idx",
+            "key": {
+              "entity_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_opportunities",
+        "count_est": 0,
+        "index_count": 5,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "opportunity_id_unique",
+            "key": {
+              "opportunity_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "subject_id_idx",
+            "key": {
+              "subject_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "type_status_idx",
+            "key": {
+              "opportunity_type": 1,
+              "status": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "created_at_desc",
+            "key": {
+              "created_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_opportunity_journal",
+        "count_est": 0,
+        "index_count": 8,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "opportunity_id_1",
+            "key": {
+              "opportunity_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "execution_status_1",
+            "key": {
+              "execution_status": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "opportunity_type_1",
+            "key": {
+              "opportunity_type": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mode_1",
+            "key": {
+              "mode": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "last_seen_-1",
+            "key": {
+              "last_seen": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "learning_label_1",
+            "key": {
+              "learning_label": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "learning_consumed_1",
+            "key": {
+              "learning_consumed": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_opportunity_ledger",
+        "count_est": 288,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "ledger_id_1",
+            "key": {
+              "ledger_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "run_id_1_candidate_id_1",
+            "key": {
+              "run_id": 1,
+              "candidate_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_outcomes",
+        "count_est": 0,
+        "index_count": 6,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "outcome_id_unique",
+            "key": {
+              "id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "opp_id_idx",
+            "key": {
+              "opportunity_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "due_at_sparse",
+            "key": {
+              "due_at": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "evaluated_idx",
+            "key": {
+              "evaluated": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "subject_id_idx",
+            "key": {
+              "subject_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_paper_evidence",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "uniq_validation_id",
+            "key": {
+              "validation_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "opp_recent",
+            "key": {
+              "opportunity_id": 1,
+              "created_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "outcome_recent",
+            "key": {
+              "outcome": 1,
+              "created_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_provenance_audit",
+        "count_est": 0,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "source_idx",
+            "key": {
+              "source": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "updated_at_desc",
+            "key": {
+              "updated_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_regime_snapshots",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "captured_at_desc",
+            "key": {
+              "captured_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "dominant_regime_idx",
+            "key": {
+              "dominant_regime": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_90d",
+            "key": {
+              "captured_at_dt": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 7776000
+          }
+        ]
+      },
+      {
+        "name": "arbicore_research_candidates",
+        "count_est": 1,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "opportunity_id_1",
+            "key": {
+              "opportunity_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "chain_1_discovered_at_-1",
+            "key": {
+              "chain": 1,
+              "discovered_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "status_1_discovered_at_-1",
+            "key": {
+              "status": 1,
+              "discovered_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_route_stats",
+        "count_est": 0,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "route_key_unique",
+            "key": {
+              "route_key": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "updated_at_desc",
+            "key": {
+              "updated_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_scanner_config",
+        "count_est": 6,
+        "index_count": 1,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_scanner_state",
+        "count_est": 6,
+        "index_count": 1,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_secrets",
+        "count_est": 1,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "handle_id_1",
+            "key": {
+              "handle_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "scope_1_created_at_-1",
+            "key": {
+              "scope": 1,
+              "created_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_sequence_patterns",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "pattern_id_unique",
+            "key": {
+              "pattern_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "support_idx",
+            "key": {
+              "support": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "confidence_idx",
+            "key": {
+              "confidence": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_shadow_certifications",
+        "count_est": 3,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "uniq_run_id",
+            "key": {
+              "run_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "status_recent",
+            "key": {
+              "status": 1,
+              "started_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "recent",
+            "key": {
+              "started_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "arbicore_signal_metrics",
+        "count_est": 0,
+        "index_count": 5,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "signal_id_idx",
+            "key": {
+              "signal_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "subject_id_idx",
+            "key": {
+              "subject_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "aggregated_at_desc",
+            "key": {
+              "aggregated_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "signal_id_1",
+            "key": {
+              "signal_id": 1
+            },
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "arbicore_state_snapshots",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "subject_time_idx",
+            "key": {
+              "subject_id": 1,
+              "captured_at_ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "opp_type_idx",
+            "key": {
+              "opportunity_type": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_30d",
+            "key": {
+              "captured_at_dt": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 2592000
+          }
+        ]
+      },
+      {
+        "name": "arbicore_temporal_sequences",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "subject_id_idx",
+            "key": {
+              "subject_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "discovered_at_desc",
+            "key": {
+              "discovered_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_90d",
+            "key": {
+              "discovered_at_dt": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 7776000
+          }
+        ]
+      },
+      {
+        "name": "arbicore_venue_capabilities",
+        "count_est": 0,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "venue_id_1",
+            "key": {
+              "venue_id": 1
+            },
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "arbicore_venue_capability_history",
+        "count_est": 0,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "venue_id_1_captured_at_ts_-1",
+            "key": {
+              "venue_id": 1,
+              "captured_at_ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "captured_at_ts_1",
+            "key": {
+              "captured_at_ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 7776000
+          }
+        ]
+      },
+      {
+        "name": "arbicore_wallet_metrics",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "wallet_id_unique",
+            "key": {
+              "wallet_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "entity_id_idx",
+            "key": {
+              "entity_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "updated_at_desc",
+            "key": {
+              "updated_at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "calibration_log",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "created_at_1",
+            "key": {
+              "created_at": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "opportunity_id_1",
+            "key": {
+              "opportunity_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "status_1",
+            "key": {
+              "status": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "calibration_models",
+        "count_est": 2711,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "id_1",
+            "key": {
+              "id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "kind_1_state_1",
+            "key": {
+              "kind": 1,
+              "state": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "retired_at_1",
+            "key": {
+              "retired_at": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 2592000
+          }
+        ]
+      },
+      {
+        "name": "capital_policy",
+        "count_est": 7,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "strategy_1",
+            "key": {
+              "strategy": 1
+            },
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "capital_policy_audit",
+        "count_est": 7,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "strategy_1_at_-1",
+            "key": {
+              "strategy": 1,
+              "at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "decision_history",
+        "count_est": 739284,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "recorded_at_1",
+            "key": {
+              "recorded_at": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "route_id_1",
+            "key": {
+              "route_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "scan_id_1",
+            "key": {
+              "scan_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "evidence_bundles",
+        "count_est": 583511,
+        "index_count": 5,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "bundle_id_1",
+            "key": {
+              "bundle_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "source_component_1_created_at_-1",
+            "key": {
+              "source_component": 1,
+              "created_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "source_model_id_1",
+            "key": {
+              "source_model_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "diagnostics.audit_run_id_1_diagnostics.scanner_tick_id_1_diagnostics.candidate_id_1",
+            "key": {
+              "diagnostics.audit_run_id": 1,
+              "diagnostics.scanner_tick_id": 1,
+              "diagnostics.candidate_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "execution_mode_audit",
+        "count_est": 7,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "strategy_1_at_-1",
+            "key": {
+              "strategy": 1,
+              "at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "execution_mode_state",
+        "count_est": 7,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "strategy_1",
+            "key": {
+              "strategy": 1
+            },
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "execution_plans",
+        "count_est": 0,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "plan_id_1",
+            "key": {
+              "plan_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "strategy_1_created_at_-1",
+            "key": {
+              "strategy": 1,
+              "created_at": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "plan_hash_1",
+            "key": {
+              "plan_hash": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "kill_switch_audit",
+        "count_est": 2,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "at_-1",
+            "key": {
+              "at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "kill_switch_state",
+        "count_est": 1,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "key_1",
+            "key": {
+              "key": 1
+            },
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "login_attempts",
+        "count_est": 16,
+        "index_count": 1,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "mid_confidence",
+        "count_est": 0,
+        "index_count": 11,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "opp_id_1_ts_-1",
+            "key": {
+              "opp_id": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_ts",
+            "key": {
+              "ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 7776000
+          }
+        ]
+      },
+      {
+        "name": "mid_decisions",
+        "count_est": 0,
+        "index_count": 10,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "opp_id_1_gate_1_ts_-1",
+            "key": {
+              "opp_id": 1,
+              "gate": 1,
+              "ts": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "mid_enum_warnings",
+        "count_est": 46,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_ts",
+            "key": {
+              "ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 2592000
+          }
+        ]
+      },
+      {
+        "name": "mid_gas",
+        "count_est": 0,
+        "index_count": 10,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_ts",
+            "key": {
+              "ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 15552000
+          }
+        ]
+      },
+      {
+        "name": "mid_liquidity",
+        "count_est": 0,
+        "index_count": 11,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "dex_1_pool_1_ts_-1",
+            "key": {
+              "dex": 1,
+              "pool": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_ts",
+            "key": {
+              "ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 7776000
+          }
+        ]
+      },
+      {
+        "name": "mid_market_state",
+        "count_est": 0,
+        "index_count": 12,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "market_snapshot_id_1",
+            "key": {
+              "market_snapshot_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "dex_1_pair_1_ts_-1",
+            "key": {
+              "dex": 1,
+              "pair": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_ts",
+            "key": {
+              "ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 7776000
+          }
+        ]
+      },
+      {
+        "name": "mid_opportunities",
+        "count_est": 190,
+        "index_count": 11,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "opp_id_1_event_ordinal_1",
+            "key": {
+              "opp_id": 1,
+              "event_ordinal": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "event_id_1",
+            "key": {
+              "event_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "mid_opportunity_lifetime",
+        "count_est": 0,
+        "index_count": 12,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "opp_id_1",
+            "key": {
+              "opp_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "opportunity_status_1_last_seen_-1",
+            "key": {
+              "opportunity_status": 1,
+              "last_seen": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "last_seen_-1",
+            "key": {
+              "last_seen": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "mid_outcomes",
+        "count_est": 0,
+        "index_count": 11,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "opp_id_1",
+            "key": {
+              "opp_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "terminal_1_ts_-1",
+            "key": {
+              "terminal": 1,
+              "ts": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "mid_providers",
+        "count_est": 0,
+        "index_count": 11,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "provider_id_1_ts_-1",
+            "key": {
+              "provider_id": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_ts",
+            "key": {
+              "ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 31536000
+          }
+        ]
+      },
+      {
+        "name": "mid_quotes",
+        "count_est": 0,
+        "index_count": 11,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "route_id_1_ts_-1",
+            "key": {
+              "route_id": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_ts",
+            "key": {
+              "ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 2592000
+          }
+        ]
+      },
+      {
+        "name": "mid_replay",
+        "count_est": 0,
+        "index_count": 11,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "opp_id_1_variant_id_1",
+            "key": {
+              "opp_id": 1,
+              "variant_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "ttl_ts",
+            "key": {
+              "ts": 1
+            },
+            "unique": false,
+            "expireAfterSeconds": 2592000
+          }
+        ]
+      },
+      {
+        "name": "mid_routes",
+        "count_est": 0,
+        "index_count": 10,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "mid_id_uniq",
+            "key": {
+              "mid_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "meta.strategy_type_1_ts_-1",
+            "key": {
+              "meta.strategy_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.chain_1_ts_-1",
+            "key": {
+              "meta.chain": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.execution_mode_1_ts_-1",
+            "key": {
+              "meta.execution_mode": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.opportunity_type_1_ts_-1",
+            "key": {
+              "meta.opportunity_type": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.capital_source_1_ts_-1",
+            "key": {
+              "meta.capital_source": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "meta.market_regime_1_ts_-1",
+            "key": {
+              "meta.market_regime": 1,
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "ts_-1",
+            "key": {
+              "ts": -1
+            },
+            "unique": false
+          },
+          {
+            "name": "route_id_uniq",
+            "key": {
+              "route_id": 1
+            },
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "profit_alerts",
+        "count_est": 0,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "created_at_1",
+            "key": {
+              "created_at": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "route_id_1",
+            "key": {
+              "route_id": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "route_recurrence",
+        "count_est": 134,
+        "index_count": 3,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "route_id_1",
+            "key": {
+              "route_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "times_positive_1",
+            "key": {
+              "times_positive": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "telegram_alerts_log",
+        "count_est": 0,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "kind_1_at_-1",
+            "key": {
+              "kind": 1,
+              "at": -1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "users",
+        "count_est": 1,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "username_1",
+            "key": {
+              "username": 1
+            },
+            "unique": true
+          }
+        ]
+      },
+      {
+        "name": "wallet_registry",
+        "count_est": 1,
+        "index_count": 4,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "wallet_id_1",
+            "key": {
+              "wallet_id": 1
+            },
+            "unique": true
+          },
+          {
+            "name": "chain_1_execution_role_1",
+            "key": {
+              "chain": 1,
+              "execution_role": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "address_1",
+            "key": {
+              "address": 1
+            },
+            "unique": false
+          }
+        ]
+      },
+      {
+        "name": "wallet_registry_audit",
+        "count_est": 1,
+        "index_count": 2,
+        "indexes": [
+          {
+            "name": "_id_",
+            "key": {
+              "_id": 1
+            },
+            "unique": false
+          },
+          {
+            "name": "wallet_id_1_at_-1",
+            "key": {
+              "wallet_id": 1,
+              "at": -1
+            },
+            "unique": false
+          }
+        ]
+      }
+    ],
+    "ttl_indexes": [
+      {
+        "collection": "adaptive_weight_recommendations",
+        "index": "retired_at_1"
+      },
+      {
+        "collection": "arbicore_audit_log",
+        "index": "ttl_90d"
+      },
+      {
+        "collection": "arbicore_discovery_candidates",
+        "index": "expires_at_1"
+      },
+      {
+        "collection": "arbicore_discovery_source_metrics",
+        "index": "captured_at_ts_1"
+      },
+      {
+        "collection": "arbicore_regime_snapshots",
+        "index": "ttl_90d"
+      },
+      {
+        "collection": "arbicore_state_snapshots",
+        "index": "ttl_30d"
+      },
+      {
+        "collection": "arbicore_temporal_sequences",
+        "index": "ttl_90d"
+      },
+      {
+        "collection": "arbicore_venue_capability_history",
+        "index": "captured_at_ts_1"
+      },
+      {
+        "collection": "calibration_models",
+        "index": "retired_at_1"
+      },
+      {
+        "collection": "mid_confidence",
+        "index": "ttl_ts"
+      },
+      {
+        "collection": "mid_enum_warnings",
+        "index": "ttl_ts"
+      },
+      {
+        "collection": "mid_gas",
+        "index": "ttl_ts"
+      },
+      {
+        "collection": "mid_liquidity",
+        "index": "ttl_ts"
+      },
+      {
+        "collection": "mid_market_state",
+        "index": "ttl_ts"
+      },
+      {
+        "collection": "mid_providers",
+        "index": "ttl_ts"
+      },
+      {
+        "collection": "mid_quotes",
+        "index": "ttl_ts"
+      },
+      {
+        "collection": "mid_replay",
+        "index": "ttl_ts"
+      }
+    ],
+    "unique_index_sample_count": 41
+  }
+}

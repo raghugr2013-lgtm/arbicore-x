@@ -1,0 +1,1 @@
+{"ping":1,"arbicore_cols":62,"discovery":3921188,"factory_denied":true,"factory_err":"not authorized on strategy_factory_v1 to execute command { listCollections: 1, filter: {}, cursor: {}, nameOnly: true, authorizedCollections: false, lsid: { id:","listDBs_denied":false,"admin_denied":true,"crud_read":true,"crud_delete":true,"ttl_indexes_login_attempts":0}

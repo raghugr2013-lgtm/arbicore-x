@@ -1,0 +1,379 @@
+{
+  "stamp": "20261002T080658Z",
+  "summary": {
+    "generated_at": "2026-10-02T08:06:58.467983+00:00",
+    "runner": {
+      "is_running": true,
+      "started_at": "2026-10-02T06:19:43.018995+00:00",
+      "last_cycle_at": "2026-10-02T08:06:54.362882+00:00",
+      "cycles_completed": 1282,
+      "exceptions": 0,
+      "opportunities_seen": 0,
+      "opportunities_processed": 0
+    },
+    "uptime_hours": 1.7876,
+    "span_hours": 1.7865,
+    "hours_to_8h_checkpoint": 6.2124,
+    "report": {
+      "total": 0,
+      "histogram": {
+        "EXECUTABLE": 0,
+        "REJECTED": 0,
+        "UNPROFITABLE": 0,
+        "LIQUIDITY_FAILURE": 0,
+        "GAS_FAILURE": 0,
+        "ROUTE_FAILURE": 0,
+        "RISK_FAILURE": 0,
+        "SIMULATION_FAILURE": 0
+      },
+      "rates": {
+        "EXECUTABLE": 0.0,
+        "REJECTED": 0.0,
+        "UNPROFITABLE": 0.0,
+        "LIQUIDITY_FAILURE": 0.0,
+        "GAS_FAILURE": 0.0,
+        "ROUTE_FAILURE": 0.0,
+        "RISK_FAILURE": 0.0,
+        "SIMULATION_FAILURE": 0.0
+      },
+      "executable_rate": 0.0,
+      "generated_at": "2026-10-02T08:06:58.501472+00:00"
+    },
+    "safety": {
+      "available": true,
+      "live_execution_enabled": false,
+      "require_approval_gate": true,
+      "require_paper_validation": true,
+      "kill": {
+        "engaged": true,
+        "reason": "boot_default",
+        "engaged_at": "2026-10-02T06:19:40.568298Z",
+        "history": []
+      },
+      "kill_switch_persistent": {
+        "engaged": false,
+        "reason": null
+      },
+      "effective_kill_engaged": true,
+      "capital_policy": {
+        "max_per_trade_usd": 500.0,
+        "max_per_chain_usd": 5000.0,
+        "max_daily_notional_usd": 25000.0,
+        "per_type_caps_usd": {}
+      },
+      "generated_at": "2026-10-02T08:06:58.513040+00:00"
+    },
+    "pulse_paper": {
+      "total": 0,
+      "executable_rate": 0.0,
+      "runner_running": true,
+      "outcome_counts": {}
+    },
+    "paper_stats": {
+      "available": true,
+      "analyses": 0,
+      "policy_blocked": 0,
+      "ev_positive": 0,
+      "ev_negative": 0,
+      "last_run_at": null,
+      "last_error": null,
+      "generated_at": "2026-10-02T08:06:58.560875+00:00"
+    },
+    "evidence_total": 0,
+    "executable_api_total": 0,
+    "daily_status_keys": [
+      "available",
+      "run_id",
+      "running",
+      "last_summary_at",
+      "last_anomalies",
+      "generated_at"
+    ],
+    "mode_items": [
+      {
+        "strategy": "cex_arbitrage",
+        "mode": "PAPER"
+      },
+      {
+        "strategy": "cross_chain_arbitrage",
+        "mode": "PAPER"
+      },
+      {
+        "strategy": "dex_capital_arbitrage",
+        "mode": "PAPER"
+      },
+      {
+        "strategy": "flash_loan_arbitrage",
+        "mode": "SHADOW"
+      },
+      {
+        "strategy": "portfolio_rebalance",
+        "mode": "PAPER"
+      },
+      {
+        "strategy": "position_management",
+        "mode": "PAPER"
+      },
+      {
+        "strategy": "treasury_movement",
+        "mode": "PAPER"
+      }
+    ]
+  },
+  "api": {
+    "/api/arbicore/validation/metrics": {
+      "status": 200,
+      "body": {
+        "runner_enabled": true,
+        "metrics_source": "in_memory",
+        "runner": {
+          "is_running": true,
+          "started_at": "2026-10-02T06:19:43.018995+00:00",
+          "last_cycle_at": "2026-10-02T08:06:54.362882+00:00",
+          "cycles_completed": 1282,
+          "opportunities_seen": 0,
+          "opportunities_processed": 0,
+          "opportunities_skipped_dup": 0,
+          "exceptions": 0,
+          "last_error": null,
+          "outcome_counts": {}
+        },
+        "generated_at": "2026-10-02T08:06:58.467983+00:00"
+      }
+    },
+    "/api/arbicore/validation/report": {
+      "status": 200,
+      "body": {
+        "total": 0,
+        "histogram": {
+          "EXECUTABLE": 0,
+          "REJECTED": 0,
+          "UNPROFITABLE": 0,
+          "LIQUIDITY_FAILURE": 0,
+          "GAS_FAILURE": 0,
+          "ROUTE_FAILURE": 0,
+          "RISK_FAILURE": 0,
+          "SIMULATION_FAILURE": 0
+        },
+        "rates": {
+          "EXECUTABLE": 0.0,
+          "REJECTED": 0.0,
+          "UNPROFITABLE": 0.0,
+          "LIQUIDITY_FAILURE": 0.0,
+          "GAS_FAILURE": 0.0,
+          "ROUTE_FAILURE": 0.0,
+          "RISK_FAILURE": 0.0,
+          "SIMULATION_FAILURE": 0.0
+        },
+        "executable_rate": 0.0,
+        "generated_at": "2026-10-02T08:06:58.501472+00:00"
+      }
+    },
+    "/api/arbicore/safety/status": {
+      "status": 200,
+      "body": {
+        "available": true,
+        "live_execution_enabled": false,
+        "require_approval_gate": true,
+        "require_paper_validation": true,
+        "kill": {
+          "engaged": true,
+          "reason": "boot_default",
+          "engaged_at": "2026-10-02T06:19:40.568298Z",
+          "history": []
+        },
+        "kill_switch_persistent": {
+          "engaged": false,
+          "reason": null
+        },
+        "effective_kill_engaged": true,
+        "capital_policy": {
+          "max_per_trade_usd": 500.0,
+          "max_per_chain_usd": 5000.0,
+          "max_daily_notional_usd": 25000.0,
+          "per_type_caps_usd": {}
+        },
+        "generated_at": "2026-10-02T08:06:58.513040+00:00"
+      }
+    },
+    "/api/arbicore/dashboard/pulse": {
+      "status": 200,
+      "body": {
+        "regime": {
+          "regime": "UNKNOWN",
+          "tags": [],
+          "confidence": 0.0,
+          "source": "canonical",
+          "observed_at": null
+        },
+        "opportunity_vitals": {
+          "total": 0,
+          "by_family": {},
+          "by_status": {}
+        },
+        "route_learning": {
+          "tracked_routes": 0
+        },
+        "paper_validation": {
+          "total": 0,
+          "executable_rate": 0.0,
+          "runner_running": true,
+          "outcome_counts": {}
+        },
+        "shadow_certification": {
+          "active": false,
+          "run_id": null,
+          "status": null,
+          "cycles_completed": 0,
+          "target_cycles": 0,
+          "executable_rate": 0.0
+        },
+        "scanner_status": {
+          "endpoint": "/api/arbicore/scanners",
+          "detail": "per-family scanner status"
+        },
+        "venue_readiness": {
+          "endpoint": "/api/venues/status",
+          "detail": "venue readiness registry"
+        },
+        "feed_freshness": {
+          "endpoint": "/api/execution/portal/diagnostic",
+          "detail": "portal feed freshness"
+        },
+        "interlock": {
+          "endpoint": "/api/execution/interlock",
+          "detail": "safety interlock status"
+        },
+        "deployable_capital": {
+          "endpoint": "/api/portfolio/deployable",
+          "detail": "deployable capital"
+        },
+        "anomalies": [],
+        "source": "canonical",
+        "generated_at": "2026-10-02T08:06:58.543460+00:00"
+      }
+    },
+    "/api/arbicore/execution/mode": {
+      "status": 200,
+      "body": {
+        "items": [
+          {
+            "strategy": "cex_arbitrage",
+            "mode": "PAPER",
+            "seeded": true,
+            "created_at": "2026-09-07T05:24:07.936469+00:00",
+            "updated_at": "2026-09-07T05:24:07.936469+00:00"
+          },
+          {
+            "strategy": "cross_chain_arbitrage",
+            "mode": "PAPER",
+            "seeded": true,
+            "created_at": "2026-09-07T05:24:07.960548+00:00",
+            "updated_at": "2026-09-07T05:24:07.960548+00:00"
+          },
+          {
+            "strategy": "dex_capital_arbitrage",
+            "mode": "PAPER",
+            "seeded": true,
+            "created_at": "2026-09-07T05:24:07.949645+00:00",
+            "updated_at": "2026-09-07T05:24:07.949645+00:00"
+          },
+          {
+            "strategy": "flash_loan_arbitrage",
+            "mode": "SHADOW",
+            "seeded": true,
+            "created_at": "2026-09-07T05:24:07.928883+00:00",
+            "updated_at": "2026-09-07T05:24:07.928883+00:00"
+          },
+          {
+            "strategy": "portfolio_rebalance",
+            "mode": "PAPER",
+            "seeded": true,
+            "created_at": "2026-09-07T05:24:07.971337+00:00",
+            "updated_at": "2026-09-07T05:24:07.971337+00:00"
+          },
+          {
+            "strategy": "position_management",
+            "mode": "PAPER",
+            "seeded": true,
+            "created_at": "2026-09-07T05:24:07.991373+00:00",
+            "updated_at": "2026-09-07T05:24:07.991373+00:00"
+          },
+          {
+            "strategy": "treasury_movement",
+            "mode": "PAPER",
+            "seeded": true,
+            "created_at": "2026-09-07T05:24:07.981730+00:00",
+            "updated_at": "2026-09-07T05:24:07.981730+00:00"
+          }
+        ],
+        "ladder": [
+          "OBSERVE",
+          "PAPER",
+          "SHADOW",
+          "LIMITED_LIVE",
+          "FULL_LIVE"
+        ],
+        "trading_strategies": [
+          "flash_loan_arbitrage",
+          "cex_arbitrage",
+          "dex_capital_arbitrage",
+          "cross_chain_arbitrage",
+          "portfolio_rebalance",
+          "treasury_movement",
+          "position_management"
+        ],
+        "defaults": {
+          "flash_loan_arbitrage": "SHADOW",
+          "cex_arbitrage": "PAPER",
+          "dex_capital_arbitrage": "PAPER",
+          "cross_chain_arbitrage": "PAPER",
+          "portfolio_rebalance": "PAPER",
+          "treasury_movement": "PAPER",
+          "position_management": "PAPER"
+        },
+        "generated_at": "2026-10-02T08:06:58.553447+00:00"
+      }
+    },
+    "/api/arbicore/paper/stats": {
+      "status": 200,
+      "body": {
+        "available": true,
+        "analyses": 0,
+        "policy_blocked": 0,
+        "ev_positive": 0,
+        "ev_negative": 0,
+        "last_run_at": null,
+        "last_error": null,
+        "generated_at": "2026-10-02T08:06:58.560875+00:00"
+      }
+    },
+    "/api/arbicore/validation/evidence?limit=20": {
+      "status": 200,
+      "body": {
+        "items": [],
+        "total": 0,
+        "generated_at": "2026-10-02T08:06:58.573655+00:00"
+      }
+    },
+    "/api/arbicore/validation/evidence?outcome=EXECUTABLE&limit=50": {
+      "status": 200,
+      "body": {
+        "items": [],
+        "total": 0,
+        "generated_at": "2026-10-02T08:06:58.588063+00:00"
+      }
+    },
+    "/api/arbicore/validation/daily_status": {
+      "status": 200,
+      "body": {
+        "available": true,
+        "run_id": "run_20261002_0619",
+        "running": true,
+        "last_summary_at": "2026-10-02T06:19:43.877412Z",
+        "last_anomalies": [],
+        "generated_at": "2026-10-02T08:06:58.594369+00:00"
+      }
+    }
+  }
+}

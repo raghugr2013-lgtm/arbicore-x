@@ -1,0 +1,6 @@
+fixture_followup_sha=57f53651d8c7638d0a5f3d2cd8eb2c083fd97f44
+in_selfcontained_bundle=NO
+scope=test hygiene only (autouse clear of _RPC_HOST_COOLDOWN_UNTIL)
+product_code_changes=NONE
+cert_ref=docs/certification/WORKSTREAM_A_QUOTER_429_BEFB14E_INDEPENDENT_CERT_20261002.md §13
+deploy_product_package=befb14e only (fixture separate)

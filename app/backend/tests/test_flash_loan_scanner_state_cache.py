@@ -284,7 +284,8 @@ async def test_disabled_tick_is_noop_and_gate7_still_denies():
     assert scanner.is_enabled() is False
     assert discover_calls["n"] == seen
     assert scanner.stats["iterations"] == 1
-    assert queue.claims == 1
+    # Hybrid E: one productive claim + one empty terminator claim_batch.
+    assert queue.claims == 2
     assert bus.emits == []
 
 
@@ -350,11 +351,19 @@ class _Queue:
     async def upsert_many(self, cands):
         return None
 
-    async def claim_batch(self, worker_id, batch_size=32):
+    async def claim_batch(self, worker_id, batch_size=32, claim_ttl_s=60.0):
         self.claims += 1
         item = self.pending
         self.pending = None
         return [item] if item is not None else []
+
+    async def queue_status(self, fresh_window_s=120.0, include_breakdowns=True):
+        return {
+            "unclaimed_eligible": 0,
+            "fresh_eligible": 0,
+            "per_chain_backlog": {},
+            "per_strategy_backlog": {},
+        }
 
     async def mark_processed(self, candidate_id, outcome, opportunity_id=None,
                              observed_at=None):

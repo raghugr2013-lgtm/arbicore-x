@@ -1,0 +1,15 @@
+{
+  "ts": "2026-10-09T10:25:11.451116+00:00",
+  "handle_id": "sec-3cec159e23d7495ab89140e5452a3d67",
+  "fields_preserved": true,
+  "non_cipher_fields_unchanged": true,
+  "old_cipher_sha12": "660386c2e939",
+  "new_cipher_sha12": "45e7f15ca337",
+  "plaintext_sha12": "b4ce2e6143a2",
+  "derived_address": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+  "address_unchanged": true,
+  "new_key_sha12": "fb5ca619211e",
+  "old_key_cannot_decrypt_new_cipher": true,
+  "matched_count": 1,
+  "modified_count": 1
+}

@@ -1,0 +1,195 @@
+# ArbiCore X — R3 decision package (read-only)
+
+**Status:** Ready for operator decision — **no R3 mutation authorised or executed**  
+**Package UTC:** `2026-10-10T09:59:19Z` – `2026-10-10T10:01:00Z`  
+**Artifact dir:** `artifacts/security/r3_decision_package_20261010T095919Z/`  
+
+**Preserved controls (do not change in R3):** R1 PASS · R2-DISABLE PASS · S2-A image/digest `sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313` · six-chain primary `ca6545ba` + retained fallbacks · SHADOW · AUTOEXEC=false · RUNTIME=false · signing/broadcast off · legacy stopped · g5.79 untouched
+
+Related:  
+- Preflight [`../r3_mongo_leastpriv_preflight_20261010T091636Z/R3_MONGO_LEASTPRIV_PREFLIGHT.md`](../r3_mongo_leastpriv_preflight_20261010T091636Z/R3_MONGO_LEASTPRIV_PREFLIGHT.md)  
+- Triage [`../r3_ransomdb_triage_20261010T092301Z/R3_REVIEW_AND_TRIAGE_REPORT.md`](../r3_ransomdb_triage_20261010T092301Z/R3_REVIEW_AND_TRIAGE_REPORT.md)
+
+---
+
+## A. Incident evidence and limitations
+
+### A.1 Preserved note (contacts minimised)
+
+| Field | Value |
+|---|---|
+| Database / collection | `READ_ME_TO_RECOVER_YOUR_DATA` / `README` |
+| ObjectId | `6a9de5fd18cefafbd9b6a63e` |
+| Generation time | **`2026-09-06T22:15:25Z`** |
+| Content SHA-256 | `571795143f3100d1c615a8a25da215ef16e15504d02e622c27e99dcd5896b738` |
+| Classification | MongoDB ransomware scare-note |
+| Confidence | **High** |
+| Redacted preserve | [`incident_note_preserved_redacted.json`](incident_note_preserved_redacted.json) |
+| Unredacted (restricted) | `r3_ransomdb_triage_…/readme_db_inspection.json` |
+
+**Operator rule:** Do **not** pay, contact, or open note URLs.
+
+### A.2 Log inventory (before / after 2026-09-06)
+
+| Source | Available? | Covers note creation? | Limitation |
+|---|---|---|---|
+| Current `factory-mongo` docker logs | Yes (via `docker logs`) | **No** | Container started **`2026-09-07T05:21:43Z`** — after the note |
+| Prior mongod instance logs | **No** | Unknown | Lost on recreate unless archived elsewhere (not found) |
+| Docker json-file on disk | Exists | N/A | **Permission denied** to operator UID without elevation |
+| LogConfig | `json-file`, Config `{}` | N/A | Explicit max-size/rotation **not** set in inspect — retention policy unverified |
+| `/var/log/auth.log`, `/var/log/syslog` | Exist | Unknown | **Not readable** to current UID — **not reviewed** |
+| systemd journal around 2026-09-06 | Not fully reviewed | Unknown | Requires elevated access for a complete pass |
+| Prior security artifacts | Yes | Partial | R3 preflight/triage only discovered the note recently |
+
+**Evidence:** [`log_inventory.json`](log_inventory.json), [`log_file_meta.json`](log_file_meta.json), triage log samples.
+
+### A.3 Explicit gap statement
+
+**Absence of retained logs for 2026-09-06 does not prove that no compromise occurred.**  
+The scare-note itself is positive evidence of an unauthorized write at or near that ObjectId time. Pre-restart activity is **unknown**.
+
+---
+
+## B. Compromise indicators found (and not found)
+
+| Indicator | Result | Evidence |
+|---|---|---|
+| Ransomware note DB | **Found** (high confidence) | ObjectId `2026-09-06T22:15:25Z`; redacted preserve |
+| Unfamiliar Mongo users | **Not found** | Only `root@admin`; `arbicore_x` users `[]` |
+| App DB wipe / mass encryption | **Not evident now** | `arbicore_x` 62 cols; discovery ≈ 3.9M still present |
+| Host-published `:27017` now | **Not found** | Ports null; no host listener |
+| Auth enabled now | **Yes** since current container start | startup options in triage head logs |
+| Auth failures | **Some** | Startup root mismatch from Docker IP; 39× `Failed to authenticate` in recent 5k-line filter — **not** alone proof of ongoing internet attack |
+| Config change at recreate | Container start + auth enabled `2026-09-07` | Consistent with remediation/recreate after note |
+| Data export (`mongodump` etc.) in samples | **Not identified** | Full multi-week log not exhaustively searched |
+| Ongoing internet Mongo exposure | **Not supported** by current publish state | Lateral risk on Docker networks remains |
+
+**Bottom line:** Historical unauthorized write **likely**. Ongoing host-internet Mongo exposure **not** demonstrated now. Full blast radius of 2026-09-06 **cannot** be closed from retained logs alone.
+
+---
+
+## C. Exact proposed R3 mutation (awaiting auth)
+
+### C.1 Scope
+
+| In scope | Out of scope |
+|---|---|
+| Create Mongo user `arbicore_app` with `readWrite` on `arbicore_x` only | Factory URI/credential changes |
+| Change **only** ArbiCore backend `MONGO_URL` | Root password rotation (separate auth recommended later) |
+| Recreate **only** `arbicore-x-backend-new` on **exact** S2-A digest | Deleting ransom DB; `/tmp` scrub; R4–R6; P2; live trading |
+| Keep `root` as break-glass | Starting legacy containers |
+
+### C.2 Secret handling
+
+1. Generate password offline (`openssl rand -base64 32` or equivalent) into a **0600** temp file or agent memory — **never** echo to chat/logs.  
+2. Create user via `mongosh` with password from prompt/file redirection.  
+3. Write new URI into `.env` using a script that does not print the value; verify by **username + sha12 of password** only.  
+4. Escrow app password in the same restricted backup dir as `.env` backup (0600).  
+5. Shred temp password files after cutover.
+
+### C.3 Commands (placeholders only — no secrets)
+
+```bash
+# 0) Preconditions
+EXPECTED=sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313
+test "$(docker inspect arbicore-x-backend-new --format '{{.Image}}')" = "$EXPECTED"
+TS=$(date -u +%Y%m%dT%H%M%SZ)
+BK=/home/raghu/arbicore_backups/r3_mongo_leastpriv_${TS}
+mkdir -p "$BK" && chmod 700 "$BK"
+
+# 1) Backup ArbiCore DB + env (root break-glass; values not printed)
+# mongodump via factory-mongo as root — use existing root from escrow/ENV without logging URI
+docker exec factory-mongo mongodump --db=arbicore_x --archive=/tmp/arbicore_x_${TS}.archive --gzip
+docker cp factory-mongo:/tmp/arbicore_x_${TS}.archive "$BK/"
+cp -a /home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env "$BK/backend.env.pre-r3"
+chmod 600 "$BK"/*
+
+# 2) Create app user (password via prompt — do not log)
+docker exec -it factory-mongo mongosh --quiet --username root --password --authenticationDatabase admin <<'EOF'
+use admin
+db.createUser({
+  user: "arbicore_app",
+  pwd:  passwordPrompt(),
+  roles: [ { role: "readWrite", db: "arbicore_x" } ]
+})
+EOF
+
+# 3) Offline verify as arbicore_app (expect: ping ok; strategy_factory_v1 denied)
+# (operator-run; record pass/fail only)
+
+# 4) Update ONLY ArbiCore .env MONGO_URL user/pass host factory-mongo authSource=admin
+#    DB_NAME=arbicore_x unchanged; no other keys
+
+# 5) Recreate backend only
+cd /home/raghu/projects/arbicore-x-v2/deployment/upgrade/compose
+docker compose -f docker-compose.prod.yml -f /tmp/arbicore-s2a-rpc-redact-override.yml \
+  up -d --no-deps --force-recreate --pull never backend
+test "$(docker inspect arbicore-x-backend-new --format '{{.Image}}')" = "$EXPECTED"
+```
+
+### C.4 Health / acceptance checks
+
+| Check | Expect |
+|---|---|
+| Digest | unchanged `69fe2459…` |
+| Parsed URI username | `arbicore_app` |
+| `usersInfo` on `arbicore_x` | shows `arbicore_app` + `readWrite` |
+| `GET /api/` | 200 |
+| Admin login + `/api/auth/me` | 200 |
+| Setup without bootstrap | **503** (R2) |
+| Public `/docs` | **404** (R1) |
+| Alchemy primary / fallbacks | `ca6545ba` / unchanged `[1..5]` |
+| Controls | SHADOW; AUTOEXEC/RUNTIME false; legacy exited |
+| Index/TTL | Boot without auth errors; existing TTL indexes still listed |
+| Negative | `arbicore_app` cannot read `strategy_factory_v1` |
+
+### C.5 Rollback
+
+```bash
+cp -a "$BK/backend.env.pre-r3" /home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env
+chmod 600 /home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env
+cd /home/raghu/projects/arbicore-x-v2/deployment/upgrade/compose
+docker compose -f docker-compose.prod.yml -f /tmp/arbicore-s2a-rpc-redact-override.yml \
+  up -d --no-deps --force-recreate --pull never backend
+# confirm username root + healthy + digest EXPECTED
+```
+
+Optional: leave `arbicore_app` user in place after rollback (harmless) or drop later via break-glass.
+
+### C.6 Factory / root
+
+- `factory-backend` / `factory-runner`: **unchanged** (still root → `strategy_factory_v1`).  
+- `root`: retained for break-glass only; **not** left in ArbiCore app ENV after successful cutover.
+
+---
+
+## D. What remains unknown / separate authorisations
+
+| ID | Unknown / follow-on | Required auth |
+|---|---|---|
+| U1 | Full activity on/before `2026-09-06` (pre-restart logs missing) | Elevated log review + possible offline disk forensics |
+| U2 | Whether any data was exported or deleted historically | Incident response (separate) |
+| U3 | Disposition of ransom-note DB | **Separate** cleanup auth (do not bundle with first R3 apply unless operator insists) |
+| U4 | Root password age / rotation | **Separate** after R3 app cutover |
+| U5 | Factory least-privilege | **Separate** peer project auth |
+| U6 | Host auth.log/syslog content | Elevated read auth |
+| U7 | Historical `/tmp` env copies of other secrets | Separate scrub plan (post-R2 proposal already exists) |
+
+---
+
+## E. Decision ask
+
+**Requested authorisation (single package):**
+
+> Execute **R3-APPLY**: create `arbicore_app` (`readWrite`@`arbicore_x`), switch ArbiCore `MONGO_URL` only, recreate backend on digest `69fe2459…`, run acceptance §C.4; on failure execute §C.5 rollback.  
+> **Exclude** ransom-DB deletion, root rotation, Factory changes, P2, and execution enablement unless separately stated.
+
+**Overall security gate / P2:** remains **BLOCKED** regardless of R3 outcome until R4–R6 (and policy residuals) close.
+
+---
+
+## Safety confirmation
+
+This package is **documentation and evidence only**. No users created, roles granted, URIs changed, services recreated, secrets rotated, or databases modified.
+
+**Stopped — awaiting explicit R3-APPLY authorisation.**

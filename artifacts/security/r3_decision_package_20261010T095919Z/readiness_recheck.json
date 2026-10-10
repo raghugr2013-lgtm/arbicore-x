@@ -1,0 +1,53 @@
+{
+  "captured_utc": "2026-10-10T10:19:54Z",
+  "verdict": "READY FOR EXPLICIT AUTHORISATION",
+  "image_id": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "digest_prefix_ok": true,
+  "controls": {
+    "ARBICORE_EXECUTION_MODE": "SHADOW",
+    "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+    "ARBICORE_RUNTIME_AUTOSTART": "false",
+    "BOOTSTRAP_PRESENT": false
+  },
+  "controls_ok": true,
+  "alchemy_key_fps_by_chain": {
+    "ETHEREUM": "ca6545ba",
+    "ARBITRUM": "ca6545ba",
+    "OPTIMISM": "ca6545ba",
+    "POLYGON": "ca6545ba",
+    "BNB": "ca6545ba",
+    "BASE": null
+  },
+  "alchemy_primary_fps_ca6545ba_ok": true,
+  "base_rpc_is_public_endpoint": true,
+  "r1_docs": {
+    "https://144-91-78-175.sslip.io/docs": 404,
+    "https://arbicorex.in/docs": 404,
+    "https://api.arbicorex.in/docs": 404
+  },
+  "r1_ok": true,
+  "r2_post_auth_setup": {
+    "local": 503,
+    "sslip": 503,
+    "api": 503
+  },
+  "r2_ok": true,
+  "arbicore_mongo_username": "root",
+  "backup_validation_passed": true,
+  "backup_archive": "/home/raghu/arbicore_backups/r3_backup_validation_20261010T101234Z/arbicore_x_20261010T101234Z.archive.gz",
+  "backup_size_bytes": 462853739,
+  "backup_mode": "0o600",
+  "collections_dumped": 56,
+  "credential_mechanism": "factory-mongo container ENV MONGO_INITDB_ROOT_USERNAME/PASSWORD expanded inside docker exec sh -c (never on host argv)",
+  "package_has_authenticated_dump": true,
+  "original_package_preserved": true,
+  "correction_doc": "R3_BACKUP_CORRECTION.md",
+  "ready_for_explicit_authorisation": true,
+  "remaining_prerequisites": [
+    "Explicit R3-APPLY authorisation (separate)",
+    "Apply-time createUser via passwordPrompt / escrow (not yet executed)",
+    "Apply-time MONGO_URL switch + backend recreate (not yet executed)",
+    "Historical ransom-note / pre-2026-09-07 log gap residual (accepted in decision package; not a backup blocker)"
+  ],
+  "r3_applied": false
+}

@@ -1,0 +1,6 @@
+{
+  "utc": "2026-10-10T10:33:44Z",
+  "stage": "offline_verify",
+  "detail": "listDBs_denied=False full={'ping': 1, 'arbicore_cols': 62, 'discovery': 3921188, 'factory_denied': True, 'factory_err': 'not authorized on strategy_factory_v1 to execute command { listCollections: 1, filter: {}, cursor: {}, nameOnly: true, authorizedCollections: false, lsid: { id:', 'listDBs_denied': False, 'admin_denied': True, 'crud_read': True, 'crud_delete': True, 'ttl_indexes_login_attempts': 0}",
+  "r3_applied": false
+}

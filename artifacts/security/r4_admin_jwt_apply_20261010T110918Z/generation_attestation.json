@@ -1,0 +1,18 @@
+{
+  "utc": "2026-10-10T11:12:20Z",
+  "jwt": {
+    "present": true,
+    "len": 64,
+    "sha12": "f98650d468b2"
+  },
+  "admin_pass": {
+    "present": true,
+    "len": 32,
+    "sha12": "112c88ac69e1"
+  },
+  "method": {
+    "jwt": "openssl rand -hex 32",
+    "admin": "openssl rand -base64 24"
+  },
+  "note": "values only in 0600 escrow under BK; never printed"
+}

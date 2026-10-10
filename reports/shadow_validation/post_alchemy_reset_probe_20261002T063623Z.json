@@ -1,0 +1,906 @@
+{
+  "phase": "post_alchemy_reset_rpc_probe",
+  "note": "Operator endpoints only: single ARBICORE_RPC_URL_<CHAIN> mirrored to PROVIDER_RPC_URLS_<CHAIN>. No invented secondary URLs. No subgraph URLs.",
+  "subgraph_env": {
+    "ARBICORE_BALANCER_SUBGRAPH_URL_ETHEREUM": "UNSET",
+    "ARBICORE_BALANCER_SUBGRAPH_URL_ARBITRUM": "UNSET",
+    "ARBICORE_BALANCER_SUBGRAPH_URL_BASE": "UNSET",
+    "ARBICORE_BALANCER_SUBGRAPH_URL_OPTIMISM": "UNSET",
+    "ARBICORE_BALANCER_SUBGRAPH_URL_POLYGON": "UNSET"
+  },
+  "chains": {
+    "ethereum": {
+      "rpc_host": "https://eth-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://eth-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "block": 26102888
+        },
+        "eth_chainId": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "chain_id": 1
+        },
+        "eth_getBalance": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_call": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_getLogs_200blocks": {
+          "http_status": 400,
+          "ok": false,
+          "rpc_error": {
+            "code": -32600,
+            "message": "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x18e4ba0, 0x18e4ba9]. Upgrade to PAYG for expanded block range."
+          },
+          "returned": null,
+          "from": 26102688,
+          "to": 26102888,
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+        },
+        "rpc_health": "healthy",
+        "failure_type": "none"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "ok",
+          "block": 26102888
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": true
+        },
+        "getLogs_small": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=ethereum: last_error=ProviderError('rpc_ethereum_0_eth-mainnet_g_alchemy_co eth_getLogs -> 400')",
+          "failure_type": "transport_or_provider_error"
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'ethereum' (ARBICORE_BALANCER_SUBGRAPH_URL_ETHEREUM)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "discovery_unavailable",
+        "error": "eth_getLogs failed [26052888,26054887]: ProviderError",
+        "candidates": 0,
+        "provenance": {
+          "chain": "ethereum",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "chunks": 1
+        }
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'ethereum' (ARBICORE_BALANCER_SUBGRAPH_URL_ETHEREUM)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "discovery_unavailable",
+          "error": "eth_getLogs failed [26052888,26054887]: HTTPStatusError",
+          "candidates": 0,
+          "sample": [],
+          "provenance": {
+            "chain": "ethereum",
+            "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+            "chunks": 1
+          },
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": {
+          "status": "ok",
+          "error": null,
+          "amount_out_wei": 19964292249159158825,
+          "block_number": 26102888,
+          "pool_id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014",
+          "pool_address": "0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56",
+          "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+          "token_out": "0xba100000625a3754423978a60c9317c58a424e3D",
+          "amount_in_wei": 1000000000000000,
+          "meta": {
+            "pool_address": "0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56",
+            "pool_id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014",
+            "tokens": [
+              "0xba100000625a3754423978a60c9317c58a424e3D",
+              "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+            ],
+            "balances": [
+              30568056582539577572503301,
+              378955659484344296620
+            ],
+            "decimals": [
+              18,
+              18
+            ],
+            "swap_fee_bps": 100.0,
+            "last_change_block": 26102844
+          },
+          "ok": true
+        },
+        "failures": [],
+        "rpc": "https://eth-mainnet.g.alchemy.com/<redacted>"
+      },
+      "matrix": {
+        "chain": "ethereum",
+        "rpc_health": "healthy",
+        "http_status_blockNumber": 200,
+        "eth_call": true,
+        "eth_getLogs": false,
+        "failure_type": "none",
+        "canonical_block": "ok",
+        "p1b_registry": "discovery_unavailable",
+        "harness_p1b": "discovery_unavailable",
+        "harness_p0": "ok"
+      }
+    },
+    "arbitrum": {
+      "rpc_host": "https://arb-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://arb-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "block": 510905328
+        },
+        "eth_chainId": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "chain_id": 42161
+        },
+        "eth_getBalance": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_call": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_getLogs_200blocks": {
+          "http_status": 400,
+          "ok": false,
+          "rpc_error": {
+            "code": -32600,
+            "message": "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x1e73cb28, 0x1e73cb31]. Upgrade to PAYG for expanded block range."
+          },
+          "returned": null,
+          "from": 510905128,
+          "to": 510905328,
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+        },
+        "rpc_health": "healthy",
+        "failure_type": "none"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "ok",
+          "block": 510905329
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": true
+        },
+        "getLogs_small": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=arbitrum: last_error=ProviderError('rpc_arbitrum_0_arb-mainnet_g_alchemy_co eth_getLogs -> 400')",
+          "failure_type": "transport_or_provider_error"
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'arbitrum' (ARBICORE_BALANCER_SUBGRAPH_URL_ARBITRUM)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "discovery_unavailable",
+        "error": "eth_getLogs failed [510855329,510857328]: ProviderError",
+        "candidates": 0,
+        "provenance": {
+          "chain": "arbitrum",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "chunks": 1
+        }
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'arbitrum' (ARBICORE_BALANCER_SUBGRAPH_URL_ARBITRUM)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "discovery_unavailable",
+          "error": "eth_getLogs failed [510855329,510857328]: HTTPStatusError",
+          "candidates": 0,
+          "sample": [],
+          "provenance": {
+            "chain": "arbitrum",
+            "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+            "chunks": 1
+          },
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": null,
+        "failures": [
+          "no_pool_identity_for_p0"
+        ],
+        "rpc": "https://arb-mainnet.g.alchemy.com/<redacted>"
+      },
+      "matrix": {
+        "chain": "arbitrum",
+        "rpc_health": "healthy",
+        "http_status_blockNumber": 200,
+        "eth_call": true,
+        "eth_getLogs": false,
+        "failure_type": "none",
+        "canonical_block": "ok",
+        "p1b_registry": "discovery_unavailable",
+        "harness_p1b": "discovery_unavailable",
+        "harness_p0": null
+      }
+    },
+    "base": {
+      "rpc_host": "https://mainnet.base.org/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://mainnet.base.org/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "block": 52066822
+        },
+        "eth_chainId": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "chain_id": 8453
+        },
+        "eth_getBalance": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_call": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_getLogs_200blocks": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "returned": 0,
+          "from": 52066623,
+          "to": 52066823,
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+        },
+        "rpc_health": "healthy",
+        "failure_type": "none"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "ok",
+          "block": 52066823
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": true
+        },
+        "getLogs_small": {
+          "status": "ok",
+          "returned": 0,
+          "from": 52066623,
+          "to": 52066823
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'base' (ARBICORE_BALANCER_SUBGRAPH_URL_BASE)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "ok",
+        "error": null,
+        "candidates": 1,
+        "provenance": {
+          "chain": "base",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "from_block": 52016823,
+          "to_block": 52066823,
+          "chunks": 26,
+          "chunk_size": 2000,
+          "returned": 1,
+          "event_topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e"
+        }
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'base' (ARBICORE_BALANCER_SUBGRAPH_URL_BASE)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "ok",
+          "error": null,
+          "candidates": 1,
+          "sample": [
+            {
+              "pool_id": "0xd9fbd26c97b0fe0edf6a188ef438ff440bc1a63600020000000000000000037f",
+              "pool_address": "0xd9fBd26c97b0Fe0EDf6a188ef438Ff440Bc1A636",
+              "raw_block": 52061059
+            }
+          ],
+          "provenance": {
+            "chain": "base",
+            "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+            "from_block": 52016826,
+            "to_block": 52066826,
+            "chunks": 26,
+            "chunk_size": 2000,
+            "returned": 1,
+            "event_topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e"
+          },
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": {
+          "status": "token_not_in_pool",
+          "error": "token_in/token_out not both present in pool",
+          "amount_out_wei": 0,
+          "block_number": null,
+          "pool_id": "0xd9fbd26c97b0fe0edf6a188ef438ff440bc1a63600020000000000000000037f",
+          "pool_address": "0xd9fBd26c97b0Fe0EDf6a188ef438Ff440Bc1A636",
+          "token_in": "0x4200000000000000000000000000000000000006",
+          "token_out": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "amount_in_wei": 1000000000000000,
+          "meta": {
+            "pool_address": "0xd9fBd26c97b0Fe0EDf6a188ef438Ff440Bc1A636",
+            "pool_id": "0xd9fbd26c97b0fe0edf6a188ef438ff440bc1a63600020000000000000000037f",
+            "tokens": [
+              "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+              "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"
+            ],
+            "balances": [
+              1,
+              1
+            ],
+            "decimals": [
+              6,
+              6
+            ],
+            "swap_fee_bps": 5.0,
+            "last_change_block": 52063205
+          }
+        },
+        "failures": [],
+        "rpc": "https://mainnet.base.org/<redacted>"
+      },
+      "matrix": {
+        "chain": "base",
+        "rpc_health": "healthy",
+        "http_status_blockNumber": 200,
+        "eth_call": true,
+        "eth_getLogs": true,
+        "failure_type": "none",
+        "canonical_block": "ok",
+        "p1b_registry": "ok",
+        "harness_p1b": "ok",
+        "harness_p0": "token_not_in_pool"
+      }
+    },
+    "optimism": {
+      "rpc_host": "https://opt-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://opt-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "block": 157662116
+        },
+        "eth_chainId": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "chain_id": 10
+        },
+        "eth_getBalance": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_call": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_getLogs_200blocks": {
+          "http_status": 400,
+          "ok": false,
+          "rpc_error": {
+            "code": -32600,
+            "message": "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x965badc, 0x965bae5]. Upgrade to PAYG for expanded block range."
+          },
+          "returned": null,
+          "from": 157661916,
+          "to": 157662116,
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+        },
+        "rpc_health": "healthy",
+        "failure_type": "none"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "ok",
+          "block": 157662116
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": true
+        },
+        "getLogs_small": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=optimism: last_error=ProviderError('rpc_optimism_0_opt-mainnet_g_alchemy_co eth_getLogs -> 400')",
+          "failure_type": "transport_or_provider_error"
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'optimism' (ARBICORE_BALANCER_SUBGRAPH_URL_OPTIMISM)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "discovery_unavailable",
+        "error": "eth_getLogs failed [157612116,157614115]: ProviderError",
+        "candidates": 0,
+        "provenance": {
+          "chain": "optimism",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "chunks": 1
+        }
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'optimism' (ARBICORE_BALANCER_SUBGRAPH_URL_OPTIMISM)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "discovery_unavailable",
+          "error": "eth_getLogs failed [157612116,157614115]: HTTPStatusError",
+          "candidates": 0,
+          "sample": [],
+          "provenance": {
+            "chain": "optimism",
+            "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+            "chunks": 1
+          },
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": null,
+        "failures": [
+          "no_pool_identity_for_p0"
+        ],
+        "rpc": "https://opt-mainnet.g.alchemy.com/<redacted>"
+      },
+      "matrix": {
+        "chain": "optimism",
+        "rpc_health": "healthy",
+        "http_status_blockNumber": 200,
+        "eth_call": true,
+        "eth_getLogs": false,
+        "failure_type": "none",
+        "canonical_block": "ok",
+        "p1b_registry": "discovery_unavailable",
+        "harness_p1b": "discovery_unavailable",
+        "harness_p0": null
+      }
+    },
+    "polygon": {
+      "rpc_host": "https://polygon-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://polygon-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "block": 94811914
+        },
+        "eth_chainId": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "chain_id": 137
+        },
+        "eth_getBalance": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_call": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_getLogs_200blocks": {
+          "http_status": 400,
+          "ok": false,
+          "rpc_error": {
+            "code": -32600,
+            "message": "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x5a6b642, 0x5a6b64b]. Upgrade to PAYG for expanded block range."
+          },
+          "returned": null,
+          "from": 94811714,
+          "to": 94811914,
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+        },
+        "rpc_health": "healthy",
+        "failure_type": "none"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "ok",
+          "block": 94811914
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": true
+        },
+        "getLogs_small": {
+          "status": "error",
+          "error_type": "ProviderError",
+          "error": "all providers exhausted for kind=rpc chain=polygon: last_error=ProviderError('rpc_polygon_0_polygon-mainnet_g_alchem eth_getLogs -> 400')",
+          "failure_type": "transport_or_provider_error"
+        }
+      },
+      "subgraph": {
+        "status": "discovery_unavailable",
+        "error": "no subgraph URL configured for chain 'polygon' (ARBICORE_BALANCER_SUBGRAPH_URL_POLYGON)",
+        "candidates": 0
+      },
+      "p1b_registry": {
+        "status": "discovery_unavailable",
+        "error": "eth_getLogs failed [94761914,94763913]: ProviderError",
+        "candidates": 0,
+        "provenance": {
+          "chain": "polygon",
+          "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+          "chunks": 1
+        }
+      },
+      "harness_balancer": {
+        "p1_subgraph": {
+          "status": "discovery_unavailable",
+          "error": "no subgraph URL configured for chain 'polygon' (ARBICORE_BALANCER_SUBGRAPH_URL_POLYGON)",
+          "candidates": 0,
+          "source": "balancer_v2_subgraph",
+          "expected_unavailable_without_url": true
+        },
+        "p1b_onchain": {
+          "status": "discovery_unavailable",
+          "error": "eth_getLogs failed [94761915,94763914]: HTTPStatusError",
+          "candidates": 0,
+          "sample": [],
+          "provenance": {
+            "chain": "polygon",
+            "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+            "chunks": 1
+          },
+          "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+          "window_blocks": 50000
+        },
+        "p0": null,
+        "failures": [
+          "no_pool_identity_for_p0"
+        ],
+        "rpc": "https://polygon-mainnet.g.alchemy.com/<redacted>"
+      },
+      "matrix": {
+        "chain": "polygon",
+        "rpc_health": "healthy",
+        "http_status_blockNumber": 200,
+        "eth_call": true,
+        "eth_getLogs": false,
+        "failure_type": "none",
+        "canonical_block": "ok",
+        "p1b_registry": "discovery_unavailable",
+        "harness_p1b": "discovery_unavailable",
+        "harness_p0": null
+      }
+    },
+    "bnb": {
+      "rpc_host": "https://bnb-mainnet.g.alchemy.com/<redacted>",
+      "provider_urls_count": 1,
+      "direct_http": {
+        "rpc_host": "https://bnb-mainnet.g.alchemy.com/<redacted>",
+        "eth_blockNumber": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "block": 125245575
+        },
+        "eth_chainId": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true,
+          "chain_id": 56
+        },
+        "eth_getBalance": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_call": {
+          "http_status": 200,
+          "ok": true,
+          "rpc_error": null,
+          "result_present": true
+        },
+        "eth_getLogs_200blocks": {
+          "skipped": "no_balancer_vault_on_chain"
+        },
+        "rpc_health": "healthy",
+        "failure_type": "none"
+      },
+      "canonical_failover": {
+        "logs_fn": true,
+        "call_fn": true,
+        "block": {
+          "status": "ok",
+          "block": 125245576
+        },
+        "eth_call": {
+          "status": "ok",
+          "result_present": true
+        },
+        "getLogs_small": {
+          "status": "skipped",
+          "reason": "no_vault"
+        }
+      },
+      "subgraph": {
+        "status": "unsupported",
+        "note": "Balancer V2 vault map has no BNB"
+      },
+      "p1b_registry": {
+        "status": "unsupported"
+      },
+      "harness_balancer": {
+        "status": "unsupported"
+      },
+      "matrix": {
+        "chain": "bnb",
+        "rpc_health": "healthy",
+        "http_status_blockNumber": 200,
+        "eth_call": true,
+        "eth_getLogs": null,
+        "failure_type": "none",
+        "canonical_block": "ok",
+        "p1b_registry": "unsupported",
+        "harness_p1b": null,
+        "harness_p0": null
+      }
+    }
+  },
+  "subgraph_api_key": "UNSET",
+  "ethereum_failure_classification": {
+    "secondary_operator_rpc_configured": false,
+    "subgraph_configured": false,
+    "direct_blockNumber": {
+      "http_status": 200,
+      "ok": true,
+      "rpc_error": null,
+      "result_present": true,
+      "block": 26102888
+    },
+    "direct_getLogs_small": {
+      "http_status": 400,
+      "ok": false,
+      "rpc_error": {
+        "code": -32600,
+        "message": "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x18e4ba0, 0x18e4ba9]. Upgrade to PAYG for expanded block range."
+      },
+      "returned": null,
+      "from": 26102688,
+      "to": 26102888,
+      "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+    },
+    "registry_p1b": {
+      "status": "discovery_unavailable",
+      "error": "eth_getLogs failed [26052888,26054887]: ProviderError",
+      "candidates": 0,
+      "provenance": {
+        "chain": "ethereum",
+        "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+        "chunks": 1
+      }
+    },
+    "harness_p1b": {
+      "status": "discovery_unavailable",
+      "error": "eth_getLogs failed [26052888,26054887]: HTTPStatusError",
+      "candidates": 0,
+      "sample": [],
+      "provenance": {
+        "chain": "ethereum",
+        "vault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+        "chunks": 1
+      },
+      "topic0": "0x3c13bc30b8e878c53fd2a36b679409c073afd75950be43d8858768e956fbc20e",
+      "window_blocks": 50000
+    },
+    "harness_p0": {
+      "status": "ok",
+      "error": null,
+      "amount_out_wei": 19964292249159158825,
+      "block_number": 26102888,
+      "pool_id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014",
+      "pool_address": "0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56",
+      "token_in": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "token_out": "0xba100000625a3754423978a60c9317c58a424e3D",
+      "amount_in_wei": 1000000000000000,
+      "meta": {
+        "pool_address": "0x5c6Ee304399DBdB9C8Ef030aB642B10820DB8F56",
+        "pool_id": "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014",
+        "tokens": [
+          "0xba100000625a3754423978a60c9317c58a424e3D",
+          "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+        ],
+        "balances": [
+          30568056582539577572503301,
+          378955659484344296620
+        ],
+        "decimals": [
+          18,
+          18
+        ],
+        "swap_fee_bps": 100.0,
+        "last_change_block": 26102844
+      },
+      "ok": true
+    },
+    "precise_failure_mode": "operator_rpc_getLogs_or_other",
+    "detail": "{'http_status': 400, 'ok': False, 'rpc_error': {'code': -32600, 'message': 'Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x18e4ba0, 0x18e4ba9]. Upgrade to PAYG for expanded block range.'}, 'returned': None, 'from': 26102688, 'to': 26102888, 'vault': '0xBA12222222228d8Ba445958a75a0704d566BF2C8'}"
+  },
+  "health_matrix": [
+    {
+      "chain": "ethereum",
+      "rpc_health": "healthy",
+      "http_status_blockNumber": 200,
+      "eth_call": true,
+      "eth_getLogs": false,
+      "failure_type": "none",
+      "canonical_block": "ok",
+      "p1b_registry": "discovery_unavailable",
+      "harness_p1b": "discovery_unavailable",
+      "harness_p0": "ok"
+    },
+    {
+      "chain": "arbitrum",
+      "rpc_health": "healthy",
+      "http_status_blockNumber": 200,
+      "eth_call": true,
+      "eth_getLogs": false,
+      "failure_type": "none",
+      "canonical_block": "ok",
+      "p1b_registry": "discovery_unavailable",
+      "harness_p1b": "discovery_unavailable",
+      "harness_p0": null
+    },
+    {
+      "chain": "base",
+      "rpc_health": "healthy",
+      "http_status_blockNumber": 200,
+      "eth_call": true,
+      "eth_getLogs": true,
+      "failure_type": "none",
+      "canonical_block": "ok",
+      "p1b_registry": "ok",
+      "harness_p1b": "ok",
+      "harness_p0": "token_not_in_pool"
+    },
+    {
+      "chain": "optimism",
+      "rpc_health": "healthy",
+      "http_status_blockNumber": 200,
+      "eth_call": true,
+      "eth_getLogs": false,
+      "failure_type": "none",
+      "canonical_block": "ok",
+      "p1b_registry": "discovery_unavailable",
+      "harness_p1b": "discovery_unavailable",
+      "harness_p0": null
+    },
+    {
+      "chain": "polygon",
+      "rpc_health": "healthy",
+      "http_status_blockNumber": 200,
+      "eth_call": true,
+      "eth_getLogs": false,
+      "failure_type": "none",
+      "canonical_block": "ok",
+      "p1b_registry": "discovery_unavailable",
+      "harness_p1b": "discovery_unavailable",
+      "harness_p0": null
+    },
+    {
+      "chain": "bnb",
+      "rpc_health": "healthy",
+      "http_status_blockNumber": 200,
+      "eth_call": true,
+      "eth_getLogs": null,
+      "failure_type": "none",
+      "canonical_block": "ok",
+      "p1b_registry": "unsupported",
+      "harness_p1b": null,
+      "harness_p0": null
+    }
+  ],
+  "validation_label": "POST_ALCHEMY_REMEDIATION_RETEST",
+  "alchemy_key_path_fp": "5e5d5bb1",
+  "alchemy_capacity_429_cleared": true
+}

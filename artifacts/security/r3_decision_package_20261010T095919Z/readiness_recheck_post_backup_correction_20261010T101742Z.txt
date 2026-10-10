@@ -1,0 +1,26 @@
+utc=20261010T101742Z
+=== digest / labels ===
+
+running_image=
+=== mongo auth ===
+=== mongodump unauth probe (expect Unauthorized) ===
+2026-10-10T10:17:46.133+0000	Failed: error creating intents to dump: error getting collections for database `arbicore_x`: (Unauthorized) Command listCollections requires authentication
+=== initdb env keys present (no values) ===
+USER_SET=yes
+PASS_SET=yes
+=== R1/R2 ===
+docs=308
+setup=308
+=== legacy / g5 ===
+factory-mongo Up 4 weeks (healthy)
+=== backup validation artifact ===
+total 452020
+drwx------  2 raghu raghu      4096 Oct 10 12:15 .
+drwxrwxr-x 10 raghu raghu      4096 Oct 10 12:12 ..
+-rw-------  1 raghu raghu 462853739 Oct 10 12:15 arbicore_x_20261010T101234Z.archive.gz
+gzip_ok=true
+=== package correction files ===
+-rw-rw-r-- 1 raghu raghu  2009 Oct 10 12:17 /home/raghu/projects/arbicore-x-cert/artifacts/security/r3_decision_package_20261010T095919Z/R3_BACKUP_CORRECTION.md
+-rw-rw-r-- 1 raghu raghu 10922 Oct 10 12:17 /home/raghu/projects/arbicore-x-cert/artifacts/security/r3_decision_package_20261010T095919Z/R3_DECISION_PACKAGE.md
+-rw-rw-r-- 1 raghu raghu 10004 Oct 10 12:02 /home/raghu/projects/arbicore-x-cert/artifacts/security/r3_decision_package_20261010T095919Z/R3_DECISION_PACKAGE.md.pre-backup-correction-20261010T101234Z
+-rw-rw-r-- 1 raghu raghu  2969 Oct 10 12:16 /home/raghu/projects/arbicore-x-cert/artifacts/security/r3_decision_package_20261010T095919Z/backup_validation_meta.json

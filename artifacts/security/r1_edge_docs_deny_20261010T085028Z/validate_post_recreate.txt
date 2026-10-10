@@ -1,0 +1,13 @@
+{"level":"info","ts":1791622486.9467402,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+{"level":"warn","ts":1791622486.947739,"logger":"caddyfile","msg":"Unnecessary header_up X-Forwarded-For: the reverse proxy's default behavior is to pass headers to the upstream"}
+{"level":"warn","ts":1791622486.9477654,"logger":"caddyfile","msg":"Unnecessary header_up X-Forwarded-Proto: the reverse proxy's default behavior is to pass headers to the upstream"}
+{"level":"warn","ts":1791622486.9494078,"logger":"caddyfile","msg":"Unnecessary header_up X-Forwarded-For: the reverse proxy's default behavior is to pass headers to the upstream"}
+{"level":"warn","ts":1791622486.949439,"logger":"caddyfile","msg":"Unnecessary header_up X-Forwarded-Proto: the reverse proxy's default behavior is to pass headers to the upstream"}
+{"level":"info","ts":1791622486.9536643,"msg":"adapted config to JSON","adapter":"caddyfile"}
+{"level":"warn","ts":1791622486.953716,"msg":"Caddyfile input is not formatted; run 'caddy fmt --overwrite' to fix inconsistencies","adapter":"caddyfile","file":"/etc/caddy/Caddyfile","line":6}
+{"level":"info","ts":1791622486.958298,"logger":"http.auto_https","msg":"server is listening only on the HTTPS port but has no TLS connection policies; adding one to enable TLS","server_name":"srv0","https_port":443}
+{"level":"info","ts":1791622486.9583633,"logger":"http.auto_https","msg":"enabling automatic HTTP->HTTPS redirects","server_name":"srv0"}
+{"level":"info","ts":1791622486.9593916,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0xf7029b0ae00"}
+Valid configuration
+{"level":"info","ts":1791622486.9659574,"logger":"tls.cache.maintenance","msg":"stopped background certificate maintenance","cache":"0xf7029b0ae00"}
+{"level":"info","ts":1791622486.9660134,"logger":"http","msg":"servers shutting down with eternal grace period"}

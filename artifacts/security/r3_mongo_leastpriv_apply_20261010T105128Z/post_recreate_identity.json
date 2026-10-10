@@ -1,0 +1,9 @@
+{
+  "utc": "2026-10-10T10:52:32Z",
+  "username": "arbicore_app",
+  "image": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "health": "healthy",
+  "ARBICORE_EXECUTION_MODE": "SHADOW",
+  "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+  "ARBICORE_RUNTIME_AUTOSTART": "false"
+}

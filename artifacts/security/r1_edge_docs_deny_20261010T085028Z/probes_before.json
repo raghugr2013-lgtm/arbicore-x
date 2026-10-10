@@ -1,0 +1,110 @@
+{
+  "captured_utc": "2026-10-10T08:50:33Z",
+  "phase": "before",
+  "results": [
+    {
+      "url": "https://144-91-78-175.sslip.io/docs",
+      "status": 200,
+      "server": "nginx/1.25.5",
+      "content_type": "text/html",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"viewport"
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/docs/",
+      "status": 200,
+      "server": "nginx/1.25.5",
+      "content_type": "text/html",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"viewport"
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/redoc",
+      "status": 200,
+      "server": "nginx/1.25.5",
+      "content_type": "text/html",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"viewport"
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/openapi.json",
+      "status": 200,
+      "server": "nginx/1.25.5",
+      "content_type": "text/html",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"viewport"
+    },
+    {
+      "url": "https://144-91-78-175.sslip.io/api/",
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "{\"message\":\"Hello World\"}"
+    },
+    {
+      "url": "https://arbicorex.in/docs",
+      "status": 200,
+      "server": "nginx/1.25.5",
+      "content_type": "text/html",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"viewport"
+    },
+    {
+      "url": "https://arbicorex.in/openapi.json",
+      "status": 200,
+      "server": "nginx/1.25.5",
+      "content_type": "text/html",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"/><meta name=\"viewport"
+    },
+    {
+      "url": "https://arbicorex.in/api/",
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "{\"message\":\"Hello World\"}"
+    },
+    {
+      "url": "https://api.arbicorex.in/docs",
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "text/html; charset=utf-8",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "\n    <!DOCTYPE html>\n    <html>\n    <head>\n    <link type=\"text/css\" rel=\"styles"
+    },
+    {
+      "url": "https://api.arbicorex.in/docs/",
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "text/html; charset=utf-8",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "\n    <!DOCTYPE html>\n    <html>\n    <head>\n    <link type=\"text/css\" rel=\"styles"
+    },
+    {
+      "url": "https://api.arbicorex.in/redoc",
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "text/html; charset=utf-8",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "\n    <!DOCTYPE html>\n    <html>\n    <head>\n    <title>FastAPI - ReDoc</title>\n  "
+    },
+    {
+      "url": "https://api.arbicorex.in/openapi.json",
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "{\"openapi\":\"3.1.0\",\"info\":{\"title\":\"FastAPI\",\"version\":\"0.1.0\"},\"paths\":{\"/api/\""
+    },
+    {
+      "url": "https://api.arbicorex.in/api/",
+      "status": 200,
+      "server": "uvicorn",
+      "content_type": "application/json",
+      "via": "1.1 Caddy",
+      "body_prefix_safe": "{\"message\":\"Hello World\"}"
+    }
+  ]
+}

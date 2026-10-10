@@ -1,0 +1,25 @@
+{
+  "ts": "2026-10-09T09:50:52.038372+00:00",
+  "escrow_dir": "/home/raghu/arbicore_backups/s1b_vault_key_escrow_20261009T053628Z",
+  "dir_mode": "0o700",
+  "files": {
+    "README_ACCESS.txt": {
+      "mode": "0o600",
+      "size": 592
+    },
+    "VAULT_KEY.old.enc": {
+      "mode": "0o600",
+      "size": 64
+    },
+    "wrap.pass": {
+      "mode": "0o600",
+      "size": 65
+    }
+  },
+  "vault_key_sha12_escrowed": "a46000441419",
+  "enc_file_sha256": "53dbf3a94bcba0a4f697cdcfee6b456c5c0994b5c615c53fe2a2b74de07da03d",
+  "wrap_pass_sha256": "95dbd097a2abdaedec9a00903bdd8781dfc214479a48c4adc549e5f2d848a635",
+  "roundtrip_ok": true,
+  "plaintext_printed": false,
+  "location_policy": "outside git repos; mode 700/600; not under /tmp"
+}

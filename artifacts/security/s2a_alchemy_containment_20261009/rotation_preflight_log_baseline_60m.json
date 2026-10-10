@@ -1,0 +1,10 @@
+{
+  "window": "60m",
+  "httpx_lines": 1593,
+  "redacted": 1593,
+  "unredacted": 0,
+  "httpx_429": 2,
+  "httpx_5xx": 0,
+  "httpx_401_403": 0,
+  "failover_keyword_lines": 0
+}

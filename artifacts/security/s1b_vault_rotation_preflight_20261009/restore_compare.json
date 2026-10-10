@@ -1,0 +1,48 @@
+{
+  "scratch_db": "arbicore_s1b_restore_verify_20261009T053628Z",
+  "live": {
+    "handle_id": "sec-3cec159e23d7495ab89140e5452a3d67",
+    "scope": "evm_sign",
+    "algorithm": "eth_privkey",
+    "provider": "fernet_local",
+    "label": "arbicore-executor-owner",
+    "derived_address": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+    "execution_role": "signer",
+    "cipher_sha12": "660386c2e939",
+    "cipher_len": 184,
+    "fields": [
+      "algorithm",
+      "cipher",
+      "created_at",
+      "derived_address",
+      "execution_role",
+      "handle_id",
+      "label",
+      "provider",
+      "scope"
+    ]
+  },
+  "restored": {
+    "handle_id": "sec-3cec159e23d7495ab89140e5452a3d67",
+    "scope": "evm_sign",
+    "algorithm": "eth_privkey",
+    "provider": "fernet_local",
+    "label": "arbicore-executor-owner",
+    "derived_address": "0x0a43F432681cA5eE053D53B79Ae1648FDAaBFa89",
+    "execution_role": "signer",
+    "cipher_sha12": "660386c2e939",
+    "cipher_len": 184,
+    "fields": [
+      "algorithm",
+      "cipher",
+      "created_at",
+      "derived_address",
+      "execution_role",
+      "handle_id",
+      "label",
+      "provider",
+      "scope"
+    ]
+  },
+  "match": true
+}

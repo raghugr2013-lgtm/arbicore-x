@@ -1,0 +1,150 @@
+{
+ "base:0xcf4fc52743bfc59568bb7cc5b08a06d8f14cf08e": {
+  "0xd9a9d9b44bda299ef07827de00aacb50580dc379": "VERIFIED(payee is a sender EOA of this contract)"
+ },
+ "base:0xd8413bf7e7782b536abdeebbcb9e7c4fc481e2e7": {
+  "0x6b231200371eb58f196d6764ce045e08a3357a30": "VERIFIED(payee is a sender EOA of this contract)"
+ },
+ "base:0xb88bb63113b50ff258138d8349e8521e2bf43654": {
+  "0xd9a9d9b44bda299ef07827de00aacb50580dc379": "VERIFIED(payee is a sender EOA of this contract)"
+ },
+ "base:0x62ccd45414622b029e316b45e3f164160b3c5587": {
+  "0x2185964d3b387461ef79c1841cadcfc4ea5ed639": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xdb7dfc2091531c5cbb04d4ddc5a630943c9882df": {
+  "0xb305109f5bc88914b9a920bba8bfa58dc14044c0": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x3cda1451a95bc1fee0afcd56ef66bbccbebea68e": {
+  "0xbcd08939643f276be543d9741a176d3e6c17efc7": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x2da3617d82ad665be7a085f69c8403575c15e4df": {
+  "0x743be0db30148336a3db479f19d4e1828b293869": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)",
+  "0x2185964d3b387461ef79c1841cadcfc4ea5ed639": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x913b87c7f2fc4fc76edaab8a7c5f5a4d4a1a35ed": {
+  "0x743be0db30148336a3db479f19d4e1828b293869": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xf750a61aff8da9b27aab8f2e61f80eb36fdb9ab6": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x86d23b889d0e303c97a7a3401387e06f1db5023b": {
+  "0xd2be32dbf454ad8ff57851e9762cac12536ebee4": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x9c64132e7f82de52817a472e010282cfb154d068": {
+  "0x3753aeced02ecf6f435bba3ad729625c1ed66e53": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x86516f59fe9dacf41b294ffc1c866a95094a28cc": {
+  "0x731097ac3088b7f23142490a8dd6f50c6a90ab12": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)",
+  "0x9f6601854dee374b1bfaf6350ffd27a97309d431": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x0b224458cd16915df5fd2118806f32d7f2546bf6": {
+  "0xf53a5b40c7fa2b3f5d71bcee5e5c635a67891715": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xfd245024f0a1afd8e266a76bdcc78b10992ced43": {
+  "0x8c371826558a5b9b521bca6f0120faeb71d4dc6b": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x57e836f085e42cbc673583ce1c800fc67cf0d503": {
+  "0x883ef99b75bdf3ca7bc7b562ec58099dfda7397b": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xb9337ae37eac6daaa27c9608dabcfd84344c918f": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x9fd9d845eaaf6c84e83774b0e0a90fa1f6ca9758": {
+  "0x309f2c2e931866e69febacdee37a0ad1301d50a2": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x36af44be44e919adcd7fec0016b3655d0ec3966d": {
+  "0xbb442b5620c625ee36430ba328ccf83689b5acde": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xe73cdc1251bbf1981517a3173da5f0de97266f2e": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x111111125421ca6dc452d289314280a0f8842a65": {
+  "0x244d1dfcaa18581108c98b879e0da57df90b058a": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x3415da11c43515afe570eda09f39c7f150154662": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x1ee79808f0bac90cc75c8cce95a545e686fd91c2": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x1f921c1eb492f747f5b42611118d701bd3adb94e": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x5570240e8eedcdad5fe9b38f62c93236523e5eb4": {
+  "0x9bcb54b090b2db34d5bda0e02e6086575c344975": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xadd3708bd1f326b062ce18c010b3935fb96ca55f": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x3764cf6f9c7cb0b5d8e7e94a8897d11f6b2558a8": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xdf0ff70b124c3e3d9027d8f83c9cc708ff1354ef": {
+  "0xdcca6a296e994da20a6fcccc97e7084519d24483": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xb3d8a87bb6f5859c30d82c813f2e923dc33d2724": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x9e5db1e6511542ab53c923f825cbdbac71df8285": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x4c55bc16f11bb344b481163e4a788b4ea04d2862": {
+  "0xfe263102682933297cb65dc813e5193249769251": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x5d490d1da66ba7c607a17525b828a4a142d7723d": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x86631c20314a54e6409c9fc61406f6a86780e4cd": {
+  "0x1df9d61a56e5e05332268ba12caf89e83a1abc4e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xc32d74454400b495dbefeecab10fd8c130dbd72e": {
+  "0x8c371826558a5b9b521bca6f0120faeb71d4dc6b": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xf737fd68348ffdaf9cea83fe46c3f4764cafef2f": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xf99881ccd8d80298e4e89da77ea3017ac072b9d1": {
+  "0x3850eadd1a5577f2d1f407bfd36becba4bf6a6ca": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x51884b0dcf9adf2d140e5747a67108d80bba872e": {
+  "0x743be0db30148336a3db479f19d4e1828b293869": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)",
+  "0x2185964d3b387461ef79c1841cadcfc4ea5ed639": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xa5fd0f11be1f7e5c653e6d26de08f1783bf1636b": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xe80f7fba79a55f165314fee20f05d66efda10524": {
+  "0x743be0db30148336a3db479f19d4e1828b293869": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)",
+  "0x432bdb9d229d2edcb27029a1a71c41de06c17d2e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x94fd36d205e9dc632f68de5808a1de364af30fb5": {
+  "0xd69719a8bda1cc82b2c2fb4ce84493689759cee4": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x41b729a2416d6eac23cec23f796e2a88cc8861dd": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x9c7a11bf334ad427a1181694e5f11873d2b8a104": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x0600b4dbf0846cdc036d5f285b6adf162b3c42e6": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xca7de68203acfefce7d796c8c00724cff0a3d6a6": {
+  "0xd2be32dbf454ad8ff57851e9762cac12536ebee4": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x721dc828dae73eb76b2f02407c945b24acf07d06": {
+  "0x101c86b2d39efe508d6f99683a85e36729b5f02b": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x893599bc9168d9ea00dfad8fa487e475716d2dc7": {
+  "0xa29ebffc6a9819e86275a7cb6f8aa482225270d0": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x6a000f20005980200259b80c5102003040001068": {
+  "0xd5283cabd64fd553f58da2cc64ec9ab5224c14a1": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0x8407699e359ae158bd7ec0668600cc19a79f17c3": {
+  "0x0629da86af5a4ae1ba5e1589b13702558d0fb056": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ },
+ "base:0xc8a8ea4740729dbeea6725dd50c267159a046570": {
+  "0xc0ffeefeed8b9d271445cf5d1d24d74d2ca4235e": "INFERRED(fixed EOA payee: in >=90% of this contract's payout txs)"
+ }
+}

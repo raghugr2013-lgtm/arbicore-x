@@ -1,0 +1,310 @@
+--- /dev/null
++++ b/app/backend/tests/test_p2_evidence_persisted_mongo.py
+@@ -0,0 +1,307 @@
++"""P2 Option D: Mongo-persisted ``evidence_persisted`` insert stamp.
++
++Append-only: marker is stamped on the document immediately before
++``insert_one``. Tests that need Mongo use a throwaway database and skip
++when no isolated server is reachable (default ``MONGO_URL`` or bridge).
++"""
++from __future__ import annotations
++
++import asyncio
++import os
++import uuid
++from unittest.mock import AsyncMock, MagicMock
++
++import pytest
++
++from arbicore.data.mongo.evidence_bundles_repo import (
++    EvidenceBundlesRepo,
++    _stamp_insert_evidence_persisted,
++)
++from arbicore.discovery import base_pool_registry as reg
++from arbicore.intelligence.roi_probability import ROIProbabilityEngine
++from arbicore.models.discovery import DiscoveryCandidate, VerifiedOutcome
++from arbicore.models.enums import OpportunityType
++from arbicore.scanners.cross_chain_arbitrage.bridge_intelligence import (
++    MevRiskScorer,
++)
++from arbicore.scanners.flash_loan_arbitrage.economics import (
++    FlashLoanEconomicsAssessor,
++)
++from arbicore.scanners.flash_loan_arbitrage.filter import (
++    FlashLoanGate7AtomicProfit, FlashLoanGate8LiquidityDepth,
++    FlashLoanGate9FlashLoanMev,
++)
++from arbicore.scanners.flash_loan_arbitrage.verifier import (
++    FlashLoanOpportunityVerifier,
++)
++
++MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
++
++
++def _run(coro):
++    return asyncio.new_event_loop().run_until_complete(coro)
++
++
++def _mongo_available() -> bool:
++    try:
++        from pymongo import MongoClient
++        client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=1500)
++        client.admin.command("ping")
++        client.close()
++        return True
++    except Exception:
++        return False
++
++
++requires_mongo = pytest.mark.skipif(
++    not _mongo_available(),
++    reason=f"isolated Mongo unavailable at MONGO_URL={MONGO_URL}",
++)
++
++
++# ---- pure stamp helper ----------------------------------------------------
++
++def test_stamp_creates_missing_diagnostics_and_timing():
++    doc: dict = {"bundle_id": "b1"}
++    _stamp_insert_evidence_persisted(doc)
++    assert doc["diagnostics"]["timing"]["evidence_persisted"] is True
++
++
++def test_stamp_preserves_unrelated_diagnostics_fields():
++    doc = {
++        "bundle_id": "b2",
++        "diagnostics": {
++            "candidate_id": "cand-x",
++            "audit_run_id": "run-1",
++            "timing": {"quote": 3, "evidence_persisted": None},
++        },
++    }
++    _stamp_insert_evidence_persisted(doc)
++    d = doc["diagnostics"]
++    assert d["candidate_id"] == "cand-x"
++    assert d["audit_run_id"] == "run-1"
++    assert d["timing"]["quote"] == 3
++    assert d["timing"]["evidence_persisted"] is True
++
++
++def test_stamp_skips_non_dict_diagnostics():
++    doc = {"diagnostics": "bad"}
++    _stamp_insert_evidence_persisted(doc)
++    assert doc["diagnostics"] == "bad"
++
++
++# ---- insert failure (no Mongo row claimed) --------------------------------
++
++def test_insert_failure_does_not_leave_mongo_success_row():
++    coll = MagicMock()
++    coll.insert_one = AsyncMock(side_effect=RuntimeError("disk full"))
++    db = MagicMock()
++    db.__getitem__ = MagicMock(return_value=coll)
++    repo = EvidenceBundlesRepo(db)
++    with pytest.raises(RuntimeError, match="disk full"):
++        _run(repo.insert({
++            "bundle_id": "fail-1",
++            "source_component": "flash_loan_arb_verifier",
++            "diagnostics": {"timing": {"evidence_persisted": None}},
++        }))
++    coll.insert_one.assert_awaited_once()
++
++
++# ---- Mongo round-trip -----------------------------------------------------
++
++@requires_mongo
++def test_mongo_roundtrip_persisted_marker_true():
++    from motor.motor_asyncio import AsyncIOMotorClient
++
++    async def _body():
++        client = AsyncIOMotorClient(MONGO_URL)
++        dbname = f"arbicore_x_p2_evidence_{uuid.uuid4().hex[:8]}"
++        db = client[dbname]
++        repo = EvidenceBundlesRepo(db)
++        try:
++            await repo.ensure_indexes()
++            bundle_id = f"flarb:p2:{uuid.uuid4().hex[:8]}"
++            await repo.insert({
++                "bundle_id": bundle_id,
++                "source_component": "flash_loan_arb_verifier",
++                "source_model_id": "cand-p2-mongo",
++                "created_at": "2026-10-09T00:00:00+00:00",
++                "diagnostics": {
++                    "candidate_id": "cand-p2-mongo",
++                    "timing": {
++                        "stage_ms": {"quote": 1},
++                        "evidence_persisted": None,
++                    },
++                },
++                "verification_status": "DENIED",
++                "broadcast": False,
++            })
++            stored = await repo.find_by_bundle_id(bundle_id)
++            assert stored is not None
++            assert stored["diagnostics"]["candidate_id"] == "cand-p2-mongo"
++            assert stored["diagnostics"]["timing"]["stage_ms"]["quote"] == 1
++            assert stored["diagnostics"]["timing"]["evidence_persisted"] is True
++            assert stored.get("persisted_at")
++            # Append-only: no update API used; single row present.
++            n = await db.evidence_bundles.count_documents(
++                {"bundle_id": bundle_id})
++            assert n == 1
++        finally:
++            await client.drop_database(dbname)
++            client.close()
++
++    _run(_body())
++
++
++@requires_mongo
++def test_mongo_roundtrip_missing_timing_still_stamps_true():
++    from motor.motor_asyncio import AsyncIOMotorClient
++
++    async def _body():
++        client = AsyncIOMotorClient(MONGO_URL)
++        dbname = f"arbicore_x_p2_evidence_{uuid.uuid4().hex[:8]}"
++        db = client[dbname]
++        repo = EvidenceBundlesRepo(db)
++        try:
++            bundle_id = f"flarb:p2-notiming:{uuid.uuid4().hex[:8]}"
++            await repo.insert({
++                "bundle_id": bundle_id,
++                "source_component": "flash_loan_arb_verifier",
++                "source_model_id": "cand-notiming",
++                "created_at": "2026-10-09T00:00:00+00:00",
++                "diagnostics": {"candidate_id": "cand-notiming"},
++            })
++            stored = await repo.find_by_bundle_id(bundle_id)
++            assert stored["diagnostics"]["timing"]["evidence_persisted"] is True
++            assert stored["diagnostics"]["candidate_id"] == "cand-notiming"
++        finally:
++            await client.drop_database(dbname)
++            client.close()
++
++    _run(_body())
++
++
++# ---- verifier path: unwired + repo sink + verdict stability ---------------
++
++def _real_pool_ids():
++    ids = [p.canonical_id for p in reg.get_canonical_pools()
++           if p.address_resolution == reg.DETERMINISTIC_VERIFIED
++           and p.dex == "uniswap_v3"
++           and {"WETH", "USDC"} == {p.token0_symbol, p.token1_symbol}]
++    return ids[:2]
++
++
++def _hm():
++    return {"chain": "base", "provider": "balancer_v2", "borrow_token": "WETH",
++            "borrow_amount_usd": 10_000.0, "route_pools": _real_pool_ids(),
++            "cycle_token_path": ["WETH", "USDC", "WETH"],
++            "route_dex_protocols": ["uniswap_v3", "uniswap_v3"], "hop_count": 2}
++
++
++def _facts(gross_pct=3.0):
++    leg = {"venue_id": "uniswap_v3:base", "source_id": "uniswap_v3_quoter_base",
++           "fee_bps": 5, "depth_usd": 500_000.0, "dex_protocol": "uniswap_v3"}
++    return {"hop_legs": [dict(leg), dict(leg)], "gross_profit_pct": gross_pct,
++            "tx_gas_units": 250_000, "min_pool_tvl_usd_in_route": 500_000.0,
++            "tvl_provenance": "onchain_reserves", "route_quote_status": "ok",
++            "verified_at_ts": 123.0, "quote_block": 999}
++
++
++def _mk_verifier(*, evidence_sink=None):
++    async def _qp(hm, borrow):
++        return _facts(3.0)
++
++    return FlashLoanOpportunityVerifier(
++        quote_provider=_qp,
++        economics_assessor=FlashLoanEconomicsAssessor(
++            roi_engine=ROIProbabilityEngine(min_sample=8, winsorize_pct=0.05),
++            default_borrow_amount_usd=10_000.0),
++        mev_scorer=MevRiskScorer(),
++        gate_7=FlashLoanGate7AtomicProfit({}),
++        gate_8=FlashLoanGate8LiquidityDepth({}),
++        gate_9=FlashLoanGate9FlashLoanMev({}),
++        default_borrow_amount_usd=10_000.0,
++        evidence_sink=evidence_sink,
++    )
++
++
++def _candidate():
++    return DiscoveryCandidate(
++        candidate_id="cand-p2-opt-d",
++        hint_source="test_source",
++        opportunity_type=OpportunityType.FLASH_LOAN_ARBITRAGE,
++        subject_id="WETH-USDC",
++        asset="WETH",
++        hint_metric=_hm(),
++        hint_observed_at=1000.0,
++        claimed_at=1010.0,
++    )
++
++
++def test_unwired_sink_evidence_persisted_remains_null_verdict_unchanged():
++    v = _mk_verifier(evidence_sink=None)
++    bundles = []
++    orig = v._build_evidence_bundle
++
++    def _wrap(*a, **k):
++        b = orig(*a, **k)
++        bundles.append(b)
++        return b
++
++    v._build_evidence_bundle = _wrap  # type: ignore[method-assign]
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert bundles[-1]["diagnostics"]["timing"]["evidence_persisted"] is None
++
++
++@requires_mongo
++def test_verifier_repo_sink_mongo_marker_true_verdict_unchanged():
++    """Production-like path: sink = repo.insert; assert Mongo, not only memory."""
++    from motor.motor_asyncio import AsyncIOMotorClient
++
++    async def _body():
++        client = AsyncIOMotorClient(MONGO_URL)
++        dbname = f"arbicore_x_p2_evidence_{uuid.uuid4().hex[:8]}"
++        db = client[dbname]
++        repo = EvidenceBundlesRepo(db)
++        try:
++            # Match composition fire-and-forget: await insert, return None.
++            async def sink(bundle):
++                await repo.insert(bundle)
++                return None
++
++            v = _mk_verifier(evidence_sink=sink)
++            opp, outcome = await v.verify(_candidate())
++            assert opp is not None
++            assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++            rows = await db.evidence_bundles.find(
++                {}, {"_id": 0}).to_list(10)
++            assert len(rows) == 1
++            timing = rows[0]["diagnostics"]["timing"]
++            assert timing["evidence_persisted"] is True
++        finally:
++            await client.drop_database(dbname)
++            client.close()
++
++    _run(_body())
++
++
++def test_insert_failure_via_sink_keeps_verdict_and_false_marker():
++    async def boom(_b):
++        raise RuntimeError("mongo down")
++
++    v = _mk_verifier(evidence_sink=boom)
++    bundles = []
++    orig = v._build_evidence_bundle
++
++    def _wrap(*a, **k):
++        b = orig(*a, **k)
++        bundles.append(b)
++        return b
++
++    v._build_evidence_bundle = _wrap  # type: ignore[method-assign]
++    opp, outcome = _run(v.verify(_candidate()))
++    assert opp is not None
++    assert outcome.startswith(VerifiedOutcome.CONFIRMED_PREFIX)
++    assert bundles[-1]["diagnostics"]["timing"]["evidence_persisted"] is False

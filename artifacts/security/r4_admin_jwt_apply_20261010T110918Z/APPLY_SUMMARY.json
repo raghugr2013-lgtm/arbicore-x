@@ -1,0 +1,12 @@
+{
+  "utc": "2026-10-10T11:12:59Z",
+  "verdict": "PASS",
+  "evid": "/home/raghu/projects/arbicore-x-cert/artifacts/security/r4_admin_jwt_apply_20261010T110918Z",
+  "bk": "/home/raghu/arbicore_backups/r4_admin_jwt_20261010T110918Z",
+  "new_admin_sha12": "112c88ac69e1",
+  "new_jwt_sha12": "f98650d468b2",
+  "session_version": 3,
+  "digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+  "historical_scrub": "NOT_IN_SCOPE",
+  "overall_gate_p2": "BLOCKED"
+}

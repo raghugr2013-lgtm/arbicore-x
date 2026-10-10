@@ -1,0 +1,44 @@
+{
+  "utc": "2026-10-10T11:12:59Z",
+  "checks": {
+    "V1_digest_healthy": true,
+    "V2_sha12_rotated": true,
+    "V3_login_new_and_me": true,
+    "V4_old_password_rejected": true,
+    "V5_pre_cookie_rejected": true,
+    "V6_session_version_gt_baseline": true,
+    "V7_r1_r2_api": true,
+    "V8_controls": true,
+    "V9_mongo_user_and_peers": true,
+    "V10_no_secrets_in_reports": true
+  },
+  "details": {
+    "digest": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+    "health": "healthy",
+    "env_admin_sha12": "112c88ac69e1",
+    "env_jwt_sha12": "f98650d468b2",
+    "dotenv_admin_sha12": "112c88ac69e1",
+    "dotenv_jwt_sha12": "f98650d468b2",
+    "api_local": 200,
+    "api_public": 200,
+    "docs_public": 404,
+    "setup_status": 503,
+    "session_version": 3,
+    "password_hash_sha12": "e8f87bd9285b",
+    "controls": {
+      "ARBICORE_EXECUTION_MODE": "SHADOW",
+      "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+      "ARBICORE_RUNTIME_AUTOSTART": "false"
+    },
+    "legacy": {
+      "arbicore-x-backend-h05": "exited",
+      "arbicore-x-backend-w1": "exited",
+      "arbicore-x-b7-candidate": "exited",
+      "arbicore-x-backend": "exited"
+    },
+    "g5_79_app": "running",
+    "foreman_mongo": "running",
+    "mongo_user": "arbicore_app"
+  },
+  "all_pass": true
+}

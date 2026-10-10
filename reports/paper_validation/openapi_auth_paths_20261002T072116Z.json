@@ -1,0 +1,10 @@
+[
+  "/api/auth/status",
+  "/api/auth/setup",
+  "/api/auth/login",
+  "/api/auth/me",
+  "/api/auth/refresh",
+  "/api/auth/logout",
+  "/api/auth/logout-all",
+  "/api/auth/change-password"
+]

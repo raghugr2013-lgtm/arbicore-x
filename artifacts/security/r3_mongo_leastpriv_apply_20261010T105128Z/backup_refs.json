@@ -1,0 +1,12 @@
+{
+  "apply_backup_102900Z": {
+    "utc": "2026-10-10T10:33:32Z",
+    "archive": "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T102900Z/arbicore_x_20261010T102900Z.archive.gz",
+    "size_bytes": 462857948,
+    "mode": "0o600",
+    "env_backup": "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T102900Z/backend.env.pre-r3",
+    "validation_archive_ref": "/home/raghu/arbicore_backups/r3_backup_validation_20261010T101234Z/arbicore_x_20261010T101234Z.archive.gz"
+  },
+  "validation_backup": "/home/raghu/arbicore_backups/r3_backup_validation_20261010T101234Z/arbicore_x_20261010T101234Z.archive.gz",
+  "env_backup_this_resume": "/home/raghu/arbicore_backups/r3_mongo_leastpriv_20261010T105128Z/backend.env.pre-r3"
+}

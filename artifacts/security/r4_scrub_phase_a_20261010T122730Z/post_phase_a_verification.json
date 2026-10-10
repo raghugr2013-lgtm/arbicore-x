@@ -1,0 +1,90 @@
+{
+  "utc": "2026-10-10T12:29:06Z",
+  "checks": {
+    "S1_live_new_secrets_healthy": true,
+    "S2_all_17_sources_absent": true,
+    "S2b_all_17_dests_present": true,
+    "S3_approved_recovery_present": true,
+    "S4_legacy_exited_untouched": true,
+    "S5_r1_r2_api": true,
+    "S6_controls": true,
+    "quarantine_mode_700": true,
+    "no_shred": true,
+    "move_count_17": true
+  },
+  "all_pass": true,
+  "details": {
+    "live_dotenv": {
+      "admin_sha12": "112c88ac69e1",
+      "admin_len": 32,
+      "jwt_sha12": "f98650d468b2",
+      "jwt_len": 64
+    },
+    "live_container": {
+      "image_id": "sha256:69fe2459e0021bbd3a90b7e4cda617cbeb45a8b41861f9ed0f6b8df8e7315313",
+      "health": "healthy",
+      "status": "running",
+      "admin_sha12": "112c88ac69e1",
+      "jwt_sha12": "f98650d468b2",
+      "controls": {
+        "ARBICORE_EXECUTION_MODE": "SHADOW",
+        "ARBICORE_AUTOEXEC_AUTOSTART": "false",
+        "ARBICORE_RUNTIME_AUTOSTART": "false"
+      },
+      "mongo_url_user": "arbicore_app",
+      "bootstrap_present": false,
+      "private_key_env_present": false
+    },
+    "sources_absent": {
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z": true,
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642": true,
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z": true,
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704": true,
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923": true,
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913": true,
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z": true,
+      "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z": true,
+      "/tmp/arbicore_ctr_all.env": true,
+      "/tmp/arbicore-runtime-cert-ad64a50.env": true,
+      "/tmp/arbicore-x-backend.env": true,
+      "/tmp/arbicore-runtime-cert.env": true,
+      "/tmp/arbicore-x-candidate.env": true,
+      "/tmp/arbicore-backend-p0-3.env": true,
+      "/tmp/arbicore-backend.env": true,
+      "/tmp/arbicore-x-runtime.env": true,
+      "/tmp/arbicore-production-env.backup": true
+    },
+    "dests_present_count": 17,
+    "recovery_ok_count": 12,
+    "legacy": [
+      {
+        "container": "arbicore-x-backend-h05",
+        "status": "exited",
+        "running": false
+      },
+      {
+        "container": "arbicore-x-backend-w1",
+        "status": "exited",
+        "running": false
+      },
+      {
+        "container": "arbicore-x-b7-candidate",
+        "status": "exited",
+        "running": false
+      },
+      {
+        "container": "arbicore-x-backend",
+        "status": "exited",
+        "running": false
+      }
+    ],
+    "g5_79_app": "running",
+    "foreman_mongo": "running",
+    "docs_public": "404",
+    "api_public": "200",
+    "setup_status": 503,
+    "api_local": 200,
+    "hold_until_utc": "2026-10-24T12:29:00Z",
+    "quarantine_dir": "/home/raghu/arbicore_backups/r4_scrub_quarantine_20261010T122730Z"
+  }
+}

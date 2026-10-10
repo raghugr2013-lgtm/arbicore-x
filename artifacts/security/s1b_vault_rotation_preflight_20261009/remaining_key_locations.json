@@ -1,0 +1,197 @@
+{
+  "ts": "2026-10-09T10:44:03.525214+00:00",
+  "old_sha12": "a46000441419",
+  "new_sha12": "fb5ca619211e",
+  "old_key_locations_count": 35,
+  "old_key_locations": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-executor-signer-owner-20260912T094914Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-p2",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-new-alchemy",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-ankr-config",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-h05-flash-scanner-enable-20260911T135033Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-temp-url-20260901-205825",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-7aea7c0-rpc-failover",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-phase3",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-h05-usd-numeraire-20260911T133143Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-base-executor-20260907T101030Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.pre-provider-rpc-20260907T191701Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-alchemy-sync-20260901_154744",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env.backup-before-temp-url-20260901-205630",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-m25-usd-numeraire-20260912T121226Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.27-backup-20260927-101642",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-paper-20260916T112833Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.backup.20261002-081704",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.g5.62-backup-20260927-105923",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.bak-20260916-133913",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-executor-owner-refresh-20260912T100117Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env.pre-t2-wss-20260911T160217Z",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore_ctr_all.env",
+      "mode": "0o664",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert-ad64a50.env",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore-x-backend.env",
+      "mode": "0o664",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore-runtime-cert.env",
+      "mode": "0o664",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore-x-candidate.env",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore-backend-p0-3.env",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore-production-env.backup",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore-backend.env",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/tmp/arbicore-x-runtime.env",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/backend.env.pre-rotation",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "/home/raghu/arbicore_backups/s1b_phase2_rotation_20261009T102445Z/root.env.pre-rotation",
+      "mode": "0o600",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "docker:arbicore-x-b7-candidate:Config.Env",
+      "mode": "n/a",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "docker:arbicore-x-backend-h05:Config.Env",
+      "mode": "n/a",
+      "sha12": "a46000441419"
+    },
+    {
+      "path": "docker:arbicore-x-backend-w1:Config.Env",
+      "mode": "n/a",
+      "sha12": "a46000441419"
+    }
+  ],
+  "new_key_active_locations_count": 2,
+  "new_key_active_locations": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/.env",
+      "mode": "0o600",
+      "sha12": "fb5ca619211e"
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/deployment/upgrade/backend/.env",
+      "mode": "0o600",
+      "sha12": "fb5ca619211e"
+    }
+  ],
+  "note": "Scan limited to env-like files under v2, /tmp, arbicore_backups + legacy container Config.Env. Pre-rotation env copies in work dir included if present."
+}

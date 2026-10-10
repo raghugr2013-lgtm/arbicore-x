@@ -1,0 +1,96 @@
+{
+  "real_64hex_carriers": [],
+  "mention_only_count": 66,
+  "mention_only_sample": [
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "mode": "0o664",
+      "size": 2743,
+      "primary": false
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-cert/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "mode": "0o664",
+      "size": 16985,
+      "primary": false
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "mode": "0o664",
+      "size": 2743,
+      "primary": false
+    },
+    {
+      "path": "/home/raghu/projects/arbicore-x-v2/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "mode": "0o664",
+      "size": 16985,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arb-9ed2718-tree/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "mode": "0o664",
+      "size": 2743,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arb-9ed2718-tree/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "mode": "0o664",
+      "size": 16985,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "mode": "0o664",
+      "size": 2743,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arb-fd98043-tree/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "mode": "0o664",
+      "size": 16985,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "mode": "0o664",
+      "size": 2743,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arbicore-27dfab4-build-20261003/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "mode": "0o664",
+      "size": 16985,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arbicore-b1b2-reconcile-9ed2718/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "mode": "0o664",
+      "size": 2743,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arbicore-b1b2-reconcile-9ed2718/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "mode": "0o664",
+      "size": 16985,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arbicore-cert-e5767d7/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "mode": "0o664",
+      "size": 2743,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arbicore-cert-e5767d7/docs/BASE_MAINNET_PROMOTION_PLAN.md",
+      "mode": "0o664",
+      "size": 16985,
+      "primary": false
+    },
+    {
+      "path": "/tmp/arbicore-extract-port-cert-861af4d/contracts/docs/DEPLOY_RUNBOOK_BASE_SEPOLIA.md",
+      "mode": "0o664",
+      "size": 2743,
+      "primary": false
+    }
+  ]
+}
