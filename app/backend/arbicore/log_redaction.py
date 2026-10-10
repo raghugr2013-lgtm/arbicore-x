@@ -35,10 +35,11 @@ _SENSITIVE_QUERY_KEYS = {
 }
 
 # Fallback when URL parsing fails: redact /v2/<token> style paths.
+# Schemes: http(s) and ws(s) — RPC providers may appear on either.
 _V2_PATH_RE = re.compile(
-    r"(?i)(https?://[^\s\"']+?)/(v[23])/([A-Za-z0-9_\-]{8,})"
+    r"(?i)((?:https?|wss?)://[^\s\"']+?)/(v[23])/([A-Za-z0-9_\-]{8,})"
 )
-_USERINFO_RE = re.compile(r"(?i)(https?://)([^/\s\"']+?)@")
+_USERINFO_RE = re.compile(r"(?i)((?:https?|wss?)://)([^/\s\"']+?)@")
 
 
 def redact_credential_url(value: Any) -> Any:
@@ -62,16 +63,23 @@ def redact_credential_url(value: Any) -> Any:
 
 
 def _redact_url_text(text: str) -> str:
-    # Fast path: whole string is a single URL.
+    # Fast path: whole string is a single URL (any scheme with ://).
     stripped = text.strip()
     if "://" in stripped and (" " not in stripped) and ("\n" not in stripped):
         return _redact_one_url(stripped)
 
     # Log lines may embed URLs among other text — redact each URL-looking token.
+    # Include common RPC schemes (http/https/ws/wss); urlsplit still handles
+    # the credential path segments for any scheme that reaches _redact_one_url.
     def _sub(match: re.Match[str]) -> str:
         return _redact_one_url(match.group(0))
 
-    return re.sub(r"https?://[^\s\"'<>]+", _sub, text, flags=re.IGNORECASE)
+    return re.sub(
+        r"(?:https?|wss?)://[^\s\"'<>]+",
+        _sub,
+        text,
+        flags=re.IGNORECASE,
+    )
 
 
 def _redact_one_url(url: str) -> str:

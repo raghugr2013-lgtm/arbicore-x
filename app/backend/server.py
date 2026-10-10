@@ -3093,7 +3093,8 @@ _V2_OPERATIONAL = {
 }
 
 
-@api_router.get("/arbicore/settings/account")
+@api_router.get("/arbicore/settings/account",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_account() -> Dict[str, Any]:
     acct = await _ACCOUNT_REPO.get()
     if not acct.get("last_login_at"):
@@ -3110,7 +3111,8 @@ async def v2_settings_account_update(patch: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/settings/vaults")
+@api_router.get("/arbicore/settings/vaults",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_vaults() -> Dict[str, Any]:
     # M07 (P1): vault custody is NOT integrated in this build. Do NOT fabricate
     # READY custody rows or a "reconciled_at" timestamp — that would be false
@@ -3146,7 +3148,8 @@ async def v2_settings_vault_reconcile(vault: str) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/settings/execution")
+@api_router.get("/arbicore/settings/execution",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_execution() -> Dict[str, Any]:
     cfg = await _EXECUTION_SETTINGS.get()
     return {"config": cfg, "generated_at": _iso_now()}
@@ -3161,7 +3164,8 @@ async def v2_settings_execution_update(patch: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/settings/exchanges")
+@api_router.get("/arbicore/settings/exchanges",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_exchanges() -> Dict[str, Any]:
     # M07 (P1): exchange connectivity is NOT integrated in this build. Do NOT
     # fabricate CONNECTED rows, masked keys or a last_tested_at — that would be
@@ -3197,7 +3201,8 @@ async def v2_settings_exchange_test(key: str) -> Dict[str, Any]:
             "note": "no exchange API call is made — not real connectivity evidence"}
 
 
-@api_router.get("/arbicore/settings/notifications")
+@api_router.get("/arbicore/settings/notifications",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_notifications() -> Dict[str, Any]:
     """Legacy shape kept for backward compat. The primary Telegram surface
     is now `/api/arbicore/settings/telegram`.  This endpoint returns a
@@ -3238,7 +3243,8 @@ async def v2_settings_notifications_update(patch: Dict[str, Any]) -> Dict[str, A
     return await v2_settings_notifications()
 
 
-@api_router.get("/arbicore/settings/documentation")
+@api_router.get("/arbicore/settings/documentation",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_documentation() -> Dict[str, Any]:
     items = [
         {"title": "Architecture", "path": "docs/ARCHITECTURE.md", "category": "guide"},
@@ -3256,7 +3262,8 @@ async def v2_settings_documentation() -> Dict[str, Any]:
     return {"items": items, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/settings/operational")
+@api_router.get("/arbicore/settings/operational",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_operational() -> Dict[str, Any]:
     cfg = await _OPERATIONAL_FLAGS.get()
     return {"config": cfg, "generated_at": _iso_now()}
@@ -3271,13 +3278,15 @@ async def v2_settings_operational_update(patch: Dict[str, Any]) -> Dict[str, Any
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/intelligence/calibration/status")
+@api_router.get("/arbicore/intelligence/calibration/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_calibration_status() -> Dict[str, Any]:
     """Wave-3 pipeline status — worker liveness, config, last tick result."""
     return {"worker": _CALIBRATION_WORKER.status, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/intelligence/calibration/history")
+@api_router.get("/arbicore/intelligence/calibration/history",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_calibration_history(limit: int = 20) -> Dict[str, Any]:
     """Wave-3 — historical calibration models (audit trail)."""
     try:
@@ -3293,7 +3302,8 @@ async def v2_calibration_history(limit: int = 20) -> Dict[str, Any]:
 # currently-persisted recommendation snapshot for operator review only.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/intelligence/weights/current")
+@api_router.get("/arbicore/intelligence/weights/current",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_weights_current() -> Dict[str, Any]:
     """Canonical ``/weights/current`` shape enriched with recommendation
     deltas.  Returned in OBSERVE mode — informational only."""
@@ -3334,7 +3344,8 @@ async def v2_weights_current() -> Dict[str, Any]:
     }
 
 
-@api_router.get("/arbicore/intelligence/weights/recommendations")
+@api_router.get("/arbicore/intelligence/weights/recommendations",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_weights_recommendations(min_confidence: float = 0.0) -> Dict[str, Any]:
     """Full recommendation set with baseline / recommended / delta /
     confidence / expected_score_impact / evidence per signal."""
@@ -3368,13 +3379,15 @@ async def v2_weights_recommendations(min_confidence: float = 0.0) -> Dict[str, A
     }
 
 
-@api_router.get("/arbicore/intelligence/weights/status")
+@api_router.get("/arbicore/intelligence/weights/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_weights_status() -> Dict[str, Any]:
     """Worker liveness + config for operator observability."""
     return {"worker": _ADAPTIVE_WEIGHTS_WORKER.status, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/intelligence/weights/history")
+@api_router.get("/arbicore/intelligence/weights/history",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_weights_history(limit: int = 20) -> Dict[str, Any]:
     """Historical adaptive-weight recommendation snapshots (audit trail)."""
     try:
@@ -3389,7 +3402,8 @@ async def v2_weights_history(limit: int = 20) -> Dict[str, Any]:
 # plus a stateless verification endpoint.  Never mutates learning state.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/intelligence/evidence/current")
+@api_router.get("/arbicore/intelligence/evidence/current",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_evidence_current(source: str = "calibration") -> Dict[str, Any]:
     """Latest signed evidence bundle for a given source component."""
     try:
@@ -3405,7 +3419,8 @@ async def v2_evidence_current(source: str = "calibration") -> Dict[str, Any]:
     }
 
 
-@api_router.get("/arbicore/intelligence/evidence/history")
+@api_router.get("/arbicore/intelligence/evidence/history",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_evidence_history(source: Optional[str] = None,
                               limit: int = 20) -> Dict[str, Any]:
     """Audit trail across all sources (or filtered to one)."""
@@ -3421,14 +3436,16 @@ async def v2_evidence_history(source: Optional[str] = None,
     }
 
 
-@api_router.get("/arbicore/intelligence/evidence/status")
+@api_router.get("/arbicore/intelligence/evidence/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_evidence_status() -> Dict[str, Any]:
     """Signer + worker observability — key version, failure counts, last
     successful signing, unsigned-reason (if applicable)."""
     return {"worker": _EVIDENCE_WORKER.status, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/intelligence/evidence/keys")
+@api_router.get("/arbicore/intelligence/evidence/keys",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_evidence_keys() -> Dict[str, Any]:
     """Registered signing keys (public halves + versions) for external
     verifiers.  Never returns secret material."""
@@ -3463,7 +3480,8 @@ async def v2_evidence_verify(bundle: Dict[str, Any]) -> Dict[str, Any]:
 # mode-ladder transitions.  No live signing or fund movement.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/mode")
+@api_router.get("/arbicore/execution/mode",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_mode() -> Dict[str, Any]:
     """Per-strategy execution mode map with deployment defaults + ladder."""
     try:
@@ -3486,7 +3504,8 @@ async def v2_execution_mode() -> Dict[str, Any]:
     }
 
 
-@api_router.get("/arbicore/execution/mode/{strategy}")
+@api_router.get("/arbicore/execution/mode/{strategy}",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_mode_one(strategy: str) -> Dict[str, Any]:
     try:
         row = await _EXECUTION_MODE_REPO.get(strategy)
@@ -3506,10 +3525,29 @@ async def v2_execution_mode_one(strategy: str) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
+# Verified enum mapping (NOT interchangeable — do not pass ladder names to
+# ExecutionReadinessEngine.can_transition without translation):
+#   Control OPERATOR_MODES: SHADOW, PAPER, PROFIT_ENGINE, LIMITED_LIVE, FULL_AUTOMATION
+#   Ladder MODES:           OBSERVE, PAPER, SHADOW, LIMITED_LIVE, FULL_LIVE
+# Hard-gate correspondence in this build:
+#   ladder LIMITED_LIVE ↔ control LIMITED_LIVE (same token)
+#   ladder FULL_LIVE    ↔ control FULL_AUTOMATION (different token; both hard-gated)
+_LADDER_HARD_GATED_LIVE = frozenset({"LIMITED_LIVE", "FULL_LIVE"})
+_LADDER_TO_CONTROL_HARD_GATE = {
+    "LIMITED_LIVE": "LIMITED_LIVE",
+    "FULL_LIVE": "FULL_AUTOMATION",
+}
+
+
 @api_router.post("/arbicore/execution/mode/{strategy}", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_mode_transition(strategy: str, body: Dict[str, Any]) -> Dict[str, Any]:
     """Apply an audit-logged mode transition.  Enforces the 5-step ladder
-    (forward = one step at a time, backward = any distance is allowed)."""
+    (forward = one step at a time, backward = any distance is allowed).
+
+    LIVE promotions (LIMITED_LIVE / FULL_LIVE) are hard-gated server-side in
+    this build — same refuse semantics as control-mode LIMITED_LIVE /
+    FULL_AUTOMATION. Enums are not interchangeable; see mapping above.
+    """
     to_mode = (body or {}).get("to_mode")
     reason = (body or {}).get("reason", "")
     actor = _audit_actor()
@@ -3517,9 +3555,28 @@ async def v2_execution_mode_transition(strategy: str, body: Dict[str, Any]) -> D
         return {"error": "to_mode is required",
                 "ladder": list(MODES),
                 "generated_at": _iso_now()}
+    to_mode_norm = str(to_mode).strip().upper()
+    if to_mode_norm in _LADDER_HARD_GATED_LIVE:
+        control_analog = _LADDER_TO_CONTROL_HARD_GATE[to_mode_norm]
+        return {
+            "applied": False,
+            "error": f"{to_mode_norm} is hard-gated and blocked in this build",
+            "decision": {
+                "allowed": False,
+                "reason": f"{to_mode_norm} is hard-gated and blocked in this build",
+                "target_mode": to_mode_norm,
+                "control_mode_analog": control_analog,
+                "blockers": [
+                    "ladder-live-hard-gated",
+                    f"maps_to_control:{control_analog}",
+                ],
+            },
+            "ladder": list(MODES),
+            "generated_at": _iso_now(),
+        }
     try:
         row = await _EXECUTION_MODE_REPO.transition(
-            strategy, to_mode, reason=reason, actor=actor
+            strategy, to_mode_norm, reason=reason, actor=actor
         )
     except ValueError as e:
         return {"error": str(e), "ladder": list(MODES),
@@ -3529,7 +3586,8 @@ async def v2_execution_mode_transition(strategy: str, body: Dict[str, Any]) -> D
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/mode/audit/history")
+@api_router.get("/arbicore/execution/mode/audit/history",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_mode_audit(strategy: Optional[str] = None,
                                   limit: int = 50) -> Dict[str, Any]:
     try:
@@ -3540,7 +3598,8 @@ async def v2_execution_mode_audit(strategy: Optional[str] = None,
             "strategy": strategy, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/wallets")
+@api_router.get("/arbicore/execution/wallets",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallets(chain: Optional[str] = None,
                                execution_role: Optional[str] = None) -> Dict[str, Any]:
     try:
@@ -3553,7 +3612,8 @@ async def v2_execution_wallets(chain: Optional[str] = None,
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/wallets/{wallet_id}")
+@api_router.get("/arbicore/execution/wallets/{wallet_id}",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallet_one(wallet_id: str) -> Dict[str, Any]:
     try:
         row = await _WALLET_REGISTRY.get(wallet_id)
@@ -3609,7 +3669,8 @@ async def v2_execution_wallet_role(wallet_id: str, body: Dict[str, Any]) -> Dict
     return {"item": row, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/wallets/audit/history")
+@api_router.get("/arbicore/execution/wallets/audit/history",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_wallet_audit(wallet_id: Optional[str] = None,
                                     limit: int = 50) -> Dict[str, Any]:
     try:
@@ -3620,7 +3681,8 @@ async def v2_execution_wallet_audit(wallet_id: Optional[str] = None,
             "wallet_id": wallet_id, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/secrets")
+@api_router.get("/arbicore/execution/secrets",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets() -> Dict[str, Any]:
     """List registered secret handles.  Metadata only — never plaintext
     or cipher material."""
@@ -3637,7 +3699,8 @@ async def v2_execution_secrets() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/secrets/status")
+@api_router.get("/arbicore/execution/secrets/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_secrets_status() -> Dict[str, Any]:
     """Backend availability + default provider — never leaks material."""
     return {"registry": _SECRET_REGISTRY.status,
@@ -4239,7 +4302,8 @@ async def v2_execution_certification_run(body: Dict[str, Any]) -> Dict[str, Any]
 # Wave-7A · Wallet Balance + Health
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/wallets/{wallet_id}/balance")
+@api_router.get("/arbicore/execution/wallets/{wallet_id}/balance",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_wallet_balance(wallet_id: str) -> Dict[str, Any]:
     wallet = await _WALLET_REGISTRY.get(wallet_id)
     if not wallet:
@@ -4253,7 +4317,8 @@ async def v2_wallet_balance(wallet_id: str) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/wallets/{wallet_id}/health")
+@api_router.get("/arbicore/execution/wallets/{wallet_id}/health",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_wallet_health(wallet_id: str,
                             strategy: str = "flash_loan_arbitrage",
                             min_gas_native: float = 0.001) -> Dict[str, Any]:
@@ -4267,7 +4332,8 @@ async def v2_wallet_health(wallet_id: str,
 # Wave-7A · Continuous Discovery
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/execution/discovery/status")
+@api_router.get("/arbicore/execution/discovery/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_discovery_status() -> Dict[str, Any]:
     return {**_CONTINUOUS_DISCOVERY.status(),
             "default_universe_base": DEFAULT_UNIVERSE_BASE,
@@ -4298,7 +4364,8 @@ async def v2_discovery_stop() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/opportunities")
+@api_router.get("/arbicore/execution/opportunities",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_opportunities_list(status: Optional[str] = None,
                                             chain: Optional[str] = None,
                                             limit: int = 50) -> Dict[str, Any]:
@@ -4313,7 +4380,8 @@ async def v2_execution_opportunities_list(status: Optional[str] = None,
             "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/execution/opportunities/{opportunity_id}")
+@api_router.get("/arbicore/execution/opportunities/{opportunity_id}",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_opportunity_one(opportunity_id: str) -> Dict[str, Any]:
     row = await _DISCOVERY_REPO.get(opportunity_id)
     return {"opportunity": row, "generated_at": _iso_now()}
@@ -4326,7 +4394,8 @@ async def v2_execution_opportunity_one(opportunity_id: str) -> Dict[str, Any]:
 # broadcast.  ZERO new collections, ZERO mutating behaviour.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/wizard/state")
+@api_router.get("/arbicore/wizard/state",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_wizard_state(strategy: str = "flash_loan_arbitrage",
                           chain: str = "base") -> Dict[str, Any]:
     try:
@@ -4345,7 +4414,8 @@ async def v2_wizard_state(strategy: str = "flash_loan_arbitrage",
                 "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/executor/verify")
+@api_router.get("/arbicore/executor/verify",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_executor_verify(address: Optional[str] = None,
                               chain: str = "base",
                               expected_owner: Optional[str] = None
@@ -4358,7 +4428,8 @@ async def v2_executor_verify(address: Optional[str] = None,
                 "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/limited-live/readiness")
+@api_router.get("/arbicore/limited-live/readiness",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_limited_live_readiness(chain: str = "base") -> Dict[str, Any]:
     """Canonical Limited-Live readiness matrix (same assembler the VPS audit
     uses). Read-only: never signs/broadcasts/enables anything."""
@@ -4391,7 +4462,8 @@ async def v2_limited_live_readiness(chain: str = "base") -> Dict[str, Any]:
                 "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/multichain/readiness")
+@api_router.get("/arbicore/multichain/readiness",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_multichain_readiness() -> Dict[str, Any]:
     """Explicit per-network readiness gate (read-only). Never signs/broadcasts/
     enables anything. No network is limited-live eligible from implemented code
@@ -4417,7 +4489,8 @@ async def v2_multichain_readiness() -> Dict[str, Any]:
         }
 
 
-@api_router.get("/arbicore/rpc/check")
+@api_router.get("/arbicore/rpc/check",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_rpc_check() -> Dict[str, Any]:
     try:
         return await check_rpc()
@@ -4426,7 +4499,8 @@ async def v2_rpc_check() -> Dict[str, Any]:
                 "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/post-trade/latest")
+@api_router.get("/arbicore/post-trade/latest",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_post_trade_latest(limit: int = 5) -> Dict[str, Any]:
     try:
         return await latest_broadcast_receipts(
@@ -4442,7 +4516,8 @@ async def v2_post_trade_latest(limit: int = 5) -> Dict[str, Any]:
 # Phase 10.6 · Flash Loan family prerequisite check
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/wizard/flash-loan-prereqs")
+@api_router.get("/arbicore/wizard/flash-loan-prereqs",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_flash_loan_prereqs(chain: str = "base") -> Dict[str, Any]:
     try:
         return await check_flash_loan_prereqs(
@@ -4651,7 +4726,8 @@ async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict
                 "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/wizard/technical-validation/history")
+@api_router.get("/arbicore/wizard/technical-validation/history",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_technical_validation_history(limit: int = 10) -> Dict[str, Any]:
     """Recent technical-validation runs (immutable evidence records)."""
     try:
@@ -5930,7 +6006,8 @@ async def v2_engine_readiness_matrix() -> Dict[str, Any]:
 
 
 
-@api_router.get("/arbicore/wizard/journey")
+@api_router.get("/arbicore/wizard/journey",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_wizard_journey() -> Dict[str, Any]:
     """14-stage guided operator journey (composed from existing signals)."""
     try:
@@ -5992,12 +6069,19 @@ def _redact_network_payload(value: Any) -> Any:
     Emergency Auth Reconciliation: GET network/history must not disclose raw
     RPC URLs that embed provider API keys. Uses the shared credential-URL
     redactor; never logs or returns the original sensitive segments.
+
+    Release-gate: tuples/sets are recursed (previously passed through and
+    could leak nested credential URLs).
     """
     from arbicore.log_redaction import redact_credential_url
     if isinstance(value, str):
         return redact_credential_url(value)
+    if isinstance(value, tuple):
+        return tuple(_redact_network_payload(v) for v in value)
     if isinstance(value, list):
         return [_redact_network_payload(v) for v in value]
+    if isinstance(value, set):
+        return {_redact_network_payload(v) for v in value}
     if isinstance(value, dict):
         return {k: _redact_network_payload(v) for k, v in value.items()}
     return value
@@ -6138,7 +6222,8 @@ async def v2_config_history(kind: Optional[str] = None,
 # Phase 10.3 · Telegram alerts
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/settings/telegram")
+@api_router.get("/arbicore/settings/telegram",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_telegram() -> Dict[str, Any]:
     settings = await _TELEGRAM.get_settings()
     return {"config": settings, "generated_at": _iso_now()}
@@ -6168,7 +6253,8 @@ async def v2_settings_telegram_test() -> Dict[str, Any]:
     return {**result, "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/settings/telegram/log")
+@api_router.get("/arbicore/settings/telegram/log",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_telegram_log(limit: int = 50,
                                      kind: Optional[str] = None) -> Dict[str, Any]:
     items = await _TELEGRAM.history(limit=max(1, min(int(limit), 500)),
@@ -6200,7 +6286,8 @@ async def v2_settings_telegram_emit(body: Dict[str, Any]) -> Dict[str, Any]:
 # canonical arbicore/data/scanner_config_repo.py (v1.0.2 bundle).
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/settings/scanner")
+@api_router.get("/arbicore/settings/scanner",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner() -> Dict[str, Any]:
     snap = await _SCANNER_CONFIG.snapshot()
     # Attach drafts for the initial-load path.
@@ -6260,7 +6347,8 @@ async def v2_settings_scanner_global_rollback(body: Optional[Dict[str, Any]] = N
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/settings/scanner/global/history")
+@api_router.get("/arbicore/settings/scanner/global/history",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_global_history(limit: int = 50) -> Dict[str, Any]:
     items = await _SCANNER_CONFIG.global_history(limit=max(1, min(int(limit), 200)))
     return {"items": items, "count": len(items), "generated_at": _iso_now()}
@@ -6268,7 +6356,8 @@ async def v2_settings_scanner_global_history(limit: int = 50) -> Dict[str, Any]:
 
 # ----- Per-family endpoints -----
 
-@api_router.get("/arbicore/settings/scanner/family/{family_id}")
+@api_router.get("/arbicore/settings/scanner/family/{family_id}",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_family_get(family_id: str) -> Dict[str, Any]:
     if family_id not in CANONICAL_FAMILIES:
         return {"error": f"unknown family '{family_id}'",
@@ -6332,7 +6421,8 @@ async def v2_settings_scanner_family_rollback(family_id: str,
         return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
 
 
-@api_router.get("/arbicore/settings/scanner/family/{family_id}/history")
+@api_router.get("/arbicore/settings/scanner/family/{family_id}/history",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_settings_scanner_family_history(family_id: str,
                                                 limit: int = 50) -> Dict[str, Any]:
     items = await _SCANNER_CONFIG.family_history(
@@ -6437,7 +6527,8 @@ async def v2_plan_broadcast(plan_id: str,
 # These routes expose it to the operator UI and to the Learning Ledger tests.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/journal")
+@api_router.get("/arbicore/journal",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_journal_list(
     execution_status: Optional[str] = None,
     opportunity_type: Optional[str] = None,
@@ -6464,13 +6555,15 @@ async def v2_journal_list(
     }
 
 
-@api_router.get("/arbicore/journal/summary")
+@api_router.get("/arbicore/journal/summary",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_journal_summary() -> Dict[str, Any]:
     """Aggregate counts + averages across the whole journal."""
     return await _OPPORTUNITY_JOURNAL.summary()
 
 
-@api_router.get("/arbicore/journal/{opportunity_id}")
+@api_router.get("/arbicore/journal/{opportunity_id}",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_journal_get(opportunity_id: str) -> Dict[str, Any]:
     """Return one journal row with its full event trail."""
     entry = await _OPPORTUNITY_JOURNAL.get(opportunity_id)
@@ -6487,7 +6580,8 @@ async def v2_journal_get(opportunity_id: str) -> Dict[str, Any]:
 # each journal row is consumed at most once.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/learning/ledger/status")
+@api_router.get("/arbicore/learning/ledger/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_ledger_status() -> Dict[str, Any]:
     """Ledger status — pending / consumed counts and last batch metrics."""
     return await _LEARNING_LEDGER.status()
@@ -6550,7 +6644,8 @@ async def v2_pipeline_evaluate(body: Optional[Dict[str, Any]] = None) -> Dict[st
 # journaled with a complete historical audit trail. No chain writes occur.
 # ---------------------------------------------------------------------------
 
-@api_router.get("/arbicore/auto-executor/status")
+@api_router.get("/arbicore/auto-executor/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def v2_autoexec_status() -> Dict[str, Any]:
     return _AUTO_EXECUTOR.status()
 
@@ -7097,7 +7192,8 @@ async def _resolve_current_user(
 # WP-A: legacy bearer acceptance in `_resolve_current_user` is also removed.
 # ---------------------------------------------------------------------------
 
-@app.get("/api/arbicore/mid/status")
+@app.get("/api/arbicore/mid/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def mid_status() -> Dict[str, Any]:
     """Sprint 1A — MID health + per-domain counts + last-write timestamps."""
     if _MID_READER is None:
@@ -7107,7 +7203,8 @@ async def mid_status() -> Dict[str, Any]:
     return payload
 
 
-@app.get("/api/arbicore/mid/query/{domain}")
+@app.get("/api/arbicore/mid/query/{domain}",
+    dependencies=[Depends(_require_operator_dep)])
 async def mid_query(domain: str,
                      strategy_type: Optional[str] = None,
                      opportunity_type: Optional[str] = None,
@@ -7148,7 +7245,8 @@ async def mid_query(domain: str,
     }
 
 
-@app.get("/api/arbicore/mid/enums")
+@app.get("/api/arbicore/mid/enums",
+    dependencies=[Depends(_require_operator_dep)])
 async def mid_enums() -> Dict[str, Any]:
     """Sprint 1A — enum registry snapshot + closed-enum flags."""
     reg = _mid_get_registry()
@@ -7204,7 +7302,8 @@ async def _intelligence_activate_startup():
         logger.exception("intelligence: activation failed: %s", exc)
 
 
-@app.get("/api/arbicore/intelligence/status")
+@app.get("/api/arbicore/intelligence/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def intelligence_status() -> Dict[str, Any]:
     """Sprint 1B-α — per-engine activation state + MidEvidenceBridge stats."""
     if _INTEL_ACTIVATION is None:
@@ -7221,7 +7320,8 @@ async def intelligence_status() -> Dict[str, Any]:
     }
 
 
-@app.get("/api/arbicore/intelligence/{engine_id}/snapshot")
+@app.get("/api/arbicore/intelligence/{engine_id}/snapshot",
+    dependencies=[Depends(_require_operator_dep)])
 async def intelligence_snapshot(engine_id: str) -> Dict[str, Any]:
     """Sprint 1B-α — return the current public state of one engine."""
     if _INTEL_ACTIVATION is None:
@@ -7601,7 +7701,8 @@ async def _arbicore_runtime_autostart():
         logger.exception("arbicore_runtime autostart failed: %s", exc)
 
 
-@app.get("/api/arbicore/scanners/status")
+@app.get("/api/arbicore/scanners/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def scanners_status() -> Dict[str, Any]:
     """Sprint 1B-β — per-scanner activation + runtime state + bridge stats.
 
@@ -7772,7 +7873,8 @@ async def _lifetime_shutdown():
             logger.exception("lifetime sweeper shutdown failed")
 
 
-@app.get("/api/arbicore/lifetime/status")
+@app.get("/api/arbicore/lifetime/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def lifetime_status() -> Dict[str, Any]:
     """Phase 2 — aggregate status counts + tracker + sweeper stats."""
     if _LIFETIME_TRACKER is None:
@@ -7792,7 +7894,8 @@ async def lifetime_status() -> Dict[str, Any]:
     return payload
 
 
-@app.get("/api/arbicore/lifetime/recent")
+@app.get("/api/arbicore/lifetime/recent",
+    dependencies=[Depends(_require_operator_dep)])
 async def lifetime_recent(
     limit: int = 50,
     status: Optional[str] = None,
@@ -7808,7 +7911,8 @@ async def lifetime_recent(
             "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/lifetime/{opp_id}")
+@app.get("/api/arbicore/lifetime/{opp_id}",
+    dependencies=[Depends(_require_operator_dep)])
 async def lifetime_by_opp(opp_id: str) -> Dict[str, Any]:
     if _LIFETIME_TRACKER is None:
         raise HTTPException(status_code=503,
@@ -7834,14 +7938,16 @@ except Exception:  # noqa: BLE001
     logger.exception("Phase 3 memory unavailable")
 
 
-@app.get("/api/arbicore/memory/summary")
+@app.get("/api/arbicore/memory/summary",
+    dependencies=[Depends(_require_operator_dep)])
 async def memory_summary() -> Dict[str, Any]:
     if _MEMORY is None:
         raise HTTPException(status_code=503, detail="memory_not_activated")
     return {**await _MEMORY.summary(), "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/memory/recurring")
+@app.get("/api/arbicore/memory/recurring",
+    dependencies=[Depends(_require_operator_dep)])
 async def memory_recurring(
     limit: int = 20, min_recurrence: int = 1,
     opportunity_type: Optional[str] = None,
@@ -7857,7 +7963,8 @@ async def memory_recurring(
             "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/memory/persistent")
+@app.get("/api/arbicore/memory/persistent",
+    dependencies=[Depends(_require_operator_dep)])
 async def memory_persistent(limit: int = 20,
                              min_observations: int = 2) -> Dict[str, Any]:
     if _MEMORY is None:
@@ -7869,7 +7976,8 @@ async def memory_persistent(limit: int = 20,
             "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/memory/confidence/{opp_id}")
+@app.get("/api/arbicore/memory/confidence/{opp_id}",
+    dependencies=[Depends(_require_operator_dep)])
 async def memory_confidence(opp_id: str, limit: int = 100) -> Dict[str, Any]:
     if _MEMORY is None:
         raise HTTPException(status_code=503, detail="memory_not_activated")
@@ -7878,7 +7986,8 @@ async def memory_confidence(opp_id: str, limit: int = 100) -> Dict[str, Any]:
         "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/memory/profitability/{opp_id}")
+@app.get("/api/arbicore/memory/profitability/{opp_id}",
+    dependencies=[Depends(_require_operator_dep)])
 async def memory_profitability(opp_id: str,
                                 limit: int = 100) -> Dict[str, Any]:
     if _MEMORY is None:
@@ -7888,7 +7997,8 @@ async def memory_profitability(opp_id: str,
         "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/memory/routes")
+@app.get("/api/arbicore/memory/routes",
+    dependencies=[Depends(_require_operator_dep)])
 async def memory_routes(limit: int = 20,
                          chain: Optional[str] = None) -> Dict[str, Any]:
     if _MEMORY is None:
@@ -7899,7 +8009,8 @@ async def memory_routes(limit: int = 20,
             "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/memory/venues")
+@app.get("/api/arbicore/memory/venues",
+    dependencies=[Depends(_require_operator_dep)])
 async def memory_venues(limit: int = 50) -> Dict[str, Any]:
     if _MEMORY is None:
         raise HTTPException(status_code=503, detail="memory_not_activated")
@@ -7909,7 +8020,8 @@ async def memory_venues(limit: int = 50) -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/memory/regime")
+@app.get("/api/arbicore/memory/regime",
+    dependencies=[Depends(_require_operator_dep)])
 async def memory_regime(hours: float = 24.0,
                          limit: int = 200) -> Dict[str, Any]:
     if _MEMORY is None:
@@ -7948,7 +8060,8 @@ except Exception:  # noqa: BLE001
     logger.exception("Phase 5 provider registry unavailable")
 
 
-@app.get("/api/arbicore/providers/status")
+@app.get("/api/arbicore/providers/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def providers_status() -> Dict[str, Any]:
     if _PROVIDER_REGISTRY is None:
         return {"available": False, "generated_at": _iso_now()}
@@ -8076,7 +8189,8 @@ async def _live_market_shutdown():
         await _LIVE_SCANNER.stop()
 
 
-@app.get("/api/arbicore/live/status")
+@app.get("/api/arbicore/live/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def live_status() -> Dict[str, Any]:
     if _LIVE_SCANNER is None:
         return {"available": False, "generated_at": _iso_now()}
@@ -8108,7 +8222,8 @@ async def live_stop(request: Request, authorization: Optional[str] = Header(defa
     return await _LIVE_SCANNER.stop()
 
 
-@app.get("/api/arbicore/live/prices")
+@app.get("/api/arbicore/live/prices",
+    dependencies=[Depends(_require_operator_dep)])
 async def live_prices() -> Dict[str, Any]:
     """Latest cross-venue price snapshot for every scanned symbol."""
     if _LIVE_SCANNER is None:
@@ -8118,7 +8233,8 @@ async def live_prices() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/live/opportunities")
+@app.get("/api/arbicore/live/opportunities",
+    dependencies=[Depends(_require_operator_dep)])
 async def live_opportunities(limit: int = 25) -> Dict[str, Any]:
     """Recent live opportunities from MID (cex_spot_arbitrage & friends)."""
     if _MID_READER is None:
@@ -8193,7 +8309,8 @@ async def _cross_scanner_shutdown():
             await s.stop()
 
 
-@app.get("/api/arbicore/scanners/cross/status")
+@app.get("/api/arbicore/scanners/cross/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def cross_scanners_status() -> Dict[str, Any]:
     def _s(sc):
         if sc is None:
@@ -8231,7 +8348,8 @@ async def _validation_startup():
         _VALIDATION_REPORTER = ValidationReporter(_MID_READER)
 
 
-@app.get("/api/arbicore/validation/summary")
+@app.get("/api/arbicore/validation/summary",
+    dependencies=[Depends(_require_operator_dep)])
 async def validation_summary() -> Dict[str, Any]:
     if _VALIDATION_REPORTER is None or _PROVIDER_REGISTRY is None:
         return {"available": False, "generated_at": _iso_now()}
@@ -8242,7 +8360,8 @@ async def validation_summary() -> Dict[str, Any]:
              }
 
 
-@app.get("/api/arbicore/validation/recurrence")
+@app.get("/api/arbicore/validation/recurrence",
+    dependencies=[Depends(_require_operator_dep)])
 async def validation_recurrence(limit: int = 500) -> Dict[str, Any]:
     if _VALIDATION_REPORTER is None:
         return {"available": False}
@@ -8250,7 +8369,8 @@ async def validation_recurrence(limit: int = 500) -> Dict[str, Any]:
              **(await _VALIDATION_REPORTER.opportunity_recurrence(limit=limit))}
 
 
-@app.get("/api/arbicore/validation/calibration")
+@app.get("/api/arbicore/validation/calibration",
+    dependencies=[Depends(_require_operator_dep)])
 async def validation_calibration(limit: int = 500) -> Dict[str, Any]:
     if _VALIDATION_REPORTER is None:
         return {"available": False}
@@ -8258,7 +8378,8 @@ async def validation_calibration(limit: int = 500) -> Dict[str, Any]:
              **(await _VALIDATION_REPORTER.confidence_calibration(limit=limit))}
 
 
-@app.get("/api/arbicore/validation/venue_ranking")
+@app.get("/api/arbicore/validation/venue_ranking",
+    dependencies=[Depends(_require_operator_dep)])
 async def validation_venue_ranking(limit: int = 500) -> Dict[str, Any]:
     if _VALIDATION_REPORTER is None:
         return {"available": False}
@@ -8266,7 +8387,8 @@ async def validation_venue_ranking(limit: int = 500) -> Dict[str, Any]:
              **(await _VALIDATION_REPORTER.venue_ranking(limit=limit))}
 
 
-@app.get("/api/arbicore/validation/regime")
+@app.get("/api/arbicore/validation/regime",
+    dependencies=[Depends(_require_operator_dep)])
 async def validation_regime(limit: int = 500) -> Dict[str, Any]:
     if _VALIDATION_REPORTER is None:
         return {"available": False}
@@ -8319,7 +8441,8 @@ async def flj_run(opp: Dict[str, Any],
     return await _FL_JOURNEY.run(opp)
 
 
-@app.get("/api/arbicore/flashloan/journey/status")
+@app.get("/api/arbicore/flashloan/journey/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def flj_status() -> Dict[str, Any]:
     return {"available": _FL_JOURNEY is not None,
              "ready_for_signing": False,
@@ -8354,7 +8477,8 @@ except Exception:  # noqa: BLE001
 _DAILY_WRITER: Optional[Any] = None
 
 
-@app.get("/api/arbicore/config/runtime")
+@app.get("/api/arbicore/config/runtime",
+    dependencies=[Depends(_require_operator_dep)])
 async def config_runtime() -> Dict[str, Any]:
     if _RUNTIME_CFG is None:
         return {"available": False, "generated_at": _iso_now()}
@@ -8363,7 +8487,8 @@ async def config_runtime() -> Dict[str, Any]:
              "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/preflight")
+@app.get("/api/arbicore/preflight",
+    dependencies=[Depends(_require_operator_dep)])
 async def preflight() -> Dict[str, Any]:
     if not _OPS_AVAILABLE or _RUNTIME_CFG is None:
         return {"available": False, "generated_at": _iso_now()}
@@ -8407,7 +8532,8 @@ async def _daily_summary_shutdown():
         await _DAILY_WRITER.stop()
 
 
-@app.get("/api/arbicore/validation/daily_status")
+@app.get("/api/arbicore/validation/daily_status",
+    dependencies=[Depends(_require_operator_dep)])
 async def validation_daily_status() -> Dict[str, Any]:
     if _DAILY_WRITER is None:
         return {"available": False, "generated_at": _iso_now()}
@@ -8432,7 +8558,8 @@ async def validation_daily_run_now(
     return await _DAILY_WRITER.run_once()
 
 
-@app.get("/api/arbicore/validation/last_daily")
+@app.get("/api/arbicore/validation/last_daily",
+    dependencies=[Depends(_require_operator_dep)])
 async def validation_last_daily() -> Dict[str, Any]:
     if _DAILY_WRITER is None or _DAILY_WRITER.last_summary is None:
         return {"available": False, "generated_at": _iso_now()}
@@ -8468,7 +8595,8 @@ def _pv_reviewer():
     )
 
 
-@app.get("/api/arbicore/postvalidation/report")
+@app.get("/api/arbicore/postvalidation/report",
+    dependencies=[Depends(_require_operator_dep)])
 async def postval_report(sample_limit: int = 2000) -> Dict[str, Any]:
     r = _pv_reviewer()
     if r is None:
@@ -8477,7 +8605,8 @@ async def postval_report(sample_limit: int = 2000) -> Dict[str, Any]:
         sample_limit=int(sample_limit)))}
 
 
-@app.get("/api/arbicore/postvalidation/recommendations")
+@app.get("/api/arbicore/postvalidation/recommendations",
+    dependencies=[Depends(_require_operator_dep)])
 async def postval_recommendations(sample_limit: int = 2000) -> Dict[str, Any]:
     r = _pv_reviewer()
     if r is None:
@@ -8486,7 +8615,8 @@ async def postval_recommendations(sample_limit: int = 2000) -> Dict[str, Any]:
         sample_limit=int(sample_limit)))}
 
 
-@app.get("/api/arbicore/postvalidation/readiness_score")
+@app.get("/api/arbicore/postvalidation/readiness_score",
+    dependencies=[Depends(_require_operator_dep)])
 async def postval_readiness(sample_limit: int = 2000) -> Dict[str, Any]:
     r = _pv_reviewer()
     if r is None:
@@ -8495,7 +8625,8 @@ async def postval_readiness(sample_limit: int = 2000) -> Dict[str, Any]:
         sample_limit=int(sample_limit)))}
 
 
-@app.get("/api/arbicore/postvalidation/executive_summary")
+@app.get("/api/arbicore/postvalidation/executive_summary",
+    dependencies=[Depends(_require_operator_dep)])
 async def postval_exec_summary(sample_limit: int = 2000) -> Dict[str, Any]:
     r = _pv_reviewer()
     if r is None:
@@ -8506,7 +8637,8 @@ async def postval_exec_summary(sample_limit: int = 2000) -> Dict[str, Any]:
 
 # ---------- safety endpoints ----------
 
-@app.get("/api/arbicore/safety/status")
+@app.get("/api/arbicore/safety/status",
+    dependencies=[Depends(_require_operator_dep)])
 async def safety_status() -> Dict[str, Any]:
     if not _SAFETY_AVAILABLE:
         return {"available": False, "generated_at": _iso_now()}
@@ -8608,7 +8740,8 @@ async def paper_analyse(
             "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/paper/stats")
+@app.get("/api/arbicore/paper/stats",
+    dependencies=[Depends(_require_operator_dep)])
 async def paper_stats() -> Dict[str, Any]:
     if _PAPER_ENGINE is None:
         return {"available": False, "generated_at": _iso_now()}
@@ -8616,7 +8749,8 @@ async def paper_stats() -> Dict[str, Any]:
             "generated_at": _iso_now()}
 
 
-@app.get("/api/arbicore/observability")
+@app.get("/api/arbicore/observability",
+    dependencies=[Depends(_require_operator_dep)])
 async def observability() -> Dict[str, Any]:
     """Sprint 1B-β — one-shot operational observability endpoint.
 
