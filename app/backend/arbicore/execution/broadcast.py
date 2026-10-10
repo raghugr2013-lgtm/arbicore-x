@@ -31,8 +31,20 @@ from typing import Any, Dict, List, Optional
 
 from .calldata import EncodedCall, encode_plan_head_call
 from .kill_switch import KillSwitchEngagedError
+from .presend_invariants import (
+    ChainPolicyError,
+    NonceCoordinator,
+    SendCriticalSection,
+    TxByteBinding,
+    assert_chain_allowed,
+    assert_chain_ceiling,
+)
 
 logger = logging.getLogger("arbicore.execution.broadcast")
+
+# Process-local send critical section + nonce coordinator (WP-C C2/C6).
+_SEND_SECTION = SendCriticalSection()
+_NONCE_COORD = NonceCoordinator()
 
 
 def _now_iso() -> str:
@@ -234,13 +246,18 @@ class LimitedLiveBroadcaster:
                  circuit_breaker=None,
                  require_revalidation: bool = False,
                  rpc_url_env: str = "ARBICORE_RPC_URL",
-                 preflight_only_default: bool = True):
+                 preflight_only_default: bool = True,
+                 budget_store=None,
+                 daily_notional_ceiling_usd: float = 10_000.0):
         self._kill = kill_switch
         self._mode = mode_repo
         self._wallets = wallet_registry
         self._secrets = secret_registry
         self._alloc = capital_allocator
         self._evidence = evidence_signer
+        # WP-C / C5 — optional durable budget store (fail-closed when present).
+        self._budget_store = budget_store
+        self._daily_notional_ceiling_usd = float(daily_notional_ceiling_usd)
         # Isolated execution signer: resolved from the encrypted evm_sign
         # vault. This is deliberately separate from signer_wallet_id, which
         # remains the gas/capital wallet used by Gate 3.
@@ -767,12 +784,54 @@ class LimitedLiveBroadcaster:
 
         broadcast_sent = False
         tx_hash: Optional[str] = None
+        # WP-C · C4 chain allowlist / ceiling (before any sign/send)
         if not denied and preflight_ok and confirm and not force_broadcast:
-            # All six gates PASS — sign + broadcast.
+            try:
+                expected_cid = assert_chain_allowed(chain, CHAIN_IDS.get(chain))
+                assert_chain_ceiling(
+                    chain, float(plan_doc.get("borrow_amount_usd") or 0),
+                )
+                gate_ladder["chain_allowlist"] = "PASS"
+            except ChainPolicyError as exc:
+                gate_ladder["chain_allowlist"] = "DENIED"
+                denied.append(f"chain_policy: {exc}")
+                expected_cid = CHAIN_IDS.get(chain, 0)
+        else:
+            expected_cid = CHAIN_IDS.get(chain, 0)
+
+        if not denied and preflight_ok and confirm and not force_broadcast:
+            # WP-C / C5 durable notional budget (when store wired).
+            if self._budget_store is not None:
+                try:
+                    _prop = float(plan_doc.get("borrow_amount_usd") or 0)
+                    _ok_b, _tot = await self._budget_store.add_and_check(
+                        f"daily_notional:{strategy}",
+                        _prop,
+                        ceiling=self._daily_notional_ceiling_usd,
+                    )
+                    if not _ok_b:
+                        gate_ladder["durable_budget"] = "DENIED"
+                        denied.append(
+                            f"durable_budget: daily notional would reach {_tot} "
+                            f"> ceiling {self._daily_notional_ceiling_usd}"
+                        )
+                    else:
+                        gate_ladder["durable_budget"] = "PASS"
+                except Exception as exc:  # noqa: BLE001 — fail closed
+                    gate_ladder["durable_budget"] = "DENIED"
+                    denied.append(f"durable_budget: {type(exc).__name__}")
+
+        if not denied and preflight_ok and confirm and not force_broadcast:
+            # All gates PASS — sign + broadcast under kill-vs-send critical section.
             try:
                 from eth_account import Account
                 acct = Account.from_key(priv_hex)  # type: ignore[arg-type]
-                # Legacy tx envelope (chain-independent; simplest for Base).
+                _NONCE_COORD.claim_writer()
+                leased_nonce = await _NONCE_COORD.allocate(
+                    signer_address or "", int(nonce or 0),
+                )
+                nonce = leased_nonce
+                # Legacy tx envelope (Base allowlisted).
                 tx = {
                     "to": encoded.contract_address,
                     "value": encoded.value_wei,
@@ -780,18 +839,38 @@ class LimitedLiveBroadcaster:
                     "gasPrice": int(gas_price_wei or 0),
                     "nonce": int(nonce or 0),
                     "data": encoded.calldata_hex,
-                    "chainId": CHAIN_IDS.get(chain, 0),
+                    "chainId": int(expected_cid or 0),
                 }
-                signed = acct.sign_transaction(tx)
-                raw_hex = signed.raw_transaction.hex()
-                if not raw_hex.startswith("0x"):
-                    raw_hex = "0x" + raw_hex
-                # ---- THE ONE AND ONLY BROADCAST CALL SITE ----
-                tx_hash = await self._rpc(
-                    "eth_sendRawTransaction", [raw_hex], read_only=False,
+                # C3 · bind validated bytes before sign; re-check at send.
+                binding = TxByteBinding.from_tx(tx)
+
+                async def _sign_and_send():
+                    # Still under SendCriticalSection lock: KS re-read already done.
+                    binding.assert_matches(tx)
+                    signed = acct.sign_transaction(tx)
+                    raw_hex = signed.raw_transaction.hex()
+                    if not raw_hex.startswith("0x"):
+                        raw_hex = "0x" + raw_hex
+                    # ---- THE ONE AND ONLY BROADCAST CALL SITE ----
+                    return await self._rpc(
+                        "eth_sendRawTransaction", [raw_hex], read_only=False,
+                    )
+
+                tx_hash = await _SEND_SECTION.run_send(
+                    kill_switch=self._kill,
+                    send_coro_factory=_sign_and_send,
                 )
                 broadcast_sent = True
                 gate_ladder["broadcast"] = "SENT"
+                gate_ladder["tx_byte_binding"] = "PASS"
+                gate_ladder["kill_switch_presend"] = "PASS"
+            except KillSwitchEngagedError as exc:
+                gate_ladder["broadcast"] = "DENIED"
+                gate_ladder["kill_switch_presend"] = "DENIED"
+                denied.append(f"kill_vs_send: {exc}")
+            except PermissionError as exc:
+                gate_ladder["broadcast"] = "DENIED"
+                denied.append(f"presend_invariant: {exc}")
             except Exception as exc:  # noqa: BLE001
                 gate_ladder["broadcast"] = "FAILED"
                 denied.append(f"broadcast: {type(exc).__name__}: {exc}")

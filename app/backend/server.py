@@ -269,6 +269,9 @@ def _limited_live_signer_status():
     return _provider
 
 
+from arbicore.execution.presend_invariants import DurableBudgetStore as _DurableBudgetStore
+_DURABLE_BUDGET_STORE = _DurableBudgetStore(db)
+
 _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
     kill_switch=_KILL_SWITCH_REPO,
     mode_repo=_EXECUTION_MODE_REPO,
@@ -289,6 +292,8 @@ _LIMITED_LIVE_BROADCASTER = LimitedLiveBroadcaster(
         _controlled_live_safety_or_none(),
     )),
     require_revalidation=True,
+    # WP-C / C5 — durable concurrency-safe notional budgets at send boundary.
+    budget_store=_DURABLE_BUDGET_STORE,
 )
 
 # ---------------------------------------------------------------------------
@@ -4121,9 +4126,11 @@ async def v2_execution_kill_switch_engage(body: Dict[str, Any]) -> Dict[str, Any
     if not reason:
         return {"ok": False, "error": "reason is required",
                 "generated_at": _iso_now()}
+    # WP-C / C1: persistent repo is authoritative; mirror sync via bind_memory_mirror.
     state = await _KILL_SWITCH_REPO.engage(reason=reason,
                                             actor=_audit_actor())
-    return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
+    return {"ok": True, "state": state.to_dict(),
+            "authoritative": True, "generated_at": _iso_now()}
 
 
 @api_router.post("/arbicore/execution/kill-switch/disengage", dependencies=[Depends(_require_admin_dep)])
@@ -4143,7 +4150,8 @@ async def v2_execution_kill_switch_disengage(body: Dict[str, Any]) -> Dict[str, 
             status_code=503,
             detail=f"kill_switch_disengage_failed: {type(exc).__name__}",
         ) from exc
-    return {"ok": True, "state": state.to_dict(), "generated_at": _iso_now()}
+    return {"ok": True, "state": state.to_dict(),
+            "authoritative": True, "generated_at": _iso_now()}
 
 
 @api_router.get("/arbicore/execution/kill-switch/audit", dependencies=[Depends(_require_operator_dep)])
@@ -4643,11 +4651,35 @@ async def v2_technical_validation(body: Optional[Dict[str, Any]] = None) -> Dict
             auto_prefund=bool(body.get("auto_prefund", True)),
             execute=execute,
         )
+        # WP-C / C7: successful TV that is not engine_ready still clears allowances.
+        if isinstance(trace, dict) and not trace.get("engine_ready"):
+            from arbicore.execution.presend_invariants import (
+                cleanup_failed_technical_validation,
+            )
+            cleanup = await cleanup_failed_technical_validation(
+                db, opportunity_id=(body or {}).get("opportunity_id"),
+                run_id=trace.get("run_id") or trace.get("tx_hash"),
+            )
+            return {"result": trace, "cleanup": cleanup, "generated_at": _iso_now()}
         return {"result": trace, "generated_at": _iso_now()}
     except TechnicalValidationError as exc:
-        return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
+        from arbicore.execution.presend_invariants import (
+            cleanup_failed_technical_validation,
+        )
+        cleanup = await cleanup_failed_technical_validation(
+            db, opportunity_id=(body or {}).get("opportunity_id"),
+        )
+        return {"ok": False, "error": str(exc), "cleanup": cleanup,
+                "live_eligible": False, "generated_at": _iso_now()}
     except Exception as exc:  # noqa: BLE001
+        from arbicore.execution.presend_invariants import (
+            cleanup_failed_technical_validation,
+        )
+        cleanup = await cleanup_failed_technical_validation(
+            db, opportunity_id=(body or {}).get("opportunity_id"),
+        )
         return {"ok": False, "error": f"{type(exc).__name__}: {exc}",
+                "cleanup": cleanup, "live_eligible": False,
                 "generated_at": _iso_now()}
 
 
@@ -7974,6 +8006,11 @@ try:
     _APPROVAL = _ApprovalGate(_POLICY, _KILL)
     _AUDIT = None                     # bound after MID writer boots
     _SAFETY_AVAILABLE = True
+    # WP-C / C1: persistent KillSwitchRepo is authoritative; mirror in-memory.
+    try:
+        _KILL_SWITCH_REPO.bind_memory_mirror(_KILL)
+    except Exception:  # noqa: BLE001
+        logger.exception("kill_switch: failed to bind memory mirror")
     logger.info(
         "safety: Phase 8 activated — kill.engaged=%s live_exec=%s "
         "max_per_trade_usd=%.2f",
@@ -8510,31 +8547,22 @@ async def postval_exec_summary(sample_limit: int = 2000) -> Dict[str, Any]:
 async def safety_status() -> Dict[str, Any]:
     if not _SAFETY_AVAILABLE:
         return {"available": False, "generated_at": _iso_now()}
-    # Truth reconciliation: there are two kill-switch stores — the in-memory
-    # Phase-8 `_KILL` (guards the autoexecutor + this endpoint) and the
-    # persistent `_KILL_SWITCH_REPO` (guards the executor `execute` path and the
-    # /execution/kill-switch/* API). Report BOTH and compute a fail-closed union:
-    # the system is considered engaged if EITHER store is engaged.
-    mem_engaged = bool(_KILL.is_engaged())
-    persistent = None
-    persistent_engaged = False
-    try:
-        ks = await _KILL_SWITCH_REPO.state()
-        persistent_engaged = bool(getattr(ks, "engaged", False))
-        persistent = {"engaged": persistent_engaged,
-                      "reason": getattr(ks, "reason", None)}
-    except Exception as exc:  # noqa: BLE001
-        # Unknown persistent state must NOT be read as "safe" — treat as engaged.
-        persistent = {"engaged": True, "reason": f"state_unavailable: {type(exc).__name__}"}
-        persistent_engaged = True
+    # WP-C / C1: persistent KillSwitchRepo is the sole authoritative engaged
+    # flag. In-memory `_KILL` is a mirror only. Unavailable persistent state
+    # fails closed as engaged.
+    from arbicore.execution.presend_invariants import read_authoritative_kill
+    auth = await read_authoritative_kill(_KILL_SWITCH_REPO)
     return {
         "available":                True,
         "live_execution_enabled":   _POLICY.live_execution_enabled,
         "require_approval_gate":    _POLICY.require_approval_gate,
         "require_paper_validation": _POLICY.require_paper_validation,
-        "kill":                     _KILL.to_dict(),
-        "kill_switch_persistent":   persistent,
-        "effective_kill_engaged":   bool(mem_engaged or persistent_engaged),
+        "kill":                     _KILL.to_dict(),  # mirror (non-authoritative)
+        "kill_switch_persistent":   {
+            "engaged": auth.engaged, "reason": auth.reason, "source": auth.source,
+        },
+        "effective_kill_engaged":   bool(auth.engaged),
+        "authoritative_source":     "kill_switch_repo",
         "capital_policy":           _CAPITAL.to_dict(),
         "generated_at":             _iso_now(),
     }
@@ -8551,12 +8579,16 @@ async def kill_engage(
     ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") not in ("admin", "operator"):
         raise HTTPException(status_code=403, detail="admin_or_operator_only")
-    entry = _KILL.engage(by=ctx.get("username"), reason=reason)
+    actor = str(ctx.get("username") or ctx.get("user_id") or "operator")
+    # WP-C / C1: write authoritative persistent store (mirrors memory via bind).
+    state = await _KILL_SWITCH_REPO.engage(reason=reason, actor=actor)
     if _AUDIT is not None:
         await _AUDIT.log(event="kill.engage",
-                          by=ctx.get("username"),
+                          by=actor,
                           payload={"reason": reason})
-    return {**entry, "current": _KILL.to_dict()}
+    return {"action": "ENGAGE", "by": actor, "reason": reason,
+            "current": _KILL.to_dict(), "state": state.to_dict(),
+            "authoritative": True}
 
 
 @app.post("/api/arbicore/safety/kill/disengage")
@@ -8566,13 +8598,14 @@ async def kill_disengage(
     authorization: Optional[str] = Header(default=None),
 ):
     # WP-B / F-AUTH-03: admin-only (unchanged). Actor from authenticated ctx only.
+    # WP-C / C1: disengage authoritative persistent store (mirrors memory).
     if not _SAFETY_AVAILABLE:
         raise HTTPException(status_code=503, detail="safety_unavailable")
     ctx = await _resolve_current_user(request, authorization)
     if not ctx or ctx.get("role") != "admin":
         raise HTTPException(status_code=403, detail="admin_only")
     actor = str(ctx.get("username") or ctx.get("user_id") or "admin")
-    # Audit-first when audit is wired — fail closed before mutating in-memory KS.
+    # Audit-first when audit is wired — fail closed before mutating KS.
     if _AUDIT is not None:
         try:
             await _AUDIT.log(event="kill.disengage",
@@ -8583,8 +8616,16 @@ async def kill_disengage(
                 status_code=503,
                 detail=f"kill_switch_disengage_failed: {type(exc).__name__}",
             ) from exc
-    entry = _KILL.disengage(by=actor, reason=reason)
-    return {**entry, "current": _KILL.to_dict()}
+    try:
+        state = await _KILL_SWITCH_REPO.disengage(reason=reason, actor=actor)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"kill_switch_disengage_failed: {type(exc).__name__}",
+        ) from exc
+    return {"action": "DISENGAGE", "by": actor, "reason": reason,
+            "current": _KILL.to_dict(), "state": state.to_dict(),
+            "authoritative": True}
 
 
 # ---------- paper engine endpoints ----------

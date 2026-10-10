@@ -309,19 +309,26 @@ class TestSafetyKillDisengage:
         if not getattr(srv, "_SAFETY_AVAILABLE", False):
             pytest.skip("safety module unavailable in this environment")
 
-        class _FakeKill:
+        class _FakeRepo:
             def __init__(self):
                 self.disengages = 0
 
-            def disengage(self, *, by: str, reason: str):
+            async def disengage(self, reason: str, actor: str = "operator"):
                 self.disengages += 1
-                return {"action": "DISENGAGE", "by": by, "reason": reason}
 
+                class S:
+                    def to_dict(self):
+                        return {"engaged": False}
+
+                return S()
+
+        class _FakeKill:
             def to_dict(self):
                 return {"engaged": False}
 
-        fake = _FakeKill()
-        monkeypatch.setattr(srv, "_KILL", fake)
+        fake = _FakeRepo()
+        monkeypatch.setattr(srv, "_KILL_SWITCH_REPO", fake)
+        monkeypatch.setattr(srv, "_KILL", _FakeKill())
         monkeypatch.setattr(srv, "_AUDIT", None)
         _stub_user(monkeypatch, user_id="op1", username="operator", role="operator")
         token = _issue("op1", "operator")
@@ -347,14 +354,21 @@ class TestSafetyKillDisengage:
 
         seen = {"by": None}
 
-        class _FakeKill:
-            def disengage(self, *, by: str, reason: str):
-                seen["by"] = by
-                return {"action": "DISENGAGE", "by": by, "reason": reason}
+        class _FakeRepo:
+            async def disengage(self, reason: str, actor: str = "operator"):
+                seen["by"] = actor
 
+                class S:
+                    def to_dict(self):
+                        return {"engaged": False}
+
+                return S()
+
+        class _FakeKill:
             def to_dict(self):
                 return {"engaged": False}
 
+        monkeypatch.setattr(srv, "_KILL_SWITCH_REPO", _FakeRepo())
         monkeypatch.setattr(srv, "_KILL", _FakeKill())
         monkeypatch.setattr(srv, "_AUDIT", None)
         _stub_user(monkeypatch, user_id="a1", username="admin", role="admin")
@@ -379,14 +393,20 @@ class TestSafetyKillDisengage:
         if not getattr(srv, "_SAFETY_AVAILABLE", False):
             pytest.skip("safety module unavailable in this environment")
 
-        class _FakeKill:
+        class _FakeRepo:
             def __init__(self):
                 self.disengages = 0
 
-            def disengage(self, *, by: str, reason: str):
+            async def disengage(self, reason: str, actor: str = "operator"):
                 self.disengages += 1
-                return {"action": "DISENGAGE", "by": by, "reason": reason}
 
+                class S:
+                    def to_dict(self):
+                        return {"engaged": False}
+
+                return S()
+
+        class _FakeKill:
             def to_dict(self):
                 return {"engaged": False}
 
@@ -394,8 +414,9 @@ class TestSafetyKillDisengage:
             async def log(self, **_kw):
                 raise RuntimeError("audit_down")
 
-        fake = _FakeKill()
-        monkeypatch.setattr(srv, "_KILL", fake)
+        fake = _FakeRepo()
+        monkeypatch.setattr(srv, "_KILL_SWITCH_REPO", fake)
+        monkeypatch.setattr(srv, "_KILL", _FakeKill())
         monkeypatch.setattr(srv, "_AUDIT", _BadAudit())
         _stub_user(monkeypatch, user_id="a1", username="admin", role="admin")
         token = _issue("a1", "admin")
