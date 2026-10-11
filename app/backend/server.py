@@ -4184,11 +4184,14 @@ async def v2_broadcast_coordination_status() -> Dict[str, Any]:
 async def v2_broadcast_recover_stuck_send(
     body: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Admin evidence-based recovery for ``active_send=rpc_submitted``.
+    """Admin recovery for ``active_send=rpc_submitted``.
 
-    Never clears a stuck send on TTL alone. Requires chain/RPC evidence.
-    Fail-closed if coordination or recovery audit persistence fails.
-    Does not accept or return private keys, signed tx bytes, or RPC URLs.
+    Never clears a stuck send on TTL alone. Authoritative evidence comes from
+    the server's trusted per-chain RPC provider, bound to the durable stuck
+    send (digest/chain/signer/nonce). Operator JSON is not treated as proof
+    of an RPC observation — ``candidate_tx_hash`` is only a lookup hint.
+    Fail-closed if coordination, trusted RPC, or recovery audit persistence
+    fails. Does not accept or return private keys, signed tx bytes, or RPC URLs.
     """
     from arbicore.execution.durable_broadcast_coordination import CoordinationError
 
@@ -4202,8 +4205,10 @@ async def v2_broadcast_recover_stuck_send(
     if not decision:
         return {"ok": False, "error": "decision is required",
                 "generated_at": _iso_now()}
+    if evidence is None:
+        evidence = {}
     if not isinstance(evidence, dict):
-        return {"ok": False, "error": "evidence object is required",
+        return {"ok": False, "error": "evidence must be an object when provided",
                 "generated_at": _iso_now()}
     # Reject credential-bearing fields at the API boundary.
     banned = {"private_key", "privkey", "signed_tx", "raw_transaction",
@@ -4212,6 +4217,9 @@ async def v2_broadcast_recover_stuck_send(
         if str(k).lower() in banned:
             return {"ok": False, "error": f"field '{k}' not allowed",
                     "generated_at": _iso_now()}
+    # Promote top-level candidate hint into evidence (still verified server-side).
+    if b.get("candidate_tx_hash") and "candidate_tx_hash" not in evidence:
+        evidence = {**evidence, "candidate_tx_hash": b.get("candidate_tx_hash")}
     try:
         result = await _BROADCAST_COORDINATOR.recover_stuck_send(
             operator=_audit_actor(),
