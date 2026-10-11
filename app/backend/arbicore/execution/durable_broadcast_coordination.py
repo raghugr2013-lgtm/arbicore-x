@@ -209,7 +209,11 @@ class BroadcastCoordinator:
                 "$or": [
                     {"active_send": None},
                     {"active_send": {"$exists": False}},
-                    {"active_send.status": {"$in": ["completed", "failed_pre_rpc"]}},
+                    {"active_send.status": {
+                        "$in": ["completed", "failed_pre_rpc", "recovered_unused"],
+                    }},
+                    # TTL may reclaim only pre-RPC "authorized" leases — NEVER
+                    # rpc_submitted (crash after boundary requires operator recovery).
                     {
                         "active_send.status": "authorized",
                         "active_send.expires_ts": {"$lt": now},
@@ -248,9 +252,36 @@ class BroadcastCoordinator:
         )
         return SendAuthorization(owner_id=owner, send_id=send_id, kill_fence=fence)
 
-    async def mark_entering_rpc(self, auth: SendAuthorization) -> None:
-        """Final durable gate before eth_sendRawTransaction (C2 linearization)."""
+    async def mark_entering_rpc(
+        self,
+        auth: SendAuthorization,
+        *,
+        signer: Optional[str] = None,
+        nonce: Optional[int] = None,
+        chain_id: Optional[int] = None,
+        tx_binding_digest: Optional[str] = None,
+    ) -> None:
+        """Final durable gate before eth_sendRawTransaction (C2 linearization).
+
+        Stamps recovery metadata (signer/nonce/digest) — never raw signed bytes
+        or private keys.
+        """
         from pymongo import ReturnDocument
+
+        meta: Dict[str, Any] = {
+            "active_send.status": "rpc_submitted",
+            "active_send.rpc_entered_at": _now_iso(),
+            "updated_at": _now_iso(),
+        }
+        if signer:
+            meta["active_send.signer"] = str(signer).lower()
+        if nonce is not None:
+            meta["active_send.nonce"] = int(nonce)
+        if chain_id is not None:
+            meta["active_send.chain_id"] = int(chain_id)
+        if tx_binding_digest:
+            # Hash only — not calldata / signed payload.
+            meta["active_send.tx_binding_digest"] = str(tx_binding_digest)[:80]
 
         doc = await self._coord.find_one_and_update(
             {
@@ -260,13 +291,7 @@ class BroadcastCoordinator:
                 "active_send.send_id": auth.send_id,
                 "active_send.status": "authorized",
             },
-            {
-                "$set": {
-                    "active_send.status": "rpc_submitted",
-                    "active_send.rpc_entered_at": _now_iso(),
-                    "updated_at": _now_iso(),
-                }
-            },
+            {"$set": meta},
             return_document=ReturnDocument.AFTER,
         )
         if not doc:
@@ -612,3 +637,416 @@ class BroadcastCoordinator:
             },
         )
         return {"ok": False, "action": "still_blocked", "nonce": nonce}
+
+    # ------------------------------------------------------------------
+    # Operator recovery for stuck active_send=rpc_submitted (crash after boundary)
+    # ------------------------------------------------------------------
+
+    async def get_coordination_status(self) -> Dict[str, Any]:
+        """Safe status snapshot — no secrets / signed bytes / RPC URLs."""
+        try:
+            doc = await self._ensure_coord_doc()
+        except Exception as exc:  # noqa: BLE001
+            raise CoordinationError(
+                f"coord_status_unavailable: {type(exc).__name__}"
+            ) from exc
+        active = doc.get("active_send") or None
+        safe_active = None
+        if isinstance(active, dict):
+            safe_active = {
+                "send_id": active.get("send_id"),
+                "owner_id": active.get("owner_id"),
+                "status": active.get("status"),
+                "signer": active.get("signer"),
+                "nonce": active.get("nonce"),
+                "chain_id": active.get("chain_id"),
+                "tx_binding_digest": active.get("tx_binding_digest"),
+                "resolved_tx_hash": active.get("resolved_tx_hash"),
+                "resend_forbidden": bool(active.get("resend_forbidden")),
+                "rpc_entered_at": active.get("rpc_entered_at"),
+                "recovery_claim_id": active.get("recovery_claim_id"),
+                "last_recovery_note": active.get("last_recovery_note"),
+            }
+        return {
+            "kill_engaged": bool(doc.get("kill_engaged")),
+            "kill_fence": int(doc.get("kill_fence") or 0),
+            "active_send": safe_active,
+            "writer_lease_owner": (doc.get("writer_lease") or {}).get("owner_id"),
+        }
+
+    async def recover_stuck_send(
+        self,
+        *,
+        operator: str,
+        reason: str,
+        decision: str,
+        evidence: Dict[str, Any],
+        send_id: Optional[str] = None,
+        signer: Optional[str] = None,
+        audit_coll_name: str = "arbicore_send_recovery_audit",
+    ) -> Dict[str, Any]:
+        """Evidence-based operator recovery for ``active_send.status=rpc_submitted``.
+
+        Never clears a stuck send because a TTL expired. Requires chain/RPC
+        evidence. Fail-closed if coordination or audit persistence fails.
+
+        ``decision``:
+          * ``tx_found`` — tx present on chain/RPC; complete without resend
+          * ``tx_absent`` — authoritative absence + pending nonce proves unused
+          * ``investigate`` — record audit only; remain blocked
+        """
+        reason = (reason or "").strip()
+        operator = (operator or "").strip()
+        decision = (decision or "").strip().lower()
+        if not reason or not operator:
+            raise CoordinationError("recovery_rejected: operator and reason required")
+        if decision not in ("tx_found", "tx_absent", "investigate"):
+            raise CoordinationError(
+                "recovery_rejected: decision must be tx_found|tx_absent|investigate"
+            )
+        if not isinstance(evidence, dict):
+            raise CoordinationError("recovery_rejected: evidence object required")
+
+        # Forbidden fields — never accept or echo secrets / signed material.
+        forbidden = (
+            "private_key", "privkey", "signed_tx", "raw_transaction",
+            "raw_tx", "rpc_url", "api_key", "authorization",
+        )
+        for k in evidence:
+            if str(k).lower() in forbidden:
+                raise CoordinationError(
+                    f"recovery_rejected: evidence field '{k}' not allowed"
+                )
+
+        tx_found = evidence.get("tx_found_on_chain")
+        tx_hash = evidence.get("tx_hash")
+        if tx_hash is not None:
+            tx_hash = str(tx_hash).strip().lower()
+            if tx_hash and not tx_hash.startswith("0x"):
+                raise CoordinationError("recovery_rejected: tx_hash must be 0x-prefixed")
+            if len(tx_hash) > 66:
+                raise CoordinationError("recovery_rejected: tx_hash malformed")
+        rpc_result = str(evidence.get("rpc_get_transaction_result") or "").lower()
+        try:
+            chain_pending = evidence.get("chain_pending_nonce")
+            chain_pending_i = int(chain_pending) if chain_pending is not None else None
+        except (TypeError, ValueError) as exc:
+            raise CoordinationError(
+                "recovery_rejected: chain_pending_nonce invalid"
+            ) from exc
+
+        audit = self._db[audit_coll_name]
+        claim_id = f"recv-{uuid.uuid4().hex}"
+        audit_doc = {
+            "claim_id": claim_id,
+            "operator": operator,
+            "reason": reason,
+            "decision": decision,
+            "send_id": send_id,
+            "evidence_summary": {
+                "tx_found_on_chain": tx_found,
+                "tx_hash_present": bool(tx_hash),
+                "tx_hash_prefix": (tx_hash[:10] + "…") if tx_hash and len(tx_hash) > 12 else tx_hash,
+                "rpc_get_transaction_result": rpc_result or None,
+                "chain_pending_nonce": chain_pending_i,
+                "evidence_source": evidence.get("evidence_source"),
+                "observed_at": evidence.get("observed_at"),
+            },
+            "status": "started",
+            "at": _now_iso(),
+        }
+        # Audit-first — fail closed before mutating coordination state.
+        try:
+            await audit.insert_one(dict(audit_doc))
+        except Exception as exc:  # noqa: BLE001
+            raise CoordinationError(
+                f"recovery_audit_failed: {type(exc).__name__}"
+            ) from exc
+
+        try:
+            cur = await self._coord.find_one({"key": COORD_KEY}, {"_id": 0})
+        except Exception as exc:  # noqa: BLE001
+            await self._audit_finish(audit, claim_id, ok=False, action="coord_unavailable",
+                                     detail=type(exc).__name__)
+            raise CoordinationError(
+                f"recovery_coord_unavailable: {type(exc).__name__}"
+            ) from exc
+
+        if not cur:
+            await self._audit_finish(audit, claim_id, ok=False, action="no_coord_doc")
+            raise CoordinationError("recovery_rejected: coordination document missing")
+
+        active = cur.get("active_send") or {}
+        if not active:
+            # Idempotent: nothing stuck
+            await self._audit_finish(audit, claim_id, ok=True, action="noop_no_active_send")
+            return {"ok": True, "action": "noop_no_active_send", "claim_id": claim_id,
+                    "resend_forbidden": False}
+
+        sid = send_id or active.get("send_id")
+        if send_id and active.get("send_id") != send_id:
+            await self._audit_finish(audit, claim_id, ok=False, action="send_id_mismatch")
+            raise CoordinationError("recovery_rejected: send_id mismatch")
+
+        # Already recovered — idempotent success
+        if active.get("status") in ("completed", "recovered_unused") and (
+            not send_id or active.get("send_id") == send_id
+        ):
+            await self._audit_finish(
+                audit, claim_id, ok=True, action="idempotent_already_resolved",
+                detail=active.get("status"),
+            )
+            return {
+                "ok": True,
+                "action": "idempotent_already_resolved",
+                "claim_id": claim_id,
+                "status": active.get("status"),
+                "resolved_tx_hash": active.get("resolved_tx_hash"),
+                "resend_forbidden": bool(active.get("resend_forbidden")),
+            }
+
+        if active.get("status") != "rpc_submitted":
+            await self._audit_finish(
+                audit, claim_id, ok=False, action="not_rpc_submitted",
+                detail=str(active.get("status")),
+            )
+            raise CoordinationError(
+                f"recovery_rejected: active_send.status is "
+                f"{active.get('status')!r}, need rpc_submitted"
+            )
+
+        # Concurrent recovery: CAS claim
+        from pymongo import ReturnDocument
+        claimed = await self._coord.find_one_and_update(
+            {
+                "key": COORD_KEY,
+                "active_send.send_id": sid,
+                "active_send.status": "rpc_submitted",
+                "$or": [
+                    {"active_send.recovery_claim_id": None},
+                    {"active_send.recovery_claim_id": {"$exists": False}},
+                    {"active_send.recovery_expires_ts": {"$lt": _now_ts()}},
+                ],
+            },
+            {
+                "$set": {
+                    "active_send.recovery_claim_id": claim_id,
+                    "active_send.recovery_operator": operator,
+                    "active_send.recovery_expires_ts": _now_ts() + 120.0,
+                    "active_send.last_recovery_note": f"claimed:{decision}",
+                    "updated_at": _now_iso(),
+                }
+            },
+            return_document=ReturnDocument.AFTER,
+        )
+        if not claimed:
+            await self._audit_finish(audit, claim_id, ok=False, action="recovery_busy")
+            raise CoordinationError(
+                "recovery_rejected: concurrent recovery in progress or state changed"
+            )
+
+        active = (claimed.get("active_send") or {})
+        signer_key = (signer or active.get("signer") or "").lower()
+        nonce_i = active.get("nonce")
+        if nonce_i is not None:
+            nonce_i = int(nonce_i)
+
+        if decision == "investigate":
+            # Release claim; remain rpc_submitted — TTL must not clear.
+            await self._coord.update_one(
+                {"key": COORD_KEY, "active_send.recovery_claim_id": claim_id},
+                {
+                    "$set": {
+                        "active_send.recovery_claim_id": None,
+                        "active_send.recovery_expires_ts": None,
+                        "active_send.last_recovery_note": "investigate_only",
+                        "updated_at": _now_iso(),
+                    }
+                },
+            )
+            await self._audit_finish(audit, claim_id, ok=True, action="investigate_only")
+            return {
+                "ok": True,
+                "action": "investigate_only",
+                "claim_id": claim_id,
+                "status": "rpc_submitted",
+                "blocked": True,
+                "resend_forbidden": False,
+                "note": "stuck send retained; TTL does not clear rpc_submitted",
+            }
+
+        # Evidence evaluation — fail closed on inconsistency
+        if decision == "tx_found":
+            if tx_found is not True:
+                await self._release_recovery_claim(claim_id, note="tx_found_requires_true")
+                await self._audit_finish(audit, claim_id, ok=False,
+                                        action="evidence_inconsistent")
+                raise CoordinationError(
+                    "recovery_rejected: decision=tx_found requires "
+                    "evidence.tx_found_on_chain=true"
+                )
+            if rpc_result in ("not_found", "error", "unavailable", ""):
+                await self._release_recovery_claim(claim_id, note="rpc_result_conflict")
+                await self._audit_finish(audit, claim_id, ok=False,
+                                        action="evidence_inconsistent")
+                raise CoordinationError(
+                    "recovery_rejected: contradictory rpc_get_transaction_result "
+                    f"for tx_found ({rpc_result!r})"
+                )
+            if not tx_hash:
+                await self._release_recovery_claim(claim_id, note="tx_hash_required")
+                await self._audit_finish(audit, claim_id, ok=False,
+                                        action="evidence_incomplete")
+                raise CoordinationError(
+                    "recovery_rejected: tx_found requires evidence.tx_hash"
+                )
+            # Complete send + nonce without resend
+            await self._coord.update_one(
+                {"key": COORD_KEY, "active_send.recovery_claim_id": claim_id},
+                {
+                    "$set": {
+                        "active_send.status": "completed",
+                        "active_send.resolved_tx_hash": tx_hash,
+                        "active_send.resend_forbidden": True,
+                        "active_send.finished_at": _now_iso(),
+                        "active_send.recovery_claim_id": None,
+                        "active_send.recovered_by": operator,
+                        "active_send.last_recovery_note": "completed_on_chain_no_resend",
+                        "updated_at": _now_iso(),
+                    }
+                },
+            )
+            if signer_key and nonce_i is not None:
+                await self.reconcile_nonce(
+                    signer_key,
+                    chain_pending_nonce=chain_pending_i if chain_pending_i is not None else nonce_i + 1,
+                    tx_hash=tx_hash,
+                    tx_found_on_chain=True,
+                    owner_id=str(active.get("owner_id") or self.instance_id),
+                )
+            await self._audit_finish(
+                audit, claim_id, ok=True, action="completed_on_chain_no_resend",
+            )
+            return {
+                "ok": True,
+                "action": "completed_on_chain_no_resend",
+                "claim_id": claim_id,
+                "send_id": sid,
+                "resolved_tx_hash": tx_hash,
+                "resend_forbidden": True,
+                "status": "completed",
+            }
+
+        # decision == tx_absent
+        if tx_found is not False:
+            await self._release_recovery_claim(claim_id, note="tx_absent_requires_false")
+            await self._audit_finish(audit, claim_id, ok=False, action="evidence_inconsistent")
+            raise CoordinationError(
+                "recovery_rejected: decision=tx_absent requires "
+                "evidence.tx_found_on_chain=false"
+            )
+        if rpc_result not in ("not_found",):
+            await self._release_recovery_claim(claim_id, note="rpc_not_found_required")
+            await self._audit_finish(audit, claim_id, ok=False, action="evidence_inconclusive")
+            raise CoordinationError(
+                "recovery_rejected: tx_absent requires "
+                "rpc_get_transaction_result='not_found' "
+                f"(got {rpc_result!r}); unavailable/error remains blocked"
+            )
+        if chain_pending_i is None or nonce_i is None:
+            await self._release_recovery_claim(claim_id, note="pending_nonce_required")
+            await self._audit_finish(audit, claim_id, ok=False, action="evidence_incomplete")
+            raise CoordinationError(
+                "recovery_rejected: tx_absent requires chain_pending_nonce and "
+                "known active_send.nonce"
+            )
+        if chain_pending_i > nonce_i:
+            # Pending advanced past our nonce without our tx hash — contradictory
+            await self._release_recovery_claim(claim_id, note="pending_ahead_conflict")
+            await self._audit_finish(audit, claim_id, ok=False, action="evidence_contradictory")
+            raise CoordinationError(
+                "recovery_rejected: chain_pending_nonce > stuck nonce without "
+                "tx_found — inconclusive (possible foreign/other submission)"
+            )
+        if chain_pending_i < nonce_i:
+            # Chain still behind — safe unused
+            pass
+        # chain_pending_i == nonce_i and not found → unused, safe to release
+
+        await self._coord.update_one(
+            {"key": COORD_KEY, "active_send.recovery_claim_id": claim_id},
+            {
+                "$set": {
+                    "active_send.status": "recovered_unused",
+                    "active_send.resend_forbidden": False,
+                    "active_send.finished_at": _now_iso(),
+                    "active_send.recovery_claim_id": None,
+                    "active_send.recovered_by": operator,
+                    "active_send.last_recovery_note": "released_unused_no_resend_of_prior",
+                    "updated_at": _now_iso(),
+                }
+            },
+        )
+        if signer_key:
+            await self.reconcile_nonce(
+                signer_key,
+                chain_pending_nonce=chain_pending_i,
+                tx_hash=tx_hash,
+                tx_found_on_chain=False,
+                owner_id=str(active.get("owner_id") or self.instance_id),
+            )
+        await self._audit_finish(audit, claim_id, ok=True, action="released_unused")
+        return {
+            "ok": True,
+            "action": "released_unused",
+            "claim_id": claim_id,
+            "send_id": sid,
+            "status": "recovered_unused",
+            "resend_forbidden": False,
+            "note": "nonce reusable; prior send_id must not be resent",
+        }
+
+    async def _release_recovery_claim(self, claim_id: str, *, note: str) -> None:
+        try:
+            await self._coord.update_one(
+                {"key": COORD_KEY, "active_send.recovery_claim_id": claim_id},
+                {
+                    "$set": {
+                        "active_send.recovery_claim_id": None,
+                        "active_send.recovery_expires_ts": None,
+                        "active_send.last_recovery_note": note,
+                        "updated_at": _now_iso(),
+                    }
+                },
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("recovery claim release failed")
+
+    async def _audit_finish(
+        self, audit, claim_id: str, *, ok: bool, action: str, detail: Optional[str] = None
+    ) -> None:
+        try:
+            await audit.update_one(
+                {"claim_id": claim_id},
+                {
+                    "$set": {
+                        "status": "ok" if ok else "rejected",
+                        "action": action,
+                        "detail": detail,
+                        "finished_at": _now_iso(),
+                    }
+                },
+            )
+        except Exception:  # noqa: BLE001
+            # Surface as failure if we cannot persist outcome after start
+            if ok:
+                raise CoordinationError("recovery_audit_finish_failed")
+            logger.exception("recovery audit finish failed claim=%s", claim_id)
+
+    def was_send_resolved_no_resend(self, active_send: Optional[Dict[str, Any]]) -> bool:
+        """True when a recovered/completed send must never be rebroadcast."""
+        if not active_send:
+            return False
+        return bool(active_send.get("resend_forbidden")) and (
+            active_send.get("status") == "completed"
+        )

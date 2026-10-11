@@ -859,7 +859,13 @@ class LimitedLiveBroadcaster:
                 # vs kill engage), then sole eth_sendRawTransaction call.
                 auth = await self._coord.authorize_send()
                 try:
-                    await self._coord.mark_entering_rpc(auth)
+                    await self._coord.mark_entering_rpc(
+                        auth,
+                        signer=signer_address,
+                        nonce=int(nonce or 0),
+                        chain_id=int(expected_cid or 0),
+                        tx_binding_digest=binding.digest,
+                    )
                 except Exception:
                     # Definite pre-boundary failure — nonce may be reused.
                     await self._coord.mark_nonce_pre_broadcast_failure(nonce_lease)

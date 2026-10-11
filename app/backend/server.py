@@ -4161,6 +4161,76 @@ async def v2_execution_kill_switch_disengage(body: Dict[str, Any]) -> Dict[str, 
             "authoritative": True, "generated_at": _iso_now()}
 
 
+@api_router.get(
+    "/arbicore/execution/broadcast/coordination-status",
+    dependencies=[Depends(_require_admin_dep)],
+)
+async def v2_broadcast_coordination_status() -> Dict[str, Any]:
+    """Admin view of durable send coordination — no secrets or signed bytes."""
+    try:
+        status = await _BROADCAST_COORDINATOR.get_coordination_status()
+        return {"ok": True, "status": status, "generated_at": _iso_now()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"coordination_status_unavailable: {type(exc).__name__}",
+        ) from exc
+
+
+@api_router.post(
+    "/arbicore/execution/broadcast/recover-stuck-send",
+    dependencies=[Depends(_require_admin_dep)],
+)
+async def v2_broadcast_recover_stuck_send(
+    body: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Admin evidence-based recovery for ``active_send=rpc_submitted``.
+
+    Never clears a stuck send on TTL alone. Requires chain/RPC evidence.
+    Fail-closed if coordination or recovery audit persistence fails.
+    Does not accept or return private keys, signed tx bytes, or RPC URLs.
+    """
+    from arbicore.execution.durable_broadcast_coordination import CoordinationError
+
+    b = body or {}
+    reason = (b.get("reason") or "").strip()
+    decision = (b.get("decision") or "").strip()
+    evidence = b.get("evidence")
+    if not reason:
+        return {"ok": False, "error": "reason is required",
+                "generated_at": _iso_now()}
+    if not decision:
+        return {"ok": False, "error": "decision is required",
+                "generated_at": _iso_now()}
+    if not isinstance(evidence, dict):
+        return {"ok": False, "error": "evidence object is required",
+                "generated_at": _iso_now()}
+    # Reject credential-bearing fields at the API boundary.
+    banned = {"private_key", "privkey", "signed_tx", "raw_transaction",
+              "raw_tx", "rpc_url", "api_key", "authorization"}
+    for k in list(evidence.keys()) + list(b.keys()):
+        if str(k).lower() in banned:
+            return {"ok": False, "error": f"field '{k}' not allowed",
+                    "generated_at": _iso_now()}
+    try:
+        result = await _BROADCAST_COORDINATOR.recover_stuck_send(
+            operator=_audit_actor(),
+            reason=reason,
+            decision=decision,
+            evidence=evidence,
+            send_id=(b.get("send_id") or None),
+            signer=(b.get("signer") or None),
+        )
+        return {**result, "generated_at": _iso_now()}
+    except CoordinationError as exc:
+        return {"ok": False, "error": str(exc), "generated_at": _iso_now()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail=f"recovery_failed: {type(exc).__name__}",
+        ) from exc
+
+
 @api_router.get("/arbicore/execution/kill-switch/audit", dependencies=[Depends(_require_operator_dep)])
 async def v2_execution_kill_switch_audit(limit: int = 50) -> Dict[str, Any]:
     try:
